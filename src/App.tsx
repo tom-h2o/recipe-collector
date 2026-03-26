@@ -77,10 +77,7 @@ export default function App() {
           </div>
           
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-full px-6 shadow-md transition-transform hover:scale-105 h-10 text-sm">
-              <Plus className="w-4 h-4" /> Add Recipe
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[550px] rounded-2xl w-[95vw] sm:w-full">
+            <DialogContent className="sm:max-w-[550px] rounded-2xl w-[95vw] sm:w-full bg-white dark:bg-zinc-900 shadow-2xl border border-zinc-200 dark:border-zinc-800">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-bold">Add New Recipe</DialogTitle>
                 <DialogDescription className="text-zinc-500">
