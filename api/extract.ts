@@ -1,79 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
 import * as cheerio from 'cheerio';
+import { createClient } from '@supabase/supabase-js';
 
-// Initialize Gemini Client
-const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS Headers
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
-
-  // Handle preflight request
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
-    const { url } = req.body;
-    if (!url) {
-      return res.status(400).json({ error: 'URL is required' });
-    }
-
-    if (!ai) {
-      return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on the Vercel server.' });
-    }
-
-    console.log(`Fetching URL: ${url}`);
-    
-    // Fetch the webpage content securely
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      }
-    });
-    
-    if (!response.ok) {
-        throw new Error(`Failed to fetch URL: ${response.statusText}`);
-    }
-    
-    const html = await response.text();
-    const $ = cheerio.load(html);
-    
-    // Extract metadata
-    const title = $('title').text() || $('meta[property="og:title"]').attr('content') || '';
-    const description = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '';
-    const ogImage = $('meta[property="og:image"]').attr('content') || '';
-    
-    // Scrape body text but remove bloated script/style tags
-    $('script, style, nav, footer, iframe, svg').remove();
-    // Grab text and limit to 20k characters to stay within reasonable prompt sizes 
-    // (though Gemini 2.5 Flash has a 1M token context, saving tokens is good)
-    const bodyText = $('body').text().replace(/\s+/g, ' ').substring(0, 20000); 
-    
-    const combinedContent = `
-Title: ${title}
-Description: ${description}
-OG Image: ${ogImage}
-
-Body Text:
-${bodyText}
-    `;
-
-    console.log(`Processing with Gemini...`);
-
-    const prompt = `
-You are a culinary assistant that extracts recipes from raw extracted webpage text.
+const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_PROMPT = `You are a culinary assistant that extracts recipes from raw extracted webpage text.
 Your task is to find the recipe within the text below and return it strictly formatted as a JSON object.
 
 The JSON MUST match this EXACT structure, nothing else:
@@ -86,7 +17,7 @@ The JSON MUST match this EXACT structure, nothing else:
     { "amount": "2 tbsp", "name": "olive oil" },
     { "amount": "", "name": "salt and pepper" }
   ],
-  "instructions": "Step 1: Do this.\nStep 2: Do that.",
+  "instructions": "Step 1: Do this.\\nStep 2: Do that.",
   "image_url": "a high quality public image URL from the content (prefer og:image), or empty string"
 }
 
@@ -94,28 +25,71 @@ CRITICAL RULES:
 - "ingredients" MUST be an array of objects with "amount" and "name" keys. Never a plain string array.
 - If an ingredient has no measurable amount (e.g. 'salt and pepper to taste'), set "amount" to an empty string.
 - "servings" must be an integer number (e.g. 4), or null if not found.
-- "instructions" should use newlines (\n) to separate steps. Remove any existing step numbering from the source text.
-- If the text comes from an Instagram post, the recipe might be in the Description field. Extract it accurately!
+- "instructions" should use newlines (\\n) to separate steps. Remove any existing step numbering from the source text.
+- If the text comes from an Instagram post, the recipe might be in the Description field. Extract it accurately!`;
 
-Webpage Text to Extract From:
-${combinedContent}
-    `;
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    // Call Gemini 2.5 Flash
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
+
+  try {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ error: 'URL is required' });
+
+    // Read settings from Supabase
+    let model = DEFAULT_MODEL;
+    let promptTemplate = DEFAULT_PROMPT;
+    try {
+      const supabase = createClient(
+        process.env.VITE_SUPABASE_URL || '',
+        process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
+      );
+      const { data } = await supabase.from('settings').select('gemini_model, gemini_prompt').eq('id', 1).single();
+      if (data) {
+        if (data.gemini_model) model = data.gemini_model;
+        if (data.gemini_prompt && data.gemini_prompt.trim()) promptTemplate = data.gemini_prompt;
+      }
+    } catch (e) {
+      console.warn('Could not read settings from Supabase, using defaults.', e);
+    }
+
+    console.log(`Fetching URL: ${url} | Model: ${model}`);
+
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RecipeCollector/1.0)' }
+    });
+    if (!response.ok) throw new Error(`Failed to fetch URL: ${response.statusText}`);
+
+    const html = await response.text();
+    const $ = cheerio.load(html);
+
+    const pageTitle = $('title').text() || $('meta[property="og:title"]').attr('content') || '';
+    const pageDescription = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '';
+    const ogImage = $('meta[property="og:image"]').attr('content') || '';
+
+    $('script, style, nav, footer, iframe, svg').remove();
+    const bodyText = $('body').text().replace(/\s+/g, ' ').substring(0, 20000);
+
+    const combinedContent = `Title: ${pageTitle}\nDescription: ${pageDescription}\nOG Image: ${ogImage}\n\nBody Text:\n${bodyText}`;
+    const finalPrompt = `${promptTemplate}\n\nWebpage Text to Extract From:\n${combinedContent}`;
+
+    const ai = new GoogleGenAI({ apiKey });
     const responseAI = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            temperature: 0.1, // Low temp for more accurate extraction
-        }
+      model,
+      contents: finalPrompt,
+      config: { responseMimeType: 'application/json', temperature: 0.1 }
     });
 
     const resultText = responseAI.text;
-    
-    if (!resultText) {
-        throw new Error('Gemini returned an empty response.');
-    }
+    if (!resultText) throw new Error('Gemini returned an empty response.');
 
     const recipeData = JSON.parse(resultText);
     return res.status(200).json(recipeData);
