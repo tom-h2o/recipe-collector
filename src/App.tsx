@@ -22,6 +22,7 @@ export default function App() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   
   // URL Extraction state
   const [extractUrl, setExtractUrl] = useState("");
@@ -183,7 +184,7 @@ export default function App() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {recipes.map(recipe => (
-                <Card key={recipe.id} className="overflow-hidden flex flex-col group hover:shadow-2xl transition-all duration-300 border-zinc-200/60 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 rounded-2xl">
+                <Card key={recipe.id} onClick={() => setSelectedRecipe(recipe)} className="cursor-pointer overflow-hidden flex flex-col group hover:shadow-2xl transition-all duration-300 border-zinc-200/60 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 rounded-2xl">
                   <div className="aspect-[4/3] w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative">
                     <img 
                       src={recipe.image_url} 
@@ -223,6 +224,53 @@ export default function App() {
             </div>
           )}
         </main>
+
+        <Dialog open={!!selectedRecipe} onOpenChange={(open) => !open && setSelectedRecipe(null)}>
+          <DialogContent className="sm:max-w-[750px] max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-2xl p-0">
+            {selectedRecipe && (
+              <div className="flex flex-col h-full">
+                {selectedRecipe.image_url && (
+                  <div className="w-full h-64 sm:h-80 md:h-96 overflow-hidden shrink-0">
+                    <img src={selectedRecipe.image_url} className="w-full h-full object-cover" alt={selectedRecipe.title} />
+                  </div>
+                )}
+                
+                <div className="p-6 sm:p-10 space-y-8">
+                  <DialogHeader className="text-left space-y-3">
+                    <DialogTitle className="text-3xl md:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50">{selectedRecipe.title}</DialogTitle>
+                    {selectedRecipe.description && (
+                      <DialogDescription className="text-base md:text-lg text-zinc-600 dark:text-zinc-400 font-medium">
+                        {selectedRecipe.description}
+                      </DialogDescription>
+                    )}
+                  </DialogHeader>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+                    <div className="md:col-span-1">
+                      <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+                        <ChefHat className="w-5 h-5 text-orange-500" /> Ingredients
+                      </h3>
+                      <ul className="space-y-2 text-zinc-700 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-900/50 p-5 rounded-2xl border border-zinc-100 dark:border-zinc-800/80">
+                        {selectedRecipe.ingredients.map((ing, i) => (
+                          <li key={i} className="leading-relaxed flex items-start gap-2">
+                            <span className="text-orange-500 mt-1">•</span> {ing}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    
+                    <div className="md:col-span-2">
+                      <h3 className="text-lg font-bold mb-4 text-zinc-900 dark:text-zinc-100">Instructions</h3>
+                      <div className="prose dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed text-base">
+                        {selectedRecipe.instructions}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
