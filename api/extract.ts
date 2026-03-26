@@ -101,7 +101,7 @@ ${combinedContent}
         }
     });
 
-    const resultText = responseAI.text();
+    const resultText = responseAI.text;
     
     if (!resultText) {
         throw new Error('Gemini returned an empty response.');
