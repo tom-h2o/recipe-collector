@@ -23,6 +23,10 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   
+  // URL Extraction state
+  const [extractUrl, setExtractUrl] = useState("");
+  const [isExtracting, setIsExtracting] = useState(false);
+
   // Form state
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -39,6 +43,39 @@ export default function App() {
     const { data } = await supabase.from("recipes").select("*").order("created_at", { ascending: false });
     if (data) setRecipes(data);
     setLoading(false);
+  }
+
+  async function handleExtract(e: React.MouseEvent) {
+    e.preventDefault();
+    if (!extractUrl) return;
+    
+    setIsExtracting(true);
+    try {
+      const res = await fetch('/api/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: extractUrl })
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to extract recipe');
+      }
+
+      setTitle(data.title || "");
+      setDescription(data.description || "");
+      setIngredients(Array.isArray(data.ingredients) ? data.ingredients.join(",\\n") : (data.ingredients || ""));
+      setInstructions(data.instructions || "");
+      setImageUrl(data.image_url || "");
+      
+      alert("Recipe extracted successfully! Please review the details below.");
+    } catch (err: any) {
+      console.error("Extraction error:", err);
+      alert(err.message || 'Trouble extracting recipe. Ensure the URL is valid.');
+    } finally {
+      setIsExtracting(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -87,7 +124,21 @@ export default function App() {
                   Enter the details of your delicious recipe below.
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-5 py-4">
+              <form onSubmit={handleSubmit} className="space-y-4 py-4">
+                
+                {/* Auto Fill Section */}
+                <div className="bg-zinc-100 dark:bg-zinc-800/60 p-4 rounded-xl space-y-3 mb-2 border border-zinc-200 dark:border-zinc-700/50">
+                  <Label htmlFor="extract" className="font-semibold text-zinc-800 dark:text-zinc-200 text-sm flex items-center gap-2">
+                    <ChefHat className="w-4 h-4 text-orange-500" /> Auto-Fill from Website or Instagram
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input id="extract" type="url" value={extractUrl} onChange={(e) => setExtractUrl(e.target.value)} placeholder="https://..." className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700" />
+                    <Button onClick={handleExtract} disabled={isExtracting || !extractUrl} type="button" variant="secondary" className="whitespace-nowrap px-4 font-medium">
+                      {isExtracting ? "Extracting..." : "Auto-Fill"}
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="title" className="font-semibold text-zinc-700 dark:text-zinc-300">Title</Label>
                   <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Spaghetti Bolognese" required className="rounded-lg shadow-sm" />
