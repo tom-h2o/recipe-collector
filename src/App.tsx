@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, ChefHat, Users, Settings, Pencil, Trash2, Search, X, Star, Minus, Flame, Wand2, ShoppingCart } from "lucide-react";
+import { Plus, ChefHat, Users, Settings, Pencil, Trash2, Search, X, Star, Minus, Flame, Wand2, ShoppingCart, Share2, Printer } from "lucide-react";
 import { Toaster, toast } from "sonner";
 
 const DEFAULT_PROMPT = `You are a culinary assistant that extracts recipes from raw extracted webpage text.
@@ -78,12 +78,13 @@ export default function App() {
   const [cookStep, setCookStep] = useState(0);
 
   // Meal Planner state
-  const [activeView, setActiveView] = useState<"vault" | "planner" | "shopping">("vault");
+  const [activeView, setActiveView] = useState<"vault" | "planner" | "shopping" | "public_recipe">("vault");
   interface MealPlan { id: string; date: string; recipe_id: string; meal_type: string; recipe?: Recipe }
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
   interface ShoppingItem { id: string; item: string; category: string | null; is_checked: boolean }
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [isGeneratingShopping, setIsGeneratingShopping] = useState(false);
+  const [publicRecipe, setPublicRecipe] = useState<Recipe | null>(null);
 
   // Suggest state
   const [isSuggestModalOpen, setIsSuggestModalOpen] = useState(false);
@@ -158,7 +159,24 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => { fetchRecipes(); fetchMealPlans(); fetchShoppingList(); fetchSettings(); }, [fetchRecipes, fetchMealPlans, fetchShoppingList, fetchSettings]);
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (path.startsWith("/recipe/")) {
+      const id = path.split("/recipe/")[1];
+      if (id) {
+        setLoading(true);
+        supabase.from("recipes").select("*").eq("id", id).single().then(({ data }) => {
+          if (data) {
+            setPublicRecipe(data);
+            setActiveView("public_recipe");
+          }
+          setLoading(false);
+        });
+      }
+    } else {
+      fetchRecipes(); fetchMealPlans(); fetchShoppingList(); fetchSettings();
+    }
+  }, [fetchRecipes, fetchMealPlans, fetchShoppingList, fetchSettings]);
 
   function openForm(recipe?: Recipe) {
     if (recipe) {
@@ -299,11 +317,51 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-6 sm:p-10 font-sans">
-      <Toaster richColors position="top-right" />
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-6 sm:p-10 font-sans print:p-0 print:bg-white text-zinc-900 dark:text-zinc-50">
+      <Toaster richColors position="top-right" className="print:hidden" />
 
+      {activeView === "public_recipe" && publicRecipe ? (
+        <div className="max-w-3xl mx-auto bg-white dark:bg-zinc-950 md:shadow-2xl rounded-3xl overflow-hidden print:shadow-none print:w-full border border-zinc-200 dark:border-zinc-800 break-inside-avoid">
+           {(publicRecipe as any).image_url && <img src={(publicRecipe as any).image_url} className="w-full h-64 md:h-96 object-cover" />}
+           <div className="p-8 md:p-12 space-y-8">
+             <div className="flex justify-between items-start">
+               <div>
+                 <h1 className="text-4xl md:text-5xl font-black mb-4">{publicRecipe.title}</h1>
+                 {publicRecipe.description && <p className="text-lg text-zinc-600 dark:text-zinc-400">{publicRecipe.description}</p>}
+               </div>
+               <button onClick={() => window.print()} className="print:hidden p-3 rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 transition text-zinc-600 dark:text-zinc-300"><Printer className="w-5 h-5"/></button>
+             </div>
+             
+             {publicRecipe.servings && <div className="inline-flex items-center gap-2 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 px-4 py-2 rounded-full font-bold"><Users className="w-4 h-4"/> Serves {publicRecipe.servings}</div>}
+             
+             <div className="grid md:grid-cols-2 gap-12">
+               <div>
+                 <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 border-b pb-2"><ChefHat className="text-orange-500 w-6 h-6"/> Ingredients</h2>
+                 <ul className="space-y-3">
+                   {parseIngredients(publicRecipe.ingredients).map((i, idx) => (
+                     <li key={idx} className="flex items-start gap-2 border-b border-zinc-100 dark:border-zinc-800 pb-2">
+                       <div className="w-2 h-2 mt-2 rounded-full bg-orange-400 shrink-0"/> 
+                       {i.amount && <span className="font-bold text-orange-600 dark:text-orange-400">{i.amount}</span>} 
+                       <span className="text-zinc-800 dark:text-zinc-200">{i.name}</span>
+                     </li>
+                   ))}
+                 </ul>
+               </div>
+               <div>
+                 <h2 className="text-2xl font-bold mb-4 border-b pb-2">Instructions</h2>
+                 <ol className="space-y-6 list-decimal list-outside ml-5">
+                   {publicRecipe.instructions.split(/\n+/).filter(Boolean).map((step: string, idx: number) => (
+                     <li key={idx} className="text-zinc-700 dark:text-zinc-300 pl-2 leading-relaxed font-medium">{step}</li>
+                   ))}
+                 </ol>
+               </div>
+             </div>
+           </div>
+        </div>
+      ) : (
+      <>
       {/* Header */}
-      <div className="max-w-6xl mx-auto space-y-8">
+      <div className="max-w-6xl mx-auto space-y-8 print:hidden">
         <header className="relative flex items-center justify-between border-b pb-6 border-zinc-200 dark:border-zinc-800">
           <div className="flex items-center gap-3 text-zinc-900 dark:text-zinc-50">
             <ChefHat className="w-8 h-8 md:w-10 md:h-10 text-orange-500" />
@@ -599,7 +657,14 @@ export default function App() {
                     <DialogHeader className="text-left space-y-2">
                       <div className="flex items-start justify-between gap-4">
                         <DialogTitle className="text-3xl md:text-4xl font-extrabold tracking-tight">{selectedRecipe.title}</DialogTitle>
-                        <div className="flex items-center gap-2 shrink-0 pt-1">
+                        <div className="flex items-center gap-1 shrink-0 pt-1">
+                          <button onClick={() => { navigator.clipboard.writeText(window.location.origin + "/recipe/" + selectedRecipe.id); toast.success("Shared recipe link copied!"); }} className="p-2 rounded-full text-zinc-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Share recipe">
+                            <Share2 className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => window.print()} className="p-2 rounded-full text-zinc-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors" title="Print recipe">
+                            <Printer className="w-4 h-4" />
+                          </button>
+                          <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-1"></div>
                           <button onClick={() => { setCookStep(0); setIsCookMode(true); }} className="p-2 rounded-full text-zinc-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors" title="Cook Mode">
                             <Flame className="w-4 h-4" />
                           </button>
@@ -931,6 +996,8 @@ export default function App() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
+      </>
+      )}
     </div>
   );
 }
