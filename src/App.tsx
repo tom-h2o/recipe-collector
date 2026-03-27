@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, ChefHat, Users, Settings, Pencil, Trash2, Search, X, Star } from "lucide-react";
+import { Plus, ChefHat, Users, Settings, Pencil, Trash2, Search, X, Star, Minus } from "lucide-react";
 import { Toaster, toast } from "sonner";
 
 const DEFAULT_PROMPT = `You are a culinary assistant that extracts recipes from raw extracted webpage text.
@@ -65,6 +65,10 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [scaledServings, setScaledServings] = useState<number>(1);
+
+  // When a recipe is opened, initialise scaled servings to the base
+  function openRecipe(r: Recipe) { setSelectedRecipe(r); setScaledServings(r.servings || 1); }
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Recipe | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -327,7 +331,7 @@ export default function App() {
               {filteredRecipes.map(recipe => {
                 const parsed = parseIngredients(recipe.ingredients);
                 return (
-                  <Card key={recipe.id} onClick={() => setSelectedRecipe(recipe)} className="cursor-pointer overflow-hidden flex flex-col group hover:shadow-2xl transition-all duration-300 border-zinc-200/60 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 rounded-2xl">
+                  <Card key={recipe.id} onClick={() => openRecipe(recipe)} className="cursor-pointer overflow-hidden flex flex-col group hover:shadow-2xl transition-all duration-300 border-zinc-200/60 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 rounded-2xl">
                     <div className="aspect-[4/3] w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative">
                       <img src={recipe.image_url} alt={recipe.title} className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-4">
@@ -375,6 +379,19 @@ export default function App() {
         <Dialog open={!!selectedRecipe} onOpenChange={(open) => !open && setSelectedRecipe(null)}>
           <DialogContent className="sm:max-w-[780px] max-h-[92vh] overflow-y-auto rounded-3xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-2xl p-0">
             {selectedRecipe && (() => {
+              const baseServings = selectedRecipe.servings || 1;
+              const scale = scaledServings / baseServings;
+
+              function scaleAmount(amount: string): string {
+                if (!amount || amount === "—") return amount;
+                // Replace all numbers / fractions in the string
+                return amount.replace(/(\d+\.?\d*|\.\d+)/g, (n) => {
+                  const scaled = parseFloat(n) * scale;
+                  // Format nicely: show up to 2 decimal places, drop trailing zeros
+                  return scaled % 1 === 0 ? String(Math.round(scaled)) : scaled.toFixed(2).replace(/\.?0+$/, "");
+                });
+              }
+
               const parsed = parseIngredients(selectedRecipe.ingredients);
               const steps = selectedRecipe.instructions.split(/\n+/).map(s => s.trim()).filter(Boolean);
               return (
@@ -399,9 +416,13 @@ export default function App() {
                       </div>
                       <div className="flex items-center gap-4 flex-wrap pt-1">
                         {selectedRecipe.servings && (
-                          <span className="inline-flex items-center gap-1.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 text-sm font-bold px-4 py-1.5 rounded-full border border-orange-200 dark:border-orange-800/50">
-                            <Users className="w-4 h-4" /> Serves {selectedRecipe.servings}
-                          </span>
+                          <div className="inline-flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/50 rounded-full px-3 py-1.5">
+                            <Users className="w-4 h-4 text-orange-500" />
+                            <button onClick={() => setScaledServings(s => Math.max(1, s - 1))} className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-600 hover:bg-orange-200 flex items-center justify-center font-bold transition-colors"><Minus className="w-3 h-3" /></button>
+                            <span className="text-sm font-bold text-orange-600 dark:text-orange-400 min-w-[1.5rem] text-center">{scaledServings}</span>
+                            <button onClick={() => setScaledServings(s => s + 1)} className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-600 hover:bg-orange-200 flex items-center justify-center font-bold transition-colors"><Plus className="w-3 h-3" /></button>
+                            <span className="text-xs font-semibold text-orange-500 ml-1">{scaledServings === selectedRecipe.servings ? "servings" : `servings (base: ${selectedRecipe.servings})`}</span>
+                          </div>
                         )}
                         <span className="text-sm text-zinc-400 font-medium">{parsed.length} ingredients</span>
                       </div>
@@ -418,7 +439,7 @@ export default function App() {
                             <tbody>
                               {parsed.map((ing, i) => (
                                 <tr key={i} className={`${i % 2 === 0 ? "bg-zinc-50 dark:bg-zinc-900" : "bg-white dark:bg-zinc-900/50"} border-b border-zinc-100 dark:border-zinc-800 last:border-0`}>
-                                  <td className="py-2.5 px-4 font-semibold text-orange-600 dark:text-orange-400 whitespace-nowrap w-1/3">{ing.amount || "—"}</td>
+                                  <td className="py-2.5 px-4 font-semibold text-orange-600 dark:text-orange-400 whitespace-nowrap w-1/3">{scaleAmount(ing.amount) || "—"}</td>
                                   <td className="py-2.5 px-4 text-zinc-800 dark:text-zinc-200">{ing.name}</td>
                                 </tr>
                               ))}
