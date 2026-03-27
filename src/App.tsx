@@ -44,6 +44,7 @@ interface Recipe {
   ingredients: Ingredient[] | string[]; instructions: string;
   image_url: string; servings: number | null; created_at: string;
   tags: string[]; is_favourite: boolean; nutrition: Nutrition | null;
+  rating: number | null; notes: string | null;
 }
 
 function parseIngredients(raw: Ingredient[] | string[]): Ingredient[] {
@@ -485,6 +486,39 @@ export default function App() {
                             </li>
                           ))}
                         </ol>
+                      </div>
+                    </div>
+
+                    {/* Rating & Notes */}
+                    <div className="border-t border-zinc-100 dark:border-zinc-800 pt-6 space-y-4">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold text-zinc-600 dark:text-zinc-400">Your Rating:</span>
+                        <div className="flex gap-1">
+                          {[1,2,3,4,5].map(star => (
+                            <button key={star} onClick={async () => {
+                              const newRating = selectedRecipe.rating === star ? null : star;
+                              await supabase.from("recipes").update({ rating: newRating }).eq("id", selectedRecipe.id);
+                              setSelectedRecipe({ ...selectedRecipe, rating: newRating });
+                              fetchRecipes();
+                            }} className="transition-transform hover:scale-125">
+                              <Star className={`w-6 h-6 ${star <= (selectedRecipe.rating || 0) ? "fill-yellow-400 text-yellow-400" : "text-zinc-300 dark:text-zinc-600"}`} />
+                            </button>
+                          ))}
+                        </div>
+                        {selectedRecipe.rating && <span className="text-xs text-zinc-400 font-medium">Click again to remove</span>}
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-bold text-zinc-600 dark:text-zinc-400">Personal Notes</label>
+                        <textarea
+                          defaultValue={selectedRecipe.notes || ""}
+                          onBlur={async (e) => {
+                            await supabase.from("recipes").update({ notes: e.target.value }).eq("id", selectedRecipe.id);
+                            setSelectedRecipe({ ...selectedRecipe, notes: e.target.value });
+                            fetchRecipes();
+                          }}
+                          placeholder="e.g. Add more garlic next time, great with crusty bread..."
+                          className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 text-sm px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-400/60 min-h-[70px] resize-none"
+                        />
                       </div>
                     </div>
                   </div>
