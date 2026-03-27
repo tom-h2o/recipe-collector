@@ -37,12 +37,13 @@ CRITICAL RULES:
 
 const MODELS = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro'];
 
+interface Nutrition { calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number; }
 interface Ingredient { amount: string; name: string; }
 interface Recipe {
   id: string; title: string; description: string;
   ingredients: Ingredient[] | string[]; instructions: string;
   image_url: string; servings: number | null; created_at: string;
-  tags: string[]; is_favourite: boolean;
+  tags: string[]; is_favourite: boolean; nutrition: Nutrition | null;
 }
 
 function parseIngredients(raw: Ingredient[] | string[]): Ingredient[] {
@@ -209,11 +210,10 @@ export default function App() {
         // Get the newly inserted recipe id to tag it
         const { data: newRow } = await supabase.from("recipes").select("id").order("created_at", { ascending: false }).limit(1).single();
         if (newRow?.id) {
-          fetch('/api/tag', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ recipeId: newRow.id, title, description, ingredients: ingredientsList, instructions })
-          }).then(() => fetchRecipes()).catch(console.warn);
+          // Tag and Nutrition in parallel
+          fetch('/api/tag', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recipeId: newRow.id, title, description, ingredients: ingredientsList, instructions }) }).catch(console.warn);
+          fetch('/api/nutrition', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recipeId: newRow.id, title, ingredients: ingredientsList, servings: servings ? parseInt(servings) : null }) })
+            .then(() => fetchRecipes()).catch(console.warn);
         }
       }
     } else {
@@ -446,6 +446,29 @@ export default function App() {
                             </tbody>
                           </table>
                         </div>
+                        {selectedRecipe.nutrition && (() => {
+                          const n = selectedRecipe.nutrition;
+                          const s = scale;
+                          const fmt = (v: number) => Math.round(v * s);
+                          return (
+                            <div className="mt-4">
+                              <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">Per serving {scale !== 1 ? `(scaled ×${scale.toFixed(2)})` : ''}</h4>
+                              <div className="grid grid-cols-2 gap-2">
+                                {[
+                                  { label: "Calories", value: fmt(n.calories), unit: "kcal", color: "bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400" },
+                                  { label: "Protein", value: fmt(n.protein_g), unit: "g", color: "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400" },
+                                  { label: "Carbs", value: fmt(n.carbs_g), unit: "g", color: "bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400" },
+                                  { label: "Fat", value: fmt(n.fat_g), unit: "g", color: "bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400" },
+                                ].map(stat => (
+                                  <div key={stat.label} className={`rounded-xl p-2.5 text-center border border-transparent ${stat.color}`}>
+                                    <div className="text-lg font-extrabold">{stat.value}<span className="text-xs font-medium ml-0.5">{stat.unit}</span></div>
+                                    <div className="text-[10px] uppercase tracking-widest font-bold opacity-70 mt-0.5">{stat.label}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                       <div className="md:col-span-3">
                         <h3 className="text-lg font-bold mb-4">Instructions</h3>
