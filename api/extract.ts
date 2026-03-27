@@ -37,8 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
+  let apiKey = process.env.GEMINI_API_KEY;
 
   try {
     const { url } = req.body;
@@ -52,14 +51,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         process.env.VITE_SUPABASE_URL || '',
         process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
       );
-      const { data } = await supabase.from('settings').select('gemini_model, gemini_prompt').eq('id', 1).single();
+      const { data } = await supabase.from('settings').select('*').eq('id', 1).single();
       if (data) {
         if (data.gemini_model) model = data.gemini_model;
         if (data.gemini_prompt && data.gemini_prompt.trim()) promptTemplate = data.gemini_prompt;
+        if (data.active_api_key === 1 && data.api_key_1) apiKey = data.api_key_1;
+        if (data.active_api_key === 2 && data.api_key_2) apiKey = data.api_key_2;
       }
     } catch (e) {
       console.warn('Could not read settings from Supabase, using defaults.', e);
     }
+
+    if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY is not configured.' });
 
     console.log(`Fetching URL: ${url} | Model: ${model}`);
 

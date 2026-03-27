@@ -141,6 +141,9 @@ export default function App() {
   // Settings state
   const [settingsModel, setSettingsModel] = useState('gemini-2.5-flash');
   const [settingsPrompt, setSettingsPrompt] = useState(DEFAULT_PROMPT);
+  const [apiKey1, setApiKey1] = useState("");
+  const [apiKey2, setApiKey2] = useState("");
+  const [activeApiKey, setActiveApiKey] = useState<1 | 2>(1);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   const fetchRecipes = useCallback(async () => {
@@ -161,10 +164,13 @@ export default function App() {
   }, []);
 
   const fetchSettings = useCallback(async () => {
-    const { data } = await supabase.from("settings").select("gemini_model, gemini_prompt").eq("id", 1).single();
+    const { data } = await supabase.from("settings").select("gemini_model, gemini_prompt, api_key_1, api_key_2, active_api_key").eq("id", 1).single();
     if (data) {
       if (data.gemini_model) setSettingsModel(data.gemini_model);
       if (data.gemini_prompt) setSettingsPrompt(data.gemini_prompt);
+      if (data.api_key_1) setApiKey1(data.api_key_1 || "");
+      if (data.api_key_2) setApiKey2(data.api_key_2 || "");
+      if (data.active_api_key) setActiveApiKey(data.active_api_key as 1 | 2);
     }
   }, []);
 
@@ -298,7 +304,15 @@ export default function App() {
 
   async function handleSaveSettings() {
     setIsSavingSettings(true);
-    const { error } = await supabase.from("settings").upsert({ id: 1, gemini_model: settingsModel, gemini_prompt: settingsPrompt });
+    const payload = { 
+      id: 1, 
+      gemini_model: settingsModel, 
+      gemini_prompt: settingsPrompt,
+      api_key_1: apiKey1 || null,
+      api_key_2: apiKey2 || null,
+      active_api_key: activeApiKey
+    };
+    const { error } = await supabase.from("settings").upsert(payload);
     if (!error) { toast.success("Settings saved!"); setIsSettingsOpen(false); }
     else { toast.error("Failed to save settings: " + error.message); }
     setIsSavingSettings(false);
@@ -959,9 +973,36 @@ export default function App() {
           <DialogContent className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl">
             <DialogHeader>
               <DialogTitle className="text-2xl font-bold flex items-center gap-2"><Settings className="w-6 h-6 text-orange-500" /> Settings</DialogTitle>
-              <DialogDescription>Configure the Gemini AI model and extraction prompt.</DialogDescription>
+              <DialogDescription>Configure the Gemini AI model, prompt, and API keys.</DialogDescription>
             </DialogHeader>
             <div className="space-y-6 py-2">
+              <div className="space-y-4 border-b border-zinc-100 dark:border-zinc-800 pb-6">
+                <Label className="font-bold text-zinc-800 dark:text-zinc-200 text-lg">API Keys Configuration</Label>
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Google Gemini API Key 1</Label>
+                    <Input type="password" value={apiKey1} onChange={(e) => setApiKey1(e.target.value)} placeholder="AIzaSy..." className="font-mono text-sm" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Google Gemini API Key 2</Label>
+                    <Input type="password" value={apiKey2} onChange={(e) => setApiKey2(e.target.value)} placeholder="AIzaSy..." className="font-mono text-sm" />
+                  </div>
+                  <div className="space-y-2 mt-2">
+                    <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Active API Key</Label>
+                    <Select value={String(activeApiKey)} onValueChange={(v) => setActiveApiKey(parseInt(v || "1") as 1 | 2)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select active key" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Use API Key 1</SelectItem>
+                        <SelectItem value="2">Use API Key 2</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-zinc-400">If the active key is blank, it will fall back to the Vercel default environment variable.</p>
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Gemini Model</Label>
                 <Select value={settingsModel} onValueChange={(v) => v && setSettingsModel(v)}>
@@ -983,7 +1024,7 @@ export default function App() {
                 <Button onClick={handleSaveSettings} disabled={isSavingSettings} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-semibold">
                   {isSavingSettings ? "Saving..." : "Save Settings"}
                 </Button>
-                <Button onClick={() => { setSettingsPrompt(DEFAULT_PROMPT); }} variant="outline" className="flex-1">Reset to Default</Button>
+                <Button onClick={() => { setSettingsPrompt(DEFAULT_PROMPT); }} variant="outline" className="flex-1">Reset Prompt to Default</Button>
               </div>
             </div>
           </DialogContent>

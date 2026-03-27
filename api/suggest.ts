@@ -9,7 +9,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  let apiKey = process.env.GEMINI_API_KEY;
+  const supabase = createClient(
+    process.env.VITE_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
+  );
+  try {
+    const { data } = await supabase.from('settings').select('api_key_1, api_key_2, active_api_key').eq('id', 1).single();
+    if (data) {
+      if (data.active_api_key === 1 && data.api_key_1) apiKey = data.api_key_1;
+      if (data.active_api_key === 2 && data.api_key_2) apiKey = data.api_key_2;
+    }
+  } catch(e) {}
+  
   if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
 
   try {
