@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, ChefHat, Users, Settings, Pencil, Trash2, Search, X, Star, Minus, Flame, Wand2 } from "lucide-react";
+import { Plus, ChefHat, Users, Settings, Pencil, Trash2, Search, X, Star, Minus, Flame, Wand2, ShoppingCart } from "lucide-react";
 import { Toaster, toast } from "sonner";
 
 const DEFAULT_PROMPT = `You are a culinary assistant that extracts recipes from raw extracted webpage text.
@@ -78,9 +78,12 @@ export default function App() {
   const [cookStep, setCookStep] = useState(0);
 
   // Meal Planner state
-  const [activeView, setActiveView] = useState<"vault" | "planner">("vault");
+  const [activeView, setActiveView] = useState<"vault" | "planner" | "shopping">("vault");
   interface MealPlan { id: string; date: string; recipe_id: string; meal_type: string; recipe?: Recipe }
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
+  interface ShoppingItem { id: string; item: string; category: string | null; is_checked: boolean }
+  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
+  const [isGeneratingShopping, setIsGeneratingShopping] = useState(false);
 
   // Suggest state
   const [isSuggestModalOpen, setIsSuggestModalOpen] = useState(false);
@@ -142,6 +145,11 @@ export default function App() {
     if (data) setMealPlans(data as MealPlan[]);
   }, []);
 
+  const fetchShoppingList = useCallback(async () => {
+    const { data } = await supabase.from("shopping_list").select("*").order("category", { ascending: true });
+    if (data) setShoppingList(data as ShoppingItem[]);
+  }, []);
+
   const fetchSettings = useCallback(async () => {
     const { data } = await supabase.from("settings").select("gemini_model, gemini_prompt").eq("id", 1).single();
     if (data) {
@@ -150,7 +158,7 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => { fetchRecipes(); fetchMealPlans(); fetchSettings(); }, [fetchRecipes, fetchMealPlans, fetchSettings]);
+  useEffect(() => { fetchRecipes(); fetchMealPlans(); fetchShoppingList(); fetchSettings(); }, [fetchRecipes, fetchMealPlans, fetchShoppingList, fetchSettings]);
 
   function openForm(recipe?: Recipe) {
     if (recipe) {
@@ -304,6 +312,7 @@ export default function App() {
           <div className="hidden lg:flex bg-zinc-200/50 dark:bg-zinc-800/50 rounded-full p-1 absolute left-1/2 -translate-x-1/2">
             <button onClick={() => setActiveView("vault")} className={`px-5 py-1.5 rounded-full text-sm font-bold transition-all ${activeView === "vault" ? "bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-white" : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"}`}>Vault</button>
             <button onClick={() => setActiveView("planner")} className={`px-5 py-1.5 rounded-full text-sm font-bold transition-all ${activeView === "planner" ? "bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-white" : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"}`}>Meal Planner</button>
+            <button onClick={() => setActiveView("shopping")} className={`px-5 py-1.5 rounded-full text-sm font-bold transition-all ${activeView === "shopping" ? "bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-white" : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"}`}>Shopping List</button>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setIsSuggestModalOpen(true)} className="inline-flex items-center justify-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-300 font-bold rounded-full px-5 shadow-sm transition-transform hover:scale-105 h-10 text-sm border border-purple-200 dark:border-purple-800/50">
@@ -424,7 +433,7 @@ export default function App() {
           )}
         </main>
         </>
-        ) : (
+        ) : activeView === "planner" ? (
           <div className="flex flex-col lg:flex-row gap-8 animate-in fade-in duration-500">
             <div className="w-full lg:w-1/3 xl:w-1/4 space-y-4">
               <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2"><ChefHat className="w-5 h-5 text-orange-500"/> Draggable Recipes</h2>
@@ -482,6 +491,82 @@ export default function App() {
                })}
             </div>
           </div>
+        ) : (
+           <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
+             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+               <h2 className="text-2xl font-bold flex items-center gap-2 text-zinc-900 dark:text-zinc-100"><ShoppingCart className="w-6 h-6 text-orange-500"/> Smart Shopping List</h2>
+               <button 
+                 onClick={async () => {
+                   setIsGeneratingShopping(true);
+                   const id = toast.loading("Aggregating ingredients with Gemini AI...");
+                   try {
+                     const today = new Date();
+                     const nextWeek = new Date(); nextWeek.setDate(today.getDate() + 7);
+                     const upcoming = mealPlans.filter(m => new Date(m.date) >= today && new Date(m.date) <= nextWeek);
+                     if(upcoming.length === 0) throw new Error("No meals planned for the next 7 days!");
+                     const rawIngredients = upcoming.flatMap(m => parseIngredients(m.recipe?.ingredients ? m.recipe.ingredients : []).map(i => `${i.amount} ${i.name}`));
+                     
+                     const res = await fetch('/api/shopping', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ingredients: rawIngredients }) });
+                     const data = await res.json();
+                     if (!res.ok) throw new Error(data.error);
+                     
+                     // Clear old list
+                     await supabase.from("shopping_list").delete().neq("id", "00000000-0000-0000-0000-000000000000"); // deletes all
+                     
+                     const inserts = data.list.flatMap((group: any) => group.items.map((item: string) => ({ category: group.category, item, is_checked: false })));
+                     if (inserts.length > 0) await supabase.from("shopping_list").insert(inserts);
+                     
+                     await fetchShoppingList();
+                     toast.success("Shopping list generated!", { id });
+                   } catch(err: any) {
+                     toast.error(err.message, { id });
+                   } finally { setIsGeneratingShopping(false); }
+                 }}
+                 disabled={isGeneratingShopping}
+                 className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold min-h-[40px] px-4 rounded-xl shadow-sm transition-transform hover:scale-105">
+                 <Wand2 className="w-4 h-4"/> Generate from Next 7 Days
+               </button>
+             </div>
+             
+             {shoppingList.length === 0 ? (
+               <div className="text-center py-24 bg-white dark:bg-zinc-900/50 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-sm">
+                 <ShoppingCart className="w-16 h-16 mx-auto text-zinc-300 dark:text-zinc-700 mb-4"/>
+                 <p className="text-xl font-bold text-zinc-500 dark:text-zinc-400">Your shopping list is empty.</p>
+               </div>
+             ) : (
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 {(() => {
+                   const grouped = shoppingList.reduce((acc, curr) => {
+                     const cat = curr.category || 'Other';
+                     if (!acc[cat]) acc[cat] = [];
+                     acc[cat].push(curr);
+                     return acc;
+                   }, {} as Record<string, ShoppingItem[]>);
+                   
+                   return Object.entries(grouped).map(([cat, items]) => (
+                     <div key={cat} className="bg-white dark:bg-zinc-900/50 p-5 rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-800">
+                       <h3 className="font-bold text-lg text-orange-600 dark:text-orange-400 mb-3 ml-2">{cat}</h3>
+                       <div className="space-y-1">
+                         {items.map(item => (
+                           <div key={item.id} className="flex items-start gap-3 p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-xl group transition-colors">
+                             <input type="checkbox" checked={item.is_checked} onChange={async (e) => {
+                               await supabase.from("shopping_list").update({is_checked: e.target.checked}).eq("id", item.id);
+                               fetchShoppingList();
+                             }} className="w-5 h-5 mt-0.5 rounded border border-zinc-300 dark:border-zinc-600 text-orange-500 focus:ring-orange-500 cursor-pointer bg-white dark:bg-zinc-800"/>
+                             <span className={`flex-1 text-sm ${item.is_checked ? "line-through text-zinc-400 dark:text-zinc-500" : "text-zinc-800 dark:text-zinc-200"}`}>{item.item}</span>
+                             <button onClick={async () => {
+                               await supabase.from("shopping_list").delete().eq("id", item.id);
+                               fetchShoppingList();
+                             }} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 p-1"><X className="w-4 h-4"/></button>
+                           </div>
+                         ))}
+                       </div>
+                     </div>
+                   ));
+                 })()}
+               </div>
+             )}
+           </div>
         )}
 
         {/* Recipe Viewer Dialog */}
