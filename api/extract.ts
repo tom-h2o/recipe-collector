@@ -37,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  let apiKey = process.env.GEMINI_API_KEY;
+  let apiKey = process.env.GEMINI_API_KEY_1 || process.env.GEMINI_API_KEY;
 
   try {
     const { url } = req.body;
@@ -55,8 +55,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (data) {
         if (data.gemini_model) model = data.gemini_model;
         if (data.gemini_prompt && data.gemini_prompt.trim()) promptTemplate = data.gemini_prompt;
-        if (data.active_api_key === 1 && data.api_key_1) apiKey = data.api_key_1;
-        if (data.active_api_key === 2 && data.api_key_2) apiKey = data.api_key_2;
+        if (data.active_api_key === 2) {
+          apiKey = process.env.GEMINI_API_KEY_2 || apiKey;
+        }
       }
     } catch (e) {
       console.warn('Could not read settings from Supabase, using defaults.', e);

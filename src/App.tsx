@@ -138,11 +138,8 @@ export default function App() {
   const [imageUrl, setImageUrl] = useState("");
   const [servings, setServings] = useState("");
 
-  // Settings state
   const [settingsModel, setSettingsModel] = useState('gemini-2.5-flash');
   const [settingsPrompt, setSettingsPrompt] = useState(DEFAULT_PROMPT);
-  const [apiKey1, setApiKey1] = useState("");
-  const [apiKey2, setApiKey2] = useState("");
   const [activeApiKey, setActiveApiKey] = useState<1 | 2>(1);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
@@ -164,12 +161,10 @@ export default function App() {
   }, []);
 
   const fetchSettings = useCallback(async () => {
-    const { data } = await supabase.from("settings").select("gemini_model, gemini_prompt, api_key_1, api_key_2, active_api_key").eq("id", 1).single();
+    const { data } = await supabase.from("settings").select("gemini_model, gemini_prompt, active_api_key").eq("id", 1).single();
     if (data) {
       if (data.gemini_model) setSettingsModel(data.gemini_model);
       if (data.gemini_prompt) setSettingsPrompt(data.gemini_prompt);
-      if (data.api_key_1) setApiKey1(data.api_key_1 || "");
-      if (data.api_key_2) setApiKey2(data.api_key_2 || "");
       if (data.active_api_key) setActiveApiKey(data.active_api_key as 1 | 2);
     }
   }, []);
@@ -308,8 +303,6 @@ export default function App() {
       id: 1, 
       gemini_model: settingsModel, 
       gemini_prompt: settingsPrompt,
-      api_key_1: apiKey1 || null,
-      api_key_2: apiKey2 || null,
       active_api_key: activeApiKey
     };
     const { error } = await supabase.from("settings").upsert(payload);
@@ -977,28 +970,20 @@ export default function App() {
             </DialogHeader>
             <div className="space-y-6 py-2">
               <div className="space-y-4 border-b border-zinc-100 dark:border-zinc-800 pb-6">
-                <Label className="font-bold text-zinc-800 dark:text-zinc-200 text-lg">API Keys Configuration</Label>
+                <Label className="font-bold text-zinc-800 dark:text-zinc-200 text-lg">API Key Configuration</Label>
                 <div className="grid gap-4">
-                  <div className="space-y-2">
-                    <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Google Gemini API Key 1</Label>
-                    <Input type="password" value={apiKey1} onChange={(e) => setApiKey1(e.target.value)} placeholder="AIzaSy..." className="font-mono text-sm" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Google Gemini API Key 2</Label>
-                    <Input type="password" value={apiKey2} onChange={(e) => setApiKey2(e.target.value)} placeholder="AIzaSy..." className="font-mono text-sm" />
-                  </div>
                   <div className="space-y-2 mt-2">
-                    <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Active API Key</Label>
+                    <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Active API Key Environment Variable</Label>
                     <Select value={String(activeApiKey)} onValueChange={(v) => setActiveApiKey(parseInt(v || "1") as 1 | 2)}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select active key" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">Use API Key 1</SelectItem>
-                        <SelectItem value="2">Use API Key 2</SelectItem>
+                        <SelectItem value="1">Use GEMINI_API_KEY_1</SelectItem>
+                        <SelectItem value="2">Use GEMINI_API_KEY_2</SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-zinc-400">If the active key is blank, it will fall back to the Vercel default environment variable.</p>
+                    <p className="text-xs text-zinc-400">Select which environment variable the server functions should use for Gemini processing.</p>
                   </div>
                 </div>
               </div>
