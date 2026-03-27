@@ -77,6 +77,11 @@ export default function App() {
   const [isCookMode, setIsCookMode] = useState(false);
   const [cookStep, setCookStep] = useState(0);
 
+  // Meal Planner state
+  const [activeView, setActiveView] = useState<"vault" | "planner">("vault");
+  interface MealPlan { id: string; date: string; recipe_id: string; meal_type: string; recipe?: Recipe }
+  const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
+
   // Suggest state
   const [isSuggestModalOpen, setIsSuggestModalOpen] = useState(false);
   const [suggestIngredients, setSuggestIngredients] = useState("");
@@ -132,6 +137,11 @@ export default function App() {
     setLoading(false);
   }, []);
 
+  const fetchMealPlans = useCallback(async () => {
+    const { data } = await supabase.from("meal_plan").select("*, recipe:recipes(*)").order("date", { ascending: true });
+    if (data) setMealPlans(data as MealPlan[]);
+  }, []);
+
   const fetchSettings = useCallback(async () => {
     const { data } = await supabase.from("settings").select("gemini_model, gemini_prompt").eq("id", 1).single();
     if (data) {
@@ -140,7 +150,7 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => { fetchRecipes(); fetchSettings(); }, [fetchRecipes, fetchSettings]);
+  useEffect(() => { fetchRecipes(); fetchMealPlans(); fetchSettings(); }, [fetchRecipes, fetchMealPlans, fetchSettings]);
 
   function openForm(recipe?: Recipe) {
     if (recipe) {
@@ -286,10 +296,14 @@ export default function App() {
 
       {/* Header */}
       <div className="max-w-6xl mx-auto space-y-8">
-        <header className="flex items-center justify-between border-b pb-6 border-zinc-200 dark:border-zinc-800">
+        <header className="relative flex items-center justify-between border-b pb-6 border-zinc-200 dark:border-zinc-800">
           <div className="flex items-center gap-3 text-zinc-900 dark:text-zinc-50">
             <ChefHat className="w-8 h-8 md:w-10 md:h-10 text-orange-500" />
             <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight">Recipe Vault</h1>
+          </div>
+          <div className="hidden lg:flex bg-zinc-200/50 dark:bg-zinc-800/50 rounded-full p-1 absolute left-1/2 -translate-x-1/2">
+            <button onClick={() => setActiveView("vault")} className={`px-5 py-1.5 rounded-full text-sm font-bold transition-all ${activeView === "vault" ? "bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-white" : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"}`}>Vault</button>
+            <button onClick={() => setActiveView("planner")} className={`px-5 py-1.5 rounded-full text-sm font-bold transition-all ${activeView === "planner" ? "bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-white" : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"}`}>Meal Planner</button>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setIsSuggestModalOpen(true)} className="inline-flex items-center justify-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-300 font-bold rounded-full px-5 shadow-sm transition-transform hover:scale-105 h-10 text-sm border border-purple-200 dark:border-purple-800/50">
@@ -304,8 +318,10 @@ export default function App() {
           </div>
         </header>
 
-        {/* Search & Filter */}
-        <div className="space-y-3">
+        {activeView === "vault" ? (
+          <>
+            {/* Search & Filter */}
+            <div className="space-y-3">
           <div className="relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
             <input
@@ -407,6 +423,66 @@ export default function App() {
             </div>
           )}
         </main>
+        </>
+        ) : (
+          <div className="flex flex-col lg:flex-row gap-8 animate-in fade-in duration-500">
+            <div className="w-full lg:w-1/3 xl:w-1/4 space-y-4">
+              <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2"><ChefHat className="w-5 h-5 text-orange-500"/> Draggable Recipes</h2>
+              <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2 pb-4">
+                {recipes.map(r => (
+                   <div key={r.id} draggable onDragStart={(e) => { e.dataTransfer.setData("recipe_id", r.id); e.dataTransfer.effectAllowed = "copy"; }} className="p-3 bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 cursor-grab active:cursor-grabbing hover:border-orange-300 dark:hover:border-orange-700 transition-colors flex gap-3 group">
+                     {r.image_url && <img src={r.image_url} className="w-12 h-12 rounded-lg object-cover shrink-0 bg-zinc-100 dark:bg-zinc-800" />}
+                     <div className="flex flex-col justify-center overflow-hidden">
+                       <span className="font-semibold text-sm text-zinc-800 dark:text-zinc-200 truncate">{r.title}</span>
+                       <span className="text-xs text-zinc-500 flex items-center gap-1 mt-0.5"><Users className="w-3 h-3"/> {r.servings || '-'}</span>
+                     </div>
+                   </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex-1 space-y-4">
+               {Array.from({length: 7}).map((_, i) => {
+                 const d = new Date(); d.setDate(d.getDate() + i);
+                 const date = d.toISOString().split('T')[0];
+                 const isToday = i === 0;
+                 return (
+                  <div key={date} className="bg-white dark:bg-zinc-900/50 p-5 rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-800">
+                     <h3 className={`font-bold text-lg mb-3 ${isToday ? "text-orange-600 dark:text-orange-400" : "text-zinc-800 dark:text-zinc-200"}`}>
+                       {d.toLocaleDateString(undefined, {weekday: 'long', month: 'short', day: 'numeric'})} {isToday && "(Today)"}
+                     </h3>
+                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                       {['Breakfast', 'Lunch', 'Dinner', 'Snack'].map(meal => (
+                          <div key={meal} 
+                               onDragOver={e => e.preventDefault()} 
+                               onDrop={async e => { 
+                                 e.preventDefault(); 
+                                 const recipeId = e.dataTransfer.getData("recipe_id"); 
+                                 if(recipeId) {
+                                   const {error} = await supabase.from('meal_plan').insert({date, meal_type: meal, recipe_id: recipeId});
+                                   if(!error) fetchMealPlans();
+                                   else toast.error("Failed to add meal plan.");
+                                 }
+                               }} 
+                               className="min-h-[80px] border-2 border-dashed border-zinc-200 dark:border-zinc-800 hover:border-orange-400 dark:hover:border-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/10 rounded-xl p-2.5 transition-colors flex flex-col">
+                             <div className="font-bold text-xs uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-2">{meal}</div>
+                             {mealPlans.filter(m => m.date === date && m.meal_type === meal).map(m => (
+                               <div key={m.id} className="bg-gradient-to-r from-orange-100 to-orange-50 dark:from-orange-900/40 dark:to-orange-900/20 text-orange-900 dark:text-orange-100 p-2 rounded-lg mt-1.5 flex justify-between items-center group shadow-sm text-sm border border-orange-200/50 dark:border-orange-800/50">
+                                 <span className="truncate font-semibold cursor-pointer py-0.5" onClick={() => m.recipe && openRecipe(m.recipe)} title={m.recipe?.title}>{m.recipe?.title}</span>
+                                 <button onClick={async () => {
+                                   const {error} = await supabase.from('meal_plan').delete().eq('id', m.id);
+                                   if(!error) fetchMealPlans();
+                                 }} className="opacity-0 group-hover:opacity-100 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 p-1 rounded-md transition-all shrink-0 ml-2" title="Remove"><X className="w-3.5 h-3.5"/></button>
+                               </div>
+                             ))}
+                          </div>
+                       ))}
+                     </div>
+                  </div>
+                 );
+               })}
+            </div>
+          </div>
+        )}
 
         {/* Recipe Viewer Dialog */}
         <Dialog open={!!selectedRecipe} onOpenChange={(open) => !open && setSelectedRecipe(null)}>
