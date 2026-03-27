@@ -22,10 +22,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     process.env.VITE_SUPABASE_URL || '',
     process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
   );
+  let model = 'gemini-2.0-flash';
   try {
-    const { data } = await supabaseApiKeyClient.from('settings').select('active_api_key').eq('id', 1).single();
-    if (data && data.active_api_key === 2) {
-      apiKey = process.env.GEMINI_API_KEY_2 || apiKey;
+    const { data } = await supabaseApiKeyClient.from('settings').select('active_api_key, gemini_model').eq('id', 1).single();
+    if (data) {
+      if (data.active_api_key === 2) {
+        apiKey = process.env.GEMINI_API_KEY_2 || apiKey;
+      }
+      if (data.gemini_model) model = data.gemini_model;
     }
   } catch(e) {}
   
@@ -52,7 +56,7 @@ Ingredients: ${Array.isArray(ingredients) ? ingredients.map((i: any) => `${i.amo
 Instructions: ${(instructions || '').substring(0, 500)}`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model,
       contents: prompt,
       config: { responseMimeType: 'application/json', temperature: 0.1 }
     });
