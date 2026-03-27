@@ -20,16 +20,17 @@ The JSON MUST match this EXACT structure, nothing else:
   "description": "Short, enticing summary of the dish (1-2 sentences)",
   "servings": 4,
   "ingredients": [
-    { "amount": "200g", "name": "pasta" },
-    { "amount": "2 tbsp", "name": "olive oil" },
-    { "amount": "", "name": "salt and pepper" }
+    { "amount": "200g", "name": "pasta", "details": "" },
+    { "amount": "1", "name": "onion", "details": "finely chopped" },
+    { "amount": "", "name": "salt and pepper", "details": "to taste" }
   ],
   "instructions": "Step 1: Do this.\\nStep 2: Do that.",
   "image_url": "a high quality public image URL from the content (prefer og:image), or empty string"
 }
 
 CRITICAL RULES:
-- "ingredients" MUST be an array of objects with "amount" and "name" keys.
+- "ingredients" MUST be an array of objects with "amount", "name", and an optional "details" key.
+- Extract descriptive text like "finely chopped" or "sliced" into "details", leaving ONLY the pure ingredient base in "name".
 - If an ingredient has no measurable amount, set "amount" to an empty string.
 - "servings" must be an integer number or null if not found.
 - "instructions" should use newlines to separate steps, remove any existing numbering.
@@ -38,7 +39,7 @@ CRITICAL RULES:
 const MODELS = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro'];
 
 interface Nutrition { calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number; }
-interface Ingredient { amount: string; name: string; }
+interface Ingredient { amount: string; name: string; details?: string; }
 interface Recipe {
   id: string; title: string; description: string;
   ingredients: Ingredient[] | string[]; instructions: string;
@@ -53,13 +54,21 @@ function parseIngredients(raw: Ingredient[] | string[]): Ingredient[] {
   return (raw as string[]).map(s => {
     const match = s.match(/^([\d\/\.\s]*(tbsp|tsp|cups?|g|kg|ml|l|oz|lb|cloves?|bunch|slices?|pinch|handful|pieces?|whole|large|medium|small|cans?)?[\s]*)/i);
     const amount = match ? match[0].trim() : "";
-    return { amount, name: amount ? s.replace(amount, "").trim() : s };
+    let rest = amount ? s.replace(amount, "").trim() : s;
+    let name = rest;
+    let details = "";
+    if (rest.includes(',')) {
+       const parts = rest.split(',');
+       name = parts[0].trim();
+       details = parts.slice(1).join(',').trim();
+    }
+    return { amount, name, details };
   });
 }
 
 function recipeToIngredientText(ingredients: Ingredient[] | string[]): string {
   const parsed = parseIngredients(ingredients);
-  return parsed.map(i => `${i.amount} ${i.name}`.trim()).join("\n");
+  return parsed.map(i => `${i.amount} ${i.name}${i.details ? `, ${i.details}` : ''}`.trim()).join("\n");
 }
 
 export default function App() {
@@ -342,7 +351,7 @@ export default function App() {
                      <li key={idx} className="flex items-start gap-2 border-b border-zinc-100 dark:border-zinc-800 pb-2">
                        <div className="w-2 h-2 mt-2 rounded-full bg-orange-400 shrink-0"/> 
                        {i.amount && <span className="font-bold text-orange-600 dark:text-orange-400">{i.amount}</span>} 
-                       <span className="text-zinc-800 dark:text-zinc-200">{i.name}</span>
+                       <span className="text-zinc-800 dark:text-zinc-200">{i.name}{i.details ? <span className="text-zinc-500 dark:text-zinc-400">, {i.details}</span> : ""}</span>
                      </li>
                    ))}
                  </ul>
@@ -702,7 +711,7 @@ export default function App() {
                               {parsed.map((ing, i) => (
                                 <tr key={i} className={`${i % 2 === 0 ? "bg-zinc-50 dark:bg-zinc-900" : "bg-white dark:bg-zinc-900/50"} border-b border-zinc-100 dark:border-zinc-800 last:border-0`}>
                                   <td className="py-2.5 px-4 font-semibold text-orange-600 dark:text-orange-400 whitespace-nowrap w-1/3">{scaleAmount(ing.amount) || "—"}</td>
-                                  <td className="py-2.5 px-4 text-zinc-800 dark:text-zinc-200">{ing.name}</td>
+                                  <td className="py-2.5 px-4 text-zinc-800 dark:text-zinc-200">{ing.name}{ing.details ? <span className="text-zinc-500 dark:text-zinc-400">, {ing.details}</span> : ""}</td>
                                 </tr>
                               ))}
                             </tbody>
