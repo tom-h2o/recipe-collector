@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, ChefHat, Users, Settings, Pencil, Trash2, Search, X, Star, Minus, Flame } from "lucide-react";
+import { Plus, ChefHat, Users, Settings, Pencil, Trash2, Search, X, Star, Minus, Flame, Wand2 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 
 const DEFAULT_PROMPT = `You are a culinary assistant that extracts recipes from raw extracted webpage text.
@@ -76,6 +76,12 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isCookMode, setIsCookMode] = useState(false);
   const [cookStep, setCookStep] = useState(0);
+
+  // Suggest state
+  const [isSuggestModalOpen, setIsSuggestModalOpen] = useState(false);
+  const [suggestIngredients, setSuggestIngredients] = useState("");
+  const [suggestedRecipes, setSuggestedRecipes] = useState<Recipe[] | null>(null);
+  const [isSuggesting, setIsSuggesting] = useState(false);
 
   // Search & filter
   const [searchQuery, setSearchQuery] = useState("");
@@ -253,6 +259,27 @@ export default function App() {
     setIsSavingSettings(false);
   }
 
+  async function handleSuggest(e: React.FormEvent) {
+    e.preventDefault();
+    if (!suggestIngredients.trim()) return;
+    setIsSuggesting(true);
+    const id = toast.loading("Finding matches with Gemini AI...");
+    try {
+      const ingredientsList = suggestIngredients.split(",").map(s => s.trim()).filter(Boolean);
+      const res = await fetch('/api/suggest', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ ingredients: ingredientsList }) 
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to suggest recipes');
+      setSuggestedRecipes(data.suggestions || []);
+      toast.success("Found some delicious matches!", { id });
+    } catch (err: any) {
+      toast.error(err.message || "Couldn't suggest recipes.", { id });
+    } finally { setIsSuggesting(false); }
+  }
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-6 sm:p-10 font-sans">
       <Toaster richColors position="top-right" />
@@ -265,6 +292,9 @@ export default function App() {
             <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight">Recipe Vault</h1>
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={() => setIsSuggestModalOpen(true)} className="inline-flex items-center justify-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-300 font-bold rounded-full px-5 shadow-sm transition-transform hover:scale-105 h-10 text-sm border border-purple-200 dark:border-purple-800/50">
+              <Wand2 className="w-4 h-4" /> Suggest
+            </button>
             <button onClick={() => setIsSettingsOpen(true)} className="p-2.5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Settings">
               <Settings className="w-5 h-5" />
             </button>
@@ -587,6 +617,47 @@ export default function App() {
             </DialogContent>
           </Dialog>
         )}
+
+        {/* Suggest / What can I cook Modal */}
+        <Dialog open={isSuggestModalOpen} onOpenChange={v => { setIsSuggestModalOpen(v); if (!v) setSuggestedRecipes(null); }}>
+          <DialogContent className="sm:max-w-[600px] rounded-2xl bg-white dark:bg-zinc-900 shadow-2xl border border-zinc-200 dark:border-zinc-800">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold flex items-center gap-2"><Wand2 className="w-6 h-6 text-purple-500" /> What can I cook?</DialogTitle>
+              <DialogDescription>Enter the ingredients you have available, separated by commas. We'll ask Gemini to find the best matching recipes from your vault.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSuggest} className="space-y-4 pt-2">
+              <div className="flex gap-2">
+                <Input value={suggestIngredients} onChange={(e) => setSuggestIngredients(e.target.value)} placeholder="e.g. tomatoes, pasta, garlic, chicken..." className="flex-1" />
+                <Button type="submit" disabled={isSuggesting || !suggestIngredients} className="bg-purple-600 hover:bg-purple-700 text-white min-w-[100px]">
+                  {isSuggesting ? "Thinking..." : "Suggest!"}
+                </Button>
+              </div>
+            </form>
+
+            {suggestedRecipes !== null && (
+              <div className="mt-6 pt-6 border-t border-zinc-100 dark:border-zinc-800 space-y-4">
+                <h3 className="font-bold text-lg text-zinc-900 dark:text-zinc-100">Found {suggestedRecipes.length} suggestion{suggestedRecipes.length !== 1 ? 's' : ''}</h3>
+                {suggestedRecipes.length === 0 ? (
+                  <p className="text-zinc-500 text-sm">No great matches found for those ingredients. Try adding a few more staples!</p>
+                ) : (
+                  <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                    {suggestedRecipes.map(recipe => (
+                      <div key={recipe.id} onClick={() => { setIsSuggestModalOpen(false); openRecipe(recipe); }} className="flex gap-4 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 hover:bg-purple-50 dark:hover:bg-purple-900/20 cursor-pointer border border-zinc-100 dark:border-zinc-800 transition-colors">
+                        {recipe.image_url && <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0"><img src={recipe.image_url} alt="" className="w-full h-full object-cover" /></div>}
+                        <div>
+                          <h4 className="font-bold text-zinc-900 dark:text-zinc-100">{recipe.title}</h4>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2">
+                            {parseIngredients(recipe.ingredients).map(i => i.name).join(', ')}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Add/Edit Recipe Form Dialog */}
         <Dialog open={isFormOpen} onOpenChange={(v) => { if (!v) closeForm(); }}>
