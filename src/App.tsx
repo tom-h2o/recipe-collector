@@ -42,6 +42,7 @@ interface Recipe {
   id: string; title: string; description: string;
   ingredients: Ingredient[] | string[]; instructions: string;
   image_url: string; servings: number | null; created_at: string;
+  tags: string[];
 }
 
 function parseIngredients(raw: Ingredient[] | string[]): Ingredient[] {
@@ -84,8 +85,11 @@ export default function App() {
         parseIngredients(r.ingredients).some(i => i.name.toLowerCase().includes(q))
       );
     }
+    if (activeFilter) {
+      result = result.filter(r => r.tags?.includes(activeFilter));
+    }
     return result;
-  }, [recipes, searchQuery]);
+  }, [recipes, searchQuery, activeFilter]);
 
   // URL Extraction
   const [extractUrl, setExtractUrl] = useState("");
@@ -194,6 +198,18 @@ export default function App() {
       closeForm();
       fetchRecipes();
       toast.success(editingRecipe ? "Recipe updated! ✏️" : "Recipe saved! 🍽️");
+      // Fire-and-forget auto-tagging for new recipes
+      if (!editingRecipe) {
+        // Get the newly inserted recipe id to tag it
+        const { data: newRow } = await supabase.from("recipes").select("id").order("created_at", { ascending: false }).limit(1).single();
+        if (newRow?.id) {
+          fetch('/api/tag', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ recipeId: newRow.id, title, description, ingredients: ingredientsList, instructions })
+          }).then(() => fetchRecipes()).catch(console.warn);
+        }
+      }
     } else {
       toast.error("Failed to save: " + (error.message || "Check Supabase credentials/schema."));
     }
@@ -313,7 +329,7 @@ export default function App() {
                       <CardTitle className="line-clamp-1 text-xl font-bold">{recipe.title}</CardTitle>
                       <CardDescription className="line-clamp-2 mt-1 text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">{recipe.description || "No description provided."}</CardDescription>
                     </CardHeader>
-                    <CardContent className="flex-1 pb-4">
+                    <CardContent className="flex-1 pb-3">
                       <h4 className="font-bold text-xs uppercase tracking-wider mb-3 text-zinc-400">{parsed.length} Ingredient{parsed.length !== 1 ? "s" : ""}</h4>
                       <div className="flex flex-wrap gap-1.5">
                         {parsed.slice(0, 5).map((ing, i) => (
@@ -321,6 +337,16 @@ export default function App() {
                         ))}
                         {parsed.length > 5 && <span className="px-2.5 py-1 bg-orange-50 dark:bg-orange-900/20 text-xs font-medium rounded-md text-orange-600 dark:text-orange-400">+{parsed.length - 5} more</span>}
                       </div>
+                      {recipe.tags?.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                          {recipe.tags.map(tag => (
+                            <span key={tag} onClick={(e) => { e.stopPropagation(); setActiveFilter(activeFilter === tag ? null : tag); }}
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer transition-all ${
+                                activeFilter === tag ? "bg-orange-500 border-orange-500 text-white" : "bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50 text-orange-600 dark:text-orange-400 hover:bg-orange-100"
+                              }`}>{tag}</span>
+                          ))}
+                        </div>
+                      )}
                     </CardContent>
                     <CardFooter className="border-t border-zinc-100 dark:border-zinc-800/50 py-3 bg-zinc-50/50 dark:bg-zinc-900/50 flex justify-between items-center">
                       {recipe.servings ? <span className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500"><Users className="w-3.5 h-3.5" /> Serves {recipe.servings}</span> : <span />}
