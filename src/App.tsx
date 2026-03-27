@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, ChefHat, Users, Settings, Pencil, Trash2, Search, X } from "lucide-react";
+import { Plus, ChefHat, Users, Settings, Pencil, Trash2, Search, X, Star } from "lucide-react";
 import { Toaster, toast } from "sonner";
 
 const DEFAULT_PROMPT = `You are a culinary assistant that extracts recipes from raw extracted webpage text.
@@ -42,7 +42,7 @@ interface Recipe {
   id: string; title: string; description: string;
   ingredients: Ingredient[] | string[]; instructions: string;
   image_url: string; servings: number | null; created_at: string;
-  tags: string[];
+  tags: string[]; is_favourite: boolean;
 }
 
 function parseIngredients(raw: Ingredient[] | string[]): Ingredient[] {
@@ -73,7 +73,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
-  const FILTERS = ["Quick (<30min)", "Vegetarian", "Vegan", "High Protein", "Comfort Food", "Breakfast", "Dessert"];
+  const FILTERS = ["⭐ Favourites", "Quick (<30min)", "Vegetarian", "Vegan", "High Protein", "Comfort Food", "Breakfast", "Dessert"];
 
   const filteredRecipes = useMemo(() => {
     let result = recipes;
@@ -85,7 +85,9 @@ export default function App() {
         parseIngredients(r.ingredients).some(i => i.name.toLowerCase().includes(q))
       );
     }
-    if (activeFilter) {
+    if (activeFilter === "⭐ Favourites") {
+      result = result.filter(r => r.is_favourite);
+    } else if (activeFilter) {
       result = result.filter(r => r.tags?.includes(activeFilter));
     }
     return result;
@@ -216,6 +218,13 @@ export default function App() {
     setIsSaving(false);
   }
 
+  async function toggleFavourite(recipe: Recipe, e: React.MouseEvent) {
+    e.stopPropagation();
+    const { error } = await supabase.from("recipes").update({ is_favourite: !recipe.is_favourite }).eq("id", recipe.id);
+    if (!error) fetchRecipes();
+    else toast.error("Failed to update favourite.");
+  }
+
   async function handleDelete() {
     if (!deleteTarget) return;
     const { error } = await supabase.from("recipes").delete().eq("id", deleteTarget.id);
@@ -324,6 +333,9 @@ export default function App() {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-4">
                         <span className="text-white text-sm font-semibold px-4 py-1.5 rounded-full border border-white/30 bg-white/20 backdrop-blur-sm">View Recipe</span>
                       </div>
+                      <button onClick={(e) => toggleFavourite(recipe, e)} className="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm shadow transition-transform hover:scale-110" title={recipe.is_favourite ? "Unfavourite" : "Favourite"}>
+                        <Star className={`w-4 h-4 ${recipe.is_favourite ? "fill-yellow-400 text-yellow-400" : "text-zinc-400"}`} />
+                      </button>
                     </div>
                     <CardHeader className="pt-5">
                       <CardTitle className="line-clamp-1 text-xl font-bold">{recipe.title}</CardTitle>
