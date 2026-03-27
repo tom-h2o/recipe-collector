@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, ChefHat, Users, Settings, Pencil, Trash2, Search, X, Star, Minus } from "lucide-react";
+import { Plus, ChefHat, Users, Settings, Pencil, Trash2, Search, X, Star, Minus, Flame } from "lucide-react";
 import { Toaster, toast } from "sonner";
 
 const DEFAULT_PROMPT = `You are a culinary assistant that extracts recipes from raw extracted webpage text.
@@ -73,6 +73,8 @@ export default function App() {
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Recipe | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isCookMode, setIsCookMode] = useState(false);
+  const [cookStep, setCookStep] = useState(0);
 
   // Search & filter
   const [searchQuery, setSearchQuery] = useState("");
@@ -406,6 +408,9 @@ export default function App() {
                       <div className="flex items-start justify-between gap-4">
                         <DialogTitle className="text-3xl md:text-4xl font-extrabold tracking-tight">{selectedRecipe.title}</DialogTitle>
                         <div className="flex items-center gap-2 shrink-0 pt-1">
+                          <button onClick={() => { setCookStep(0); setIsCookMode(true); }} className="p-2 rounded-full text-zinc-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors" title="Cook Mode">
+                            <Flame className="w-4 h-4" />
+                          </button>
                           <button onClick={(e) => { e.stopPropagation(); setSelectedRecipe(null); openForm(selectedRecipe); }} className="p-2 rounded-full text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Edit recipe">
                             <Pencil className="w-4 h-4" />
                           </button>
@@ -488,6 +493,66 @@ export default function App() {
             })()}
           </DialogContent>
         </Dialog>
+
+        {/* Cook Mode Dialog */}
+        {selectedRecipe && (
+          <Dialog open={isCookMode} onOpenChange={(open) => !open && setIsCookMode(false)}>
+            <DialogTrigger className="hidden" />
+            <DialogContent className="max-w-none w-screen h-screen max-h-screen rounded-none border-0 bg-zinc-950 text-white flex flex-col p-0">
+              {(() => {
+                const steps = selectedRecipe.instructions.split(/\n+/).map(s => s.trim()).filter(Boolean);
+                const currentStep = steps[cookStep] || "";
+                const isFirst = cookStep === 0;
+                const isLast = cookStep === steps.length - 1;
+                return (
+                  <div className="flex flex-col h-full">
+                    {/* Top bar */}
+                    <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
+                      <div className="flex items-center gap-3">
+                        <ChefHat className="w-6 h-6 text-orange-400" />
+                        <span className="font-bold text-lg text-white truncate max-w-[240px]">{selectedRecipe.title}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold text-white/50">Step {cookStep + 1} of {steps.length}</span>
+                        <button onClick={() => setIsCookMode(false)} className="p-2 rounded-full hover:bg-white/10 transition-colors"><X className="w-5 h-5" /></button>
+                      </div>
+                    </div>
+                    {/* Step content */}
+                    <div className="flex-1 flex items-center justify-center px-8 sm:px-24">
+                      <div className="max-w-2xl text-center space-y-8">
+                        <div className="w-16 h-16 rounded-full bg-orange-500 text-white flex items-center justify-center text-3xl font-black mx-auto shadow-lg shadow-orange-500/30">{cookStep + 1}</div>
+                        <p className="text-2xl sm:text-3xl md:text-4xl font-semibold leading-relaxed text-white">
+                          {currentStep.replace(/^step\s*\d+[.:)]\s*/i, "")}
+                        </p>
+                      </div>
+                    </div>
+                    {/* Progress dots */}
+                    <div className="flex justify-center gap-1.5 py-4">
+                      {steps.map((_, i) => (
+                        <button key={i} onClick={() => setCookStep(i)} className={`rounded-full transition-all ${ i === cookStep ? "w-6 h-2.5 bg-orange-500" : "w-2.5 h-2.5 bg-white/20 hover:bg-white/40" }`} />
+                      ))}
+                    </div>
+                    {/* Navigation */}
+                    <div className="flex gap-4 px-6 pb-8">
+                      <Button onClick={() => setCookStep(s => Math.max(0, s - 1))} disabled={isFirst} variant="outline" className="flex-1 h-14 text-lg font-bold rounded-2xl border-white/20 text-white hover:bg-white/10 bg-transparent">
+                        ← Previous
+                      </Button>
+                      {isLast ? (
+                        <Button onClick={() => setIsCookMode(false)} className="flex-1 h-14 text-lg font-bold rounded-2xl bg-orange-500 hover:bg-orange-600">
+                          ✓ Done!
+                        </Button>
+                      ) : (
+                        <Button onClick={() => setCookStep(s => Math.min(steps.length - 1, s + 1))} className="flex-1 h-14 text-lg font-bold rounded-2xl bg-orange-500 hover:bg-orange-600">
+                          Next →
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* Add/Edit Recipe Form Dialog */}
         <Dialog open={isFormOpen} onOpenChange={(v) => { if (!v) closeForm(); }}>
