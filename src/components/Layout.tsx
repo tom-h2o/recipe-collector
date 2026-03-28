@@ -1,16 +1,20 @@
 import { ChefHat, Plus, Settings, Wand2 } from 'lucide-react';
+import type { User } from '@supabase/supabase-js';
 import type { ActiveView } from '@/types';
+import { UserMenu } from '@/components/UserMenu';
 
 interface Props {
   activeView: ActiveView;
+  user: User | null;
   onSetView: (v: ActiveView) => void;
   onOpenSettings: () => void;
   onOpenSuggest: () => void;
   onAddRecipe: () => void;
+  onSignOut: () => void;
   children: React.ReactNode;
 }
 
-export function Layout({ activeView, onSetView, onOpenSettings, onOpenSuggest, onAddRecipe, children }: Props) {
+export function Layout({ activeView, user, onSetView, onOpenSettings, onOpenSuggest, onAddRecipe, onSignOut, children }: Props) {
   return (
     <div className="max-w-6xl mx-auto space-y-8 print:hidden">
       <header className="relative flex items-center justify-between border-b pb-6 border-zinc-200 dark:border-zinc-800">
@@ -53,6 +57,7 @@ export function Layout({ activeView, onSetView, onOpenSettings, onOpenSuggest, o
           >
             <Plus className="w-4 h-4" /> Add Recipe
           </button>
+          {user && <UserMenu user={user} onSignOut={onSignOut} />}
         </div>
       </header>
       {children}

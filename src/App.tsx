@@ -24,7 +24,7 @@ import { supabase } from '@/lib/supabase';
 import type { ActiveView, Recipe } from '@/types';
 
 export default function App() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { recipes, loading, processingIds, hasMore, fetchRecipes, loadMore, saveRecipe, deleteRecipe, toggleFavourite, updateRecipe } = useRecipes(user?.id);
   const { mealPlans, fetchMealPlans, addMealPlan, removeMealPlan } = useMealPlans(user?.id);
   const { shoppingList, isGeneratingShopping, fetchShoppingList, generateShoppingList, toggleItem, deleteItem } = useShoppingList(user?.id);
@@ -92,10 +92,12 @@ export default function App() {
 
         <Layout
           activeView={activeView}
+          user={user}
           onSetView={setActiveView}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenSuggest={() => setIsSuggestOpen(true)}
           onAddRecipe={() => openForm()}
+          onSignOut={signOut}
         >
           {activeView === 'vault' && (
             <RecipeVault
