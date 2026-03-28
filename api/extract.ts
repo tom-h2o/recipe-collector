@@ -91,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const recipeData = await generateJson(client, settings.gemini_model, finalPrompt);
 
     // Store in cache (fire-and-forget)
-    supabase.from('url_cache').upsert({ url_hash: urlHash, extracted_data: recipeData }).catch(() => {});
+    supabase.from('url_cache').upsert({ url_hash: urlHash, extracted_data: recipeData }).then(() => {}, () => {});
 
     return res.status(200).json(recipeData);
   } catch (err: unknown) {
