@@ -1,9 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { GoogleGenAI } from '@google/genai';
 import * as cheerio from 'cheerio';
-import { createClient } from '@supabase/supabase-js';
+import { createHash } from 'crypto';
+import { ZodError } from 'zod';
+import { setCorsHeaders } from './_lib/cors.js';
+import { getServerSupabase, getSettings, resolveApiKey } from './_lib/supabase.js';
+import { getGeminiClient, generateJson } from './_lib/gemini.js';
+import { captureException } from './_lib/sentry.js';
+import { extractSchema } from './_lib/schemas.js';
 
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const CACHE_TTL_DAYS = 7;
+
 const DEFAULT_PROMPT = `You are a culinary assistant that extracts recipes from raw extracted webpage text.
 Your task is to find the recipe within the text below and return it strictly formatted as a JSON object.
 
@@ -29,46 +35,39 @@ CRITICAL RULES:
 - If the text comes from an Instagram post, the recipe might be in the Description field. Extract it accurately!`;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
+  setCorsHeaders(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  let apiKey = process.env.GEMINI_API_KEY_1 || process.env.GEMINI_API_KEY;
-
   try {
-    const { url } = req.body;
-    if (!url) return res.status(400).json({ error: 'URL is required' });
+    const { url } = extractSchema.parse(req.body);
 
-    // Read settings from Supabase
-    let model = DEFAULT_MODEL;
-    let promptTemplate = DEFAULT_PROMPT;
-    try {
-      const supabase = createClient(
-        process.env.VITE_SUPABASE_URL || '',
-        process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
-      );
-      const { data } = await supabase.from('settings').select('*').eq('id', 1).single();
-      if (data) {
-        if (data.gemini_model) model = data.gemini_model;
-        if (data.gemini_prompt && data.gemini_prompt.trim()) promptTemplate = data.gemini_prompt;
-        if (data.active_api_key === 2) {
-          apiKey = process.env.GEMINI_API_KEY_2 || apiKey;
-        }
-      }
-    } catch (e) {
-      console.warn('Could not read settings from Supabase, using defaults.', e);
-    }
-
+    const supabase = getServerSupabase();
+    const settings = await getSettings(supabase);
+    const apiKey = resolveApiKey(settings);
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY is not configured.' });
 
-    console.log(`Fetching URL: ${url} | Model: ${model}`);
+    const promptTemplate = settings.gemini_prompt?.trim() ? settings.gemini_prompt : DEFAULT_PROMPT;
+
+    // Check URL cache first
+    const urlHash = createHash('sha256').update(url).digest('hex');
+    const { data: cached } = await supabase
+      .from('url_cache')
+      .select('extracted_data, created_at')
+      .eq('url_hash', urlHash)
+      .single();
+    if (cached) {
+      const ageMs = Date.now() - new Date(cached.created_at).getTime();
+      if (ageMs < CACHE_TTL_DAYS * 24 * 60 * 60 * 1000) {
+        console.log(`Cache hit for URL: ${url}`);
+        return res.status(200).json(cached.extracted_data);
+      }
+    }
+
+    console.log(`Fetching URL: ${url} | Model: ${settings.gemini_model}`);
 
     const response = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RecipeCollector/1.0)' }
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RecipeCollector/1.0)' },
     });
     if (!response.ok) throw new Error(`Failed to fetch URL: ${response.statusText}`);
 
@@ -76,7 +75,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const $ = cheerio.load(html);
 
     const pageTitle = $('title').text() || $('meta[property="og:title"]').attr('content') || '';
-    const pageDescription = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '';
+    const pageDescription =
+      $('meta[property="og:description"]').attr('content') ||
+      $('meta[name="description"]').attr('content') ||
+      '';
     const ogImage = $('meta[property="og:image"]').attr('content') || '';
 
     $('script, style, nav, footer, iframe, svg').remove();
@@ -85,21 +87,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const combinedContent = `Title: ${pageTitle}\nDescription: ${pageDescription}\nOG Image: ${ogImage}\n\nBody Text:\n${bodyText}`;
     const finalPrompt = `${promptTemplate}\n\nWebpage Text to Extract From:\n${combinedContent}`;
 
-    const ai = new GoogleGenAI({ apiKey });
-    const responseAI = await ai.models.generateContent({
-      model,
-      contents: finalPrompt,
-      config: { responseMimeType: 'application/json', temperature: 0.1 }
-    });
+    const client = getGeminiClient(apiKey);
+    const recipeData = await generateJson(client, settings.gemini_model, finalPrompt);
 
-    const resultText = responseAI.text;
-    if (!resultText) throw new Error('Gemini returned an empty response.');
+    // Store in cache (fire-and-forget)
+    supabase.from('url_cache').upsert({ url_hash: urlHash, extracted_data: recipeData }).catch(() => {});
 
-    const recipeData = JSON.parse(resultText);
     return res.status(200).json(recipeData);
-
-  } catch (error: any) {
-    console.error('Extraction error:', error);
-    return res.status(500).json({ error: error.message || 'Failed to extract recipe from URL' });
+  } catch (err: unknown) {
+    if (err instanceof ZodError) {
+      return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
+    }
+    captureException(err);
+    const message = err instanceof Error ? err.message : 'Failed to extract recipe from URL';
+    console.error('Extraction error:', err);
+    return res.status(500).json({ error: message });
   }
 }

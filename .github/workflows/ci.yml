@@ -29,3 +29,7 @@ jobs:
       
     - name: Build project
       run: npm run build
+
+    - name: Apply Supabase migrations
+      if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+      run: npx supabase db push --db-url ${{ secrets.SUPABASE_DB_URL }}

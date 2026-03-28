@@ -1,47 +1,40 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { GoogleGenAI } from '@google/genai';
-import { createClient } from '@supabase/supabase-js';
+import { ZodError } from 'zod';
+import { setCorsHeaders } from './_lib/cors.js';
+import { getServerSupabase, getSettings, resolveApiKey } from './_lib/supabase.js';
+import { getGeminiClient, generateJson } from './_lib/gemini.js';
+import { captureException } from './_lib/sentry.js';
+import { nutritionSchema } from './_lib/schemas.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  setCorsHeaders(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  let apiKey = process.env.GEMINI_API_KEY_1 || process.env.GEMINI_API_KEY;
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
-  );
-  let model = 'gemini-2.0-flash';
   try {
-    const { data } = await supabase.from('settings').select('active_api_key, gemini_model').eq('id', 1).single();
-    if (data) {
-      if (data.active_api_key === 2) {
-        apiKey = process.env.GEMINI_API_KEY_2 || apiKey;
-      }
-      if (data.gemini_model) model = data.gemini_model;
-    }
-  } catch(e) {}
-  
-  if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
+    const { recipeId, title, ingredients, servings } = nutritionSchema.parse(req.body);
 
-  try {
-    const { recipeId, title, ingredients, servings } = req.body;
-    if (!recipeId || !ingredients) return res.status(400).json({ error: 'recipeId and ingredients required.' });
+    const supabase = getServerSupabase();
+    const settings = await getSettings(supabase);
+    const apiKey = resolveApiKey(settings);
+    if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
 
     const ingredientText = Array.isArray(ingredients)
-      ? ingredients.map((i: any) => `${i.amount || ''} ${i.name || i}`.trim()).join('\n')
-      : ingredients;
+      ? ingredients.map((i: unknown) => {
+          if (typeof i === 'object' && i !== null && 'name' in i) {
+            const ing = i as { amount?: string; name: string };
+            return `${ing.amount || ''} ${ing.name}`.trim();
+          }
+          return String(i);
+        }).join('\n')
+      : String(ingredients);
 
-    const ai = new GoogleGenAI({ apiKey });
     const prompt = `You are a nutritional analysis assistant.
 Estimate the nutritional content for ONE serving of the following recipe.
 Base your estimate on the ingredients listed. If servings is provided, divide total nutrients accordingly.
 
-Recipe: ${title}
-Servings: ${servings || 'unknown'}
+Recipe: ${title || ''}
+Servings: ${servings ?? 'unknown'}
 Ingredients:
 ${ingredientText}
 
@@ -54,21 +47,19 @@ Return ONLY a JSON object with these exact keys (all values are numbers, per ser
   "fiber_g": 6
 }`;
 
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config: { responseMimeType: 'application/json', temperature: 0.1 }
-    });
+    const client = getGeminiClient(apiKey);
+    const nutrition = await generateJson(client, settings.gemini_model, prompt);
 
-    const nutrition = JSON.parse(response.text || '{}');
-
-    // Save back to Supabase
-    // Save back to Supabase
     await supabase.from('recipes').update({ nutrition }).eq('id', recipeId);
 
     return res.status(200).json({ nutrition });
-  } catch (error: any) {
-    console.error('Nutrition error:', error);
-    return res.status(500).json({ error: error.message || 'Failed to estimate nutrition' });
+  } catch (err: unknown) {
+    if (err instanceof ZodError) {
+      return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
+    }
+    captureException(err);
+    const message = err instanceof Error ? err.message : 'Failed to estimate nutrition';
+    console.error('Nutrition error:', err);
+    return res.status(500).json({ error: message });
   }
 }

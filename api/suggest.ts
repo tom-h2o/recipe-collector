@@ -1,57 +1,51 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { GoogleGenAI } from '@google/genai';
-import { createClient } from '@supabase/supabase-js';
+import { ZodError } from 'zod';
+import { setCorsHeaders } from './_lib/cors.js';
+import { getServerSupabase, getSettings, resolveApiKey } from './_lib/supabase.js';
+import { getGeminiClient, generateJson } from './_lib/gemini.js';
+import { captureException } from './_lib/sentry.js';
+import { suggestSchema } from './_lib/schemas.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  setCorsHeaders(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  let apiKey = process.env.GEMINI_API_KEY_1 || process.env.GEMINI_API_KEY;
-  const supabase = createClient(
-    process.env.VITE_SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
-  );
-  let model = 'gemini-2.0-flash';
   try {
-    const { data } = await supabase.from('settings').select('active_api_key, gemini_model').eq('id', 1).single();
-    if (data) {
-      if (data.active_api_key === 2) {
-        apiKey = process.env.GEMINI_API_KEY_2 || apiKey;
-      }
-      if (data.gemini_model) model = data.gemini_model;
-    }
-  } catch(e) {}
-  
-  if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
+    const { ingredients: userIngredients } = suggestSchema.parse(req.body);
 
-  try {
-    const { ingredients: userIngredients } = req.body;
-    if (!userIngredients || !Array.isArray(userIngredients) || userIngredients.length === 0) {
-      return res.status(400).json({ error: 'ingredients array is required' });
-    }
+    const supabase = getServerSupabase();
+    const settings = await getSettings(supabase);
+    const apiKey = resolveApiKey(settings);
+    if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
 
-    // Fetch all recipes from Supabase
-    const supabase = createClient(
-      process.env.VITE_SUPABASE_URL || '',
-      process.env.VITE_SUPABASE_ANON_KEY || ''
-    );
-    const { data: recipes } = await supabase.from('recipes').select('*');
+    // Fetch only the 50 most recent recipes — title + ingredients only (not full *)
+    const { data: recipes } = await supabase
+      .from('recipes')
+      .select('id, title, ingredients')
+      .order('created_at', { ascending: false })
+      .limit(50);
 
     if (!recipes || recipes.length === 0) {
       return res.status(200).json({ suggestions: [] });
     }
 
-    const recipeList = recipes.map((r: any) => {
-      const ingList = Array.isArray(r.ingredients)
-        ? r.ingredients.map((i: any) => typeof i === 'object' ? i.name : i).join(', ')
-        : '';
-      return `ID: ${r.id} | Title: ${r.title} | Ingredients: ${ingList}`;
-    }).join('\n');
+    const recipeList = recipes
+      .map((r) => {
+        const ingList = Array.isArray(r.ingredients)
+          ? r.ingredients
+              .map((i: unknown) => {
+                if (typeof i === 'object' && i !== null && 'name' in i) {
+                  return (i as { name: string }).name;
+                }
+                return String(i);
+              })
+              .join(', ')
+          : '';
+        return `ID: ${r.id} | Title: ${r.title} | Ingredients: ${ingList}`;
+      })
+      .join('\n');
 
-    const ai = new GoogleGenAI({ apiKey });
     const prompt = `You are a cooking assistant helping a user decide what to cook.
 
 The user has these ingredients available: ${userIngredients.join(', ')}
@@ -63,18 +57,24 @@ Select the recipes that best match the available ingredients. Prefer recipes whe
 
 Return ONLY a JSON array of recipe ID strings, nothing else. Example: ["uuid-1", "uuid-2"]`;
 
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config: { responseMimeType: 'application/json', temperature: 0.1 }
-    });
+    const client = getGeminiClient(apiKey);
+    const suggestedIds = await generateJson<string[]>(client, settings.gemini_model, prompt);
+    const validIds = Array.isArray(suggestedIds) ? suggestedIds : [];
 
-    const suggestedIds: string[] = JSON.parse(response.text || '[]');
-    const matchedRecipes = recipes.filter((r: any) => suggestedIds.includes(r.id));
+    // Fetch full recipe data for matched IDs
+    const { data: matchedRecipes } = await supabase
+      .from('recipes')
+      .select('*')
+      .in('id', validIds);
 
-    return res.status(200).json({ suggestions: matchedRecipes });
-  } catch (error: any) {
-    console.error('Suggest error:', error);
-    return res.status(500).json({ error: error.message || 'Failed to suggest recipes' });
+    return res.status(200).json({ suggestions: matchedRecipes ?? [] });
+  } catch (err: unknown) {
+    if (err instanceof ZodError) {
+      return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
+    }
+    captureException(err);
+    const message = err instanceof Error ? err.message : 'Failed to suggest recipes';
+    console.error('Suggest error:', err);
+    return res.status(500).json({ error: message });
   }
 }

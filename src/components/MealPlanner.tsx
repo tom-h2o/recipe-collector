@@ -1,0 +1,108 @@
+import { ChefHat, Users, X } from 'lucide-react';
+import { toast } from 'sonner';
+import type { Recipe, MealPlan } from '@/types';
+import { MEAL_TYPES } from '@/lib/constants';
+
+interface Props {
+  recipes: Recipe[];
+  mealPlans: MealPlan[];
+  onAddMealPlan: (date: string, mealType: string, recipeId: string) => Promise<void>;
+  onRemoveMealPlan: (id: string) => Promise<void>;
+  onRefreshMealPlans: () => void;
+  onOpenRecipe: (r: Recipe) => void;
+}
+
+export function MealPlanner({ recipes, mealPlans, onAddMealPlan, onRemoveMealPlan, onRefreshMealPlans, onOpenRecipe }: Props) {
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    return { date: d.toISOString().split('T')[0], label: d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }), isToday: i === 0 };
+  });
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-8 animate-in fade-in duration-500">
+      <div className="w-full lg:w-1/3 xl:w-1/4 space-y-4">
+        <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+          <ChefHat className="w-5 h-5 text-orange-500" /> Draggable Recipes
+        </h2>
+        <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2 pb-4">
+          {recipes.map((r) => (
+            <div
+              key={r.id}
+              draggable
+              onDragStart={(e) => { e.dataTransfer.setData('recipe_id', r.id); e.dataTransfer.effectAllowed = 'copy'; }}
+              className="p-3 bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 cursor-grab active:cursor-grabbing hover:border-orange-300 dark:hover:border-orange-700 transition-colors flex gap-3"
+            >
+              {r.image_url && (
+                <img src={r.image_url} className="w-12 h-12 rounded-lg object-cover shrink-0 bg-zinc-100 dark:bg-zinc-800" />
+              )}
+              <div className="flex flex-col justify-center overflow-hidden">
+                <span className="font-semibold text-sm text-zinc-800 dark:text-zinc-200 truncate">{r.title}</span>
+                <span className="text-xs text-zinc-500 flex items-center gap-1 mt-0.5">
+                  <Users className="w-3 h-3" /> {r.servings || '-'}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex-1 space-y-4">
+        {days.map(({ date, label, isToday }) => (
+          <div key={date} className="bg-white dark:bg-zinc-900/50 p-5 rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-800">
+            <h3 className={`font-bold text-lg mb-3 ${isToday ? 'text-orange-600 dark:text-orange-400' : 'text-zinc-800 dark:text-zinc-200'}`}>
+              {label} {isToday && '(Today)'}
+            </h3>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {MEAL_TYPES.map((meal) => (
+                <div
+                  key={meal}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    const recipeId = e.dataTransfer.getData('recipe_id');
+                    if (recipeId) {
+                      try {
+                        await onAddMealPlan(date, meal, recipeId);
+                        onRefreshMealPlans();
+                      } catch {
+                        toast.error('Failed to add meal plan.');
+                      }
+                    }
+                  }}
+                  className="min-h-[80px] border-2 border-dashed border-zinc-200 dark:border-zinc-800 hover:border-orange-400 dark:hover:border-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/10 rounded-xl p-2.5 transition-colors flex flex-col"
+                >
+                  <div className="font-bold text-xs uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-2">{meal}</div>
+                  {mealPlans.filter((m) => m.date === date && m.meal_type === meal).map((m) => (
+                    <div key={m.id} className="bg-gradient-to-r from-orange-100 to-orange-50 dark:from-orange-900/40 dark:to-orange-900/20 text-orange-900 dark:text-orange-100 p-2 rounded-lg mt-1.5 flex justify-between items-center group shadow-sm text-sm border border-orange-200/50 dark:border-orange-800/50">
+                      <span
+                        className="truncate font-semibold cursor-pointer py-0.5"
+                        onClick={() => m.recipe && onOpenRecipe(m.recipe)}
+                        title={m.recipe?.title}
+                      >
+                        {m.recipe?.title}
+                      </span>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await onRemoveMealPlan(m.id);
+                          } catch {
+                            toast.error('Failed to remove meal.');
+                          }
+                        }}
+                        className="opacity-0 group-hover:opacity-100 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 p-1 rounded-md transition-all shrink-0 ml-2"
+                        title="Remove"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

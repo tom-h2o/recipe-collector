@@ -1,45 +1,42 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { GoogleGenAI } from '@google/genai';
-import { createClient } from '@supabase/supabase-js';
+import { ZodError } from 'zod';
+import { setCorsHeaders } from './_lib/cors.js';
+import { getServerSupabase, getSettings, resolveApiKey } from './_lib/supabase.js';
+import { getGeminiClient, generateJson } from './_lib/gemini.js';
+import { captureException } from './_lib/sentry.js';
+import { tagSchema } from './_lib/schemas.js';
 
 const AVAILABLE_TAGS = [
-  "Vegetarian", "Vegan", "Gluten-Free", "Dairy-Free",
-  "High Protein", "Low Carb", "Quick (<30min)", "Comfort Food",
-  "Italian", "Asian", "Mexican", "Mediterranean", "Indian", "American",
-  "Breakfast", "Lunch", "Dinner", "Dessert", "Snack", "Soup",
-  "Baking", "Grilling", "One-Pot"
+  'Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free',
+  'High Protein', 'Low Carb', 'Quick (<30min)', 'Comfort Food',
+  'Italian', 'Asian', 'Mexican', 'Mediterranean', 'Indian', 'American',
+  'Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snack', 'Soup',
+  'Baking', 'Grilling', 'One-Pot',
 ];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  setCorsHeaders(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  let apiKey = process.env.GEMINI_API_KEY_1 || process.env.GEMINI_API_KEY;
-  const supabaseApiKeyClient = createClient(
-    process.env.VITE_SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
-  );
-  let model = 'gemini-2.0-flash';
   try {
-    const { data } = await supabaseApiKeyClient.from('settings').select('active_api_key, gemini_model').eq('id', 1).single();
-    if (data) {
-      if (data.active_api_key === 2) {
-        apiKey = process.env.GEMINI_API_KEY_2 || apiKey;
-      }
-      if (data.gemini_model) model = data.gemini_model;
-    }
-  } catch(e) {}
-  
-  if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY is not configured.' });
+    const { recipeId, title, description, ingredients, instructions } = tagSchema.parse(req.body);
 
-  try {
-    const { recipeId, title, description, ingredients, instructions } = req.body;
-    if (!recipeId || !title) return res.status(400).json({ error: 'recipeId and title are required' });
+    const supabase = getServerSupabase();
+    const settings = await getSettings(supabase);
+    const apiKey = resolveApiKey(settings);
+    if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY is not configured.' });
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ingredientText = Array.isArray(ingredients)
+      ? ingredients.map((i: unknown) => {
+          if (typeof i === 'object' && i !== null && 'name' in i) {
+            const ing = i as { amount?: string; name: string };
+            return `${ing.amount || ''} ${ing.name}`.trim();
+          }
+          return String(i);
+        }).join(', ')
+      : String(ingredients ?? '');
+
     const prompt = `You are a recipe categorisation assistant.
 Given the following recipe, select ONLY the most relevant tags from this list:
 ${AVAILABLE_TAGS.join(', ')}
@@ -52,28 +49,23 @@ Rules:
 Recipe:
 Title: ${title}
 Description: ${description || ''}
-Ingredients: ${Array.isArray(ingredients) ? ingredients.map((i: any) => `${i.amount || ''} ${i.name || i}`.trim()).join(', ') : ingredients}
+Ingredients: ${ingredientText}
 Instructions: ${(instructions || '').substring(0, 500)}`;
 
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config: { responseMimeType: 'application/json', temperature: 0.1 }
-    });
+    const client = getGeminiClient(apiKey);
+    const tags = await generateJson<string[]>(client, settings.gemini_model, prompt);
+    const validTags = Array.isArray(tags) ? tags.filter((t) => AVAILABLE_TAGS.includes(t)) : [];
 
-    const tags: string[] = JSON.parse(response.text || '[]');
-    const validTags = tags.filter(t => AVAILABLE_TAGS.includes(t));
-
-    // Save tags back to the recipe in Supabase
-    const supabase = createClient(
-      process.env.VITE_SUPABASE_URL || '',
-      process.env.VITE_SUPABASE_ANON_KEY || ''
-    );
     await supabase.from('recipes').update({ tags: validTags }).eq('id', recipeId);
 
     return res.status(200).json({ tags: validTags });
-  } catch (error: any) {
-    console.error('Tagging error:', error);
-    return res.status(500).json({ error: error.message || 'Failed to tag recipe' });
+  } catch (err: unknown) {
+    if (err instanceof ZodError) {
+      return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
+    }
+    captureException(err);
+    const message = err instanceof Error ? err.message : 'Failed to tag recipe';
+    console.error('Tagging error:', err);
+    return res.status(500).json({ error: message });
   }
 }
