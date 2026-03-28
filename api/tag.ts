@@ -53,7 +53,7 @@ Ingredients: ${ingredientText}
 Instructions: ${(instructions || '').substring(0, 500)}`;
 
     const client = getGeminiClient(apiKey);
-    const tags = await generateJson<string[]>(client, settings.gemini_model, prompt);
+    const tags = await generateJson<string[]>(client, settings.gemini_model, prompt, { supabase, endpoint: 'tag', recipeId });
     const validTags = Array.isArray(tags) ? tags.filter((t) => AVAILABLE_TAGS.includes(t)) : [];
 
     await supabase.from('recipes').update({ tags: validTags }).eq('id', recipeId);

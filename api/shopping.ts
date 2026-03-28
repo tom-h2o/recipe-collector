@@ -40,7 +40,7 @@ Return ONLY a JSON array of objects with the following structure, and nothing el
 ]`;
 
     const client = getGeminiClient(apiKey);
-    const list = await generateJson(client, settings.gemini_model, prompt);
+    const list = await generateJson(client, settings.gemini_model, prompt, { supabase, endpoint: 'shopping' });
     return res.status(200).json({ list });
   } catch (err: unknown) {
     if (err instanceof ZodError) {

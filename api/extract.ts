@@ -88,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const finalPrompt = `${promptTemplate}\n\nWebpage Text to Extract From:\n${combinedContent}`;
 
     const client = getGeminiClient(apiKey);
-    const recipeData = await generateJson(client, settings.gemini_model, finalPrompt);
+    const recipeData = await generateJson(client, settings.gemini_model, finalPrompt, { supabase, endpoint: 'extract' });
 
     // Store in cache (fire-and-forget)
     supabase.from('url_cache').upsert({ url_hash: urlHash, extracted_data: recipeData }).then(() => {}, () => {});

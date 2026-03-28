@@ -48,7 +48,7 @@ Return ONLY a JSON object with these exact keys (all values are numbers, per ser
 }`;
 
     const client = getGeminiClient(apiKey);
-    const nutrition = await generateJson(client, settings.gemini_model, prompt);
+    const nutrition = await generateJson(client, settings.gemini_model, prompt, { supabase, endpoint: 'nutrition', recipeId });
 
     await supabase.from('recipes').update({ nutrition }).eq('id', recipeId);
 

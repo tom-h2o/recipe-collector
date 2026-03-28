@@ -58,7 +58,7 @@ Select the recipes that best match the available ingredients. Prefer recipes whe
 Return ONLY a JSON array of recipe ID strings, nothing else. Example: ["uuid-1", "uuid-2"]`;
 
     const client = getGeminiClient(apiKey);
-    const suggestedIds = await generateJson<string[]>(client, settings.gemini_model, prompt);
+    const suggestedIds = await generateJson<string[]>(client, settings.gemini_model, prompt, { supabase, endpoint: 'suggest' });
     const validIds = Array.isArray(suggestedIds) ? suggestedIds : [];
 
     // Fetch full recipe data for matched IDs
