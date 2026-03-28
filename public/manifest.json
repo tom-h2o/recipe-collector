@@ -1,0 +1,18 @@
+{
+  "name": "Recipe Vault",
+  "short_name": "Recipe Vault",
+  "description": "Your personal AI-powered recipe collection",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#f97316",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,4 +1,5 @@
-import { Star, Users, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { Star, Users, Loader2, Clock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { parseIngredients } from '@/lib/recipeUtils';
 import type { Recipe } from '@/types';
@@ -14,6 +15,8 @@ interface Props {
 
 export function RecipeCard({ recipe, isProcessing, activeFilter, onOpen, onToggleFavourite, onFilterChange }: Props) {
   const parsed = parseIngredients(recipe.ingredients);
+  const [imgError, setImgError] = useState(false);
+  const totalTime = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
 
   return (
     <Card
@@ -21,11 +24,20 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, onOpen, onToggl
       className="cursor-pointer overflow-hidden flex flex-col group hover:shadow-2xl transition-all duration-300 border-zinc-200/60 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 rounded-2xl"
     >
       <div className="aspect-[4/3] w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative">
-        <img
-          src={recipe.image_url}
-          alt={recipe.title}
-          className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500"
-        />
+        {recipe.image_url && !imgError ? (
+          <img
+            src={recipe.image_url}
+            alt={recipe.title}
+            className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-100 to-orange-50 dark:from-orange-900/30 dark:to-zinc-800">
+            <span className="text-6xl font-black text-orange-300 dark:text-orange-700 select-none">
+              {recipe.title?.[0]?.toUpperCase() ?? '?'}
+            </span>
+          </div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-4">
           <span className="text-white text-sm font-semibold px-4 py-1.5 rounded-full border border-white/30 bg-white/20 backdrop-blur-sm">
             View Recipe
@@ -92,13 +104,18 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, onOpen, onToggl
       </CardContent>
 
       <CardFooter className="border-t border-zinc-100 dark:border-zinc-800/50 py-3 bg-zinc-50/50 dark:bg-zinc-900/50 flex justify-between items-center">
-        {recipe.servings ? (
-          <span className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500">
-            <Users className="w-3.5 h-3.5" /> Serves {recipe.servings}
-          </span>
-        ) : (
-          <span />
-        )}
+        <div className="flex items-center gap-3">
+          {recipe.servings ? (
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500">
+              <Users className="w-3.5 h-3.5" /> Serves {recipe.servings}
+            </span>
+          ) : null}
+          {totalTime > 0 && (
+            <span className="flex items-center gap-1 text-xs font-semibold text-zinc-500">
+              <Clock className="w-3.5 h-3.5" /> {totalTime}m
+            </span>
+          )}
+        </div>
         <p className="text-xs font-semibold text-zinc-400">
           {new Date(recipe.created_at).toLocaleDateString()}
         </p>

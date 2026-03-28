@@ -91,6 +91,8 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
       instructions,
       image_url: imageUrl || 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?q=80&w=600&auto=format&fit=crop',
       servings: servings ? parseInt(servings) : null,
+      prep_time_mins: editingRecipe?.prep_time_mins ?? null,
+      cook_time_mins: editingRecipe?.cook_time_mins ?? null,
     };
     try {
       await onSave(payload, editingRecipe?.id);

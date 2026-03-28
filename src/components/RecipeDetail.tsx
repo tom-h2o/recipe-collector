@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2 } from 'lucide-react';
+import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
+import { MEAL_TYPES } from '@/lib/constants';
 import type { Recipe } from '@/types';
 
 interface Props {
@@ -12,17 +13,47 @@ interface Props {
   onDelete: (r: Recipe) => void;
   onCook: () => void;
   onUpdateRecipe: (id: string, changes: Partial<Recipe>) => void;
+  onAddMealPlan?: (date: string, mealType: string, recipeId: string) => Promise<void>;
 }
 
-export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpdateRecipe }: Props) {
+export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpdateRecipe, onAddMealPlan }: Props) {
   const [scaledServings, setScaledServings] = useState(recipe?.servings || 1);
+  const [showAddPlan, setShowAddPlan] = useState(false);
+  const [planMeal, setPlanMeal] = useState<string>(MEAL_TYPES[2]);
+  const [isAddingToPlan, setIsAddingToPlan] = useState(false);
+
+  const planDates = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    return {
+      value: d.toISOString().split('T')[0],
+      label: i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
+    };
+  });
+  const [planDate, setPlanDate] = useState(planDates[0].value);
 
   if (!recipe) return null;
+
 
   const baseServings = recipe.servings || 1;
   const scale = scaledServings / baseServings;
   const parsed = parseIngredients(recipe.ingredients);
   const steps = recipe.instructions.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+  const totalTime = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
+
+  async function handleAddToPlan() {
+    if (!onAddMealPlan || !recipe) return;
+    setIsAddingToPlan(true);
+    try {
+      await onAddMealPlan(planDate, planMeal, recipe.id);
+      toast.success(`Added to ${planMeal} on ${planDates.find((d) => d.value === planDate)?.label}`);
+      setShowAddPlan(false);
+    } catch {
+      toast.error('Failed to add to meal plan.');
+    } finally {
+      setIsAddingToPlan(false);
+    }
+  }
 
   return (
     <Dialog open={!!recipe} onOpenChange={(open) => !open && onClose()}>
@@ -50,6 +81,13 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
                     className="p-2 rounded-full text-zinc-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
                     title="Print recipe"
                   ><Printer className="w-4 h-4" /></button>
+                  {onAddMealPlan && (
+                    <button
+                      onClick={() => setShowAddPlan((v) => !v)}
+                      className={`p-2 rounded-full transition-colors ${showAddPlan ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
+                      title="Add to meal plan"
+                    ><CalendarPlus className="w-4 h-4" /></button>
+                  )}
                   <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-1" />
                   <button
                     onClick={onCook}
@@ -87,6 +125,20 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
                     </span>
                   </div>
                 )}
+                {totalTime > 0 && (
+                  <div className="inline-flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+                    <Clock className="w-4 h-4" />
+                    {recipe.prep_time_mins != null && recipe.prep_time_mins > 0 && (
+                      <span>Prep {recipe.prep_time_mins}m</span>
+                    )}
+                    {recipe.prep_time_mins != null && recipe.prep_time_mins > 0 && recipe.cook_time_mins != null && recipe.cook_time_mins > 0 && (
+                      <span className="text-zinc-300 dark:text-zinc-700">·</span>
+                    )}
+                    {recipe.cook_time_mins != null && recipe.cook_time_mins > 0 && (
+                      <span>Cook {recipe.cook_time_mins}m</span>
+                    )}
+                  </div>
+                )}
                 <span className="text-sm text-zinc-400 font-medium">{parsed.length} ingredients</span>
               </div>
 
@@ -94,6 +146,36 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
                 <DialogDescription className="text-base text-zinc-600 dark:text-zinc-400 leading-relaxed pt-1">
                   {recipe.description}
                 </DialogDescription>
+              )}
+
+              {/* Add to plan form */}
+              {showAddPlan && onAddMealPlan && (
+                <div className="mt-2 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-2xl space-y-3">
+                  <p className="text-sm font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1.5"><CalendarPlus className="w-4 h-4" /> Add to meal plan</p>
+                  <div className="flex gap-2 flex-wrap">
+                    <select
+                      value={planDate}
+                      onChange={(e) => setPlanDate(e.target.value)}
+                      className="flex-1 min-w-[120px] text-sm rounded-xl border border-blue-200 dark:border-blue-800 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                    >
+                      {planDates.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+                    </select>
+                    <select
+                      value={planMeal}
+                      onChange={(e) => setPlanMeal(e.target.value)}
+                      className="flex-1 min-w-[100px] text-sm rounded-xl border border-blue-200 dark:border-blue-800 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                    >
+                      {MEAL_TYPES.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                    <button
+                      onClick={handleAddToPlan}
+                      disabled={isAddingToPlan}
+                      className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
+                    >
+                      {isAddingToPlan ? 'Adding…' : 'Add'}
+                    </button>
+                  </div>
+                </div>
               )}
             </DialogHeader>
 

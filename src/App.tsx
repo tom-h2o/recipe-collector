@@ -66,6 +66,18 @@ export default function App() {
     setIsFormOpen(true);
   }
 
+  // Keyboard shortcut: 'n' opens new recipe form
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key !== 'n') return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      openForm();
+    }
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, []);
+
   async function handleDelete() {
     if (!deleteTarget) return;
     try {
@@ -93,6 +105,7 @@ export default function App() {
         <Layout
           activeView={activeView}
           user={user}
+          recipeCount={recipes.length}
           onSetView={setActiveView}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenSuggest={() => setIsSuggestOpen(true)}
@@ -145,6 +158,7 @@ export default function App() {
           onDelete={setDeleteTarget}
           onCook={() => setIsCookMode(true)}
           onUpdateRecipe={updateRecipe}
+          onAddMealPlan={addMealPlan}
         />
 
         <CookMode

@@ -26,6 +26,8 @@ export interface Recipe {
   nutrition: Nutrition | null;
   rating: number | null;
   notes: string | null;
+  prep_time_mins: number | null;
+  cook_time_mins: number | null;
   user_id?: string | null;
 }
 

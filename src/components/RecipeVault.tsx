@@ -1,10 +1,10 @@
-import { useMemo } from 'react';
-import { Search, X, ChefHat } from 'lucide-react';
+import { useMemo, useEffect, useRef, useState } from 'react';
+import { Search, X, ChefHat, ArrowUpDown } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RecipeCard } from './RecipeCard';
 import { parseIngredients } from '@/lib/recipeUtils';
-import { FILTERS } from '@/lib/constants';
+import { FILTERS, SORT_OPTIONS, type SortOption } from '@/lib/constants';
 import type { Recipe } from '@/types';
 
 interface Props {
@@ -25,6 +25,21 @@ export function RecipeVault({
   recipes, loading, processingIds, searchQuery, activeFilter, hasMore,
   onSearchChange, onFilterChange, onLoadMore, onOpenRecipe, onToggleFavourite,
 }: Props) {
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [sortBy, setSortBy] = useState<SortOption>('newest');
+
+  // '/' keyboard shortcut focuses search
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key !== '/') return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      e.preventDefault();
+      searchRef.current?.focus();
+    }
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, []);
+
   const filteredRecipes = useMemo(() => {
     let result = recipes;
     if (searchQuery.trim()) {
@@ -41,30 +56,55 @@ export function RecipeVault({
     } else if (activeFilter) {
       result = result.filter((r) => r.tags?.includes(activeFilter));
     }
+
+    // sort
+    result = [...result];
+    switch (sortBy) {
+      case 'oldest': result.sort((a, b) => a.created_at.localeCompare(b.created_at)); break;
+      case 'a-z': result.sort((a, b) => a.title.localeCompare(b.title)); break;
+      case 'z-a': result.sort((a, b) => b.title.localeCompare(a.title)); break;
+      case 'rating': result.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)); break;
+      case 'favourites': result.sort((a, b) => Number(b.is_favourite) - Number(a.is_favourite)); break;
+      // 'newest' is already the default order from the server
+    }
+
     return result;
-  }, [recipes, searchQuery, activeFilter]);
+  }, [recipes, searchQuery, activeFilter, sortBy]);
 
   return (
     <>
-      {/* Search & Filter */}
+      {/* Search, Sort & Filter */}
       <div className="space-y-3">
-        <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search recipes, ingredients..."
-            className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400/60 transition shadow-sm"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => onSearchChange('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+            <input
+              ref={searchRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Search recipes, ingredients… (press / to focus)"
+              className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400/60 transition shadow-sm"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => onSearchChange('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          <div className="relative">
+            <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="pl-8 pr-3 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400/60 transition shadow-sm appearance-none cursor-pointer"
             >
-              <X className="w-4 h-4" />
-            </button>
-          )}
+              {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           {FILTERS.map((f) => (
@@ -103,7 +143,7 @@ export function RecipeVault({
           <div className="text-center py-32 bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-zinc-100 dark:border-zinc-800">
             <ChefHat className="w-20 h-20 mx-auto mb-6 text-zinc-300 dark:text-zinc-700" />
             <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">No recipes yet</p>
-            <p className="text-zinc-500 dark:text-zinc-400">Click "Add Recipe" to get started!</p>
+            <p className="text-zinc-500 dark:text-zinc-400">Click "Add Recipe" or press <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-xs font-mono">n</kbd> to get started!</p>
           </div>
         ) : filteredRecipes.length === 0 ? (
           <div className="text-center py-24 bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-zinc-100 dark:border-zinc-800">
