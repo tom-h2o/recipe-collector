@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy } from 'lucide-react';
+import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
@@ -20,6 +20,7 @@ interface Props {
 export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpdateRecipe, onAddMealPlan, onSaveScaled }: Props) {
   const [scaledServings, setScaledServings] = useState(recipe?.servings || 1);
   const [isSavingScaled, setIsSavingScaled] = useState(false);
+  const [showPhotoLightbox, setShowPhotoLightbox] = useState(false);
   const [showAddPlan, setShowAddPlan] = useState(false);
   const [planMeal, setPlanMeal] = useState<string>(MEAL_TYPES[2]);
   const [isAddingToPlan, setIsAddingToPlan] = useState(false);
@@ -105,6 +106,22 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
                   {recipe.title}
                 </DialogTitle>
                 <div className="flex items-center gap-1 shrink-0 pt-1">
+                  {recipe.source_url && (
+                    <a
+                      href={recipe.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 rounded-full text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                      title={`View original: ${recipe.source_name || recipe.source_url}`}
+                    ><Globe className="w-4 h-4" /></a>
+                  )}
+                  {!recipe.source_url && recipe.image_url && (
+                    <button
+                      onClick={() => setShowPhotoLightbox(true)}
+                      className="p-2 rounded-full text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                      title="View original photo"
+                    ><ImageIcon className="w-4 h-4" /></button>
+                  )}
                   <button
                     onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/recipe/${recipe.id}`); toast.success('Shared recipe link copied!'); }}
                     className="p-2 rounded-full text-zinc-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
@@ -332,6 +349,37 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
           </div>
         </div>
       </DialogContent>
+
+      {/* Photo lightbox — full-screen overlay for photo-extracted recipes */}
+      {showPhotoLightbox && recipe.image_url && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
+          onClick={() => setShowPhotoLightbox(false)}
+        >
+          <button
+            onClick={() => setShowPhotoLightbox(false)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            title="Close"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img
+            src={recipe.image_url}
+            alt={recipe.title}
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <a
+            href={recipe.image_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute bottom-4 right-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold rounded-full transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ExternalLink className="w-3.5 h-3.5" /> Open full size
+          </a>
+        </div>
+      )}
     </Dialog>
   );
 }
