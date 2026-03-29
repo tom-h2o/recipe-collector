@@ -21,12 +21,13 @@ export function Layout({ activeView, user, recipeCount, onSetView, onOpenSetting
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 print:hidden">
-      <header className="relative flex items-center justify-between border-b pb-6 border-zinc-200 dark:border-zinc-800">
+      <header className="grid grid-cols-[auto_1fr_auto] items-center gap-4 border-b pb-6 border-zinc-200 dark:border-zinc-800">
         <div className="flex items-center gap-3 text-zinc-900 dark:text-zinc-50">
           <ChefHat className="w-8 h-8 md:w-10 md:h-10 text-orange-500" />
           <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight">Recipe Vault</h1>
         </div>
-        <div className="hidden lg:flex bg-zinc-200/50 dark:bg-zinc-800/50 rounded-full p-1 absolute left-1/2 -translate-x-1/2">
+        <div className="hidden lg:flex justify-center">
+        <div className="flex bg-zinc-200/50 dark:bg-zinc-800/50 rounded-full p-1">
           {(['vault', 'planner', 'shopping'] as const).map((view) => (
             <button
               key={view}
@@ -46,7 +47,8 @@ export function Layout({ activeView, user, recipeCount, onSetView, onOpenSetting
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
+        </div>
+        <div className="flex items-center gap-2 justify-end">
           {activeView === 'vault' && (
             <button
               onClick={onOpenSuggest}
