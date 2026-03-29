@@ -27,7 +27,7 @@ export default function App() {
   const { user, signOut } = useAuth();
   const { recipes, loading, processingIds, hasMore, fetchRecipes, loadMore, saveRecipe, deleteRecipe, toggleFavourite, updateRecipe } = useRecipes(user?.id);
   const { mealPlans, fetchMealPlans, addMealPlan, removeMealPlan } = useMealPlans(user?.id);
-  const { shoppingList, isGeneratingShopping, fetchShoppingList, generateShoppingList, toggleItem, deleteItem } = useShoppingList(user?.id);
+  const { shoppingList, isGeneratingShopping, fetchShoppingList, generateShoppingList, toggleItem, deleteItem, clearAll } = useShoppingList(user?.id);
   const { settings, isSavingSettings, fetchSettings, saveSettings } = useSettings(user?.id);
 
   const [activeView, setActiveView] = useState<ActiveView>('vault');
@@ -152,6 +152,7 @@ export default function App() {
               onGenerate={generateShoppingList}
               onToggleItem={toggleItem}
               onDeleteItem={deleteItem}
+              onClearAll={clearAll}
             />
           )}
         </Layout>

@@ -1,4 +1,4 @@
-import { ShoppingCart, Wand2, X, AlertTriangle } from 'lucide-react';
+import { ShoppingCart, Wand2, X, AlertTriangle, Trash2 } from 'lucide-react';
 import type { ShoppingItem, MealPlan } from '@/types';
 
 interface Props {
@@ -8,9 +8,10 @@ interface Props {
   onGenerate: (mealPlans: MealPlan[]) => void;
   onToggleItem: (id: string, checked: boolean) => void;
   onDeleteItem: (id: string) => void;
+  onClearAll: () => void;
 }
 
-export function ShoppingList({ shoppingList, isGenerating, mealPlans, onGenerate, onToggleItem, onDeleteItem }: Props) {
+export function ShoppingList({ shoppingList, isGenerating, mealPlans, onGenerate, onToggleItem, onDeleteItem, onClearAll }: Props) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const nextWeek = new Date(today);
@@ -37,14 +38,25 @@ export function ShoppingList({ shoppingList, isGenerating, mealPlans, onGenerate
         <h2 className="text-2xl font-bold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
           <ShoppingCart className="w-6 h-6 text-orange-500" /> Smart Shopping List
         </h2>
-        <button
-          onClick={() => onGenerate(mealPlans)}
-          disabled={isGenerating}
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold min-h-[40px] px-4 rounded-xl shadow-sm transition-transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Wand2 className="w-4 h-4" />
-          {isGenerating ? 'Generating...' : 'Generate from Next 7 Days'}
-        </button>
+        <div className="flex gap-2">
+          {shoppingList.length > 0 && (
+            <button
+              onClick={onClearAll}
+              className="flex items-center gap-2 bg-zinc-100 hover:bg-red-50 dark:bg-zinc-800 dark:hover:bg-red-900/30 text-zinc-500 hover:text-red-600 dark:hover:text-red-400 text-sm font-bold min-h-[40px] px-4 rounded-xl transition-colors border border-zinc-200 dark:border-zinc-700"
+              title="Clear shopping list"
+            >
+              <Trash2 className="w-4 h-4" /> Clear
+            </button>
+          )}
+          <button
+            onClick={() => onGenerate(mealPlans)}
+            disabled={isGenerating}
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold min-h-[40px] px-4 rounded-xl shadow-sm transition-transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Wand2 className="w-4 h-4" />
+            {isGenerating ? 'Generating...' : 'Generate from Next 7 Days'}
+          </button>
+        </div>
       </div>
 
       {isStale && (

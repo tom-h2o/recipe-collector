@@ -80,6 +80,12 @@ export function useShoppingList(userId?: string | null) {
     setShoppingList((prev) => prev.filter((i) => i.id !== id));
   }, []);
 
+  const clearAll = useCallback(async () => {
+    if (!userId) return;
+    await supabase.from('shopping_list').delete().eq('user_id', userId);
+    setShoppingList([]);
+  }, [userId]);
+
   return {
     shoppingList,
     isGeneratingShopping,
@@ -87,5 +93,6 @@ export function useShoppingList(userId?: string | null) {
     generateShoppingList,
     toggleItem,
     deleteItem,
+    clearAll,
   };
 }
