@@ -47,12 +47,14 @@ export function Layout({ activeView, user, recipeCount, onSetView, onOpenSetting
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={onOpenSuggest}
-            className="inline-flex items-center justify-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-300 font-bold rounded-full px-5 shadow-sm transition-transform hover:scale-105 h-10 text-sm border border-purple-200 dark:border-purple-800/50"
-          >
-            <Wand2 className="w-4 h-4" /> Suggest
-          </button>
+          {activeView === 'vault' && (
+            <button
+              onClick={onOpenSuggest}
+              className="inline-flex items-center justify-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-300 font-bold rounded-full px-5 shadow-sm transition-transform hover:scale-105 h-10 text-sm border border-purple-200 dark:border-purple-800/50"
+            >
+              <Wand2 className="w-4 h-4" /> Suggest
+            </button>
+          )}
           <button
             onClick={toggle}
             className="p-2.5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"

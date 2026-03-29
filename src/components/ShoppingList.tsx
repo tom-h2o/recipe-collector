@@ -30,7 +30,7 @@ export function ShoppingList({ shoppingList, isGenerating, mealPlans, onGenerate
         <button
           onClick={() => onGenerate(mealPlans)}
           disabled={isGenerating}
-          className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold min-h-[40px] px-4 rounded-xl shadow-sm transition-transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold min-h-[40px] px-4 rounded-xl shadow-sm transition-transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Wand2 className="w-4 h-4" />
           {isGenerating ? 'Generating...' : 'Generate from Next 7 Days'}
