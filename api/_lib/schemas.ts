@@ -33,6 +33,7 @@ export const extractPhotoSchema = z.object({
 });
 
 export const scaleSchema = z.object({
+  recipeId: z.string().uuid().optional(),
   ingredients: z.array(
     z.object({
       amount: z.string(),

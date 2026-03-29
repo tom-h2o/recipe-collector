@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X } from 'lucide-react';
+import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
@@ -18,7 +18,10 @@ interface Props {
 }
 
 export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpdateRecipe, onAddMealPlan, onSaveScaled }: Props) {
-  const [scaledServings, setScaledServings] = useState(recipe?.servings || 1);
+  const baseServings0 = recipe?.original_servings || recipe?.servings || 1;
+  const [scaledServings, setScaledServings] = useState(baseServings0);
+  const [aiIngredients, setAiIngredients] = useState<{ amount: string; name: string; details: string }[] | null>(null);
+  const [isAiScaling, setIsAiScaling] = useState(false);
   const [isSavingScaled, setIsSavingScaled] = useState(false);
   const [showPhotoLightbox, setShowPhotoLightbox] = useState(false);
   const [showAddPlan, setShowAddPlan] = useState(false);
@@ -37,41 +40,61 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
 
   if (!recipe) return null;
 
-  // original_servings is the fixed reference set at import — scale is always relative to it
   const baseServings = recipe.original_servings || recipe.servings || 1;
   const isScaled = scaledServings !== baseServings;
+  const scale = scaledServings / baseServings;
 
-  async function handleSaveScaled() {
-    if (!onSaveScaled || !recipe) return;
-    setIsSavingScaled(true);
+  function changeServings(n: number) {
+    setScaledServings(n);
+    setAiIngredients(null); // math scaling until AI Scale is clicked again
+  }
+
+  async function handleAiScale() {
+    if (!recipe) return;
+    setIsAiScaling(true);
     try {
       const res = await fetch('/api/scale', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          recipeId: recipe.id,
           ingredients: parsed,
           currentServings: baseServings,
           targetServings: scaledServings,
         }),
       });
       if (!res.ok) throw new Error('Scale request failed');
-      const { ingredients: scaledIngredients } = await res.json() as { ingredients: Recipe['ingredients'] };
+      const data = await res.json() as { ingredients: { amount: string; name: string; details: string }[]; cached: boolean };
+      setAiIngredients(data.ingredients);
+      if (!data.cached) toast.success('AI rounded the quantities — looking good!');
+    } catch {
+      toast.error('AI scaling failed.');
+    } finally {
+      setIsAiScaling(false);
+    }
+  }
+
+  async function handleSaveScaled() {
+    if (!onSaveScaled || !recipe || !aiIngredients) return;
+    setIsSavingScaled(true);
+    try {
+      // Explicitly omit DB-managed fields to prevent insert conflicts
+      const { id: _id, created_at: _ca, tags: _tags, is_favourite: _fav, nutrition: _nut, rating: _r, notes: _n, user_id: _u, ...rest } = recipe;
+      void _id; void _ca; void _tags; void _fav; void _nut; void _r; void _n; void _u;
       await onSaveScaled({
-        ...recipe,
+        ...rest,
         title: `${recipe.title} (${scaledServings} servings)`,
-        ingredients: scaledIngredients,
+        ingredients: aiIngredients,
         servings: scaledServings,
         original_servings: scaledServings,
       });
-      toast.success(`Saved "${recipe.title} (${scaledServings} servings)" as a new recipe!`);
+      toast.success(`Saved as "${recipe.title} (${scaledServings} servings)"`);
     } catch {
       toast.error('Failed to save scaled recipe.');
     } finally {
       setIsSavingScaled(false);
     }
   }
-
-  const scale = scaledServings / baseServings;
   const parsed = parseIngredients(recipe.ingredients);
   const steps = recipe.instructions.split(/\n+/).map((s) => s.trim()).filter(Boolean);
   const totalTime = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
@@ -163,12 +186,12 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
                   <div className="inline-flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/50 rounded-full px-3 py-1.5">
                     <Users className="w-4 h-4 text-orange-500" />
                     <button
-                      onClick={() => setScaledServings((s) => Math.max(1, s - 1))}
+                      onClick={() => changeServings(Math.max(1, scaledServings - 1))}
                       className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-600 hover:bg-orange-200 flex items-center justify-center font-bold transition-colors"
                     ><Minus className="w-3 h-3" /></button>
                     <span className="text-sm font-bold text-orange-600 dark:text-orange-400 min-w-[1.5rem] text-center">{scaledServings}</span>
                     <button
-                      onClick={() => setScaledServings((s) => s + 1)}
+                      onClick={() => changeServings(scaledServings + 1)}
                       className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-600 hover:bg-orange-200 flex items-center justify-center font-bold transition-colors"
                     ><Plus className="w-3 h-3" /></button>
                     <span className="text-xs font-semibold text-orange-500 ml-1">
@@ -176,12 +199,23 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
                     </span>
                   </div>
                 )}
-                {isScaled && onSaveScaled && (
+                {isScaled && !aiIngredients && (
+                  <button
+                    onClick={handleAiScale}
+                    disabled={isAiScaling}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white text-xs font-bold rounded-full transition-colors"
+                    title="Let AI round the quantities intelligently (no 1.5 eggs)"
+                  >
+                    {isAiScaling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    {isAiScaling ? 'Scaling…' : 'AI Scale'}
+                  </button>
+                )}
+                {aiIngredients && onSaveScaled && (
                   <button
                     onClick={handleSaveScaled}
                     disabled={isSavingScaled}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs font-bold rounded-full transition-colors"
-                    title="Save scaled quantities as a new recipe"
+                    title="Save as a new recipe with these AI-rounded quantities"
                   >
                     <Copy className="w-3.5 h-3.5" />
                     {isSavingScaled ? 'Saving…' : 'Save as new recipe'}
@@ -260,17 +294,21 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
                 <div className="bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 overflow-hidden">
                   <table className="w-full text-sm">
                     <tbody>
-                      {parsed.map((ing, i) => (
+                      {parsed.map((ing, i) => {
+                        const aiIng = aiIngredients?.[i];
+                        const displayAmount = aiIng ? aiIng.amount : (scaleAmount(ing.amount, scale) || '—');
+                        return (
                         <tr key={i} className={`${i % 2 === 0 ? 'bg-zinc-50 dark:bg-zinc-900' : 'bg-white dark:bg-zinc-900/50'} border-b border-zinc-100 dark:border-zinc-800 last:border-0`}>
                           <td className="py-2.5 px-4 font-semibold text-orange-600 dark:text-orange-400 whitespace-nowrap w-1/3">
-                            {scaleAmount(ing.amount, scale) || '—'}
+                            {displayAmount}
                           </td>
                           <td className="py-2.5 px-4 text-zinc-800 dark:text-zinc-200">
                             {ing.name}
                             {ing.details ? <span className="text-zinc-500 dark:text-zinc-400">, {ing.details}</span> : ''}
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
