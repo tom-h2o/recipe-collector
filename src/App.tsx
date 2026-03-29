@@ -164,6 +164,7 @@ export default function App() {
           onCook={() => setIsCookMode(true)}
           onUpdateRecipe={handleUpdateRecipe}
           onAddMealPlan={addMealPlan}
+          onSaveScaled={saveRecipe}
         />
 
         <CookMode

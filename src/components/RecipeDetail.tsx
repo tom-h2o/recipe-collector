@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink } from 'lucide-react';
+import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
@@ -14,10 +14,12 @@ interface Props {
   onCook: () => void;
   onUpdateRecipe: (id: string, changes: Partial<Recipe>) => void;
   onAddMealPlan?: (date: string, mealType: string, recipeId: string) => Promise<void>;
+  onSaveScaled?: (payload: Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>) => Promise<void>;
 }
 
-export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpdateRecipe, onAddMealPlan }: Props) {
+export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpdateRecipe, onAddMealPlan, onSaveScaled }: Props) {
   const [scaledServings, setScaledServings] = useState(recipe?.servings || 1);
+  const [isSavingScaled, setIsSavingScaled] = useState(false);
   const [showAddPlan, setShowAddPlan] = useState(false);
   const [planMeal, setPlanMeal] = useState<string>(MEAL_TYPES[2]);
   const [isAddingToPlan, setIsAddingToPlan] = useState(false);
@@ -34,8 +36,40 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
 
   if (!recipe) return null;
 
+  // original_servings is the fixed reference set at import — scale is always relative to it
+  const baseServings = recipe.original_servings || recipe.servings || 1;
+  const isScaled = scaledServings !== baseServings;
 
-  const baseServings = recipe.servings || 1;
+  async function handleSaveScaled() {
+    if (!onSaveScaled || !recipe) return;
+    setIsSavingScaled(true);
+    try {
+      const res = await fetch('/api/scale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ingredients: parsed,
+          currentServings: baseServings,
+          targetServings: scaledServings,
+        }),
+      });
+      if (!res.ok) throw new Error('Scale request failed');
+      const { ingredients: scaledIngredients } = await res.json() as { ingredients: Recipe['ingredients'] };
+      await onSaveScaled({
+        ...recipe,
+        title: `${recipe.title} (${scaledServings} servings)`,
+        ingredients: scaledIngredients,
+        servings: scaledServings,
+        original_servings: scaledServings,
+      });
+      toast.success(`Saved "${recipe.title} (${scaledServings} servings)" as a new recipe!`);
+    } catch {
+      toast.error('Failed to save scaled recipe.');
+    } finally {
+      setIsSavingScaled(false);
+    }
+  }
+
   const scale = scaledServings / baseServings;
   const parsed = parseIngredients(recipe.ingredients);
   const steps = recipe.instructions.split(/\n+/).map((s) => s.trim()).filter(Boolean);
@@ -121,9 +155,20 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
                       className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-600 hover:bg-orange-200 flex items-center justify-center font-bold transition-colors"
                     ><Plus className="w-3 h-3" /></button>
                     <span className="text-xs font-semibold text-orange-500 ml-1">
-                      {scaledServings === recipe.servings ? 'servings' : `servings (base: ${recipe.servings})`}
+                      {scaledServings === baseServings ? 'servings' : `servings (original: ${baseServings})`}
                     </span>
                   </div>
+                )}
+                {isScaled && onSaveScaled && (
+                  <button
+                    onClick={handleSaveScaled}
+                    disabled={isSavingScaled}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs font-bold rounded-full transition-colors"
+                    title="Save scaled quantities as a new recipe"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    {isSavingScaled ? 'Saving…' : 'Save as new recipe'}
+                  </button>
                 )}
                 {totalTime > 0 && (
                   <div className="inline-flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">

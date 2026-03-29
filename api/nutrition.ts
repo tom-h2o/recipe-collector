@@ -5,6 +5,7 @@ import { getServerSupabase, getSettings, resolveApiKey } from './_lib/supabase.j
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { nutritionSchema } from './_lib/schemas.js';
+import { makeCacheKey, getCached, setCached } from './_lib/cache.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
@@ -47,10 +48,19 @@ Return ONLY a JSON object with these exact keys (all values are numbers, per ser
   "fiber_g": 6
 }`;
 
+    // Cache key based on ingredients + servings — deterministic, 30-day TTL
+    const cacheKey = makeCacheKey('nutrition', { ingredientText, servings: servings ?? null });
+    const cachedNutrition = await getCached(supabase, cacheKey);
+    if (cachedNutrition) {
+      await supabase.from('recipes').update({ nutrition: cachedNutrition }).eq('id', recipeId);
+      return res.status(200).json({ nutrition: cachedNutrition });
+    }
+
     const client = getGeminiClient(apiKey);
     const nutrition = await generateJson(client, settings.gemini_model, prompt, { supabase, endpoint: 'nutrition', recipeId });
 
     await supabase.from('recipes').update({ nutrition }).eq('id', recipeId);
+    setCached(supabase, cacheKey, 'nutrition', nutrition, 24 * 30); // 30 days
 
     return res.status(200).json({ nutrition });
   } catch (err: unknown) {

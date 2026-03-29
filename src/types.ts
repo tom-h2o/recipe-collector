@@ -30,6 +30,7 @@ export interface Recipe {
   cook_time_mins: number | null;
   source_url: string | null;
   source_name: string | null;
+  original_servings: number | null;
   user_id?: string | null;
 }
 

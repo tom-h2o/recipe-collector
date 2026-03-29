@@ -31,3 +31,20 @@ export const extractPhotoSchema = z.object({
   imageBase64: z.string().min(1, 'imageBase64 is required'),
   mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
 });
+
+export const scaleSchema = z.object({
+  ingredients: z.array(
+    z.object({
+      amount: z.string(),
+      name: z.string().min(1),
+      details: z.string().optional().default(''),
+    }),
+  ).min(1, 'At least one ingredient is required'),
+  currentServings: z.number().int().positive(),
+  targetServings: z.number().int().positive(),
+});
+
+export const findImageSchema = z.object({
+  title: z.string().min(1, 'title is required'),
+  description: z.string().optional(),
+});

@@ -5,6 +5,7 @@ import { getServerSupabase, getSettings, resolveApiKey } from './_lib/supabase.j
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { suggestSchema } from './_lib/schemas.js';
+import { makeCacheKey, getCached, setCached } from './_lib/cache.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
@@ -57,9 +58,19 @@ Select the recipes that best match the available ingredients. Prefer recipes whe
 
 Return ONLY a JSON array of recipe ID strings, nothing else. Example: ["uuid-1", "uuid-2"]`;
 
-    const client = getGeminiClient(apiKey);
-    const suggestedIds = await generateJson<string[]>(client, settings.gemini_model, prompt, { supabase, endpoint: 'suggest' });
-    const validIds = Array.isArray(suggestedIds) ? suggestedIds : [];
+    // Short 1-hour TTL — results depend on the recipe library which changes over time
+    const cacheKey = makeCacheKey('suggest', userIngredients);
+    const cachedIds = await getCached<string[]>(supabase, cacheKey);
+
+    let validIds: string[];
+    if (cachedIds) {
+      validIds = cachedIds;
+    } else {
+      const client = getGeminiClient(apiKey);
+      const suggestedIds = await generateJson<string[]>(client, settings.gemini_model, prompt, { supabase, endpoint: 'suggest' });
+      validIds = Array.isArray(suggestedIds) ? suggestedIds : [];
+      setCached(supabase, cacheKey, 'suggest', validIds, 1);
+    }
 
     // Fetch full recipe data for matched IDs
     const { data: matchedRecipes } = await supabase

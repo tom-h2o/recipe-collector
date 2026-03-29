@@ -5,6 +5,7 @@ import { getServerSupabase, getSettings, resolveApiKey } from './_lib/supabase.j
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { shoppingSchema } from './_lib/schemas.js';
+import { makeCacheKey, getCached, setCached } from './_lib/cache.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
@@ -39,8 +40,16 @@ Return ONLY a JSON array of objects with the following structure, and nothing el
   }
 ]`;
 
+    // 24-hour TTL — same ingredient list should produce the same grouping
+    const cacheKey = makeCacheKey('shopping', ingredients);
+    const cachedList = await getCached(supabase, cacheKey);
+    if (cachedList) {
+      return res.status(200).json({ list: cachedList });
+    }
+
     const client = getGeminiClient(apiKey);
     const list = await generateJson(client, settings.gemini_model, prompt, { supabase, endpoint: 'shopping' });
+    setCached(supabase, cacheKey, 'shopping', list, 24);
     return res.status(200).json({ list });
   } catch (err: unknown) {
     if (err instanceof ZodError) {

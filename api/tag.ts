@@ -5,6 +5,7 @@ import { getServerSupabase, getSettings, resolveApiKey } from './_lib/supabase.j
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { tagSchema } from './_lib/schemas.js';
+import { makeCacheKey, getCached, setCached } from './_lib/cache.js';
 
 const AVAILABLE_TAGS = [
   'Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free',
@@ -52,11 +53,20 @@ Description: ${description || ''}
 Ingredients: ${ingredientText}
 Instructions: ${(instructions || '').substring(0, 500)}`;
 
+    // Cache key based on recipe content — deterministic, 30-day TTL
+    const cacheKey = makeCacheKey('tag', { title, description: description ?? '', ingredientText, instructions: (instructions ?? '').substring(0, 500) });
+    const cachedTags = await getCached<string[]>(supabase, cacheKey);
+    if (cachedTags) {
+      await supabase.from('recipes').update({ tags: cachedTags }).eq('id', recipeId);
+      return res.status(200).json({ tags: cachedTags });
+    }
+
     const client = getGeminiClient(apiKey);
     const tags = await generateJson<string[]>(client, settings.gemini_model, prompt, { supabase, endpoint: 'tag', recipeId });
     const validTags = Array.isArray(tags) ? tags.filter((t) => AVAILABLE_TAGS.includes(t)) : [];
 
     await supabase.from('recipes').update({ tags: validTags }).eq('id', recipeId);
+    setCached(supabase, cacheKey, 'tag', validTags, 24 * 30); // 30 days
 
     return res.status(200).json({ tags: validTags });
   } catch (err: unknown) {

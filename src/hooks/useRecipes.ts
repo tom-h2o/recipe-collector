@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { PAGE_SIZE } from '@/lib/constants';
 import type { Recipe } from '@/types';
 
-type RecipePayload = Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>;
+export type RecipePayload = Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>;
 
 export function useRecipes(userId?: string | null) {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -82,7 +82,9 @@ export function useRecipes(userId?: string | null) {
         if (error) throw error;
         setRecipes((prev) => prev.map((r) => (r.id === editingId ? { ...r, ...payload } : r)));
       } else {
-        const insertPayload = userId ? { ...payload, user_id: userId } : payload;
+        // original_servings is fixed at import time — always mirrors servings on first save
+        const withOriginal = { ...payload, original_servings: payload.original_servings ?? payload.servings };
+        const insertPayload = userId ? { ...withOriginal, user_id: userId } : withOriginal;
         const { error } = await supabase.from('recipes').insert([insertPayload]);
         if (error) throw error;
 
@@ -96,6 +98,25 @@ export function useRecipes(userId?: string | null) {
         if (newRow?.id) {
           setRecipes((prev) => [newRow as Recipe, ...prev]);
           startPolling(newRow.id);
+
+          // Auto-find a cover image when none was provided
+          if (!payload.image_url) {
+            const savedId = newRow.id;
+            fetch('/api/find-image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ title: payload.title, description: payload.description }),
+            })
+              .then((r) => r.json())
+              .then(({ imageUrl }: { imageUrl: string }) => {
+                if (imageUrl) {
+                  supabase.from('recipes').update({ image_url: imageUrl }).eq('id', savedId).then(() => {}, () => {});
+                  setRecipes((prev) => prev.map((r) => r.id === savedId ? { ...r, image_url: imageUrl } : r));
+                }
+              })
+              .catch(console.warn);
+          }
+
           fetch('/api/tag', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
