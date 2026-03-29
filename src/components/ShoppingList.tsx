@@ -1,4 +1,4 @@
-import { ShoppingCart, Wand2, X } from 'lucide-react';
+import { ShoppingCart, Wand2, X, AlertTriangle } from 'lucide-react';
 import type { ShoppingItem, MealPlan } from '@/types';
 
 interface Props {
@@ -11,6 +11,16 @@ interface Props {
 }
 
 export function ShoppingList({ shoppingList, isGenerating, mealPlans, onGenerate, onToggleItem, onDeleteItem }: Props) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const nextWeek = new Date(today);
+  nextWeek.setDate(today.getDate() + 7);
+  const hasUpcomingMeals = mealPlans.some((m) => {
+    const d = new Date(m.date);
+    return d >= today && d <= nextWeek;
+  });
+  const isStale = shoppingList.length > 0 && !hasUpcomingMeals;
+
   const grouped = shoppingList.reduce(
     (acc, curr) => {
       const cat = curr.category || 'Other';
@@ -36,6 +46,16 @@ export function ShoppingList({ shoppingList, isGenerating, mealPlans, onGenerate
           {isGenerating ? 'Generating...' : 'Generate from Next 7 Days'}
         </button>
       </div>
+
+      {isStale && (
+        <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-2xl text-sm">
+          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-semibold text-amber-800 dark:text-amber-300">No meals planned for the next 7 days.</span>
+            <span className="text-amber-700 dark:text-amber-400"> This list was generated from a previous meal plan and may no longer be accurate. Plan your meals and regenerate to update it.</span>
+          </div>
+        </div>
+      )}
 
       {shoppingList.length === 0 ? (
         <div className="text-center py-24 bg-white dark:bg-zinc-900/50 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-sm">
