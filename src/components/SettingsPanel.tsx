@@ -73,7 +73,7 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
                     <SelectItem value="2">Use GEMINI_API_KEY_2</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-zinc-400">Select which environment variable the server functions should use for Gemini processing.</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">Select which environment variable the server functions should use for Gemini processing.</p>
               </div>
             </div>
 
@@ -85,7 +85,7 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
                   {MODELS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-zinc-400">Flash is fastest; Pro is most accurate for complex pages.</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">Flash is fastest; Pro is most accurate for complex pages.</p>
             </div>
 
             <div className="space-y-2">
@@ -95,7 +95,7 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
                 onChange={(e) => setLocal((p) => ({ ...p, gemini_prompt: e.target.value }))}
                 className="min-h-[300px] font-mono text-xs"
               />
-              <p className="text-xs text-zinc-400">This is the prompt sent to Gemini. The webpage content is appended automatically.</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">This is the prompt sent to Gemini. The webpage content is appended automatically.</p>
             </div>
 
             <div className="flex gap-3 pt-2">
