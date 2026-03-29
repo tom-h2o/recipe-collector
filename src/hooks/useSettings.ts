@@ -13,14 +13,13 @@ export function useSettings(userId?: string | null) {
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   const fetchSettings = useCallback(async () => {
-    // Try per-user settings first, fall back to legacy global row (id=1)
-    const query = supabase
-      .from('settings')
-      .select('gemini_model, gemini_prompt, active_api_key');
+    if (!userId) return; // No user — keep code defaults, API uses server-side settings
 
-    const { data } = userId
-      ? await query.eq('user_id', userId).single()
-      : await query.eq('id', 1).single();
+    const { data } = await supabase
+      .from('settings')
+      .select('gemini_model, gemini_prompt, active_api_key')
+      .eq('user_id', userId)
+      .single();
 
     if (data) {
       setSettings({
@@ -29,14 +28,18 @@ export function useSettings(userId?: string | null) {
         active_api_key: (data.active_api_key as 1 | 2) || 1,
       });
     }
+    // If no row exists yet, state stays at code defaults — saved on first explicit save
   }, [userId]);
 
   const saveSettings = useCallback(
     async (updated: AppSettings) => {
       setIsSavingSettings(true);
-      const payload = userId
-        ? { user_id: userId, gemini_model: updated.gemini_model, gemini_prompt: updated.gemini_prompt, active_api_key: updated.active_api_key }
-        : { id: 1, gemini_model: updated.gemini_model, gemini_prompt: updated.gemini_prompt, active_api_key: updated.active_api_key };
+      if (!userId) {
+        toast.error('You must be signed in to save settings.');
+        setIsSavingSettings(false);
+        return;
+      }
+      const payload = { user_id: userId, gemini_model: updated.gemini_model, gemini_prompt: updated.gemini_prompt, active_api_key: updated.active_api_key };
 
       const { error } = await supabase.from('settings').upsert(payload);
       if (!error) {
