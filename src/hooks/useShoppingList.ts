@@ -9,12 +9,17 @@ export function useShoppingList(userId?: string | null) {
   const [isGeneratingShopping, setIsGeneratingShopping] = useState(false);
 
   const fetchShoppingList = useCallback(async () => {
+    if (!userId) {
+      setShoppingList([]);
+      return;
+    }
     const { data } = await supabase
       .from('shopping_list')
       .select('*')
+      .eq('user_id', userId)
       .order('category', { ascending: true });
     if (data) setShoppingList(data as ShoppingItem[]);
-  }, []);
+  }, [userId]);
 
   const generateShoppingList = useCallback(async (mealPlans: MealPlan[]) => {
     setIsGeneratingShopping(true);
@@ -43,7 +48,7 @@ export function useShoppingList(userId?: string | null) {
       await supabase
         .from('shopping_list')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
+        .eq('user_id', userId);
 
       const inserts = (data.list as { category: string; items: string[] }[]).flatMap((group) =>
         group.items.map((item) => ({
