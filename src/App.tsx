@@ -78,6 +78,11 @@ export default function App() {
     return () => document.removeEventListener('keydown', handleKey);
   }, []);
 
+  async function handleUpdateRecipe(id: string, changes: Partial<Recipe>) {
+    await updateRecipe(id, changes);
+    setSelectedRecipe((prev) => prev?.id === id ? { ...prev, ...changes } : prev);
+  }
+
   async function handleDelete() {
     if (!deleteTarget) return;
     try {
@@ -157,7 +162,7 @@ export default function App() {
           onEdit={(r) => openForm(r)}
           onDelete={setDeleteTarget}
           onCook={() => setIsCookMode(true)}
-          onUpdateRecipe={updateRecipe}
+          onUpdateRecipe={handleUpdateRecipe}
           onAddMealPlan={addMealPlan}
         />
 
