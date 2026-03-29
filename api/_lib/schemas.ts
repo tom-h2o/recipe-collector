@@ -26,3 +26,8 @@ export const suggestSchema = z.object({
 export const shoppingSchema = z.object({
   ingredients: z.array(z.string()).min(1, 'At least one ingredient is required'),
 });
+
+export const extractPhotoSchema = z.object({
+  imageBase64: z.string().min(1, 'imageBase64 is required'),
+  mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
+});

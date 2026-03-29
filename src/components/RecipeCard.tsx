@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Star, Users, Loader2, Clock } from 'lucide-react';
+import { Star, Users, Loader2, Clock, ExternalLink } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { parseIngredients } from '@/lib/recipeUtils';
 import type { Recipe } from '@/types';
@@ -116,9 +116,17 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, onOpen, onToggl
             </span>
           )}
         </div>
-        <p className="text-xs font-semibold text-zinc-400">
-          {new Date(recipe.created_at).toLocaleDateString()}
-        </p>
+        <div className="flex items-center gap-2">
+          {recipe.source_name && (
+            <span className="flex items-center gap-1 text-[10px] font-semibold text-zinc-400 max-w-[100px] truncate">
+              <ExternalLink className="w-3 h-3 shrink-0" />
+              {recipe.source_name}
+            </span>
+          )}
+          <p className="text-xs font-semibold text-zinc-400">
+            {new Date(recipe.created_at).toLocaleDateString()}
+          </p>
+        </div>
       </CardFooter>
     </Card>
   );

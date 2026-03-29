@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus } from 'lucide-react';
+import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
@@ -140,6 +140,17 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
                   </div>
                 )}
                 <span className="text-sm text-zinc-400 font-medium">{parsed.length} ingredients</span>
+                {(recipe.source_name || recipe.source_url) && (
+                  recipe.source_url
+                    ? <a href={recipe.source_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-orange-500 transition-colors">
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        {recipe.source_name || new URL(recipe.source_url).hostname.replace(/^www\./, '')}
+                      </a>
+                    : <span className="inline-flex items-center gap-1.5 text-sm text-zinc-400">
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        {recipe.source_name}
+                      </span>
+                )}
               </div>
 
               {recipe.description && (

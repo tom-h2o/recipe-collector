@@ -28,6 +28,8 @@ export interface Recipe {
   notes: string | null;
   prep_time_mins: number | null;
   cook_time_mins: number | null;
+  source_url: string | null;
+  source_name: string | null;
   user_id?: string | null;
 }
 
