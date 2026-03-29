@@ -31,7 +31,20 @@ export interface Recipe {
   source_url: string | null;
   source_name: string | null;
   original_servings?: number | null;
+  original_language?: string | null;
   user_id?: string | null;
+}
+
+export interface RecipeTranslation {
+  id?: string;
+  recipe_id: string;
+  language_code: string;
+  title: string;
+  description: string | null;
+  instructions: string;
+  ingredients: Ingredient[];
+  created_at?: string;
+  cached?: boolean;
 }
 
 export interface MealPlan {

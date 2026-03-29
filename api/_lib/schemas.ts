@@ -49,3 +49,18 @@ export const findImageSchema = z.object({
   title: z.string().min(1, 'title is required'),
   description: z.string().optional(),
 });
+
+export const translateSchema = z.object({
+  recipeId: z.string().uuid('recipeId must be a UUID'),
+  targetLanguage: z.enum(['en', 'de', 'pl'], { message: 'Unsupported language' }),
+  title: z.string().min(1),
+  description: z.string().optional().default(''),
+  instructions: z.string().min(1),
+  ingredients: z.array(
+    z.object({
+      amount: z.string(),
+      name: z.string(),
+      details: z.string().optional().default(''),
+    }),
+  ).min(1),
+});

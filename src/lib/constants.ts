@@ -23,6 +23,14 @@ export const MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snack'] as const;
 
 export const PAGE_SIZE = 24;
 
+export const LANGUAGES = [
+  { code: 'en', label: 'English', flag: '🇬🇧' },
+  { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
+  { code: 'pl', label: 'Polski', flag: '🇵🇱' },
+] as const;
+
+export type LanguageCode = typeof LANGUAGES[number]['code'];
+
 export const SORT_OPTIONS = [
   { value: 'newest', label: 'Newest first' },
   { value: 'oldest', label: 'Oldest first' },

@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2 } from 'lucide-react';
+import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
-import { MEAL_TYPES } from '@/lib/constants';
-import type { Recipe } from '@/types';
+import { MEAL_TYPES, LANGUAGES } from '@/lib/constants';
+import type { Recipe, RecipeTranslation } from '@/types';
 
 interface Props {
   recipe: Recipe | null;
@@ -24,6 +24,9 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
   const [isAiScaling, setIsAiScaling] = useState(false);
   const [isSavingScaled, setIsSavingScaled] = useState(false);
   const [showPhotoLightbox, setShowPhotoLightbox] = useState(false);
+  const [activeLang, setActiveLang] = useState<string | null>(null);
+  const [translation, setTranslation] = useState<RecipeTranslation | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
   const [showAddPlan, setShowAddPlan] = useState(false);
   const [planMeal, setPlanMeal] = useState<string>(MEAL_TYPES[2]);
   const [isAddingToPlan, setIsAddingToPlan] = useState(false);
@@ -95,8 +98,55 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
       setIsSavingScaled(false);
     }
   }
+  async function handleTranslate(langCode: string) {
+    if (!recipe) return;
+    // Toggle off if clicking current language
+    if (activeLang === langCode) {
+      setActiveLang(null);
+      setTranslation(null);
+      return;
+    }
+    // If recipe is already in the selected language, just clear any translation
+    const originalLang = recipe.original_language ?? 'en';
+    if (langCode === originalLang) {
+      setActiveLang(null);
+      setTranslation(null);
+      return;
+    }
+    setActiveLang(langCode);
+    setIsTranslating(true);
+    try {
+      const res = await fetch('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipeId: recipe.id,
+          targetLanguage: langCode,
+          title: recipe.title,
+          description: recipe.description ?? '',
+          instructions: recipe.instructions,
+          ingredients: parseIngredients(recipe.ingredients),
+        }),
+      });
+      if (!res.ok) throw new Error('Translation request failed');
+      const data = await res.json() as RecipeTranslation & { cached: boolean; detectedSourceLanguage?: string };
+      setTranslation(data);
+      // Save detected source language back to recipe if missing
+      if (data.detectedSourceLanguage && !recipe.original_language) {
+        onUpdateRecipe(recipe.id, { original_language: data.detectedSourceLanguage });
+      }
+      if (!data.cached) toast.success('Recipe translated!');
+    } catch {
+      toast.error('Translation failed.');
+      setActiveLang(null);
+    } finally {
+      setIsTranslating(false);
+    }
+  }
+
   const parsed = parseIngredients(recipe.ingredients);
-  const steps = recipe.instructions.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+  const displayInstructions = translation ? translation.instructions : recipe.instructions;
+  const steps = displayInstructions.split(/\n+/).map((s) => s.trim()).filter(Boolean);
   const totalTime = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
 
   async function handleAddToPlan() {
@@ -126,7 +176,7 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
             <DialogHeader className="text-left space-y-2">
               <div className="flex items-start justify-between gap-4">
                 <DialogTitle className="text-3xl md:text-4xl font-extrabold tracking-tight">
-                  {recipe.title}
+                  {translation ? translation.title : recipe.title}
                 </DialogTitle>
                 <div className="flex items-center gap-1 shrink-0 pt-1">
                   {recipe.source_url && (
@@ -249,11 +299,38 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
                 )}
               </div>
 
-              {recipe.description && (
+              {(translation ? translation.description : recipe.description) && (
                 <DialogDescription className="text-base text-zinc-600 dark:text-zinc-400 leading-relaxed pt-1">
-                  {recipe.description}
+                  {translation ? translation.description : recipe.description}
                 </DialogDescription>
               )}
+
+              {/* Language switcher */}
+              <div className="flex items-center gap-2 pt-1 flex-wrap">
+                <Languages className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                {LANGUAGES.map((lang) => {
+                  const isOriginal = (recipe.original_language ?? 'en') === lang.code;
+                  const isActive = activeLang === lang.code || (!activeLang && isOriginal);
+                  return (
+                    <button
+                      key={lang.code}
+                      onClick={() => handleTranslate(lang.code)}
+                      disabled={isTranslating}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors border ${
+                        isActive
+                          ? 'bg-blue-500 text-white border-blue-500'
+                          : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-blue-400 hover:text-blue-500'
+                      } disabled:opacity-50`}
+                      title={isOriginal ? `Original language` : `Translate to ${lang.label}`}
+                    >
+                      <span>{lang.flag}</span>
+                      <span>{lang.label}</span>
+                      {isOriginal && <span className="opacity-60 text-[10px]">orig</span>}
+                    </button>
+                  );
+                })}
+                {isTranslating && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />}
+              </div>
 
               {/* Add to plan form */}
               {showAddPlan && onAddMealPlan && (
@@ -296,15 +373,18 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
                     <tbody>
                       {parsed.map((ing, i) => {
                         const aiIng = aiIngredients?.[i];
+                        const translatedIng = translation?.ingredients?.[i];
                         const displayAmount = aiIng ? aiIng.amount : (scaleAmount(ing.amount, scale) || '—');
+                        const displayName = translatedIng ? translatedIng.name : ing.name;
+                        const displayDetails = translatedIng ? translatedIng.details : ing.details;
                         return (
                         <tr key={i} className={`${i % 2 === 0 ? 'bg-zinc-50 dark:bg-zinc-900' : 'bg-white dark:bg-zinc-900/50'} border-b border-zinc-100 dark:border-zinc-800 last:border-0`}>
                           <td className="py-2.5 px-4 font-semibold text-orange-600 dark:text-orange-400 whitespace-nowrap w-1/3">
                             {displayAmount}
                           </td>
                           <td className="py-2.5 px-4 text-zinc-800 dark:text-zinc-200">
-                            {ing.name}
-                            {ing.details ? <span className="text-zinc-500 dark:text-zinc-400">, {ing.details}</span> : ''}
+                            {displayName}
+                            {displayDetails ? <span className="text-zinc-500 dark:text-zinc-400">, {displayDetails}</span> : ''}
                           </td>
                         </tr>
                         );
