@@ -24,6 +24,7 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
   const [isAiScaling, setIsAiScaling] = useState(false);
   const [isSavingScaled, setIsSavingScaled] = useState(false);
   const [showPhotoLightbox, setShowPhotoLightbox] = useState(false);
+  const [showLangPicker, setShowLangPicker] = useState(false);
   const [activeLang, setActiveLang] = useState<string | null>(null);
   const [translation, setTranslation] = useState<RecipeTranslation | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
@@ -214,6 +215,12 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
                   )}
                   <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-1" />
                   <button
+                    onClick={() => setShowLangPicker((v) => !v)}
+                    className={`p-2 rounded-full transition-colors ${showLangPicker ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
+                    title="Translate recipe"
+                  ><Languages className="w-4 h-4" /></button>
+                  <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-1" />
+                  <button
                     onClick={onCook}
                     className="p-2 rounded-full text-zinc-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
                     title="Cook Mode"
@@ -230,6 +237,34 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
                   ><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
+
+              {/* Language picker — shown when translate button is active */}
+              {showLangPicker && (
+                <div className="flex items-center gap-2 flex-wrap py-1">
+                  {LANGUAGES.map((lang) => {
+                    const isOriginal = (recipe.original_language ?? 'en') === lang.code;
+                    const isActive = activeLang === lang.code || (!activeLang && isOriginal);
+                    return (
+                      <button
+                        key={lang.code}
+                        onClick={() => handleTranslate(lang.code)}
+                        disabled={isTranslating}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
+                          isActive
+                            ? 'bg-blue-500 text-white border-blue-500'
+                            : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-blue-400 hover:text-blue-500'
+                        } disabled:opacity-50`}
+                        title={isOriginal ? 'Original language' : `Translate to ${lang.label}`}
+                      >
+                        <span>{lang.flag}</span>
+                        <span>{lang.label}</span>
+                        {isOriginal && <span className="opacity-60 text-[10px] ml-0.5">orig</span>}
+                      </button>
+                    );
+                  })}
+                  {isTranslating && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />}
+                </div>
+              )}
 
               <div className="flex items-center gap-4 flex-wrap pt-1">
                 {recipe.servings && (
@@ -304,33 +339,6 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
                   {translation ? translation.description : recipe.description}
                 </DialogDescription>
               )}
-
-              {/* Language switcher */}
-              <div className="flex items-center gap-2 pt-1 flex-wrap">
-                <Languages className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                {LANGUAGES.map((lang) => {
-                  const isOriginal = (recipe.original_language ?? 'en') === lang.code;
-                  const isActive = activeLang === lang.code || (!activeLang && isOriginal);
-                  return (
-                    <button
-                      key={lang.code}
-                      onClick={() => handleTranslate(lang.code)}
-                      disabled={isTranslating}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors border ${
-                        isActive
-                          ? 'bg-blue-500 text-white border-blue-500'
-                          : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-blue-400 hover:text-blue-500'
-                      } disabled:opacity-50`}
-                      title={isOriginal ? `Original language` : `Translate to ${lang.label}`}
-                    >
-                      <span>{lang.flag}</span>
-                      <span>{lang.label}</span>
-                      {isOriginal && <span className="opacity-60 text-[10px]">orig</span>}
-                    </button>
-                  );
-                })}
-                {isTranslating && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />}
-              </div>
 
               {/* Add to plan form */}
               {showAddPlan && onAddMealPlan && (
