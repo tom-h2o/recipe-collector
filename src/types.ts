@@ -62,6 +62,13 @@ export interface ShoppingItem {
   is_checked: boolean;
 }
 
+export interface PantryItem {
+  id: string;
+  item: string;
+  category: string | null;
+  created_at: string;
+}
+
 export interface AppSettings {
   gemini_model: string;
   gemini_prompt: string;

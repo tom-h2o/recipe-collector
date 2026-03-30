@@ -33,9 +33,25 @@ export function useAuth() {
     });
   }
 
+  async function signInWithPassword(email: string, password: string): Promise<{ error: string | null }> {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error: error.message };
+    return { error: null };
+  }
+
+  async function signUpWithPassword(email: string, password: string): Promise<{ error: string | null }> {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    if (error) return { error: error.message };
+    return { error: null };
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
   }
 
-  return { user, loading, signInWithGoogle, signInWithEmail, signOut };
+  return { user, loading, signInWithGoogle, signInWithEmail, signInWithPassword, signUpWithPassword, signOut };
 }

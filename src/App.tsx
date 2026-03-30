@@ -28,7 +28,7 @@ export default function App() {
   const { user, signOut } = useAuth();
   const { recipes, loading, processingIds, hasMore, fetchRecipes, loadMore, saveRecipe, deleteRecipe, toggleFavourite, updateRecipe } = useRecipes(user?.id);
   const { mealPlans, fetchMealPlans, addMealPlan, removeMealPlan } = useMealPlans(user?.id);
-  const { shoppingList, isGeneratingShopping, fetchShoppingList, generateShoppingList, toggleItem, deleteItem, clearAll } = useShoppingList(user?.id);
+  const { shoppingList, pantryItems, isGeneratingShopping, fetchShoppingList, fetchPantryItems, generateShoppingList, toggleItem, deleteItem, clearAll, moveItemToPantry, moveItemToShopping, deletePantryItem, addToPantry } = useShoppingList(user?.id);
   const { settings, isSavingSettings, fetchSettings, saveSettings } = useSettings(user?.id);
   const { preferredLanguage, setPreferredLanguage } = useLanguagePreference();
   const [translationsCache, setTranslationsCache] = useState<Record<string, RecipeTranslation>>({});
@@ -64,9 +64,10 @@ export default function App() {
       fetchRecipes();
       fetchMealPlans();
       fetchShoppingList();
+      fetchPantryItems();
       fetchSettings();
     }
-  }, [fetchRecipes, fetchMealPlans, fetchShoppingList, fetchSettings]);
+  }, [fetchRecipes, fetchMealPlans, fetchShoppingList, fetchPantryItems, fetchSettings]);
 
   function openForm(recipe?: Recipe) {
     setEditingRecipe(recipe ?? null);
@@ -156,12 +157,17 @@ export default function App() {
           {activeView === 'shopping' && (
             <ShoppingList
               shoppingList={shoppingList}
+              pantryItems={pantryItems}
               isGenerating={isGeneratingShopping}
               mealPlans={mealPlans}
               onGenerate={generateShoppingList}
               onToggleItem={toggleItem}
               onDeleteItem={deleteItem}
               onClearAll={clearAll}
+              onMoveItemToPantry={moveItemToPantry}
+              onMoveItemToShopping={moveItemToShopping}
+              onDeletePantryItem={deletePantryItem}
+              onAddToPantry={addToPantry}
             />
           )}
         </Layout>

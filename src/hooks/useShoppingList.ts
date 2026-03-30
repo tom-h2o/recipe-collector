@@ -2,10 +2,11 @@ import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { parseIngredients } from '@/lib/recipeUtils';
-import type { ShoppingItem, MealPlan } from '@/types';
+import type { ShoppingItem, PantryItem, MealPlan } from '@/types';
 
 export function useShoppingList(userId?: string | null) {
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
+  const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
   const [isGeneratingShopping, setIsGeneratingShopping] = useState(false);
 
   const fetchShoppingList = useCallback(async () => {
@@ -19,6 +20,19 @@ export function useShoppingList(userId?: string | null) {
       .eq('user_id', userId)
       .order('category', { ascending: true });
     if (data) setShoppingList(data as ShoppingItem[]);
+  }, [userId]);
+
+  const fetchPantryItems = useCallback(async () => {
+    if (!userId) {
+      setPantryItems([]);
+      return;
+    }
+    const { data } = await supabase
+      .from('pantry_items')
+      .select('*')
+      .eq('user_id', userId)
+      .order('category', { ascending: true });
+    if (data) setPantryItems(data as PantryItem[]);
   }, [userId]);
 
   const generateShoppingList = useCallback(async (mealPlans: MealPlan[]) => {
@@ -86,13 +100,63 @@ export function useShoppingList(userId?: string | null) {
     setShoppingList([]);
   }, [userId]);
 
+  // Move a shopping list item to the pantry
+  const moveItemToPantry = useCallback(async (item: ShoppingItem) => {
+    if (!userId) return;
+    const { error } = await supabase
+      .from('pantry_items')
+      .insert({ user_id: userId, item: item.item, category: item.category });
+    if (error) { toast.error('Failed to add to pantry.'); return; }
+    await supabase.from('shopping_list').delete().eq('id', item.id);
+    setShoppingList((prev) => prev.filter((i) => i.id !== item.id));
+    setPantryItems((prev) => [...prev, { id: crypto.randomUUID(), item: item.item, category: item.category, created_at: new Date().toISOString() }]);
+  }, [userId]);
+
+  // Move a pantry item back to the shopping list
+  const moveItemToShopping = useCallback(async (item: PantryItem) => {
+    if (!userId) return;
+    const { data, error } = await supabase
+      .from('shopping_list')
+      .insert({ user_id: userId, item: item.item, category: item.category, is_checked: false })
+      .select()
+      .single();
+    if (error) { toast.error('Failed to move to shopping list.'); return; }
+    await supabase.from('pantry_items').delete().eq('id', item.id);
+    setPantryItems((prev) => prev.filter((i) => i.id !== item.id));
+    if (data) setShoppingList((prev) => [...prev, data as ShoppingItem]);
+  }, [userId]);
+
+  // Delete a pantry item entirely
+  const deletePantryItem = useCallback(async (id: string) => {
+    await supabase.from('pantry_items').delete().eq('id', id);
+    setPantryItems((prev) => prev.filter((i) => i.id !== id));
+  }, []);
+
+  // Add a custom item directly to the pantry
+  const addToPantry = useCallback(async (item: string, category: string | null = null) => {
+    if (!userId) return;
+    const { data, error } = await supabase
+      .from('pantry_items')
+      .insert({ user_id: userId, item, category })
+      .select()
+      .single();
+    if (error) { toast.error('Failed to add to pantry.'); return; }
+    if (data) setPantryItems((prev) => [...prev, data as PantryItem]);
+  }, [userId]);
+
   return {
     shoppingList,
+    pantryItems,
     isGeneratingShopping,
     fetchShoppingList,
+    fetchPantryItems,
     generateShoppingList,
     toggleItem,
     deleteItem,
     clearAll,
+    moveItemToPantry,
+    moveItemToShopping,
+    deletePantryItem,
+    addToPantry,
   };
 }
