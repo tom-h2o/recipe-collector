@@ -145,9 +145,9 @@ export function AuthGate({ children }: Props) {
     if (!email) return;
     setIsSubmitting(true);
     try {
-      await signInWithEmail(email);
+      const { error } = await signInWithEmail(email);
+      if (error) { toast.error(error); return; }
       setMagicSent(true);
-      toast.success('Magic link sent! Check your email.');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {

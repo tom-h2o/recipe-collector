@@ -33,11 +33,13 @@ export function useAuth() {
     });
   }
 
-  async function signInWithEmail(email: string) {
-    await supabase.auth.signInWithOtp({
+  async function signInWithEmail(email: string): Promise<{ error: string | null }> {
+    const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: window.location.origin },
     });
+    if (error) return { error: error.message };
+    return { error: null };
   }
 
   async function signInWithPassword(email: string, password: string): Promise<{ error: string | null }> {
