@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -12,8 +13,14 @@ export function useAuth() {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true);
+        setUser(session?.user ?? null);
+      } else {
+        setIsPasswordRecovery(false);
+        setUser(session?.user ?? null);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -39,12 +46,34 @@ export function useAuth() {
     return { error: null };
   }
 
-  async function signUpWithPassword(email: string, password: string): Promise<{ error: string | null }> {
-    const { error } = await supabase.auth.signUp({
+  async function signUpWithPassword(email: string, password: string): Promise<{ error: string | null; needsConfirmation?: boolean }> {
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { emailRedirectTo: window.location.origin },
     });
+    if (error) return { error: error.message };
+    // session is null when email confirmation is required
+    const needsConfirmation = !data.session;
+    return { error: null, needsConfirmation };
+  }
+
+  async function sendPasswordReset(email: string): Promise<{ error: string | null }> {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    });
+    if (error) return { error: error.message };
+    return { error: null };
+  }
+
+  async function updatePassword(newPassword: string): Promise<{ error: string | null }> {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) return { error: error.message };
+    return { error: null };
+  }
+
+  async function resendConfirmation(email: string): Promise<{ error: string | null }> {
+    const { error } = await supabase.auth.resend({ type: 'signup', email });
     if (error) return { error: error.message };
     return { error: null };
   }
@@ -53,5 +82,9 @@ export function useAuth() {
     await supabase.auth.signOut();
   }
 
-  return { user, loading, signInWithGoogle, signInWithEmail, signInWithPassword, signUpWithPassword, signOut };
+  return {
+    user, loading, isPasswordRecovery,
+    signInWithGoogle, signInWithEmail, signInWithPassword, signUpWithPassword,
+    sendPasswordReset, updatePassword, resendConfirmation, signOut,
+  };
 }
