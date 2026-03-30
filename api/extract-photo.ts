@@ -6,30 +6,37 @@ import { getGeminiClient } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { extractPhotoSchema } from './_lib/schemas.js';
 
-const PROMPT = `You are a culinary assistant that extracts recipes from food photos or handwritten recipe cards.
+function buildPhotoPrompt(temperatureUnit: 'C' | 'F'): string {
+  return `You are a culinary assistant that extracts recipes from food photos or handwritten recipe cards.
 Look at the image carefully and extract any recipe information visible.
 
 Return ONLY a JSON object with this exact structure:
 {
   "title": "Recipe Title",
-  "description": "Short summary of the dish (1-2 sentences)",
+  "description": "Short, enticing summary of the dish (1-2 sentences)",
   "servings": 4,
   "prep_time_mins": 15,
   "cook_time_mins": 30,
   "ingredients": [
     { "amount": "200g", "name": "pasta", "details": "" },
-    { "amount": "2", "name": "eggs", "details": "beaten" }
+    { "amount": "2", "name": "eggs", "details": "beaten" },
+    { "amount": "", "name": "salt", "details": "to taste" }
   ],
   "instructions": "Step 1: Do this.\\nStep 2: Do that.",
-  "image_url": ""
+  "image_url": "",
+  "source_name": ""
 }
 
 Rules:
 - If this is a photo of a finished dish (not a recipe card), infer a likely recipe from what you see.
-- "ingredients" MUST be an array of objects with "amount", "name", and optional "details".
+- "ingredients" MUST be an array of objects with "amount", "name", and "details".
+- Extract descriptors ("finely chopped", "softened") into "details". Keep "name" as the pure ingredient.
 - "servings", "prep_time_mins", "cook_time_mins" must be integers or null if unknown.
-- "instructions" should use newlines to separate steps.
-- "image_url" should always be empty string — the photo itself will be used.`;
+- Express all temperatures in °${temperatureUnit} (${temperatureUnit === 'C' ? 'Celsius' : 'Fahrenheit'}). Convert any other unit found.
+- "instructions" should use newlines to separate steps. Remove any existing step numbering.
+- "image_url" should always be empty string — the photo itself will be used.
+- "source_name" should be empty string.`;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
@@ -58,7 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             role: 'user',
             parts: [
               { inlineData: { mimeType, data: imageBase64 } },
-              { text: PROMPT },
+              { text: buildPhotoPrompt(settings.temperature_unit) },
             ],
           },
         ],
@@ -74,7 +81,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         model: settings.gemini_model,
         status: 'success',
         latency_ms: Date.now() - startTime,
-        input_preview: `[image ${mimeType}] ${PROMPT.substring(0, 200)}`,
+        input_preview: `[image ${mimeType}]`,
         output_preview: text.substring(0, 300),
       }).then(() => {}, () => {});
 

@@ -47,16 +47,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
       .join('\n');
 
-    const prompt = `You are a cooking assistant helping a user decide what to cook.
+    const prompt = `You are a cooking assistant helping a user decide what to cook tonight.
 
-The user has these ingredients available: ${userIngredients.join(', ')}
+The user currently has these ingredients: ${userIngredients.join(', ')}
 
 Here are the recipes in their collection:
 ${recipeList}
 
-Select the recipes that best match the available ingredients. Prefer recipes where the user has most of the required ingredients. Return up to 5 recipe IDs that are the best matches.
+Task: rank these recipes by how well they match the available ingredients.
 
-Return ONLY a JSON array of recipe ID strings, nothing else. Example: ["uuid-1", "uuid-2"]`;
+Scoring guidance:
+- A recipe scores high if the user has most or all of the required ingredients.
+- Pantry staples (salt, pepper, water, oil, butter, basic spices) can be assumed to always be available even if not listed.
+- Penalise recipes that require many speciality ingredients the user has not listed.
+- Return at most 5 recipe IDs, ranked best-match first.
+
+Return ONLY a JSON array of recipe ID strings (best match first), nothing else. Example: ["uuid-1", "uuid-2"]`;
 
     // Short 1-hour TTL — results depend on the recipe library which changes over time
     const cacheKey = makeCacheKey('suggest', userIngredients);

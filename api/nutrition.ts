@@ -30,16 +30,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }).join('\n')
       : String(ingredients);
 
-    const prompt = `You are a nutritional analysis assistant.
-Estimate the nutritional content for ONE serving of the following recipe.
-Base your estimate on the ingredients listed. If servings is provided, divide total nutrients accordingly.
+    const prompt = `You are a registered dietitian and nutritional analysis assistant.
+Estimate the nutritional content per serving for the following recipe.
+
+Guidelines:
+- Base estimates on standard ingredient weights/volumes as listed. If amounts are given in volume (cups, tbsp), apply typical density for that ingredient.
+- Divide total recipe nutrients by the number of servings. If servings is unknown, assume 4.
+- Account for cooking method: roasting/frying adds fat; boiling/steaming does not.
+- Be realistic — a simple salad should not have 600 kcal; a hearty stew should not have 150 kcal.
+- Calibration anchors: plain chicken breast 165g ≈ 280 kcal, 31g protein; 1 cup cooked pasta ≈ 220 kcal, 8g protein, 43g carbs; 1 tbsp olive oil ≈ 120 kcal, 14g fat.
 
 Recipe: ${title || ''}
 Servings: ${servings ?? 'unknown'}
 Ingredients:
 ${ingredientText}
 
-Return ONLY a JSON object with these exact keys (all values are numbers, per serving):
+Return ONLY a JSON object with these exact keys (all values are numbers rounded to the nearest integer, per serving):
 {
   "calories": 450,
   "protein_g": 28,

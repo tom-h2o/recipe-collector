@@ -4,6 +4,7 @@ export interface Settings {
   gemini_model: string;
   gemini_prompt: string;
   active_api_key: number;
+  temperature_unit: 'C' | 'F';
 }
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
@@ -19,11 +20,12 @@ export async function getSettings(supabase: SupabaseClient): Promise<Settings> {
     gemini_model: DEFAULT_MODEL,
     gemini_prompt: '',
     active_api_key: 1,
+    temperature_unit: 'C',
   };
   try {
     const { data } = await supabase
       .from('settings')
-      .select('gemini_model, gemini_prompt, active_api_key')
+      .select('gemini_model, gemini_prompt, active_api_key, temperature_unit')
       .eq('id', 1)
       .single();
     if (!data) return defaults;
@@ -31,6 +33,7 @@ export async function getSettings(supabase: SupabaseClient): Promise<Settings> {
       gemini_model: data.gemini_model || defaults.gemini_model,
       gemini_prompt: data.gemini_prompt || defaults.gemini_prompt,
       active_api_key: data.active_api_key ?? defaults.active_api_key,
+      temperature_unit: (data.temperature_unit as 'C' | 'F') || defaults.temperature_unit,
     };
   } catch {
     return defaults;

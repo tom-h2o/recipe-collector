@@ -18,20 +18,26 @@ The JSON MUST match this EXACT structure, nothing else:
   "title": "Recipe Title",
   "description": "Short, enticing summary of the dish (1-2 sentences)",
   "servings": 4,
+  "prep_time_mins": 15,
+  "cook_time_mins": 30,
   "ingredients": [
-    { "amount": "200g", "name": "pasta" },
-    { "amount": "2 tbsp", "name": "olive oil" },
-    { "amount": "", "name": "salt and pepper" }
+    { "amount": "200g", "name": "pasta", "details": "" },
+    { "amount": "1", "name": "onion", "details": "finely chopped" },
+    { "amount": "", "name": "salt and pepper", "details": "to taste" }
   ],
   "instructions": "Step 1: Do this.\\nStep 2: Do that.",
-  "image_url": "a high quality public image URL from the content (prefer og:image), or empty string"
+  "image_url": "a high quality public image URL from the content (prefer og:image), or empty string",
+  "source_name": "Name of the website or author, e.g. BBC Good Food"
 }
 
 CRITICAL RULES:
-- "ingredients" MUST be an array of objects with "amount" and "name" keys. Never a plain string array.
-- If an ingredient has no measurable amount (e.g. 'salt and pepper to taste'), set "amount" to an empty string.
-- "servings" must be an integer number (e.g. 4), or null if not found.
-- "instructions" should use newlines (\\n) to separate steps. Remove any existing step numbering from the source text.
+- "ingredients" MUST be an array of objects with "amount", "name", and "details" keys.
+- Extract descriptors like "finely chopped", "room temperature", "roasted at 200°C" into "details". Keep "name" as the pure ingredient base name.
+- If an ingredient has no measurable amount, set "amount" to an empty string.
+- "servings", "prep_time_mins", "cook_time_mins" must be integers or null if not found.
+- Express all temperatures in °C (Celsius). Convert any °F found in the source to °C.
+- "instructions" should use newlines to separate steps. Remove any existing step numbering.
+- "source_name" should be a short human-readable name (e.g. "Bon Appétit", "Jamie Oliver"). Empty string if unknown.
 - If the text comes from an Instagram post, the recipe might be in the Description field. Extract it accurately!`;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -47,7 +53,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY is not configured.' });
 
-    const promptTemplate = settings.gemini_prompt?.trim() ? settings.gemini_prompt : DEFAULT_PROMPT;
+    const tempNote = `\n- Express all temperatures in °${settings.temperature_unit} (${settings.temperature_unit === 'C' ? 'Celsius' : 'Fahrenheit'}). Convert any other unit found.`;
+    const promptTemplate = (settings.gemini_prompt?.trim() ? settings.gemini_prompt : DEFAULT_PROMPT) + tempNote;
 
     // Check URL cache first
     const urlHash = createHash('sha256').update(url).digest('hex');

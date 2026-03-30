@@ -3,12 +3,14 @@ import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Tras
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
+import { convertTemperaturesInText } from '@/lib/temperatureUtils';
 import { MEAL_TYPES, LANGUAGES } from '@/lib/constants';
 import type { Recipe, RecipeTranslation } from '@/types';
 
 interface Props {
   recipe: Recipe | null;
   preferredLanguage: string | null;
+  temperatureUnit?: 'C' | 'F';
   onLanguageChange: (lang: string | null) => void;
   onTranslationCached: (recipeId: string, langCode: string, t: RecipeTranslation) => void;
   onClose: () => void;
@@ -20,7 +22,7 @@ interface Props {
   onSaveScaled?: (payload: Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>) => Promise<void>;
 }
 
-export function RecipeDetail({ recipe, preferredLanguage, onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onCook, onUpdateRecipe, onAddMealPlan, onSaveScaled }: Props) {
+export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onCook, onUpdateRecipe, onAddMealPlan, onSaveScaled }: Props) {
   const baseServings0 = recipe?.original_servings || recipe?.servings || 1;
   const [scaledServings, setScaledServings] = useState(baseServings0);
   const [aiIngredients, setAiIngredients] = useState<{ amount: string; name: string; details: string }[] | null>(null);
@@ -152,7 +154,8 @@ export function RecipeDetail({ recipe, preferredLanguage, onLanguageChange, onTr
   }
 
   const parsed = parseIngredients(recipe.ingredients);
-  const displayInstructions = translation ? translation.instructions : recipe.instructions;
+  const rawInstructions = translation ? translation.instructions : recipe.instructions;
+  const displayInstructions = convertTemperaturesInText(rawInstructions, temperatureUnit);
   const steps = displayInstructions.split(/\n+/).map((s) => s.trim()).filter(Boolean);
   const totalTime = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
 
@@ -390,7 +393,8 @@ export function RecipeDetail({ recipe, preferredLanguage, onLanguageChange, onTr
                         const translatedIng = translation?.ingredients?.[i];
                         const displayAmount = aiIng ? aiIng.amount : (scaleAmount(ing.amount, scale) || '—');
                         const displayName = translatedIng ? translatedIng.name : ing.name;
-                        const displayDetails = translatedIng ? translatedIng.details : ing.details;
+                        const rawDetails = translatedIng ? translatedIng.details : ing.details;
+                        const displayDetails = rawDetails ? convertTemperaturesInText(rawDetails, temperatureUnit) : rawDetails;
                         return (
                         <tr key={i} className={`${i % 2 === 0 ? 'bg-zinc-50 dark:bg-zinc-900' : 'bg-white dark:bg-zinc-900/50'} border-b border-zinc-100 dark:border-zinc-800 last:border-0`}>
                           <td className="py-2.5 px-4 font-semibold text-orange-600 dark:text-orange-400 whitespace-nowrap w-1/3">

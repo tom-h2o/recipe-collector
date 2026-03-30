@@ -58,14 +58,16 @@ The JSON MUST match this EXACT structure, nothing else:
     { "amount": "", "name": "salt and pepper", "details": "to taste" }
   ],
   "instructions": "Step 1: Do this.\\nStep 2: Do that.",
-  "image_url": "a high quality public image URL from the content (prefer og:image), or empty string"
+  "image_url": "a high quality public image URL from the content (prefer og:image), or empty string",
+  "source_name": "Name of the website or author, e.g. BBC Good Food"
 }
 
 CRITICAL RULES:
-- "ingredients" MUST be an array of objects with "amount", "name", and an optional "details" key.
-- Extract descriptive text like "finely chopped" or "sliced" into "details", leaving ONLY the pure ingredient base in "name".
+- "ingredients" MUST be an array of objects with "amount", "name", and "details" keys.
+- Extract descriptors like "finely chopped", "room temperature", "roasted at 200°C" into "details". Keep "name" as the pure ingredient base name.
 - If an ingredient has no measurable amount, set "amount" to an empty string.
-- "servings" must be an integer number or null if not found.
-- "prep_time_mins" and "cook_time_mins" must be integers (minutes) or null if not found.
-- "instructions" should use newlines to separate steps, remove any existing numbering.
+- "servings", "prep_time_mins", "cook_time_mins" must be integers or null if not found.
+- Express all temperatures in °C (Celsius). Convert any °F found in the source to °C.
+- "instructions" should use newlines to separate steps. Remove any existing step numbering.
+- "source_name" should be a short human-readable source name (e.g. "Bon Appétit", "Jamie Oliver"). Empty string if unknown.
 - If the text comes from an Instagram post, the recipe might be in the Description field. Extract it accurately!`;

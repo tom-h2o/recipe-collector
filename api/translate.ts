@@ -58,11 +58,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const prompt = `You are a professional culinary translator. Translate the following recipe into ${targetName}.
 
 Rules:
-- Translate "title", "description", and "instructions" naturally and fluently
-- For "ingredients": translate ONLY the "name" and "details" fields — NEVER change "amount" values
-- Use correct culinary terminology in the target language
-- Detect the source language of the original text
-- Return ONLY valid JSON, no markdown, no explanation
+- Translate "title", "description", and "instructions" naturally and fluently — not word-for-word. Use phrasing a native speaker would use in a recipe.
+- For "ingredients": translate ONLY the "name" and "details" fields — NEVER change "amount" values. Amounts stay exactly as given.
+- Use correct culinary terminology in the target language (e.g. German: "dünsten" not "kochen" for sweating vegetables).
+- Preserve temperature values exactly as written (e.g. "200°C" stays "200°C") — do not convert units.
+- Preserve cooking times, quantities, and measurements exactly.
+- Detect the ISO 639-1 language code of the original text (e.g. "en", "de", "fr", "pl").
+- Return ONLY valid JSON, no markdown, no explanation.
 
 Input recipe:
 {

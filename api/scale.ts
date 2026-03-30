@@ -36,12 +36,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const prompt = `You are a culinary assistant. Scale this recipe from ${currentServings} to ${targetServings} servings.
 
-Adjust each ingredient amount intelligently:
-- Whole items (eggs, onions, cans, slices): always round to the nearest whole number — never write "1.5 eggs", always "1 egg" or "2 eggs"
+Adjust each ingredient "amount" field intelligently:
+- Whole items (eggs, onions, cans, slices): round to the nearest whole number — never write "1.5 eggs", always "1 egg" or "2 eggs"
 - Small measurements: use practical fractions — 0.33 tsp → ¼ tsp, 0.67 tsp → ½ tsp, 1.33 cups → 1¼ cups
-- Weights (grams, kg, oz, lbs): decimals are fine, round to the nearest 5g or 10g for cleanliness
-- Very tiny scaled-down amounts: replace with "a pinch" or "to taste" where appropriate
-- Keep proportions nutritionally correct even if amounts are slightly rounded
+- Weights (grams, kg, oz, lbs): round to the nearest 5g or 10g for cleanliness (e.g. 267g → 270g)
+- Very tiny scaled-down amounts (less than ⅛ tsp): replace with "a pinch" or "to taste"
+- Do NOT scale temperatures in "details" (e.g. "roasted at 200°C" stays as-is — oven temperature does not scale with serving count)
 
 Current ingredients (${currentServings} servings):
 ${ingredientText}
@@ -52,7 +52,9 @@ Return ONLY a JSON array with this exact structure (no explanation, no markdown)
   { "amount": "1¼ cups", "name": "flour", "details": "" }
 ]
 
-Preserve the "details" field from the original exactly. Only change "amount".`;
+Rules:
+- Only change "amount". Preserve "name" and "details" exactly from the original.
+- Keep the array in the same order as the input.`;
 
     const client = getGeminiClient(apiKey);
     const scaled = await generateJson<ScaledIngredient[]>(

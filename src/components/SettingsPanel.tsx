@@ -80,6 +80,26 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
               </div>
 
               <div className="space-y-2">
+                <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Temperature Unit</Label>
+                <div className="flex gap-2">
+                  {(['C', 'F'] as const).map((unit) => (
+                    <button
+                      key={unit}
+                      onClick={() => setLocal((p) => ({ ...p, temperature_unit: unit }))}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-colors ${
+                        local.temperature_unit === unit
+                          ? 'bg-orange-500 border-orange-500 text-white'
+                          : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-orange-300'
+                      }`}
+                    >
+                      °{unit} — {unit === 'C' ? 'Celsius' : 'Fahrenheit'}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">All temperatures in recipes will be displayed in your preferred unit.</p>
+              </div>
+
+              <div className="space-y-2">
                 <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Gemini Model</Label>
                 <Select value={local.gemini_model} onValueChange={(v) => { if (v) setLocal((p) => ({ ...p, gemini_model: v })); }}>
                   <SelectTrigger className="w-full"><SelectValue placeholder="Select model" /></SelectTrigger>

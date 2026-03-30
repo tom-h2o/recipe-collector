@@ -20,24 +20,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
 
-    const prompt = `You are an AI grocery assistant.
-Take the following list of raw ingredients from various recipes.
-1. Aggregate any duplicate ingredients (e.g., "1 onion" and "2 onions" becomes "3 onions"). Convert units to be consistent if necessary.
-2. Group the aggregated ingredients into logical supermarket aisles/categories (e.g., "Produce", "Dairy & Eggs", "Meat", "Pantry", etc.).
+    const prompt = `You are an AI grocery assistant. Process the following raw ingredient list from multiple recipes into a clean shopping list.
+
+Step 1 — Aggregate duplicates:
+- Combine the same ingredient across recipes: "1 onion" + "2 onions" → "3 onions"
+- Normalise units to be consistent: prefer metric (g, ml, kg, l) over imperial; prefer whole units (eggs, cans) over fractional.
+- Keep reasonable precision: "425g" is fine, "424.7g" is not. Round to the nearest 5g or 10g for weights over 100g.
+- Pantry staples like "salt", "pepper", "water" can be omitted — the user likely already has them. Exception: large unusual quantities (e.g. "1kg salt") should be kept.
+
+Step 2 — Group by supermarket aisle using these exact category names:
+  Produce · Meat & Fish · Dairy & Eggs · Bakery · Pasta, Rice & Grains · Canned & Jarred · Condiments & Sauces · Oils & Vinegars · Spices & Herbs · Baking · Frozen · Drinks · Other
 
 Ingredients to process:
 ${ingredients.join('\n')}
 
-Return ONLY a JSON array of objects with the following structure, and nothing else.
+Return ONLY a JSON array of objects. Only include categories that have items. Nothing else.
 [
-  {
-    "category": "Produce",
-    "items": ["3 onions", "1 bunch basil"]
-  },
-  {
-    "category": "Dairy",
-    "items": ["500ml milk", "200g cheddar"]
-  }
+  { "category": "Produce", "items": ["3 onions", "200g cherry tomatoes"] },
+  { "category": "Dairy & Eggs", "items": ["500ml whole milk", "200g cheddar"] }
 ]`;
 
     // 24-hour TTL — same ingredient list should produce the same grouping

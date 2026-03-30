@@ -170,6 +170,7 @@ export default function App() {
           key={selectedRecipe?.id ?? 'none'}
           recipe={selectedRecipe}
           preferredLanguage={preferredLanguage}
+          temperatureUnit={settings.temperature_unit}
           onLanguageChange={setPreferredLanguage}
           onTranslationCached={cacheTranslation}
           onClose={() => setSelectedRecipe(null)}

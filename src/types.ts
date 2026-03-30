@@ -66,6 +66,7 @@ export interface AppSettings {
   gemini_model: string;
   gemini_prompt: string;
   active_api_key: 1 | 2;
+  temperature_unit: 'C' | 'F';
 }
 
 export type ActiveView = 'vault' | 'planner' | 'shopping' | 'public_recipe';

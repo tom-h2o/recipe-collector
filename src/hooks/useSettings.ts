@@ -9,6 +9,7 @@ export function useSettings(userId?: string | null) {
     gemini_model: 'gemini-2.5-flash',
     gemini_prompt: DEFAULT_PROMPT,
     active_api_key: 1,
+    temperature_unit: 'C',
   });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
@@ -17,7 +18,7 @@ export function useSettings(userId?: string | null) {
 
     const { data } = await supabase
       .from('settings')
-      .select('gemini_model, gemini_prompt, active_api_key')
+      .select('gemini_model, gemini_prompt, active_api_key, temperature_unit')
       .eq('user_id', userId)
       .single();
 
@@ -26,6 +27,7 @@ export function useSettings(userId?: string | null) {
         gemini_model: data.gemini_model || 'gemini-2.5-flash',
         gemini_prompt: data.gemini_prompt || DEFAULT_PROMPT,
         active_api_key: (data.active_api_key as 1 | 2) || 1,
+        temperature_unit: (data.temperature_unit as 'C' | 'F') || 'C',
       });
     }
     // If no row exists yet, state stays at code defaults — saved on first explicit save
@@ -39,7 +41,7 @@ export function useSettings(userId?: string | null) {
         setIsSavingSettings(false);
         return;
       }
-      const payload = { user_id: userId, gemini_model: updated.gemini_model, gemini_prompt: updated.gemini_prompt, active_api_key: updated.active_api_key };
+      const payload = { user_id: userId, gemini_model: updated.gemini_model, gemini_prompt: updated.gemini_prompt, active_api_key: updated.active_api_key, temperature_unit: updated.temperature_unit };
 
       const { error } = await supabase.from('settings').upsert(payload);
       if (!error) {

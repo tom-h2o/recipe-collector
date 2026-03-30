@@ -38,23 +38,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }).join(', ')
       : String(ingredients ?? '');
 
+    const instructionPreview = (instructions || '').substring(0, 1000);
+
     const prompt = `You are a recipe categorisation assistant.
-Given the following recipe, select ONLY the most relevant tags from this list:
+Analyse the recipe below and select the most accurate tags from this list:
 ${AVAILABLE_TAGS.join(', ')}
 
 Rules:
-- Select 2–5 tags maximum.
-- Only use tags from the provided list.
+- Select between 2 and 6 tags — use as many as genuinely apply, no more.
+- Only use tags from the provided list, verbatim.
+- For "Quick (<30min)": only apply if the total cooking + prep time is clearly under 30 minutes — infer from time mentions in instructions or the prep/cook time fields if present.
+- For cuisine tags (Italian, Asian, etc.): infer from ingredient names, dish names, and cooking techniques even if not explicitly stated.
+- For dietary tags (Vegetarian, Vegan, etc.): be conservative — only tag if clearly applicable from all ingredients.
 - Return a JSON array of strings, nothing else. Example: ["Italian", "Quick (<30min)", "Vegetarian"]
 
 Recipe:
 Title: ${title}
 Description: ${description || ''}
 Ingredients: ${ingredientText}
-Instructions: ${(instructions || '').substring(0, 500)}`;
+Instructions: ${instructionPreview}`;
 
     // Cache key based on recipe content — deterministic, 30-day TTL
-    const cacheKey = makeCacheKey('tag', { title, description: description ?? '', ingredientText, instructions: (instructions ?? '').substring(0, 500) });
+    const cacheKey = makeCacheKey('tag', { title, description: description ?? '', ingredientText, instructions: instructionPreview });
     const cachedTags = await getCached<string[]>(supabase, cacheKey);
     if (cachedTags) {
       await supabase.from('recipes').update({ tags: cachedTags }).eq('id', recipeId);
