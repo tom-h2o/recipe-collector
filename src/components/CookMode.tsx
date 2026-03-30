@@ -42,16 +42,21 @@ export function CookMode({ recipe, isOpen, onClose }: Props) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
       <DialogTrigger className="hidden" />
-      <DialogContent className="max-w-none w-screen h-screen max-h-screen rounded-none border-0 bg-zinc-950 text-white flex flex-col p-0">
-        <div className="flex h-full">
-          {/* Ingredients panel */}
+      <DialogContent
+        showCloseButton={false}
+        className="max-w-none w-screen h-screen max-h-screen rounded-none border-0 bg-zinc-950 text-white p-0 overflow-hidden"
+      >
+        {/* Root: full-screen flex row */}
+        <div className="flex w-full h-full overflow-hidden">
+
+          {/* Ingredients side panel */}
           {showIngredients && (
             <div className="w-64 shrink-0 border-r border-white/10 flex flex-col overflow-hidden">
-              <div className="px-4 py-4 border-b border-white/10 flex items-center justify-between">
+              <div className="shrink-0 px-4 py-4 border-b border-white/10 flex items-center justify-between">
                 <span className="font-bold text-sm text-white/80 uppercase tracking-wider">Ingredients</span>
                 <span className="text-xs text-white/40">{checkedIngredients.size}/{ingredients.length}</span>
               </div>
-              <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
+              <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-1">
                 {ingredients.map((ing, i) => (
                   <button
                     key={i}
@@ -73,18 +78,19 @@ export function CookMode({ recipe, isOpen, onClose }: Props) {
             </div>
           )}
 
-          {/* Main step area */}
-          <div className="flex-1 flex flex-col min-w-0">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
-              <div className="flex items-center gap-3">
-                <ChefHat className="w-6 h-6 text-orange-400" />
-                <span className="font-bold text-lg text-white truncate max-w-[240px]">{recipe.title}</span>
+          {/* Main area: fixed header + scrollable step text + fixed dots + fixed nav buttons */}
+          <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+
+            {/* Header — never scrolls */}
+            <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-white/10">
+              <div className="flex items-center gap-3 min-w-0">
+                <ChefHat className="w-6 h-6 text-orange-400 shrink-0" />
+                <span className="font-bold text-lg text-white truncate">{recipe.title}</span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 shrink-0">
                 <button
                   onClick={() => setShowIngredients((v) => !v)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${showIngredients ? 'bg-orange-500/20 text-orange-400' : 'hover:bg-white/10 text-white/50 hover:text-white/80'}`}
-                  title="Toggle ingredients"
                 >
                   <List className="w-4 h-4" />
                   <span className="hidden sm:inline">Ingredients</span>
@@ -96,20 +102,20 @@ export function CookMode({ recipe, isOpen, onClose }: Props) {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-8 sm:px-16">
-              <div className="min-h-full flex items-center justify-center py-10">
-                <div className="max-w-2xl w-full text-center space-y-8">
-                  <div className="w-16 h-16 rounded-full bg-orange-500 text-white flex items-center justify-center text-3xl font-black mx-auto shadow-lg shadow-orange-500/30">
-                    {cookStep + 1}
-                  </div>
-                  <p className="text-xl sm:text-2xl md:text-3xl font-semibold leading-relaxed text-white">
-                    {currentStep.replace(/^step\s*\d+[.:)]\s*/i, '')}
-                  </p>
+            {/* Step text — scrollable, fills available space */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-8 sm:px-16">
+              <div className="flex flex-col items-center justify-center min-h-full py-10 gap-8">
+                <div className="w-16 h-16 shrink-0 rounded-full bg-orange-500 text-white flex items-center justify-center text-3xl font-black shadow-lg shadow-orange-500/30">
+                  {cookStep + 1}
                 </div>
+                <p className="max-w-2xl w-full text-center text-xl sm:text-2xl md:text-3xl font-semibold leading-relaxed text-white">
+                  {currentStep.replace(/^step\s*\d+[.:)]\s*/i, '')}
+                </p>
               </div>
             </div>
 
-            <div className="flex justify-center gap-1.5 py-4">
+            {/* Step dots — never scrolls */}
+            <div className="shrink-0 flex justify-center gap-1.5 py-3">
               {steps.map((_, i) => (
                 <button
                   key={i}
@@ -119,7 +125,8 @@ export function CookMode({ recipe, isOpen, onClose }: Props) {
               ))}
             </div>
 
-            <div className="flex gap-4 px-6 pb-8">
+            {/* Nav buttons — never scrolls */}
+            <div className="shrink-0 flex gap-4 px-6 pb-8 pt-2">
               <Button
                 onClick={() => setCookStep((s) => Math.max(0, s - 1))}
                 disabled={isFirst}
@@ -138,6 +145,7 @@ export function CookMode({ recipe, isOpen, onClose }: Props) {
                 </Button>
               )}
             </div>
+
           </div>
         </div>
       </DialogContent>

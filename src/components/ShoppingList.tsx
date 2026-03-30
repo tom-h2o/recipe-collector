@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingCart, Wand2, X, AlertTriangle, Trash2, Package, ArrowRight, ArrowLeft, Plus } from 'lucide-react';
+import { ShoppingCart, Wand2, X, AlertTriangle, Trash2, Package, ArrowLeft, Plus } from 'lucide-react';
 import type { ShoppingItem, PantryItem, MealPlan } from '@/types';
 
 type Tab = 'shopping' | 'pantry';
