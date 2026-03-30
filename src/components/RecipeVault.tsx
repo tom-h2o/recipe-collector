@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { RecipeCard } from './RecipeCard';
 import { parseIngredients } from '@/lib/recipeUtils';
 import { FILTERS, SORT_OPTIONS, type SortOption } from '@/lib/constants';
-import type { Recipe } from '@/types';
+import type { Recipe, RecipeTranslation } from '@/types';
 
 interface Props {
   recipes: Recipe[];
@@ -14,6 +14,8 @@ interface Props {
   searchQuery: string;
   activeFilter: string | null;
   hasMore: boolean;
+  preferredLanguage: string | null;
+  translationsCache: Record<string, RecipeTranslation>;
   onSearchChange: (q: string) => void;
   onFilterChange: (tag: string | null) => void;
   onLoadMore: () => void;
@@ -23,6 +25,7 @@ interface Props {
 
 export function RecipeVault({
   recipes, loading, processingIds, searchQuery, activeFilter, hasMore,
+  preferredLanguage, translationsCache,
   onSearchChange, onFilterChange, onLoadMore, onOpenRecipe, onToggleFavourite,
 }: Props) {
   const searchRef = useRef<HTMLInputElement>(null);
@@ -160,6 +163,7 @@ export function RecipeVault({
                   recipe={recipe}
                   isProcessing={processingIds.has(recipe.id)}
                   activeFilter={activeFilter}
+                  translation={preferredLanguage ? translationsCache[`${recipe.id}:${preferredLanguage}`] : null}
                   onOpen={onOpenRecipe}
                   onToggleFavourite={onToggleFavourite}
                   onFilterChange={(tag) => onFilterChange(activeFilter === tag ? null : tag)}

@@ -7,6 +7,7 @@ import { useMealPlans } from '@/hooks/useMealPlans';
 import { useShoppingList } from '@/hooks/useShoppingList';
 import { useSettings } from '@/hooks/useSettings';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguagePreference } from '@/hooks/useLanguagePreference';
 
 import { AuthGate } from '@/components/AuthGate';
 import { Layout } from '@/components/Layout';
@@ -21,7 +22,7 @@ import { SuggestModal } from '@/components/SuggestModal';
 import { PublicRecipe } from '@/components/PublicRecipe';
 
 import { supabase } from '@/lib/supabase';
-import type { ActiveView, Recipe } from '@/types';
+import type { ActiveView, Recipe, RecipeTranslation } from '@/types';
 
 export default function App() {
   const { user, signOut } = useAuth();
@@ -29,6 +30,12 @@ export default function App() {
   const { mealPlans, fetchMealPlans, addMealPlan, removeMealPlan } = useMealPlans(user?.id);
   const { shoppingList, isGeneratingShopping, fetchShoppingList, generateShoppingList, toggleItem, deleteItem, clearAll } = useShoppingList(user?.id);
   const { settings, isSavingSettings, fetchSettings, saveSettings } = useSettings(user?.id);
+  const { preferredLanguage, setPreferredLanguage } = useLanguagePreference();
+  const [translationsCache, setTranslationsCache] = useState<Record<string, RecipeTranslation>>({});
+
+  function cacheTranslation(recipeId: string, langCode: string, t: RecipeTranslation) {
+    setTranslationsCache((prev) => ({ ...prev, [`${recipeId}:${langCode}`]: t }));
+  }
 
   const [activeView, setActiveView] = useState<ActiveView>('vault');
   const [publicRecipe, setPublicRecipe] = useState<Recipe | null>(null);
@@ -125,6 +132,8 @@ export default function App() {
               searchQuery={searchQuery}
               activeFilter={activeFilter}
               hasMore={hasMore}
+              preferredLanguage={preferredLanguage}
+              translationsCache={translationsCache}
               onSearchChange={setSearchQuery}
               onFilterChange={setActiveFilter}
               onLoadMore={loadMore}
@@ -159,6 +168,9 @@ export default function App() {
 
         <RecipeDetail
           recipe={selectedRecipe}
+          preferredLanguage={preferredLanguage}
+          onLanguageChange={setPreferredLanguage}
+          onTranslationCached={cacheTranslation}
           onClose={() => setSelectedRecipe(null)}
           onEdit={(r) => openForm(r)}
           onDelete={setDeleteTarget}

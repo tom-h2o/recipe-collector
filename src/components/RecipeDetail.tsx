@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -8,6 +8,9 @@ import type { Recipe, RecipeTranslation } from '@/types';
 
 interface Props {
   recipe: Recipe | null;
+  preferredLanguage: string | null;
+  onLanguageChange: (lang: string | null) => void;
+  onTranslationCached: (recipeId: string, langCode: string, t: RecipeTranslation) => void;
   onClose: () => void;
   onEdit: (r: Recipe) => void;
   onDelete: (r: Recipe) => void;
@@ -17,7 +20,7 @@ interface Props {
   onSaveScaled?: (payload: Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>) => Promise<void>;
 }
 
-export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpdateRecipe, onAddMealPlan, onSaveScaled }: Props) {
+export function RecipeDetail({ recipe, preferredLanguage, onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onCook, onUpdateRecipe, onAddMealPlan, onSaveScaled }: Props) {
   const baseServings0 = recipe?.original_servings || recipe?.servings || 1;
   const [scaledServings, setScaledServings] = useState(baseServings0);
   const [aiIngredients, setAiIngredients] = useState<{ amount: string; name: string; details: string }[] | null>(null);
@@ -25,12 +28,48 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
   const [isSavingScaled, setIsSavingScaled] = useState(false);
   const [showPhotoLightbox, setShowPhotoLightbox] = useState(false);
   const [showLangPicker, setShowLangPicker] = useState(false);
-  const [activeLang, setActiveLang] = useState<string | null>(null);
   const [translation, setTranslation] = useState<RecipeTranslation | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
   const [showAddPlan, setShowAddPlan] = useState(false);
   const [planMeal, setPlanMeal] = useState<string>(MEAL_TYPES[2]);
   const [isAddingToPlan, setIsAddingToPlan] = useState(false);
+
+  // Auto-translate when recipe opens or preferred language changes
+  useEffect(() => {
+    if (!recipe || !preferredLanguage) { setTranslation(null); return; }
+    const origLang = recipe.original_language ?? 'en';
+    if (preferredLanguage === origLang) { setTranslation(null); return; }
+
+    let cancelled = false;
+    setIsTranslating(true);
+    fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipeId: recipe.id,
+        targetLanguage: preferredLanguage,
+        title: recipe.title,
+        description: recipe.description ?? '',
+        instructions: recipe.instructions,
+        ingredients: parseIngredients(recipe.ingredients),
+      }),
+    })
+      .then((res) => res.ok ? res.json() : Promise.reject())
+      .then((data: RecipeTranslation & { cached: boolean; detectedSourceLanguage?: string }) => {
+        if (cancelled) return;
+        setTranslation(data);
+        onTranslationCached(recipe.id, preferredLanguage, data);
+        if (!data.cached) toast.success('Recipe translated!');
+        if (data.detectedSourceLanguage && !recipe.original_language) {
+          onUpdateRecipe(recipe.id, { original_language: data.detectedSourceLanguage });
+        }
+      })
+      .catch(() => { if (!cancelled) toast.error('Translation failed.'); })
+      .finally(() => { if (!cancelled) setIsTranslating(false); });
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipe?.id, preferredLanguage]);
 
   const planDates = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
@@ -99,50 +138,17 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
       setIsSavingScaled(false);
     }
   }
-  async function handleTranslate(langCode: string) {
+  function handleTranslate(langCode: string) {
     if (!recipe) return;
-    // Toggle off if clicking current language
-    if (activeLang === langCode) {
-      setActiveLang(null);
+    const origLang = recipe.original_language ?? 'en';
+    // Clicking active language or original → restore original
+    if (preferredLanguage === langCode || langCode === origLang) {
+      onLanguageChange(null);
       setTranslation(null);
       return;
     }
-    // If recipe is already in the selected language, just clear any translation
-    const originalLang = recipe.original_language ?? 'en';
-    if (langCode === originalLang) {
-      setActiveLang(null);
-      setTranslation(null);
-      return;
-    }
-    setActiveLang(langCode);
-    setIsTranslating(true);
-    try {
-      const res = await fetch('/api/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipeId: recipe.id,
-          targetLanguage: langCode,
-          title: recipe.title,
-          description: recipe.description ?? '',
-          instructions: recipe.instructions,
-          ingredients: parseIngredients(recipe.ingredients),
-        }),
-      });
-      if (!res.ok) throw new Error('Translation request failed');
-      const data = await res.json() as RecipeTranslation & { cached: boolean; detectedSourceLanguage?: string };
-      setTranslation(data);
-      // Save detected source language back to recipe if missing
-      if (data.detectedSourceLanguage && !recipe.original_language) {
-        onUpdateRecipe(recipe.id, { original_language: data.detectedSourceLanguage });
-      }
-      if (!data.cached) toast.success('Recipe translated!');
-    } catch {
-      toast.error('Translation failed.');
-      setActiveLang(null);
-    } finally {
-      setIsTranslating(false);
-    }
+    onLanguageChange(langCode);
+    // The useEffect above will fire and fetch the translation
   }
 
   const parsed = parseIngredients(recipe.ingredients);
@@ -243,7 +249,7 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onCook, onUpda
                 <div className="flex items-center gap-2 flex-wrap py-1">
                   {LANGUAGES.map((lang) => {
                     const isOriginal = (recipe.original_language ?? 'en') === lang.code;
-                    const isActive = activeLang === lang.code || (!activeLang && isOriginal);
+                    const isActive = preferredLanguage === lang.code || (!preferredLanguage && isOriginal);
                     return (
                       <button
                         key={lang.code}

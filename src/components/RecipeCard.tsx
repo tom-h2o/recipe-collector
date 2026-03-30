@@ -8,12 +8,13 @@ interface Props {
   recipe: Recipe;
   isProcessing: boolean;
   activeFilter: string | null;
+  translation?: { title: string; description: string | null } | null;
   onOpen: (r: Recipe) => void;
   onToggleFavourite: (r: Recipe, e: React.MouseEvent) => void;
   onFilterChange: (tag: string) => void;
 }
 
-export function RecipeCard({ recipe, isProcessing, activeFilter, onOpen, onToggleFavourite, onFilterChange }: Props) {
+export function RecipeCard({ recipe, isProcessing, activeFilter, translation, onOpen, onToggleFavourite, onFilterChange }: Props) {
   const parsed = parseIngredients(recipe.ingredients);
   const [imgError, setImgError] = useState(false);
   const totalTime = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
@@ -59,9 +60,9 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, onOpen, onToggl
       </div>
 
       <CardHeader className="pt-5">
-        <CardTitle className="line-clamp-1 text-xl font-bold">{recipe.title}</CardTitle>
+        <CardTitle className="line-clamp-1 text-xl font-bold">{translation?.title ?? recipe.title}</CardTitle>
         <CardDescription className="line-clamp-2 mt-1 text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-          {recipe.description || 'No description provided.'}
+          {(translation ? translation.description : recipe.description) || 'No description provided.'}
         </CardDescription>
       </CardHeader>
 

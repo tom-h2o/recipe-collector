@@ -96,14 +96,16 @@ export function CookMode({ recipe, isOpen, onClose }: Props) {
               </div>
             </div>
 
-            <div className="flex-1 flex items-center justify-center px-8 sm:px-16">
-              <div className="max-w-2xl text-center space-y-8">
-                <div className="w-16 h-16 rounded-full bg-orange-500 text-white flex items-center justify-center text-3xl font-black mx-auto shadow-lg shadow-orange-500/30">
-                  {cookStep + 1}
+            <div className="flex-1 overflow-y-auto px-8 sm:px-16">
+              <div className="min-h-full flex items-center justify-center py-10">
+                <div className="max-w-2xl w-full text-center space-y-8">
+                  <div className="w-16 h-16 rounded-full bg-orange-500 text-white flex items-center justify-center text-3xl font-black mx-auto shadow-lg shadow-orange-500/30">
+                    {cookStep + 1}
+                  </div>
+                  <p className="text-xl sm:text-2xl md:text-3xl font-semibold leading-relaxed text-white">
+                    {currentStep.replace(/^step\s*\d+[.:)]\s*/i, '')}
+                  </p>
                 </div>
-                <p className="text-2xl sm:text-3xl md:text-4xl font-semibold leading-relaxed text-white">
-                  {currentStep.replace(/^step\s*\d+[.:)]\s*/i, '')}
-                </p>
               </div>
             </div>
 
