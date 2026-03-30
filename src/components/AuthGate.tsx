@@ -214,9 +214,9 @@ export function AuthGate({ children }: Props) {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-6">
-        <div className="w-full max-w-sm space-y-8">
-          <div className="text-center space-y-3">
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-start justify-center p-6 pt-24">
+        <div className="w-full max-w-sm">
+          <div className="text-center space-y-3 mb-8">
             <div className="flex items-center justify-center gap-3">
               <ChefHat className="w-12 h-12 text-orange-500" />
               <h1 className="text-4xl font-extrabold text-zinc-900 dark:text-zinc-50 tracking-tight">Recipe Vault</h1>
@@ -225,7 +225,7 @@ export function AuthGate({ children }: Props) {
           </div>
 
           {/* Mode toggle */}
-          <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-xl p-1 gap-1">
+          <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-xl p-1 gap-1 mb-8">
             <button
               onClick={() => { setMode('password'); setPasswordStep('signin'); setUnconfirmedEmail(null); }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-all ${mode === 'password' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
@@ -239,6 +239,9 @@ export function AuthGate({ children }: Props) {
               <Mail className="w-3.5 h-3.5" /> Magic Link
             </button>
           </div>
+
+          {/* Form area — fixed min-height so tabs/headline above never move */}
+          <div className="min-h-[320px]">
 
           {mode === 'password' && passwordStep === 'signin' && (
             <>
@@ -415,6 +418,8 @@ export function AuthGate({ children }: Props) {
               </div>
             )
           )}
+
+          </div>{/* end form area */}
         </div>
       </div>
     );
