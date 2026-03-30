@@ -32,6 +32,7 @@ export function AuthGate({ children }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [resetError, setResetError] = useState<string | null>(null);
+  const [magicError, setMagicError] = useState<string | null>(null);
   const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
   const [isClaiming, setIsClaiming] = useState(false);
   const [claimed, setClaimed] = useState(false);
@@ -144,12 +145,13 @@ export function AuthGate({ children }: Props) {
     e.preventDefault();
     if (!email) return;
     setIsSubmitting(true);
+    setMagicError(null);
     try {
       const { error } = await signInWithEmail(email);
-      if (error) { toast.error(error); return; }
+      if (error) { setMagicError(error); return; }
       setMagicSent(true);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      setMagicError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -233,7 +235,7 @@ export function AuthGate({ children }: Props) {
               <Lock className="w-3.5 h-3.5" /> Password
             </button>
             <button
-              onClick={() => { setMode('magic'); setMagicSent(false); setUnconfirmedEmail(null); }}
+              onClick={() => { setMode('magic'); setMagicSent(false); setUnconfirmedEmail(null); setMagicError(null); }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-all ${mode === 'magic' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
             >
               <Mail className="w-3.5 h-3.5" /> Magic Link
@@ -396,11 +398,16 @@ export function AuthGate({ children }: Props) {
                     id="magic-email"
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); setMagicError(null); }}
                     placeholder="you@example.com"
                     required
                   />
                 </div>
+                {magicError && (
+                  <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-xl text-sm text-red-700 dark:text-red-400">
+                    {magicError}
+                  </div>
+                )}
                 <Button
                   type="submit"
                   disabled={isSubmitting}
