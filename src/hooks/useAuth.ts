@@ -41,8 +41,9 @@ export function useAuth() {
   }
 
   async function signInWithPassword(email: string, password: string): Promise<{ error: string | null }> {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error.message };
+    if (!data.session) return { error: 'Sign in failed — please try again or use a magic link.' };
     return { error: null };
   }
 

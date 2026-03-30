@@ -85,11 +85,12 @@ export function AuthGate({ children }: Props) {
           if (error.toLowerCase().includes('not confirmed')) {
             setUnconfirmedEmail(email);
           } else {
-            // For "Invalid login credentials" and similar errors, show inline with reset suggestion
             setLoginError(error);
           }
         }
       }
+    } catch (err) {
+      setLoginError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -115,6 +116,8 @@ export function AuthGate({ children }: Props) {
       const { error } = await sendPasswordReset(email);
       if (error) { toast.error(error); return; }
       setResetSent(true);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -128,6 +131,8 @@ export function AuthGate({ children }: Props) {
       const { error } = await updatePassword(newPassword);
       if (error) { toast.error(error); return; }
       toast.success('Password updated! You are now signed in.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -141,6 +146,8 @@ export function AuthGate({ children }: Props) {
       await signInWithEmail(email);
       setMagicSent(true);
       toast.success('Magic link sent! Check your email.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
