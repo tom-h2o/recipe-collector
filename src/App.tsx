@@ -167,6 +167,7 @@ export default function App() {
         </Layout>
 
         <RecipeDetail
+          key={selectedRecipe?.id ?? 'none'}
           recipe={selectedRecipe}
           preferredLanguage={preferredLanguage}
           onLanguageChange={setPreferredLanguage}
