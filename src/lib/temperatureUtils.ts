@@ -29,13 +29,13 @@ export function convertTemperaturesInText(text: string, targetUnit: 'C' | 'F'): 
 
   if (targetUnit === 'F') {
     // Convert all °C → °F
-    let result = text
+    const result = text
       .replace(C_PATTERN, (_, t) => `${toF(parseFloat(t))}°F`)
       .replace(DEGREES_C_PATTERN, (_, t) => `${toF(parseFloat(t))}°F`);
     return result;
   } else {
     // Convert all °F → °C
-    let result = text
+    const result = text
       .replace(F_PATTERN, (_, t) => `${toC(parseFloat(t))}°C`)
       .replace(DEGREES_F_PATTERN, (_, t) => `${toC(parseFloat(t))}°C`);
     return result;
