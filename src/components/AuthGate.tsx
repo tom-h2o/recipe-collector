@@ -31,6 +31,7 @@ export function AuthGate({ children }: Props) {
   const [resetSent, setResetSent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
   const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
   const [isClaiming, setIsClaiming] = useState(false);
   const [claimed, setClaimed] = useState(false);
@@ -112,12 +113,13 @@ export function AuthGate({ children }: Props) {
     e.preventDefault();
     if (!email) return;
     setIsSubmitting(true);
+    setResetError(null);
     try {
       const { error } = await sendPasswordReset(email);
-      if (error) { toast.error(error); return; }
+      if (error) { setResetError(error); return; }
       setResetSent(true);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      setResetError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -353,6 +355,11 @@ export function AuthGate({ children }: Props) {
                     autoComplete="email"
                   />
                 </div>
+                {resetError && (
+                  <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-xl text-sm text-red-700 dark:text-red-400">
+                    {resetError}
+                  </div>
+                )}
                 <Button
                   type="submit"
                   disabled={isSubmitting}
@@ -362,7 +369,7 @@ export function AuthGate({ children }: Props) {
                 </Button>
                 <button
                   type="button"
-                  onClick={() => setPasswordStep('signin')}
+                  onClick={() => { setPasswordStep('signin'); setResetError(null); }}
                   className="w-full text-sm text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
                 >
                   ← Back to sign in
