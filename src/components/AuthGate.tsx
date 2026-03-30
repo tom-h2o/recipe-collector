@@ -30,6 +30,7 @@ export function AuthGate({ children }: Props) {
   const [magicSent, setMagicSent] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
   const [isClaiming, setIsClaiming] = useState(false);
   const [claimed, setClaimed] = useState(false);
@@ -67,24 +68,25 @@ export function AuthGate({ children }: Props) {
     e.preventDefault();
     if (!email || !password) return;
     setIsSubmitting(true);
+    setLoginError(null);
+    setUnconfirmedEmail(null);
     try {
       if (isSignUp) {
         const { error, needsConfirmation } = await signUpWithPassword(email, password);
-        if (error) { toast.error(error); return; }
+        if (error) { setLoginError(error); return; }
         if (needsConfirmation) {
           setUnconfirmedEmail(email);
-          toast.success('Account created! Check your email to confirm before signing in.');
           setIsSignUp(false);
         }
         // if needsConfirmation is false, onAuthStateChange already signed the user in
       } else {
         const { error } = await signInWithPassword(email, password);
         if (error) {
-          if (error.toLowerCase().includes('not confirmed') || error.toLowerCase().includes('email')) {
+          if (error.toLowerCase().includes('not confirmed')) {
             setUnconfirmedEmail(email);
-            toast.error('Please confirm your email first. Check your inbox (or spam folder).');
           } else {
-            toast.error(error);
+            // For "Invalid login credentials" and similar errors, show inline with reset suggestion
+            setLoginError(error);
           }
         }
       }
@@ -238,7 +240,7 @@ export function AuthGate({ children }: Props) {
                     id="email"
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); setLoginError(null); }}
                     placeholder="you@example.com"
                     required
                     autoComplete="email"
@@ -251,12 +253,12 @@ export function AuthGate({ children }: Props) {
                       id="password"
                       type={showPassword ? 'text' : 'password'}
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => { setPassword(e.target.value); setLoginError(null); }}
                       placeholder={isSignUp ? 'Min. 8 characters' : '••••••••'}
                       required
                       minLength={isSignUp ? 8 : undefined}
                       autoComplete={isSignUp ? 'new-password' : 'current-password'}
-                      className="pr-10"
+                      className={`pr-10 ${loginError ? 'border-red-400 focus-visible:ring-red-400' : ''}`}
                     />
                     <button
                       type="button"
@@ -267,6 +269,23 @@ export function AuthGate({ children }: Props) {
                     </button>
                   </div>
                 </div>
+
+                {/* Inline error with reset suggestion */}
+                {loginError && (
+                  <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-xl text-sm space-y-1.5">
+                    <p className="text-red-700 dark:text-red-400">{loginError}</p>
+                    {!isSignUp && (
+                      <button
+                        type="button"
+                        onClick={() => { setPasswordStep('forgot'); setResetSent(false); setLoginError(null); }}
+                        className="font-semibold text-red-700 dark:text-red-400 underline"
+                      >
+                        Reset password or set one for the first time →
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 <Button
                   type="submit"
                   disabled={isSubmitting}
@@ -274,7 +293,7 @@ export function AuthGate({ children }: Props) {
                 >
                   {isSubmitting ? 'Please wait…' : isSignUp ? 'Create account' : 'Sign in'}
                 </Button>
-                {!isSignUp && (
+                {!isSignUp && !loginError && (
                   <button
                     type="button"
                     onClick={() => { setPasswordStep('forgot'); setResetSent(false); }}
@@ -285,7 +304,7 @@ export function AuthGate({ children }: Props) {
                 )}
                 <button
                   type="button"
-                  onClick={() => { setIsSignUp((v) => !v); setUnconfirmedEmail(null); }}
+                  onClick={() => { setIsSignUp((v) => !v); setUnconfirmedEmail(null); setLoginError(null); }}
                   className="w-full text-sm text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
                 >
                   {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
