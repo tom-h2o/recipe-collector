@@ -190,6 +190,7 @@ export default function App() {
               shares={inboxShares}
               onAccept={handleAcceptShare}
               onReject={(share) => rejectShare(share, user?.email ?? '')}
+              onBack={() => setActiveView('vault')}
             />
           )}
         </Layout>

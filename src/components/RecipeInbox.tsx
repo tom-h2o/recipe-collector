@@ -1,32 +1,48 @@
-import { Check, X, Inbox, ChefHat } from 'lucide-react';
+import { Check, X, Inbox, ChefHat, ArrowLeft } from 'lucide-react';
 import type { RecipeShare } from '@/types';
 
 interface Props {
   shares: RecipeShare[];
   onAccept: (share: RecipeShare) => void;
   onReject: (share: RecipeShare) => void;
+  onBack: () => void;
 }
 
-export function RecipeInbox({ shares, onAccept, onReject }: Props) {
+export function RecipeInbox({ shares, onAccept, onReject, onBack }: Props) {
   if (shares.length === 0) {
     return (
       <div className="max-w-2xl mx-auto text-center py-24 animate-in fade-in duration-500">
         <Inbox className="w-16 h-16 mx-auto text-zinc-300 dark:text-zinc-700 mb-4" />
         <p className="text-xl font-bold text-zinc-500 dark:text-zinc-400">Your inbox is empty</p>
         <p className="text-sm text-zinc-400 mt-2">When someone sends you a recipe it will appear here.</p>
+        <button
+          onClick={onBack}
+          className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-orange-500 hover:text-orange-600 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to Vault
+        </button>
       </div>
     );
   }
 
   return (
     <div className="max-w-2xl mx-auto space-y-4 animate-in fade-in duration-500">
-      <h2 className="text-2xl font-bold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-        <Inbox className="w-6 h-6 text-orange-500" />
-        Recipe Inbox
-        <span className="text-sm font-semibold px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full">
-          {shares.length}
-        </span>
-      </h2>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onBack}
+          className="p-1.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
+          title="Back to Vault"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <h2 className="text-2xl font-bold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+          <Inbox className="w-6 h-6 text-orange-500" />
+          Recipe Inbox
+          <span className="text-sm font-semibold px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full">
+            {shares.length}
+          </span>
+        </h2>
+      </div>
 
       {shares.map((share) => (
         <div
