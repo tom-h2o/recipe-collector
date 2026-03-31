@@ -124,7 +124,7 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
                 <Button onClick={() => onSave(local)} disabled={isSaving} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-semibold">
                   {isSaving ? 'Saving...' : 'Save Settings'}
                 </Button>
-                <Button onClick={() => setLocal((p) => ({ ...p, gemini_prompt: DEFAULT_PROMPT }))} variant="outline" className="flex-1">
+                <Button onClick={() => setLocal((p) => ({ ...p, gemini_prompt: DEFAULT_PROMPT }))} variant="outline" className="flex-1 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-600">
                   Reset Prompt to Default
                 </Button>
               </div>
