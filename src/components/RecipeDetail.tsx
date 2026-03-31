@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages, Send } from 'lucide-react';
+import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages, Send, MoreHorizontal, Tag, Salad } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
@@ -36,6 +36,9 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
   const [showAddPlan, setShowAddPlan] = useState(false);
   const [planMeal, setPlanMeal] = useState<string>(MEAL_TYPES[2]);
   const [isAddingToPlan, setIsAddingToPlan] = useState(false);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const [isRegeneratingTags, setIsRegeneratingTags] = useState(false);
+  const [isRegeneratingNutrition, setIsRegeneratingNutrition] = useState(false);
 
   // Auto-translate when recipe opens or preferred language changes
   useEffect(() => {
@@ -154,6 +157,57 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
     // The useEffect above will fire and fetch the translation
   }
 
+  async function handleRegenerateTags() {
+    if (!recipe) return;
+    setIsRegeneratingTags(true);
+    try {
+      const res = await fetch('/api/tag', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipeId: recipe.id,
+          title: recipe.title,
+          description: recipe.description,
+          ingredients: parseIngredients(recipe.ingredients),
+          instructions: recipe.instructions,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json() as { tags: string[] };
+      onUpdateRecipe(recipe.id, { tags: data.tags });
+      toast.success('Tags updated!');
+    } catch {
+      toast.error('Failed to regenerate tags.');
+    } finally {
+      setIsRegeneratingTags(false);
+    }
+  }
+
+  async function handleRegenerateNutrition() {
+    if (!recipe) return;
+    setIsRegeneratingNutrition(true);
+    try {
+      const res = await fetch('/api/nutrition', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipeId: recipe.id,
+          title: recipe.title,
+          ingredients: parseIngredients(recipe.ingredients),
+          servings: recipe.servings,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json() as { nutrition: Recipe['nutrition'] };
+      onUpdateRecipe(recipe.id, { nutrition: data.nutrition });
+      toast.success('Nutrition updated!');
+    } catch {
+      toast.error('Failed to regenerate nutrition.');
+    } finally {
+      setIsRegeneratingNutrition(false);
+    }
+  }
+
   const parsed = parseIngredients(recipe.ingredients);
   const rawInstructions = translation ? translation.instructions : recipe.instructions;
   const displayInstructions = convertTemperaturesInText(rawInstructions, temperatureUnit);
@@ -176,7 +230,16 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
 
   return (
     <Dialog open={!!recipe} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[780px] max-h-[92vh] overflow-y-auto rounded-3xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-2xl p-0 w-[95vw] sm:w-full">
+      <DialogContent className="sm:max-w-[780px] overflow-hidden rounded-3xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-2xl p-0 w-[95vw] sm:w-full">
+        {/* Fixed close button — always visible, never scrolls away */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 z-20 p-1.5 rounded-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors shadow-sm"
+          title="Close"
+        >
+          <X className="w-4 h-4" />
+        </button>
+        <div className="overflow-y-auto max-h-[92vh]">
         <div className="flex flex-col">
           {recipe.image_url && (
             <div className="w-full h-48 sm:h-60 md:h-80 overflow-hidden shrink-0 rounded-t-3xl">
@@ -205,11 +268,6 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                     title="View original photo"
                   ><ImageIcon className="w-4 h-4" /></button>
                 )}
-                <button
-                  onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/recipe/${recipe.id}`); toast.success('Shared recipe link copied!'); }}
-                  className="p-2 rounded-full text-zinc-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
-                  title="Copy share link"
-                ><Share2 className="w-4 h-4" /></button>
                 {onSend && (
                   <button
                     onClick={() => onSend(recipe)}
@@ -217,11 +275,6 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                     title="Send recipe to someone"
                   ><Send className="w-4 h-4" /></button>
                 )}
-                <button
-                  onClick={() => window.print()}
-                  className="p-2 rounded-full text-zinc-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors hidden sm:inline-flex"
-                  title="Print recipe"
-                ><Printer className="w-4 h-4" /></button>
                 {onAddMealPlan && (
                   <button
                     onClick={() => setShowAddPlan((v) => !v)}
@@ -251,6 +304,12 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                   className="p-2 rounded-full text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                   title="Delete recipe"
                 ><Trash2 className="w-4 h-4" /></button>
+                <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-0.5" />
+                <button
+                  onClick={() => setShowMoreOptions((v) => !v)}
+                  className={`p-2 rounded-full transition-colors ${showMoreOptions ? 'text-zinc-600 bg-zinc-100 dark:bg-zinc-800' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                  title="More options"
+                ><MoreHorizontal className="w-4 h-4" /></button>
               </div>
 
               {/* Language picker — shown when translate button is active */}
@@ -384,6 +443,42 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                   </div>
                 </div>
               )}
+              {/* More options panel — regenerate AI data */}
+              {showMoreOptions && (
+                <div className="mt-2 p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl space-y-2">
+                  <p className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">Options</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/recipe/${recipe.id}`); toast.success('Link copied!'); }}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-green-400 hover:text-green-600 text-zinc-600 dark:text-zinc-300 text-sm font-semibold rounded-xl transition-colors"
+                    >
+                      <Share2 className="w-3.5 h-3.5" /> Copy share link
+                    </button>
+                    <button
+                      onClick={() => window.print()}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-purple-400 hover:text-purple-600 text-zinc-600 dark:text-zinc-300 text-sm font-semibold rounded-xl transition-colors"
+                    >
+                      <Printer className="w-3.5 h-3.5" /> Print
+                    </button>
+                    <button
+                      onClick={handleRegenerateTags}
+                      disabled={isRegeneratingTags || isRegeneratingNutrition}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-orange-400 hover:text-orange-600 text-zinc-600 dark:text-zinc-300 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
+                    >
+                      {isRegeneratingTags ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Tag className="w-3.5 h-3.5" />}
+                      {isRegeneratingTags ? 'Regenerating…' : 'Regenerate tags'}
+                    </button>
+                    <button
+                      onClick={handleRegenerateNutrition}
+                      disabled={isRegeneratingTags || isRegeneratingNutrition}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-orange-400 hover:text-orange-600 text-zinc-600 dark:text-zinc-300 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
+                    >
+                      {isRegeneratingNutrition ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Salad className="w-3.5 h-3.5" />}
+                      {isRegeneratingNutrition ? 'Regenerating…' : 'Regenerate nutrition'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </DialogHeader>
 
             <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
@@ -490,6 +585,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
             </div>
           </div>
         </div>
+        </div>{/* end overflow-y-auto */}
       </DialogContent>
 
       {/* Photo lightbox — full-screen overlay for photo-extracted recipes */}
