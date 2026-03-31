@@ -19,14 +19,14 @@ To run a single test file: `npx vitest run src/lib/recipeUtils.test.ts`
 
 **Deployment:** Vercel. The frontend is a Vite/React SPA; the backend is Vercel Serverless Functions in `/api/`. Routing is handled by `vercel.json` — all `/api/*` calls go to the functions, everything else serves `index.html`.
 
-**Database:** Supabase (Postgres + RLS). Schema is in `/supabase/migrations/` (23 migrations as of now). Tables: `recipes`, `meal_plan`, `shopping_list`, `settings`, `url_cache`, `gemini_logs`, `pantry`, `translations`, and storage for recipe photos.
+**Database:** Supabase (Postgres + RLS). Schema is in `/supabase/migrations/` (25 migrations). Tables: `recipes`, `meal_plan`, `shopping_list`, `settings`, `url_cache`, `gemini_logs`, `pantry_items`, `recipe_translations`, `recipe_shares`, `contacts`, and storage for recipe photos.
 
 **AI:** Google Gemini (via `@google/genai`). All API endpoints call Gemini and return JSON. The active model and system prompt are stored in the `settings` table, configurable per-user from the UI.
 
 ### Frontend (`/src/`)
 
 - `App.tsx` — root component: initialises all hooks, wires up views, handles routing for the `/recipe/:id` public share URL
-- `types.ts` — all shared TypeScript interfaces (`Recipe`, `Ingredient`, `Nutrition`, `MealPlan`, `ShoppingItem`, `PantryItem`, `AppSettings`, `RecipeTranslation`)
+- `types.ts` — all shared TypeScript interfaces (`Recipe`, `Ingredient`, `Nutrition`, `MealPlan`, `ShoppingItem`, `PantryItem`, `AppSettings`, `RecipeTranslation`, `RecipeShare`, `Contact`)
 - `lib/constants.ts` — `MODELS`, `FILTERS`, `AVAILABLE_TAGS`, `MEAL_TYPES`, `LANGUAGES`, `SORT_OPTIONS`, `PAGE_SIZE` (24), `DEFAULT_PROMPT`
 - `lib/recipeUtils.ts` — `parseIngredients()` (handles both `Ingredient[]` and legacy `string[]`), `scaleAmount()`, `recipeToIngredientText()`
 - `lib/supabase.ts` — singleton Supabase browser client
@@ -35,22 +35,25 @@ To run a single test file: `npx vitest run src/lib/recipeUtils.test.ts`
 **Hooks** (each owns its own Supabase queries and state):
 - `useRecipes` — paginated recipe list (PAGE_SIZE=24), polling for AI processing completion (`processingIds` set), `saveRecipe`/`updateRecipe`/`deleteRecipe`/`toggleFavourite`
 - `useMealPlans`, `useShoppingList`, `useSettings` — self-explanatory
-- `useAuth` — Supabase Auth: password + magic link (no Google OAuth). Returns `user`, `loading`, `signOut`
-- `useLanguagePreference` — persists preferred translation language in `localStorage`
+- `useAuth` — Supabase Auth: password + magic link. Returns `user`, `loading`, `isPasswordRecovery`, `sendPasswordReset`, `updatePassword`, `resendConfirmation`, `signOut`
+- `useRecipeShares` — inbox (pending shares), contacts for autocomplete, `sendShare`/`acceptShare`/`rejectShare`
 - `useDarkMode` — syncs with `prefers-color-scheme` and persists in `localStorage`
 
 **Components** (one per feature, all in `/src/components/`):
-- `AuthGate` — wraps the whole app; shows login UI if unauthenticated; handles "claim existing recipes" for pre-auth data
-- `Layout` — header, nav tabs, action buttons
+- `AuthGate` — wraps the whole app; shows login UI if unauthenticated; handles "claim existing recipes" for pre-auth data. Includes password, magic link, forgot password, and set-new-password (recovery) flows. All errors shown inline (never toast-only).
+- `Layout` — header, nav tabs (Vault / Meal Planner / Shopping / Inbox), action buttons. Inbox tab shows orange badge when pending shares exist.
 - `RecipeVault` — grid with search, filter chips, sort, infinite scroll ("Load more")
-- `RecipeCard` — individual card with processing spinner badge
-- `RecipeDetail` — full-screen drawer: scaling, translation, cook mode entry, edit/delete/share
+- `RecipeCard` — individual card with processing spinner badge; shows translated title/description if `recipeLanguages[recipe.id]` is set
+- `RecipeDetail` — full-screen drawer: scaling, translation, cook mode entry, edit/delete/share/send
 - `RecipeForm` — add/edit dialog; URL extraction and photo upload flows
 - `CookMode` — fullscreen step-by-step mode with ingredient side panel
 - `MealPlanner` — 7-day calendar
 - `ShoppingList` — shopping + pantry tabs
 - `SettingsPanel` — Gemini model/prompt/API key config
 - `SuggestModal` — ingredient-based AI recipe suggestion
+- `SendRecipeModal` — send a recipe to another user by email; autocompletes from known contacts
+- `RecipeInbox` — displays pending received recipes with Accept / Decline actions
+- `UserMenu` — profile dropdown: signed-in provider, change password, sign out
 - `GeminiLogs` — admin view of AI call history
 
 ### API (`/api/`)
@@ -72,9 +75,10 @@ Each handler follows the same pattern: validate with Zod → read settings from 
 - `suggest.ts` — suggest recipes from available ingredients (queries last 50 recipes, not all)
 - `shopping.ts` — generate shopping list from meal plan recipes
 - `scale.ts` — AI-assisted recipe scaling
-- `translate.ts` — translate recipe to another language (cached in `translations` table)
+- `translate.ts` — translate recipe to another language (cached in `recipe_translations` table)
 - `extract-photo.ts` — extract recipe from an uploaded image
 - `find-image.ts` — find a suitable image URL for a recipe
+- `share.ts` — recipe sharing: `send` / `accept` / `reject` actions. `accept` copies the recipe + all translations to the recipient's vault using the service key.
 
 ## Environment Variables
 
@@ -85,10 +89,15 @@ Copy `.env.example` to `.env.local`. Required:
 
 Optional: `VITE_SENTRY_DSN`, `SENTRY_DSN`, `VITE_APP_ENV`, `ALLOWED_ORIGIN`
 
+GitHub Actions secret needed for DB migrations: `SUPABASE_DB_URL` (Postgres connection string from Supabase dashboard → Project Settings → Database → URI).
+
 ## Key Patterns
 
 - **`ingredients` field is polymorphic:** stored as `Ingredient[]` (objects with `amount`, `name`, `details`) but older recipes may be `string[]`. Always use `parseIngredients()` from `recipeUtils.ts` before rendering or processing ingredients.
 - **Processing state:** after saving a recipe, `useRecipes` polls the DB every 2s until `tags.length > 0 && nutrition !== null` (or 30s timeout). The `processingIds` set drives spinner badges on cards.
 - **Pagination:** `fetchRecipes()` resets to page 0; `loadMore()` appends. Client-side search/filter operates only on loaded pages.
 - **Auth + RLS:** The browser client uses the user session (RLS enforced). API functions use `SUPABASE_SERVICE_KEY` (bypasses RLS). Recipes with `user_id = null` are visible to all authenticated users (legacy data).
+- **Per-recipe language:** `recipes.preferred_language` stores the last-used display language per recipe. Written via `updateRecipe()` when the user switches language in RecipeDetail. Read directly from the recipe object — no separate hook or localStorage.
+- **Recipe sharing RLS:** `recipe_shares` uses `auth.email() = recipient_email` so recipients can see their inbox without needing a `user_id` lookup. Service key is used server-side for copying recipes on accept.
+- **Password recovery flow:** Supabase fires `PASSWORD_RECOVERY` then immediately `SIGNED_IN` on reset link click. `useAuth` intentionally does not clear `isPasswordRecovery` on `SIGNED_IN` — only on `USER_UPDATED`/`SIGNED_OUT`/etc. — so `AuthGate` can show the set-password form.
 - **Gemini logging:** every `generateJson()` call inserts a row into `gemini_logs` with latency, status, input/output previews. Visible in `GeminiLogs` component (admin).
