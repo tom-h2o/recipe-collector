@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ChefHat, Mail, Lock, Eye, EyeOff, KeyRound } from 'lucide-react';
+import { ChefHat, Mail, Lock, Eye, EyeOff, KeyRound, Sun, Moon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
+import { useDarkMode } from '@/hooks/useDarkMode';
 
 interface Props {
   children: React.ReactNode;
@@ -20,6 +21,7 @@ export function AuthGate({ children }: Props) {
     signInWithEmail, signInWithPassword, signUpWithPassword,
     sendPasswordReset, updatePassword, resendConfirmation,
   } = useAuth();
+  const { isDark, toggle: toggleDark } = useDarkMode();
   const [mode, setMode] = useState<AuthMode>('password');
   const [passwordStep, setPasswordStep] = useState<PasswordStep>('signin');
   const [isSignUp, setIsSignUp] = useState(false);
@@ -217,6 +219,13 @@ export function AuthGate({ children }: Props) {
   if (!user) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-start justify-center p-6 pt-24">
+        <button
+          onClick={toggleDark}
+          className="fixed top-4 right-4 p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition-colors"
+          aria-label="Toggle dark mode"
+        >
+          {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+        </button>
         <div className="w-full max-w-sm">
           <div className="text-center space-y-3 mb-8">
             <div className="flex items-center justify-center gap-3">
