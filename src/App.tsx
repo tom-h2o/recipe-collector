@@ -7,7 +7,6 @@ import { useMealPlans } from '@/hooks/useMealPlans';
 import { useShoppingList } from '@/hooks/useShoppingList';
 import { useSettings } from '@/hooks/useSettings';
 import { useAuth } from '@/hooks/useAuth';
-import { useLanguagePreference } from '@/hooks/useLanguagePreference';
 import { useRecipeShares } from '@/hooks/useRecipeShares';
 
 import { AuthGate } from '@/components/AuthGate';
@@ -33,7 +32,6 @@ export default function App() {
   const { mealPlans, fetchMealPlans, addMealPlan, removeMealPlan } = useMealPlans(user?.id);
   const { shoppingList, pantryItems, isGeneratingShopping, fetchShoppingList, fetchPantryItems, generateShoppingList, toggleItem, deleteItem, clearAll, moveItemToPantry, moveItemToShopping, deletePantryItem, addToPantry } = useShoppingList(user?.id);
   const { settings, isSavingSettings, fetchSettings, saveSettings } = useSettings(user?.id);
-  const { recipeLanguages, setRecipeLanguage } = useLanguagePreference();
   const { inboxShares, inboxCount, contacts, fetchInbox, fetchContacts, sendShare, acceptShare, rejectShare } = useRecipeShares(user?.id, user?.email);
   const [translationsCache, setTranslationsCache] = useState<Record<string, RecipeTranslation>>({});
 
@@ -149,7 +147,7 @@ export default function App() {
               searchQuery={searchQuery}
               activeFilter={activeFilter}
               hasMore={hasMore}
-              recipeLanguages={recipeLanguages}
+              recipeLanguages={Object.fromEntries(recipes.map((r) => [r.id, r.preferred_language ?? '']))}
               translationsCache={translationsCache}
               onSearchChange={setSearchQuery}
               onFilterChange={setActiveFilter}
@@ -199,9 +197,9 @@ export default function App() {
         <RecipeDetail
           key={selectedRecipe?.id ?? 'none'}
           recipe={selectedRecipe}
-          preferredLanguage={selectedRecipe ? (recipeLanguages[selectedRecipe.id] ?? null) : null}
+          preferredLanguage={selectedRecipe?.preferred_language ?? null}
           temperatureUnit={settings.temperature_unit}
-          onLanguageChange={(lang) => selectedRecipe && setRecipeLanguage(selectedRecipe.id, lang)}
+          onLanguageChange={(lang) => { if (selectedRecipe) handleUpdateRecipe(selectedRecipe.id, { preferred_language: lang }); }}
           onTranslationCached={cacheTranslation}
           onClose={() => setSelectedRecipe(null)}
           onEdit={(r) => openForm(r)}

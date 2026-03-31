@@ -32,6 +32,7 @@ export interface Recipe {
   source_name: string | null;
   original_servings?: number | null;
   original_language?: string | null;
+  preferred_language?: string | null;
   user_id?: string | null;
 }
 
