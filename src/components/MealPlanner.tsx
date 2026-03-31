@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChefHat, Users, X } from 'lucide-react';
+import { ChefHat, Users, X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Recipe, MealPlan } from '@/types';
 import { MEAL_TYPES } from '@/lib/constants';
@@ -16,6 +16,8 @@ interface Props {
 export function MealPlanner({ recipes, mealPlans, onAddMealPlan, onRemoveMealPlan, onRefreshMealPlans, onOpenRecipe }: Props) {
   // Track exactly which cell is being dragged over — CSS :hover is suppressed during drag
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+  // Mobile: tap-to-add — track which cell is picking a recipe
+  const [addingCell, setAddingCell] = useState<{ date: string; meal: string } | null>(null);
 
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
@@ -29,9 +31,20 @@ export function MealPlanner({ recipes, mealPlans, onAddMealPlan, onRemoveMealPla
       .reduce((sum, m) => sum + (m.recipe?.nutrition?.calories ?? 0), 0);
   }
 
+  async function handleTapAdd(date: string, meal: string, recipeId: string) {
+    try {
+      await onAddMealPlan(date, meal, recipeId);
+      onRefreshMealPlans();
+      setAddingCell(null);
+    } catch {
+      toast.error('Failed to add meal plan.');
+    }
+  }
+
   return (
-    <div className="flex flex-col lg:flex-row gap-8 animate-in fade-in duration-500">
-      <div className="w-full lg:w-1/3 xl:w-1/4 space-y-4">
+    <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 animate-in fade-in duration-500">
+      {/* Recipe sidebar — collapsible on mobile */}
+      <div className="w-full lg:w-1/3 xl:w-1/4 space-y-4 hidden lg:block">
         <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
           <ChefHat className="w-5 h-5 text-orange-500" /> Draggable Recipes
         </h2>
@@ -73,9 +86,9 @@ export function MealPlanner({ recipes, mealPlans, onAddMealPlan, onRemoveMealPla
         {days.map(({ date, label, isToday }) => {
           const dayCalories = getDayCalories(date);
           return (
-            <div key={date} className="bg-white dark:bg-zinc-900/50 p-5 rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-800">
+            <div key={date} className="bg-white dark:bg-zinc-900/50 p-3 sm:p-5 rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-800">
               <div className="flex items-center justify-between mb-3">
-                <h3 className={`font-bold text-lg ${isToday ? 'text-orange-600 dark:text-orange-400' : 'text-zinc-800 dark:text-zinc-200'}`}>
+                <h3 className={`font-bold text-base sm:text-lg ${isToday ? 'text-orange-600 dark:text-orange-400' : 'text-zinc-800 dark:text-zinc-200'}`}>
                   {label} {isToday && '(Today)'}
                 </h3>
                 {dayCalories > 0 && (
@@ -84,10 +97,11 @@ export function MealPlanner({ recipes, mealPlans, onAddMealPlan, onRemoveMealPla
                   </span>
                 )}
               </div>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
                 {MEAL_TYPES.map((meal) => {
                   const cellKey = `${date}-${meal}`;
                   const isOver = dragOverKey === cellKey;
+                  const isAdding = addingCell?.date === date && addingCell?.meal === meal;
                   return (
                     <div
                       key={meal}
@@ -97,7 +111,6 @@ export function MealPlanner({ recipes, mealPlans, onAddMealPlan, onRemoveMealPla
                         setDragOverKey(cellKey);
                       }}
                       onDragLeave={(e) => {
-                        // Only clear when leaving the cell itself, not a child element
                         if (!e.currentTarget.contains(e.relatedTarget as Node)) {
                           setDragOverKey(null);
                         }
@@ -115,15 +128,39 @@ export function MealPlanner({ recipes, mealPlans, onAddMealPlan, onRemoveMealPla
                           }
                         }
                       }}
-                      className={`min-h-[80px] border-2 border-dashed rounded-xl p-2.5 transition-colors flex flex-col ${
+                      className={`min-h-[70px] sm:min-h-[80px] border-2 border-dashed rounded-xl p-2 sm:p-2.5 transition-colors flex flex-col ${
                         isOver
                           ? 'border-orange-400 dark:border-orange-500 bg-orange-50 dark:bg-orange-900/20'
                           : 'border-zinc-200 dark:border-zinc-800'
                       }`}
                     >
-                      <div className="font-bold text-xs uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-2">{meal}</div>
+                      <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                        <div className="font-bold text-[10px] sm:text-xs uppercase tracking-wider text-zinc-400 dark:text-zinc-500">{meal}</div>
+                        {/* Mobile tap-to-add button */}
+                        <button
+                          onClick={() => setAddingCell(isAdding ? null : { date, meal })}
+                          className="lg:hidden p-0.5 rounded text-zinc-300 dark:text-zinc-600 hover:text-orange-500 dark:hover:text-orange-400 transition-colors"
+                          title="Add recipe"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      {/* Mobile recipe picker */}
+                      {isAdding && recipes.length > 0 && (
+                        <div className="mb-2 max-h-32 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-sm lg:hidden">
+                          {recipes.map((r) => (
+                            <button
+                              key={r.id}
+                              onClick={() => handleTapAdd(date, meal, r.id)}
+                              className="w-full text-left px-2 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors truncate border-b last:border-0 border-zinc-100 dark:border-zinc-800"
+                            >
+                              {r.title}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                       {mealPlans.filter((m) => m.date === date && m.meal_type === meal).map((m) => (
-                        <div key={m.id} className="bg-gradient-to-r from-orange-100 to-orange-50 dark:from-orange-900/40 dark:to-orange-900/20 text-orange-900 dark:text-orange-100 p-2 rounded-lg mt-1.5 flex justify-between items-center group shadow-sm text-sm border border-orange-200/50 dark:border-orange-800/50">
+                        <div key={m.id} className="bg-gradient-to-r from-orange-100 to-orange-50 dark:from-orange-900/40 dark:to-orange-900/20 text-orange-900 dark:text-orange-100 p-1.5 sm:p-2 rounded-lg mt-1 sm:mt-1.5 flex justify-between items-center group shadow-sm text-xs sm:text-sm border border-orange-200/50 dark:border-orange-800/50">
                           <span
                             className="truncate font-semibold cursor-pointer py-0.5"
                             onClick={() => m.recipe && onOpenRecipe(m.recipe)}
@@ -139,10 +176,10 @@ export function MealPlanner({ recipes, mealPlans, onAddMealPlan, onRemoveMealPla
                                 toast.error('Failed to remove meal.');
                               }
                             }}
-                            className="opacity-0 group-hover:opacity-100 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 p-1 rounded-md transition-all shrink-0 ml-2"
+                            className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 p-1 rounded-md transition-all shrink-0 ml-1 sm:ml-2"
                             title="Remove"
                           >
-                            <X className="w-3.5 h-3.5" />
+                            <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                           </button>
                         </div>
                       ))}

@@ -176,83 +176,81 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
 
   return (
     <Dialog open={!!recipe} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[780px] max-h-[92vh] overflow-y-auto rounded-3xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-2xl p-0">
+      <DialogContent className="sm:max-w-[780px] max-h-[92vh] overflow-y-auto rounded-3xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-2xl p-0 w-[95vw] sm:w-full">
         <div className="flex flex-col">
           {recipe.image_url && (
-            <div className="w-full h-60 sm:h-80 overflow-hidden shrink-0 rounded-t-3xl">
+            <div className="w-full h-48 sm:h-60 md:h-80 overflow-hidden shrink-0 rounded-t-3xl">
               <img src={recipe.image_url} className="w-full h-full object-cover" alt={recipe.title} />
             </div>
           )}
-          <div className="p-6 sm:p-10 space-y-8">
+          <div className="p-4 sm:p-6 md:p-10 space-y-6 sm:space-y-8">
             <DialogHeader className="text-left space-y-2">
-              <div className="flex items-start justify-between gap-4">
-                <DialogTitle className="text-3xl md:text-4xl font-extrabold tracking-tight">
-                  {translation ? translation.title : recipe.title}
-                </DialogTitle>
-                <div className="flex items-center gap-1 shrink-0 pt-1">
-                  {recipe.source_url && (
-                    <a
-                      href={recipe.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 rounded-full text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                      title={`View original: ${recipe.source_name || recipe.source_url}`}
-                    ><Globe className="w-4 h-4" /></a>
-                  )}
-                  {!recipe.source_url && recipe.image_url && (
-                    <button
-                      onClick={() => setShowPhotoLightbox(true)}
-                      className="p-2 rounded-full text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                      title="View original photo"
-                    ><ImageIcon className="w-4 h-4" /></button>
-                  )}
-                  <button
-                    onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/recipe/${recipe.id}`); toast.success('Shared recipe link copied!'); }}
-                    className="p-2 rounded-full text-zinc-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
-                    title="Copy share link"
-                  ><Share2 className="w-4 h-4" /></button>
-                  {onSend && (
-                    <button
-                      onClick={() => onSend(recipe)}
-                      className="p-2 rounded-full text-zinc-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
-                      title="Send recipe to someone"
-                    ><Send className="w-4 h-4" /></button>
-                  )}
-                  <button
-                    onClick={() => window.print()}
-                    className="p-2 rounded-full text-zinc-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
-                    title="Print recipe"
-                  ><Printer className="w-4 h-4" /></button>
-                  {onAddMealPlan && (
-                    <button
-                      onClick={() => setShowAddPlan((v) => !v)}
-                      className={`p-2 rounded-full transition-colors ${showAddPlan ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
-                      title="Add to meal plan"
-                    ><CalendarPlus className="w-4 h-4" /></button>
-                  )}
-                  <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-1" />
-                  <button
-                    onClick={() => setShowLangPicker((v) => !v)}
-                    className={`p-2 rounded-full transition-colors ${showLangPicker ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
-                    title="Translate recipe"
-                  ><Languages className="w-4 h-4" /></button>
-                  <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-1" />
-                  <button
-                    onClick={onCook}
-                    className="p-2 rounded-full text-zinc-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
-                    title="Cook Mode"
-                  ><Flame className="w-4 h-4" /></button>
-                  <button
-                    onClick={() => { onClose(); onEdit(recipe); }}
+              <DialogTitle className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
+                {translation ? translation.title : recipe.title}
+              </DialogTitle>
+              <div className="flex items-center gap-1 flex-wrap pt-1">
+                {recipe.source_url && (
+                  <a
+                    href={recipe.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="p-2 rounded-full text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                    title="Edit recipe"
-                  ><Pencil className="w-4 h-4" /></button>
+                    title={`View original: ${recipe.source_name || recipe.source_url}`}
+                  ><Globe className="w-4 h-4" /></a>
+                )}
+                {!recipe.source_url && recipe.image_url && (
                   <button
-                    onClick={() => onDelete(recipe)}
-                    className="p-2 rounded-full text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                    title="Delete recipe"
-                  ><Trash2 className="w-4 h-4" /></button>
-                </div>
+                    onClick={() => setShowPhotoLightbox(true)}
+                    className="p-2 rounded-full text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                    title="View original photo"
+                  ><ImageIcon className="w-4 h-4" /></button>
+                )}
+                <button
+                  onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/recipe/${recipe.id}`); toast.success('Shared recipe link copied!'); }}
+                  className="p-2 rounded-full text-zinc-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+                  title="Copy share link"
+                ><Share2 className="w-4 h-4" /></button>
+                {onSend && (
+                  <button
+                    onClick={() => onSend(recipe)}
+                    className="p-2 rounded-full text-zinc-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                    title="Send recipe to someone"
+                  ><Send className="w-4 h-4" /></button>
+                )}
+                <button
+                  onClick={() => window.print()}
+                  className="p-2 rounded-full text-zinc-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors hidden sm:inline-flex"
+                  title="Print recipe"
+                ><Printer className="w-4 h-4" /></button>
+                {onAddMealPlan && (
+                  <button
+                    onClick={() => setShowAddPlan((v) => !v)}
+                    className={`p-2 rounded-full transition-colors ${showAddPlan ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
+                    title="Add to meal plan"
+                  ><CalendarPlus className="w-4 h-4" /></button>
+                )}
+                <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-0.5" />
+                <button
+                  onClick={() => setShowLangPicker((v) => !v)}
+                  className={`p-2 rounded-full transition-colors ${showLangPicker ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
+                  title="Translate recipe"
+                ><Languages className="w-4 h-4" /></button>
+                <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-0.5" />
+                <button
+                  onClick={onCook}
+                  className="p-2 rounded-full text-zinc-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                  title="Cook Mode"
+                ><Flame className="w-4 h-4" /></button>
+                <button
+                  onClick={() => { onClose(); onEdit(recipe); }}
+                  className="p-2 rounded-full text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                  title="Edit recipe"
+                ><Pencil className="w-4 h-4" /></button>
+                <button
+                  onClick={() => onDelete(recipe)}
+                  className="p-2 rounded-full text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  title="Delete recipe"
+                ><Trash2 className="w-4 h-4" /></button>
               </div>
 
               {/* Language picker — shown when translate button is active */}

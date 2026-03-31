@@ -84,3 +84,16 @@
     @apply font-sans;
   }
 }
+
+/* Safe area support for notched phones */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Prevent body scroll when dialogs are open on mobile */
+@media (max-width: 640px) {
+  body.overflow-hidden {
+    position: fixed;
+    width: 100%;
+  }
+}

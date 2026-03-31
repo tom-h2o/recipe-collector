@@ -49,12 +49,15 @@ export function CookMode({ recipe, isOpen, onClose }: Props) {
         {/* Root: full-screen flex row */}
         <div className="flex w-full h-full overflow-hidden">
 
-          {/* Ingredients side panel */}
+          {/* Ingredients side panel — overlays on mobile, side panel on desktop */}
           {showIngredients && (
-            <div className="w-64 shrink-0 border-r border-white/10 flex flex-col overflow-hidden">
+            <div className="fixed inset-0 z-10 sm:static sm:inset-auto sm:z-auto w-full sm:w-64 shrink-0 border-r border-white/10 flex flex-col overflow-hidden bg-zinc-950 sm:bg-transparent">
               <div className="shrink-0 px-4 py-4 border-b border-white/10 flex items-center justify-between">
                 <span className="font-bold text-sm text-white/80 uppercase tracking-wider">Ingredients</span>
-                <span className="text-xs text-white/40">{checkedIngredients.size}/{ingredients.length}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-white/40">{checkedIngredients.size}/{ingredients.length}</span>
+                  <button onClick={() => setShowIngredients(false)} className="sm:hidden p-1 rounded-full hover:bg-white/10 text-white/50"><X className="w-4 h-4" /></button>
+                </div>
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-1">
                 {ingredients.map((ing, i) => (
@@ -103,12 +106,12 @@ export function CookMode({ recipe, isOpen, onClose }: Props) {
             </div>
 
             {/* Step text — scrollable, fills available space */}
-            <div className="flex-1 min-h-0 overflow-y-auto px-8 sm:px-16">
-              <div className="flex flex-col items-center justify-center min-h-full py-10 gap-8">
-                <div className="w-16 h-16 shrink-0 rounded-full bg-orange-500 text-white flex items-center justify-center text-3xl font-black shadow-lg shadow-orange-500/30">
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 md:px-16">
+              <div className="flex flex-col items-center justify-center min-h-full py-6 sm:py-10 gap-6 sm:gap-8">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 shrink-0 rounded-full bg-orange-500 text-white flex items-center justify-center text-2xl sm:text-3xl font-black shadow-lg shadow-orange-500/30">
                   {cookStep + 1}
                 </div>
-                <p className="max-w-2xl w-full text-center text-xl sm:text-2xl md:text-3xl font-semibold leading-relaxed text-white">
+                <p className="max-w-2xl w-full text-center text-lg sm:text-2xl md:text-3xl font-semibold leading-relaxed text-white">
                   {currentStep.replace(/^step\s*\d+[.:)]\s*/i, '')}
                 </p>
               </div>
@@ -126,21 +129,21 @@ export function CookMode({ recipe, isOpen, onClose }: Props) {
             </div>
 
             {/* Nav buttons — never scrolls */}
-            <div className="shrink-0 flex gap-4 px-6 pb-8 pt-2">
+            <div className="shrink-0 flex gap-3 sm:gap-4 px-4 sm:px-6 pb-6 sm:pb-8 pt-2">
               <Button
                 onClick={() => setCookStep((s) => Math.max(0, s - 1))}
                 disabled={isFirst}
                 variant="outline"
-                className="flex-1 h-14 text-lg font-bold rounded-2xl border-white/20 text-white hover:bg-white/10 bg-transparent"
+                className="flex-1 h-12 sm:h-14 text-base sm:text-lg font-bold rounded-2xl border-white/20 text-white hover:bg-white/10 bg-transparent"
               >
                 ← Previous
               </Button>
               {isLast ? (
-                <Button onClick={handleClose} className="flex-1 h-14 text-lg font-bold rounded-2xl bg-orange-500 hover:bg-orange-600">
+                <Button onClick={handleClose} className="flex-1 h-12 sm:h-14 text-base sm:text-lg font-bold rounded-2xl bg-orange-500 hover:bg-orange-600">
                   ✓ Done!
                 </Button>
               ) : (
-                <Button onClick={() => setCookStep((s) => Math.min(steps.length - 1, s + 1))} className="flex-1 h-14 text-lg font-bold rounded-2xl bg-orange-500 hover:bg-orange-600">
+                <Button onClick={() => setCookStep((s) => Math.min(steps.length - 1, s + 1))} className="flex-1 h-12 sm:h-14 text-base sm:text-lg font-bold rounded-2xl bg-orange-500 hover:bg-orange-600">
                   Next →
                 </Button>
               )}

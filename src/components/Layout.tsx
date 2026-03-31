@@ -1,4 +1,4 @@
-import { ChefHat, Plus, Settings, Wand2, Sun, Moon, Inbox } from 'lucide-react';
+import { ChefHat, Plus, Settings, Wand2, Sun, Moon, Inbox, CalendarDays, ShoppingCart, BookOpen } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import type { ActiveView } from '@/types';
 import { UserMenu } from '@/components/UserMenu';
@@ -17,15 +17,22 @@ interface Props {
   children: React.ReactNode;
 }
 
+const MOBILE_TABS = [
+  { view: 'vault' as const, icon: BookOpen, label: 'Vault' },
+  { view: 'planner' as const, icon: CalendarDays, label: 'Planner' },
+  { view: 'shopping' as const, icon: ShoppingCart, label: 'Shopping' },
+  { view: 'inbox' as const, icon: Inbox, label: 'Inbox' },
+] as const;
+
 export function Layout({ activeView, user, recipeCount, inboxCount, onSetView, onOpenSettings, onOpenSuggest, onAddRecipe, onSignOut, children }: Props) {
   const { isDark, toggle } = useDarkMode();
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 print:hidden">
-      <header className="grid grid-cols-[auto_1fr_auto] items-center gap-4 border-b pb-6 border-zinc-200 dark:border-zinc-800">
-        <div className="flex items-center gap-3 text-zinc-900 dark:text-zinc-50">
-          <ChefHat className="w-8 h-8 md:w-10 md:h-10 text-orange-500" />
-          <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight">Recipe Vault</h1>
+    <div className="max-w-6xl mx-auto space-y-8 print:hidden pb-20 lg:pb-0">
+      <header className="grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:gap-4 border-b pb-4 sm:pb-6 border-zinc-200 dark:border-zinc-800">
+        <div className="flex items-center gap-2 sm:gap-3 text-zinc-900 dark:text-zinc-50">
+          <ChefHat className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 text-orange-500" />
+          <h1 className="text-xl sm:text-2xl md:text-4xl font-extrabold tracking-tight">Recipe Vault</h1>
         </div>
         <div className="hidden lg:flex justify-center">
           <div className="flex bg-zinc-200/50 dark:bg-zinc-800/50 rounded-full p-1">
@@ -54,52 +61,72 @@ export function Layout({ activeView, user, recipeCount, inboxCount, onSetView, o
             ))}
           </div>
         </div>
-        <div className="flex items-center gap-2 justify-end">
+        <div className="flex items-center gap-1 sm:gap-2 justify-end">
           {activeView === 'vault' && (
             <button
               onClick={onOpenSuggest}
-              className="inline-flex items-center justify-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-300 font-bold rounded-full px-5 shadow-sm transition-transform hover:scale-105 h-10 text-sm border border-purple-200 dark:border-purple-800/50"
+              className="inline-flex items-center justify-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-300 font-bold rounded-full shadow-sm transition-transform hover:scale-105 h-9 sm:h-10 text-sm border border-purple-200 dark:border-purple-800/50 w-9 sm:w-auto sm:px-5"
             >
-              <Wand2 className="w-4 h-4" /> Suggest
+              <Wand2 className="w-4 h-4 shrink-0" /> <span className="hidden sm:inline">Suggest</span>
             </button>
           )}
-          {/* Inbox button (mobile — always visible) */}
-          <button
-            onClick={() => onSetView('inbox')}
-            className={`relative p-2.5 rounded-full transition-colors lg:hidden ${activeView === 'inbox' ? 'text-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
-            title="Recipe inbox"
-          >
-            <Inbox className="w-5 h-5" />
-            {inboxCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-orange-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                {inboxCount}
-              </span>
-            )}
-          </button>
           <button
             onClick={toggle}
-            className="p-2.5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            className="p-2 sm:p-2.5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
             title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
           >
             {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
           <button
             onClick={onOpenSettings}
-            className="p-2.5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            className="p-2 sm:p-2.5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
             title="Settings"
           >
             <Settings className="w-5 h-5" />
           </button>
           <button
             onClick={onAddRecipe}
-            className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-full px-6 shadow-md transition-transform hover:scale-105 h-10 text-sm"
+            className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-full shadow-md transition-transform hover:scale-105 h-9 sm:h-10 text-sm w-9 sm:w-auto sm:px-6"
           >
-            <Plus className="w-4 h-4" /> Add Recipe
+            <Plus className="w-4 h-4 shrink-0" /> <span className="hidden sm:inline">Add Recipe</span>
           </button>
           {user && <UserMenu user={user} onSignOut={onSignOut} />}
         </div>
       </header>
       {children}
+
+      {/* Mobile bottom navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 lg:hidden safe-area-bottom">
+        <div className="flex justify-around items-center h-14 max-w-lg mx-auto">
+          {MOBILE_TABS.map(({ view, icon: Icon, label }) => {
+            const isActive = activeView === view;
+            return (
+              <button
+                key={view}
+                onClick={() => onSetView(view)}
+                className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors ${
+                  isActive
+                    ? 'text-orange-500'
+                    : 'text-zinc-400 active:text-zinc-600 dark:active:text-zinc-300'
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="text-[10px] font-semibold">{label}</span>
+                {view === 'inbox' && inboxCount > 0 && (
+                  <span className="absolute top-1.5 left-1/2 ml-1.5 w-4 h-4 bg-orange-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                    {inboxCount}
+                  </span>
+                )}
+                {view === 'vault' && recipeCount > 0 && isActive && (
+                  <span className="absolute top-1.5 left-1/2 ml-1.5 w-4 h-4 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 text-[9px] font-bold rounded-full flex items-center justify-center">
+                    {recipeCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

@@ -82,7 +82,7 @@ export function ShoppingList({
             className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold min-h-[40px] px-4 rounded-xl shadow-sm transition-transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Wand2 className="w-4 h-4" />
-            {isGenerating ? 'Generating...' : 'Generate from Next 7 Days'}
+            {isGenerating ? 'Generating...' : <><span className="hidden sm:inline">Generate from Next 7 Days</span><span className="sm:hidden">Generate</span></>}
           </button>
         </div>
       </div>
@@ -160,7 +160,7 @@ export function ShoppingList({
                           {inPantry && <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5 mb-0.5" title="Already in pantry" />}
                           {item.item}
                         </span>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => onMoveItemToPantry(item)}
                             className="text-emerald-500 hover:text-emerald-700 p-1"
@@ -229,7 +229,7 @@ export function ShoppingList({
                       <div key={item.id} className="flex items-start gap-3 p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-xl group transition-colors">
                         <Package className="w-4 h-4 mt-0.5 text-emerald-500 shrink-0" />
                         <span className="flex-1 text-sm text-zinc-800 dark:text-zinc-200">{item.item}</span>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => onMoveItemToShopping(item)}
                             className="text-orange-400 hover:text-orange-600 p-1"

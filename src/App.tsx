@@ -125,7 +125,7 @@ export default function App() {
 
   return (
     <AuthGate>
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-6 sm:p-10 font-sans print:p-0 print:bg-white text-zinc-900 dark:text-zinc-50">
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 px-4 py-4 sm:p-6 md:p-10 font-sans print:p-0 print:bg-white text-zinc-900 dark:text-zinc-50">
         <Toaster richColors position="top-right" className="print:hidden" />
 
         <Layout
