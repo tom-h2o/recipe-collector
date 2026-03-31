@@ -14,7 +14,7 @@ interface Props {
   searchQuery: string;
   activeFilter: string | null;
   hasMore: boolean;
-  preferredLanguage: string | null;
+  recipeLanguages: Record<string, string>;
   translationsCache: Record<string, RecipeTranslation>;
   onSearchChange: (q: string) => void;
   onFilterChange: (tag: string | null) => void;
@@ -25,7 +25,7 @@ interface Props {
 
 export function RecipeVault({
   recipes, loading, processingIds, searchQuery, activeFilter, hasMore,
-  preferredLanguage, translationsCache,
+  recipeLanguages, translationsCache,
   onSearchChange, onFilterChange, onLoadMore, onOpenRecipe, onToggleFavourite,
 }: Props) {
   const searchRef = useRef<HTMLInputElement>(null);
@@ -163,7 +163,7 @@ export function RecipeVault({
                   recipe={recipe}
                   isProcessing={processingIds.has(recipe.id)}
                   activeFilter={activeFilter}
-                  translation={preferredLanguage ? translationsCache[`${recipe.id}:${preferredLanguage}`] : null}
+                  translation={recipeLanguages[recipe.id] ? translationsCache[`${recipe.id}:${recipeLanguages[recipe.id]}`] : null}
                   onOpen={onOpenRecipe}
                   onToggleFavourite={onToggleFavourite}
                   onFilterChange={(tag) => onFilterChange(activeFilter === tag ? null : tag)}

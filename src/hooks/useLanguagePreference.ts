@@ -1,28 +1,35 @@
 import { useState, useCallback } from 'react';
 
-const STORAGE_KEY = 'preferredLanguage';
+const STORAGE_KEY = 'recipeLanguages';
 
 export function useLanguagePreference() {
-  const [preferredLanguage, setPreferredLanguageState] = useState<string | null>(() => {
+  const [recipeLanguages, setRecipeLanguagesState] = useState<Record<string, string>>(() => {
     try {
-      return localStorage.getItem(STORAGE_KEY);
+      const stored = localStorage.getItem(STORAGE_KEY);
+      // Support old format: a plain string (single global language)
+      if (stored && !stored.startsWith('{')) return {};
+      return stored ? JSON.parse(stored) : {};
     } catch {
-      return null;
+      return {};
     }
   });
 
-  const setPreferredLanguage = useCallback((lang: string | null) => {
-    setPreferredLanguageState(lang);
-    try {
+  const setRecipeLanguage = useCallback((recipeId: string, lang: string | null) => {
+    setRecipeLanguagesState((prev) => {
+      const next = { ...prev };
       if (lang) {
-        localStorage.setItem(STORAGE_KEY, lang);
+        next[recipeId] = lang;
       } else {
-        localStorage.removeItem(STORAGE_KEY);
+        delete next[recipeId];
       }
-    } catch {
-      // ignore storage errors
-    }
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore storage errors
+      }
+      return next;
+    });
   }, []);
 
-  return { preferredLanguage, setPreferredLanguage };
+  return { recipeLanguages, setRecipeLanguage };
 }

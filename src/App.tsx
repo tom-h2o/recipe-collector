@@ -33,7 +33,7 @@ export default function App() {
   const { mealPlans, fetchMealPlans, addMealPlan, removeMealPlan } = useMealPlans(user?.id);
   const { shoppingList, pantryItems, isGeneratingShopping, fetchShoppingList, fetchPantryItems, generateShoppingList, toggleItem, deleteItem, clearAll, moveItemToPantry, moveItemToShopping, deletePantryItem, addToPantry } = useShoppingList(user?.id);
   const { settings, isSavingSettings, fetchSettings, saveSettings } = useSettings(user?.id);
-  const { preferredLanguage, setPreferredLanguage } = useLanguagePreference();
+  const { recipeLanguages, setRecipeLanguage } = useLanguagePreference();
   const { inboxShares, inboxCount, contacts, fetchInbox, fetchContacts, sendShare, acceptShare, rejectShare } = useRecipeShares(user?.id, user?.email);
   const [translationsCache, setTranslationsCache] = useState<Record<string, RecipeTranslation>>({});
 
@@ -149,7 +149,7 @@ export default function App() {
               searchQuery={searchQuery}
               activeFilter={activeFilter}
               hasMore={hasMore}
-              preferredLanguage={preferredLanguage}
+              recipeLanguages={recipeLanguages}
               translationsCache={translationsCache}
               onSearchChange={setSearchQuery}
               onFilterChange={setActiveFilter}
@@ -199,9 +199,9 @@ export default function App() {
         <RecipeDetail
           key={selectedRecipe?.id ?? 'none'}
           recipe={selectedRecipe}
-          preferredLanguage={preferredLanguage}
+          preferredLanguage={selectedRecipe ? (recipeLanguages[selectedRecipe.id] ?? null) : null}
           temperatureUnit={settings.temperature_unit}
-          onLanguageChange={setPreferredLanguage}
+          onLanguageChange={(lang) => selectedRecipe && setRecipeLanguage(selectedRecipe.id, lang)}
           onTranslationCached={cacheTranslation}
           onClose={() => setSelectedRecipe(null)}
           onEdit={(r) => openForm(r)}
