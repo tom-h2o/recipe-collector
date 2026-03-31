@@ -305,11 +305,46 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                   title="Delete recipe"
                 ><Trash2 className="w-4 h-4" /></button>
                 <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-0.5" />
-                <button
-                  onClick={() => setShowMoreOptions((v) => !v)}
-                  className={`p-2 rounded-full transition-colors ${showMoreOptions ? 'text-zinc-600 bg-zinc-100 dark:bg-zinc-800' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
-                  title="More options"
-                ><MoreHorizontal className="w-4 h-4" /></button>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowMoreOptions((v) => !v)}
+                    className={`p-2 rounded-full transition-colors ${showMoreOptions ? 'text-zinc-600 bg-zinc-100 dark:bg-zinc-800' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                    title="More options"
+                  ><MoreHorizontal className="w-4 h-4" /></button>
+                  {showMoreOptions && (
+                    <div className="absolute right-0 top-full mt-1 z-30 w-52 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-xl p-2 flex flex-col gap-0.5">
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/recipe/${recipe.id}`); toast.success('Link copied!'); setShowMoreOptions(false); }}
+                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"
+                      >
+                        <Share2 className="w-3.5 h-3.5 shrink-0" /> Copy share link
+                      </button>
+                      <button
+                        onClick={() => { window.print(); setShowMoreOptions(false); }}
+                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"
+                      >
+                        <Printer className="w-3.5 h-3.5 shrink-0" /> Print
+                      </button>
+                      <div className="h-px bg-zinc-100 dark:bg-zinc-800 my-1" />
+                      <button
+                        onClick={() => { handleRegenerateTags(); setShowMoreOptions(false); }}
+                        disabled={isRegeneratingTags || isRegeneratingNutrition}
+                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left disabled:opacity-50"
+                      >
+                        {isRegeneratingTags ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <Tag className="w-3.5 h-3.5 shrink-0" />}
+                        {isRegeneratingTags ? 'Regenerating…' : 'Regenerate tags'}
+                      </button>
+                      <button
+                        onClick={() => { handleRegenerateNutrition(); setShowMoreOptions(false); }}
+                        disabled={isRegeneratingTags || isRegeneratingNutrition}
+                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left disabled:opacity-50"
+                      >
+                        {isRegeneratingNutrition ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <Salad className="w-3.5 h-3.5 shrink-0" />}
+                        {isRegeneratingNutrition ? 'Regenerating…' : 'Regenerate nutrition'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Language picker — shown when translate button is active */}
@@ -439,42 +474,6 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                       className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
                     >
                       {isAddingToPlan ? 'Adding…' : 'Add'}
-                    </button>
-                  </div>
-                </div>
-              )}
-              {/* More options panel — regenerate AI data */}
-              {showMoreOptions && (
-                <div className="mt-2 p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl space-y-2">
-                  <p className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">Options</p>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/recipe/${recipe.id}`); toast.success('Link copied!'); }}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-green-400 hover:text-green-600 text-zinc-600 dark:text-zinc-300 text-sm font-semibold rounded-xl transition-colors"
-                    >
-                      <Share2 className="w-3.5 h-3.5" /> Copy share link
-                    </button>
-                    <button
-                      onClick={() => window.print()}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-purple-400 hover:text-purple-600 text-zinc-600 dark:text-zinc-300 text-sm font-semibold rounded-xl transition-colors"
-                    >
-                      <Printer className="w-3.5 h-3.5" /> Print
-                    </button>
-                    <button
-                      onClick={handleRegenerateTags}
-                      disabled={isRegeneratingTags || isRegeneratingNutrition}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-orange-400 hover:text-orange-600 text-zinc-600 dark:text-zinc-300 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
-                    >
-                      {isRegeneratingTags ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Tag className="w-3.5 h-3.5" />}
-                      {isRegeneratingTags ? 'Regenerating…' : 'Regenerate tags'}
-                    </button>
-                    <button
-                      onClick={handleRegenerateNutrition}
-                      disabled={isRegeneratingTags || isRegeneratingNutrition}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-orange-400 hover:text-orange-600 text-zinc-600 dark:text-zinc-300 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
-                    >
-                      {isRegeneratingNutrition ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Salad className="w-3.5 h-3.5" />}
-                      {isRegeneratingNutrition ? 'Regenerating…' : 'Regenerate nutrition'}
                     </button>
                   </div>
                 </div>
