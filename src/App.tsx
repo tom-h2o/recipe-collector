@@ -24,7 +24,8 @@ import { SendRecipeModal } from '@/components/SendRecipeModal';
 import { RecipeInbox } from '@/components/RecipeInbox';
 
 import { supabase } from '@/lib/supabase';
-import type { ActiveView, Recipe, RecipeTranslation } from '@/types';
+import { useTranslationCache } from '@/hooks/useTranslationCache';
+import type { ActiveView, Recipe } from '@/types';
 
 export default function App() {
   const { user, signOut } = useAuth();
@@ -33,11 +34,7 @@ export default function App() {
   const { shoppingList, pantryItems, isGeneratingShopping, fetchShoppingList, fetchPantryItems, generateShoppingList, toggleItem, deleteItem, clearAll, moveItemToPantry, moveItemToShopping, deletePantryItem, addToPantry } = useShoppingList(user?.id);
   const { settings, isSavingSettings, fetchSettings, saveSettings } = useSettings(user?.id);
   const { inboxShares, inboxCount, contacts, fetchInbox, fetchContacts, sendShare, acceptShare, rejectShare } = useRecipeShares(user?.id, user?.email);
-  const [translationsCache, setTranslationsCache] = useState<Record<string, RecipeTranslation>>({});
-
-  function cacheTranslation(recipeId: string, langCode: string, t: RecipeTranslation) {
-    setTranslationsCache((prev) => ({ ...prev, [`${recipeId}:${langCode}`]: t }));
-  }
+  const { translationsCache, translationsLoading, cacheTranslation } = useTranslationCache(recipes);
 
   const [activeView, setActiveView] = useState<ActiveView>('vault');
   const [publicRecipe, setPublicRecipe] = useState<Recipe | null>(null);
@@ -73,27 +70,6 @@ export default function App() {
       fetchContacts();
     }
   }, [fetchRecipes, fetchMealPlans, fetchShoppingList, fetchPantryItems, fetchSettings, fetchInbox, fetchContacts]);
-
-  // Pre-populate translation cache for recipes that have a preferred_language stored in DB
-  useEffect(() => {
-    const recipesWithLang = recipes.filter((r) => r.preferred_language);
-    if (recipesWithLang.length === 0) return;
-    supabase
-      .from('recipe_translations')
-      .select('*')
-      .in('recipe_id', recipesWithLang.map((r) => r.id))
-      .then(({ data }) => {
-        if (!data) return;
-        setTranslationsCache((prev) => {
-          const next = { ...prev };
-          for (const t of data) {
-            const key = `${t.recipe_id}:${t.language_code}`;
-            if (!next[key]) next[key] = t as RecipeTranslation;
-          }
-          return next;
-        });
-      });
-  }, [recipes]);
 
   function openForm(recipe?: Recipe) {
     setEditingRecipe(recipe ?? null);
@@ -170,6 +146,7 @@ export default function App() {
               hasMore={hasMore}
               recipeLanguages={Object.fromEntries(recipes.map((r) => [r.id, r.preferred_language ?? '']))}
               translationsCache={translationsCache}
+              translationsLoading={translationsLoading}
               onSearchChange={setSearchQuery}
               onFilterChange={setActiveFilter}
               onLoadMore={loadMore}

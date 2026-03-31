@@ -9,12 +9,13 @@ interface Props {
   isProcessing: boolean;
   activeFilter: string | null;
   translation?: { title: string; description: string | null } | null;
+  translationLoading?: boolean;
   onOpen: (r: Recipe) => void;
   onToggleFavourite: (r: Recipe, e: React.MouseEvent) => void;
   onFilterChange: (tag: string) => void;
 }
 
-export function RecipeCard({ recipe, isProcessing, activeFilter, translation, onOpen, onToggleFavourite, onFilterChange }: Props) {
+export function RecipeCard({ recipe, isProcessing, activeFilter, translation, translationLoading, onOpen, onToggleFavourite, onFilterChange }: Props) {
   const parsed = parseIngredients(recipe.ingredients);
   const [imgError, setImgError] = useState(false);
   const totalTime = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
@@ -51,10 +52,10 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, translation, on
         >
           <Star className={`w-4 h-4 ${recipe.is_favourite ? 'fill-yellow-400 text-yellow-400' : 'text-zinc-400'}`} />
         </button>
-        {isProcessing && (
+        {(isProcessing || translationLoading) && (
           <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 bg-black/60 backdrop-blur-sm text-white text-[10px] font-semibold px-2.5 py-1 rounded-full">
             <Loader2 className="w-3 h-3 animate-spin" />
-            Processing…
+            {isProcessing ? 'Processing…' : 'Translating…'}
           </div>
         )}
       </div>
