@@ -16,11 +16,13 @@ export function useAuth() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordRecovery(true);
-        setUser(session?.user ?? null);
-      } else {
+      } else if (event !== 'SIGNED_IN') {
+        // Don't clear recovery mode on SIGNED_IN — Supabase fires SIGNED_IN
+        // immediately after PASSWORD_RECOVERY as part of the same flow.
+        // Only clear it on other events (SIGNED_OUT, USER_UPDATED, etc.)
         setIsPasswordRecovery(false);
-        setUser(session?.user ?? null);
       }
+      setUser(session?.user ?? null);
     });
 
     return () => subscription.unsubscribe();
@@ -72,6 +74,7 @@ export function useAuth() {
   async function updatePassword(newPassword: string): Promise<{ error: string | null }> {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) return { error: error.message };
+    setIsPasswordRecovery(false);
     return { error: null };
   }
 
