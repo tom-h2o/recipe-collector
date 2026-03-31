@@ -50,6 +50,27 @@ export const findImageSchema = z.object({
   description: z.string().optional(),
 });
 
+export const shareSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('send'),
+    recipeId: z.string().uuid(),
+    recipientEmail: z.string().email(),
+    senderUserId: z.string().uuid(),
+    senderEmail: z.string().email(),
+  }),
+  z.object({
+    action: z.literal('accept'),
+    shareId: z.string().uuid(),
+    recipientUserId: z.string().uuid(),
+    recipientEmail: z.string().email(),
+  }),
+  z.object({
+    action: z.literal('reject'),
+    shareId: z.string().uuid(),
+    recipientEmail: z.string().email(),
+  }),
+]);
+
 export const translateSchema = z.object({
   recipeId: z.string().uuid('recipeId must be a UUID'),
   targetLanguage: z.enum(['en', 'de', 'pl'], { message: 'Unsupported language' }),

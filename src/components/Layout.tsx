@@ -1,4 +1,4 @@
-import { ChefHat, Plus, Settings, Wand2, Sun, Moon } from 'lucide-react';
+import { ChefHat, Plus, Settings, Wand2, Sun, Moon, Inbox } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import type { ActiveView } from '@/types';
 import { UserMenu } from '@/components/UserMenu';
@@ -8,6 +8,7 @@ interface Props {
   activeView: ActiveView;
   user: User | null;
   recipeCount: number;
+  inboxCount: number;
   onSetView: (v: ActiveView) => void;
   onOpenSettings: () => void;
   onOpenSuggest: () => void;
@@ -16,7 +17,7 @@ interface Props {
   children: React.ReactNode;
 }
 
-export function Layout({ activeView, user, recipeCount, onSetView, onOpenSettings, onOpenSuggest, onAddRecipe, onSignOut, children }: Props) {
+export function Layout({ activeView, user, recipeCount, inboxCount, onSetView, onOpenSettings, onOpenSuggest, onAddRecipe, onSignOut, children }: Props) {
   const { isDark, toggle } = useDarkMode();
 
   return (
@@ -27,26 +28,31 @@ export function Layout({ activeView, user, recipeCount, onSetView, onOpenSetting
           <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight">Recipe Vault</h1>
         </div>
         <div className="hidden lg:flex justify-center">
-        <div className="flex bg-zinc-200/50 dark:bg-zinc-800/50 rounded-full p-1">
-          {(['vault', 'planner', 'shopping'] as const).map((view) => (
-            <button
-              key={view}
-              onClick={() => onSetView(view)}
-              className={`px-5 py-1.5 rounded-full text-sm font-bold transition-all flex items-center gap-1.5 ${
-                activeView === view
-                  ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-white'
-                  : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
-              }`}
-            >
-              {view === 'vault' ? 'Vault' : view === 'planner' ? 'Meal Planner' : 'Shopping List'}
-              {view === 'vault' && recipeCount > 0 && (
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeView === 'vault' ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400' : 'bg-zinc-300/60 dark:bg-zinc-700 text-zinc-500'}`}>
-                  {recipeCount}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+          <div className="flex bg-zinc-200/50 dark:bg-zinc-800/50 rounded-full p-1">
+            {(['vault', 'planner', 'shopping', 'inbox'] as const).map((view) => (
+              <button
+                key={view}
+                onClick={() => onSetView(view)}
+                className={`px-5 py-1.5 rounded-full text-sm font-bold transition-all flex items-center gap-1.5 ${
+                  activeView === view
+                    ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-white'
+                    : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                }`}
+              >
+                {view === 'vault' ? 'Vault' : view === 'planner' ? 'Meal Planner' : view === 'shopping' ? 'Shopping' : 'Inbox'}
+                {view === 'vault' && recipeCount > 0 && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeView === 'vault' ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400' : 'bg-zinc-300/60 dark:bg-zinc-700 text-zinc-500'}`}>
+                    {recipeCount}
+                  </span>
+                )}
+                {view === 'inbox' && inboxCount > 0 && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500 text-white">
+                    {inboxCount}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex items-center gap-2 justify-end">
           {activeView === 'vault' && (
@@ -57,6 +63,19 @@ export function Layout({ activeView, user, recipeCount, onSetView, onOpenSetting
               <Wand2 className="w-4 h-4" /> Suggest
             </button>
           )}
+          {/* Inbox button (mobile — always visible) */}
+          <button
+            onClick={() => onSetView('inbox')}
+            className={`relative p-2.5 rounded-full transition-colors lg:hidden ${activeView === 'inbox' ? 'text-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+            title="Recipe inbox"
+          >
+            <Inbox className="w-5 h-5" />
+            {inboxCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-orange-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                {inboxCount}
+              </span>
+            )}
+          </button>
           <button
             onClick={toggle}
             className="p-2.5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"

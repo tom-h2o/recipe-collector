@@ -8,6 +8,7 @@ import { useShoppingList } from '@/hooks/useShoppingList';
 import { useSettings } from '@/hooks/useSettings';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguagePreference } from '@/hooks/useLanguagePreference';
+import { useRecipeShares } from '@/hooks/useRecipeShares';
 
 import { AuthGate } from '@/components/AuthGate';
 import { Layout } from '@/components/Layout';
@@ -20,6 +21,8 @@ import { ShoppingList } from '@/components/ShoppingList';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { SuggestModal } from '@/components/SuggestModal';
 import { PublicRecipe } from '@/components/PublicRecipe';
+import { SendRecipeModal } from '@/components/SendRecipeModal';
+import { RecipeInbox } from '@/components/RecipeInbox';
 
 import { supabase } from '@/lib/supabase';
 import type { ActiveView, Recipe, RecipeTranslation } from '@/types';
@@ -31,6 +34,7 @@ export default function App() {
   const { shoppingList, pantryItems, isGeneratingShopping, fetchShoppingList, fetchPantryItems, generateShoppingList, toggleItem, deleteItem, clearAll, moveItemToPantry, moveItemToShopping, deletePantryItem, addToPantry } = useShoppingList(user?.id);
   const { settings, isSavingSettings, fetchSettings, saveSettings } = useSettings(user?.id);
   const { preferredLanguage, setPreferredLanguage } = useLanguagePreference();
+  const { inboxShares, inboxCount, contacts, fetchInbox, fetchContacts, sendShare, acceptShare, rejectShare } = useRecipeShares(user?.id, user?.email);
   const [translationsCache, setTranslationsCache] = useState<Record<string, RecipeTranslation>>({});
 
   function cacheTranslation(recipeId: string, langCode: string, t: RecipeTranslation) {
@@ -47,6 +51,7 @@ export default function App() {
   const [deleteTarget, setDeleteTarget] = useState<Recipe | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSuggestOpen, setIsSuggestOpen] = useState(false);
+  const [sendTarget, setSendTarget] = useState<Recipe | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
@@ -66,8 +71,10 @@ export default function App() {
       fetchShoppingList();
       fetchPantryItems();
       fetchSettings();
+      fetchInbox();
+      fetchContacts();
     }
-  }, [fetchRecipes, fetchMealPlans, fetchShoppingList, fetchPantryItems, fetchSettings]);
+  }, [fetchRecipes, fetchMealPlans, fetchShoppingList, fetchPantryItems, fetchSettings, fetchInbox, fetchContacts]);
 
   function openForm(recipe?: Recipe) {
     setEditingRecipe(recipe ?? null);
@@ -102,6 +109,14 @@ export default function App() {
     }
   }
 
+  async function handleAcceptShare(share: Parameters<typeof acceptShare>[0]) {
+    const newRecipeId = await acceptShare(share, user?.email ?? '');
+    if (newRecipeId) {
+      // Refresh vault so the new recipe appears
+      fetchRecipes();
+    }
+  }
+
   if (activeView === 'public_recipe' && publicRecipe) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-6 sm:p-10 font-sans print:p-0 print:bg-white text-zinc-900 dark:text-zinc-50">
@@ -119,6 +134,7 @@ export default function App() {
           activeView={activeView}
           user={user}
           recipeCount={recipes.length}
+          inboxCount={inboxCount}
           onSetView={setActiveView}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenSuggest={() => setIsSuggestOpen(true)}
@@ -170,6 +186,14 @@ export default function App() {
               onAddToPantry={addToPantry}
             />
           )}
+
+          {activeView === 'inbox' && (
+            <RecipeInbox
+              shares={inboxShares}
+              onAccept={handleAcceptShare}
+              onReject={(share) => rejectShare(share, user?.email ?? '')}
+            />
+          )}
         </Layout>
 
         <RecipeDetail
@@ -183,6 +207,7 @@ export default function App() {
           onEdit={(r) => openForm(r)}
           onDelete={setDeleteTarget}
           onCook={() => setIsCookMode(true)}
+          onSend={(r) => { setSelectedRecipe(null); setSendTarget(r); }}
           onUpdateRecipe={handleUpdateRecipe}
           onAddMealPlan={addMealPlan}
           onSaveScaled={saveRecipe}
@@ -214,6 +239,16 @@ export default function App() {
           onClose={() => setIsSuggestOpen(false)}
           onSelectRecipe={setSelectedRecipe}
         />
+
+        {sendTarget && (
+          <SendRecipeModal
+            recipe={sendTarget}
+            contacts={contacts}
+            isOpen={true}
+            onClose={() => setSendTarget(null)}
+            onSend={(recipe, email) => sendShare(recipe, email, user?.email ?? '')}
+          />
+        )}
 
         <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
           <AlertDialogContent className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl">

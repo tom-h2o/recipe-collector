@@ -76,4 +76,24 @@ export interface AppSettings {
   temperature_unit: 'C' | 'F';
 }
 
-export type ActiveView = 'vault' | 'planner' | 'shopping' | 'public_recipe';
+export type ActiveView = 'vault' | 'planner' | 'shopping' | 'inbox' | 'public_recipe';
+
+export interface RecipeShare {
+  id: string;
+  recipe_id: string;
+  recipe_title: string;
+  recipe_description: string | null;
+  recipe_image_url: string | null;
+  sender_id: string;
+  sender_email: string;
+  recipient_email: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  created_at: string;
+}
+
+export interface Contact {
+  id: string;
+  user_id: string;
+  contact_email: string;
+  created_at: string;
+}

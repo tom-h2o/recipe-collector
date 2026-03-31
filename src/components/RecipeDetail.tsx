@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages } from 'lucide-react';
+import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
@@ -17,12 +17,13 @@ interface Props {
   onEdit: (r: Recipe) => void;
   onDelete: (r: Recipe) => void;
   onCook: () => void;
+  onSend?: (r: Recipe) => void;
   onUpdateRecipe: (id: string, changes: Partial<Recipe>) => void;
   onAddMealPlan?: (date: string, mealType: string, recipeId: string) => Promise<void>;
   onSaveScaled?: (payload: Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>) => Promise<void>;
 }
 
-export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onCook, onUpdateRecipe, onAddMealPlan, onSaveScaled }: Props) {
+export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onCook, onSend, onUpdateRecipe, onAddMealPlan, onSaveScaled }: Props) {
   const baseServings0 = recipe?.original_servings || recipe?.servings || 1;
   const [scaledServings, setScaledServings] = useState(baseServings0);
   const [aiIngredients, setAiIngredients] = useState<{ amount: string; name: string; details: string }[] | null>(null);
@@ -208,8 +209,15 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                   <button
                     onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/recipe/${recipe.id}`); toast.success('Shared recipe link copied!'); }}
                     className="p-2 rounded-full text-zinc-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
-                    title="Share recipe"
+                    title="Copy share link"
                   ><Share2 className="w-4 h-4" /></button>
+                  {onSend && (
+                    <button
+                      onClick={() => onSend(recipe)}
+                      className="p-2 rounded-full text-zinc-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                      title="Send recipe to someone"
+                    ><Send className="w-4 h-4" /></button>
+                  )}
                   <button
                     onClick={() => window.print()}
                     className="p-2 rounded-full text-zinc-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
