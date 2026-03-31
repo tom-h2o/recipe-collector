@@ -74,6 +74,27 @@ export default function App() {
     }
   }, [fetchRecipes, fetchMealPlans, fetchShoppingList, fetchPantryItems, fetchSettings, fetchInbox, fetchContacts]);
 
+  // Pre-populate translation cache for recipes that have a preferred_language stored in DB
+  useEffect(() => {
+    const recipesWithLang = recipes.filter((r) => r.preferred_language);
+    if (recipesWithLang.length === 0) return;
+    supabase
+      .from('recipe_translations')
+      .select('*')
+      .in('recipe_id', recipesWithLang.map((r) => r.id))
+      .then(({ data }) => {
+        if (!data) return;
+        setTranslationsCache((prev) => {
+          const next = { ...prev };
+          for (const t of data) {
+            const key = `${t.recipe_id}:${t.language_code}`;
+            if (!next[key]) next[key] = t as RecipeTranslation;
+          }
+          return next;
+        });
+      });
+  }, [recipes]);
+
   function openForm(recipe?: Recipe) {
     setEditingRecipe(recipe ?? null);
     setIsFormOpen(true);
