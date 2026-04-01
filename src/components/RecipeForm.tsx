@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { ChefHat, Link, Camera, ImagePlus, X } from 'lucide-react';
+import { ChefHat, Link, Camera, ImagePlus, X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { parseIngredients, recipeToIngredientText } from '@/lib/recipeUtils';
+import { parseIngredients } from '@/lib/recipeUtils';
 import { supabase } from '@/lib/supabase';
 import type { Recipe, Ingredient } from '@/types';
 
@@ -44,7 +44,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [ingredients, setIngredients] = useState('');
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [instructions, setInstructions] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [servings, setServings] = useState('');
@@ -55,14 +55,14 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
     if (editingRecipe) {
       setTitle(editingRecipe.title);
       setDescription(editingRecipe.description || '');
-      setIngredients(recipeToIngredientText(editingRecipe.ingredients));
+      setIngredients(parseIngredients(editingRecipe.ingredients));
       setInstructions(editingRecipe.instructions || '');
       setImageUrl(editingRecipe.image_url || '');
       setServings(editingRecipe.servings ? String(editingRecipe.servings) : '');
       setSourceUrl(editingRecipe.source_url || '');
       setSourceName(editingRecipe.source_name || '');
     } else {
-      setTitle(''); setDescription(''); setIngredients('');
+      setTitle(''); setDescription(''); setIngredients([]);
       setInstructions(''); setImageUrl(''); setServings('');
       setExtractUrl(''); setSourceUrl(''); setSourceName('');
       setPhotoFile(null); setPhotoPreview(null);
@@ -95,11 +95,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
       setServings(data.servings ? String(data.servings) : '');
       setInstructions(data.instructions || '');
       if (Array.isArray(data.ingredients)) {
-        if (data.ingredients.length > 0 && typeof data.ingredients[0] === 'object') {
-          setIngredients((data.ingredients as Ingredient[]).map((i) => `${i.amount} ${i.name}`.trim()).join('\n'));
-        } else {
-          setIngredients((data.ingredients as string[]).join('\n'));
-        }
+        setIngredients(parseIngredients(data.ingredients));
       }
       // Use the photo itself as the recipe image
       setImagePreview(photoPreview);
@@ -150,11 +146,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
       setSourceUrl(extractUrl);
       setSourceName((prev) => prev || domainFrom(extractUrl));
       if (Array.isArray(data.ingredients)) {
-        if (data.ingredients.length > 0 && typeof data.ingredients[0] === 'object') {
-          setIngredients((data.ingredients as Ingredient[]).map((i) => `${i.amount} ${i.name}`.trim()).join('\n'));
-        } else {
-          setIngredients((data.ingredients as string[]).join('\n'));
-        }
+        setIngredients(parseIngredients(data.ingredients));
       }
       toast.success('Recipe auto-filled! Review the details below.', { id });
     } catch (err: unknown) {
@@ -176,9 +168,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
         setIsUploadingImage(false);
       }
 
-      const ingredientsList = parseIngredients(
-        ingredients.split('\n').map((line) => line.trim()).filter(Boolean)
-      );
+      const ingredientsList = ingredients.filter((i) => i.name.trim());
       const payload: RecipePayload = {
         title,
         description,
@@ -337,10 +327,64 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
             <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="A quick summary of the dish..." className="min-h-[70px]" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="ingredients" className="font-semibold text-zinc-700 dark:text-zinc-300">
-              Ingredients <span className="ml-1 text-xs font-normal text-zinc-400">One per line, e.g. "200g pasta"</span>
-            </Label>
-            <Textarea id="ingredients" value={ingredients} onChange={(e) => setIngredients(e.target.value)} placeholder={'200g pasta\n2 tbsp olive oil\n3 cloves garlic'} required className="min-h-[110px] font-mono text-sm" />
+            <div className="flex items-center justify-between">
+              <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Ingredients</Label>
+              <button
+                type="button"
+                onClick={() => setIngredients((prev) => [...prev, { amount: '', name: '', details: '' }])}
+                className="flex items-center gap-1 text-xs font-semibold text-orange-500 hover:text-orange-600 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add
+              </button>
+            </div>
+            <div className="space-y-1.5">
+              {ingredients.length > 0 && (
+                <div className="grid grid-cols-[72px_1fr_1fr_28px] gap-1.5 px-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Amount</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Ingredient</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Details</span>
+                  <span />
+                </div>
+              )}
+              {ingredients.map((ing, i) => (
+                <div key={i} className="grid grid-cols-[72px_1fr_1fr_28px] gap-1.5 items-center">
+                  <Input
+                    value={ing.amount}
+                    onChange={(e) => setIngredients((prev) => prev.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))}
+                    placeholder="2 tbsp"
+                    className="text-sm px-2"
+                  />
+                  <Input
+                    value={ing.name}
+                    onChange={(e) => setIngredients((prev) => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
+                    placeholder="garlic"
+                    className="text-sm px-2"
+                  />
+                  <Input
+                    value={ing.details || ''}
+                    onChange={(e) => setIngredients((prev) => prev.map((x, j) => j === i ? { ...x, details: e.target.value } : x))}
+                    placeholder="minced"
+                    className="text-sm px-2"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIngredients((prev) => prev.filter((_, j) => j !== i))}
+                    className="flex items-center justify-center text-zinc-400 hover:text-red-500 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+              {ingredients.length === 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIngredients([{ amount: '', name: '', details: '' }])}
+                  className="w-full py-5 border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-400 text-sm hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" /> Add first ingredient
+                </button>
+              )}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="instructions" className="font-semibold text-zinc-700 dark:text-zinc-300">Instructions</Label>
