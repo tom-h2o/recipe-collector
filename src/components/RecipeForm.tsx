@@ -48,6 +48,8 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
   const [instructions, setInstructions] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [servings, setServings] = useState('');
+  const [prepTime, setPrepTime] = useState('');
+  const [cookTime, setCookTime] = useState('');
   const [sourceUrl, setSourceUrl] = useState('');
   const [sourceName, setSourceName] = useState('');
 
@@ -59,11 +61,14 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
       setInstructions(editingRecipe.instructions || '');
       setImageUrl(editingRecipe.image_url || '');
       setServings(editingRecipe.servings ? String(editingRecipe.servings) : '');
+      setPrepTime(editingRecipe.prep_time_mins ? String(editingRecipe.prep_time_mins) : '');
+      setCookTime(editingRecipe.cook_time_mins ? String(editingRecipe.cook_time_mins) : '');
       setSourceUrl(editingRecipe.source_url || '');
       setSourceName(editingRecipe.source_name || '');
     } else {
       setTitle(''); setDescription(''); setIngredients([]);
       setInstructions(''); setImageUrl(''); setServings('');
+      setPrepTime(''); setCookTime('');
       setExtractUrl(''); setSourceUrl(''); setSourceName('');
       setPhotoFile(null); setPhotoPreview(null);
       setImageFile(null); setImagePreview(null);
@@ -176,8 +181,8 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
         instructions,
         image_url: finalImageUrl || 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?q=80&w=600&auto=format&fit=crop',
         servings: servings ? parseInt(servings) : null,
-        prep_time_mins: editingRecipe?.prep_time_mins ?? null,
-        cook_time_mins: editingRecipe?.cook_time_mins ?? null,
+        prep_time_mins: prepTime ? parseInt(prepTime) : null,
+        cook_time_mins: cookTime ? parseInt(cookTime) : null,
         source_url: sourceUrl.trim() || null,
         source_name: sourceName.trim() || null,
       };
@@ -288,14 +293,23 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
             <Label htmlFor="title" className="font-semibold text-zinc-700 dark:text-zinc-300">Title</Label>
             <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Spaghetti Bolognese" required />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">
               <Label htmlFor="servings" className="font-semibold text-zinc-700 dark:text-zinc-300">Servings</Label>
               <Input id="servings" type="number" min="1" value={servings} onChange={(e) => setServings(e.target.value)} placeholder="e.g. 4" />
             </div>
             <div className="space-y-2">
-              <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Recipe Image</Label>
-              <div className="flex gap-2">
+              <Label htmlFor="prep-time" className="font-semibold text-zinc-700 dark:text-zinc-300">Prep <span className="text-xs font-normal text-zinc-400">mins</span></Label>
+              <Input id="prep-time" type="number" min="0" value={prepTime} onChange={(e) => setPrepTime(e.target.value)} placeholder="15" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cook-time" className="font-semibold text-zinc-700 dark:text-zinc-300">Cook <span className="text-xs font-normal text-zinc-400">mins</span></Label>
+              <Input id="cook-time" type="number" min="0" value={cookTime} onChange={(e) => setCookTime(e.target.value)} placeholder="30" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Recipe Image</Label>
+            <div className="flex gap-2">
                 {imagePreview ? (
                   <div className="relative flex-1">
                     <img src={imagePreview} alt="Preview" className="h-8 w-full object-cover rounded-lg border border-zinc-200 dark:border-zinc-700" />
@@ -320,7 +334,6 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
                 </button>
                 <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleImageSelect} />
               </div>
-            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="description" className="font-semibold text-zinc-700 dark:text-zinc-300">Description (optional)</Label>
@@ -338,38 +351,30 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
               </button>
             </div>
             <div className="space-y-1.5">
-              {ingredients.length > 0 && (
-                <div className="grid grid-cols-[72px_1fr_1fr_28px] gap-1.5 px-0.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Amount</span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Ingredient</span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Details</span>
-                  <span />
-                </div>
-              )}
               {ingredients.map((ing, i) => (
-                <div key={i} className="grid grid-cols-[72px_1fr_1fr_28px] gap-1.5 items-center">
+                <div key={i} className="flex gap-1.5 items-center">
                   <Input
                     value={ing.amount}
                     onChange={(e) => setIngredients((prev) => prev.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))}
-                    placeholder="2 tbsp"
-                    className="text-sm px-2"
+                    placeholder="qty"
+                    className="w-16 shrink-0 text-sm"
                   />
                   <Input
                     value={ing.name}
                     onChange={(e) => setIngredients((prev) => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
-                    placeholder="garlic"
-                    className="text-sm px-2"
+                    placeholder="ingredient"
+                    className="flex-[2] min-w-0 text-sm"
                   />
                   <Input
                     value={ing.details || ''}
                     onChange={(e) => setIngredients((prev) => prev.map((x, j) => j === i ? { ...x, details: e.target.value } : x))}
-                    placeholder="minced"
-                    className="text-sm px-2"
+                    placeholder="prep notes"
+                    className="flex-1 min-w-0 text-sm text-zinc-500 dark:text-zinc-400"
                   />
                   <button
                     type="button"
                     onClick={() => setIngredients((prev) => prev.filter((_, j) => j !== i))}
-                    className="flex items-center justify-center text-zinc-400 hover:text-red-500 transition-colors"
+                    className="shrink-0 p-1 text-zinc-400 hover:text-red-500 transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>

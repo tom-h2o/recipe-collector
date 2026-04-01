@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
 import { convertTemperaturesInText } from '@/lib/temperatureUtils';
-import { MEAL_TYPES, LANGUAGES } from '@/lib/constants';
+import { MEAL_TYPES, LANGUAGES, AVAILABLE_TAGS } from '@/lib/constants';
 import type { Recipe, RecipeTranslation } from '@/types';
 
 interface Props {
@@ -37,8 +37,13 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
   const [planMeal, setPlanMeal] = useState<string>(MEAL_TYPES[2]);
   const [isAddingToPlan, setIsAddingToPlan] = useState(false);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const [showTagEditor, setShowTagEditor] = useState(false);
+  const [notesValue, setNotesValue] = useState(recipe?.notes || '');
   const [isRegeneratingTags, setIsRegeneratingTags] = useState(false);
   const [isRegeneratingNutrition, setIsRegeneratingNutrition] = useState(false);
+
+  // Sync notes when a different recipe is opened
+  useEffect(() => { setNotesValue(recipe?.notes || ''); }, [recipe?.id]);
 
   // Auto-translate when recipe opens or preferred language changes
   useEffect(() => {
@@ -228,12 +233,19 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
     }
   }
 
+  function handleClose() {
+    if (recipe && notesValue !== (recipe.notes || '')) {
+      onUpdateRecipe(recipe.id, { notes: notesValue });
+    }
+    onClose();
+  }
+
   return (
-    <Dialog open={!!recipe} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={!!recipe} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-[780px] overflow-hidden rounded-3xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-2xl p-0 w-[95vw] sm:w-full">
         {/* Fixed close button — always visible, never scrolls away */}
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="absolute top-3 right-3 z-20 p-1.5 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white transition-colors shadow-md ring-1 ring-white/20"
           title="Close"
         >
@@ -552,6 +564,47 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
               </div>
             </div>
 
+            {/* Tags */}
+            <div className="border-t border-zinc-100 dark:border-zinc-800 pt-6">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm font-bold text-zinc-600 dark:text-zinc-400">Tags</span>
+                <button
+                  onClick={() => setShowTagEditor((v) => !v)}
+                  className={`p-1 rounded-md transition-colors ${showTagEditor ? 'text-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                  title="Edit tags"
+                ><Pencil className="w-3 h-3" /></button>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {(recipe.tags || []).map((tag) => (
+                  <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/50 text-orange-600 dark:text-orange-400">
+                    {tag}
+                    {showTagEditor && (
+                      <button
+                        onClick={() => onUpdateRecipe(recipe.id, { tags: recipe.tags.filter((t) => t !== tag) })}
+                        className="ml-0.5 hover:text-red-500 transition-colors"
+                      ><X className="w-2.5 h-2.5" /></button>
+                    )}
+                  </span>
+                ))}
+                {recipe.tags?.length === 0 && !showTagEditor && (
+                  <span className="text-xs text-zinc-400">No tags yet — use ⋯ to regenerate</span>
+                )}
+              </div>
+              {showTagEditor && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {AVAILABLE_TAGS.filter((t) => !(recipe.tags || []).includes(t)).map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => onUpdateRecipe(recipe.id, { tags: [...(recipe.tags || []), tag] })}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border border-dashed border-zinc-300 dark:border-zinc-600 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors"
+                    >
+                      <Plus className="w-2.5 h-2.5" />{tag}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Rating & Notes */}
             <div className="border-t border-zinc-100 dark:border-zinc-800 pt-6 space-y-4">
               <div className="flex items-center gap-3">
@@ -575,8 +628,9 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
               <div className="space-y-1.5">
                 <label className="text-sm font-bold text-zinc-600 dark:text-zinc-400">Personal Notes</label>
                 <textarea
-                  defaultValue={recipe.notes || ''}
-                  onBlur={(e) => onUpdateRecipe(recipe.id, { notes: e.target.value })}
+                  value={notesValue}
+                  onChange={(e) => setNotesValue(e.target.value)}
+                  onBlur={() => onUpdateRecipe(recipe.id, { notes: notesValue })}
                   placeholder="e.g. Add more garlic next time, great with crusty bread..."
                   className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 text-sm px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-400/60 min-h-[70px] resize-none"
                 />
