@@ -17,6 +17,7 @@ The JSON MUST match this EXACT structure, nothing else:
 {
   "title": "Recipe Title",
   "description": "Short, enticing summary of the dish (1-2 sentences)",
+  "original_language": "en",
   "servings": 4,
   "prep_time_mins": 15,
   "cook_time_mins": 30,
@@ -31,6 +32,7 @@ The JSON MUST match this EXACT structure, nothing else:
 }
 
 CRITICAL RULES:
+- "original_language" MUST be a 2-letter ISO 639-1 language code (e.g. "en", "de", "fr", "it", "es", "pl"). Detect the language of the recipe's title, description, and instructions — NOT the website language.
 - "ingredients" MUST be an array of objects with "amount", "name", and "details" keys.
 - Extract descriptors like "finely chopped", "room temperature", "roasted at 200°C" into "details". Keep "name" as the pure ingredient base name.
 - If an ingredient has no measurable amount, set "amount" to an empty string.

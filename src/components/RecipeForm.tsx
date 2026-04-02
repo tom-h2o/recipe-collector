@@ -52,6 +52,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
   const [cookTime, setCookTime] = useState('');
   const [sourceUrl, setSourceUrl] = useState('');
   const [sourceName, setSourceName] = useState('');
+  const [originalLanguage, setOriginalLanguage] = useState<string | null>(null);
 
   useEffect(() => {
     if (editingRecipe) {
@@ -65,11 +66,13 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
       setCookTime(editingRecipe.cook_time_mins ? String(editingRecipe.cook_time_mins) : '');
       setSourceUrl(editingRecipe.source_url || '');
       setSourceName(editingRecipe.source_name || '');
+      setOriginalLanguage(editingRecipe.original_language || null);
     } else {
       setTitle(''); setDescription(''); setIngredients([]);
       setInstructions(''); setImageUrl(''); setServings('');
       setPrepTime(''); setCookTime('');
       setExtractUrl(''); setSourceUrl(''); setSourceName('');
+      setOriginalLanguage(null);
       setPhotoFile(null); setPhotoPreview(null);
       setImageFile(null); setImagePreview(null);
     }
@@ -101,6 +104,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
       setPrepTime(data.prep_time_mins ? String(data.prep_time_mins) : '');
       setCookTime(data.cook_time_mins ? String(data.cook_time_mins) : '');
       setInstructions(data.instructions || '');
+      setOriginalLanguage(data.original_language || null);
       if (Array.isArray(data.ingredients)) {
         setIngredients(parseIngredients(data.ingredients));
       }
@@ -154,6 +158,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
       setInstructions(data.instructions || '');
       setSourceUrl(extractUrl);
       setSourceName((prev) => prev || domainFrom(extractUrl));
+      setOriginalLanguage(data.original_language || null);
       if (Array.isArray(data.ingredients)) {
         setIngredients(parseIngredients(data.ingredients));
       }
@@ -189,6 +194,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
         cook_time_mins: cookTime ? parseInt(cookTime) : null,
         source_url: sourceUrl.trim() || null,
         source_name: sourceName.trim() || null,
+        original_language: originalLanguage || null,
       };
       await onSave(payload, editingRecipe?.id);
       toast.success(editingRecipe ? 'Recipe updated!' : 'Recipe saved!');

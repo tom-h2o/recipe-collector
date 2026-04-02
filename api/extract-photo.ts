@@ -14,6 +14,7 @@ Return ONLY a JSON object with this exact structure:
 {
   "title": "Recipe Title",
   "description": "Short, enticing summary of the dish (1-2 sentences)",
+  "original_language": "en",
   "servings": 4,
   "prep_time_mins": 15,
   "cook_time_mins": 30,
@@ -28,6 +29,7 @@ Return ONLY a JSON object with this exact structure:
 }
 
 Rules:
+- "original_language" MUST be a 2-letter ISO 639-1 language code (e.g. "en", "de", "fr", "it", "es", "pl"). Detect the language of the recipe's title, description, and instructions — this is the language written on the card or visible in the photo.
 - If this is a photo of a finished dish (not a recipe card), infer a likely recipe from what you see.
 - "ingredients" MUST be an array of objects with "amount", "name", and "details".
 - Extract descriptors ("finely chopped", "softened") into "details". Keep "name" as the pure ingredient.
