@@ -29,8 +29,8 @@ Return ONLY a JSON object with this exact structure:
 }
 
 Rules:
-- "original_language" MUST be a 2-letter ISO 639-1 language code (e.g. "en", "de", "fr", "it", "es", "pl"). Detect the language of the recipe's title, description, and instructions — this is the language written on the card or visible in the photo.
-- If this is a photo of a finished dish (not a recipe card), infer a likely recipe from what you see.
+- "original_language" MUST ALWAYS be a 2-letter ISO 639-1 language code detected from the recipe content (e.g. "en", "de", "fr", "es", "pl", "it"). Detect the language of the title, description, and instructions written on the card or visible in the photo. This field MUST be present in every response.
+- If this is a photo of a finished dish (not a recipe card), infer a likely recipe and detect what language it would naturally be written in.
 - "ingredients" MUST be an array of objects with "amount", "name", and "details".
 - Extract descriptors ("finely chopped", "softened") into "details". Keep "name" as the pure ingredient.
 - "servings", "prep_time_mins", "cook_time_mins" must be integers or null if unknown.

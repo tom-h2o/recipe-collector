@@ -32,7 +32,7 @@ The JSON MUST match this EXACT structure, nothing else:
 }
 
 CRITICAL RULES:
-- "original_language" MUST be a 2-letter ISO 639-1 language code (e.g. "en", "de", "fr", "it", "es", "pl"). Detect the language of the recipe's title, description, and instructions — NOT the website language.
+- "original_language" MUST ALWAYS be a 2-letter ISO 639-1 language code detected from the recipe content (e.g. "en", "de", "fr", "es", "pl", "it"). Analyze the recipe title, description, and instructions. If recipe is in English, use "en". If German, use "de". This field MUST be present in every response.
 - "ingredients" MUST be an array of objects with "amount", "name", and "details" keys.
 - Extract descriptors like "finely chopped", "room temperature", "roasted at 200°C" into "details". Keep "name" as the pure ingredient base name.
 - If an ingredient has no measurable amount, set "amount" to an empty string.

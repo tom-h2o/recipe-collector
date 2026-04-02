@@ -106,7 +106,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
       setPrepTime(data.prep_time_mins ? String(data.prep_time_mins) : '');
       setCookTime(data.cook_time_mins ? String(data.cook_time_mins) : '');
       setInstructions(data.instructions || '');
-      setOriginalLanguage(data.original_language || null);
+      setOriginalLanguage(data.original_language && data.original_language.length === 2 ? data.original_language : null);
       if (Array.isArray(data.ingredients)) {
         setIngredients(parseIngredients(data.ingredients));
       }
@@ -160,7 +160,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
       setInstructions(data.instructions || '');
       setSourceUrl(extractUrl);
       setSourceName((prev) => prev || domainFrom(extractUrl));
-      setOriginalLanguage(data.original_language || null);
+      setOriginalLanguage(data.original_language && data.original_language.length === 2 ? data.original_language : null);
       if (Array.isArray(data.ingredients)) {
         setIngredients(parseIngredients(data.ingredients));
       }
@@ -433,10 +433,10 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
 
           {/* Original Language */}
           <div className="space-y-2">
-            <Label htmlFor="original-language" className="font-semibold text-zinc-700 dark:text-zinc-300">Original Language</Label>
-            <Select value={originalLanguage || ''} onValueChange={(v) => setOriginalLanguage(v || null)}>
+            <Label htmlFor="original-language" className="font-semibold text-zinc-700 dark:text-zinc-300">Original Language {originalLanguage && `(${originalLanguage})`}</Label>
+            <Select value={originalLanguage ?? ''} onValueChange={(v) => setOriginalLanguage(v && v.length > 0 ? v : null)}>
               <SelectTrigger id="original-language" className="w-full">
-                <SelectValue placeholder="Detect language..." />
+                <SelectValue placeholder="Auto-detected language..." />
               </SelectTrigger>
               <SelectContent>
                 {LANGUAGES.map((lang) => (
