@@ -328,7 +328,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                     title="More options"
                   ><MoreHorizontal className="w-4 h-4" /></button>
                   {showMoreOptions && (
-                    <div className="absolute right-0 top-full mt-1 z-30 w-52 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-xl p-2 flex flex-col gap-0.5">
+                    <div className="absolute right-0 top-full mt-1 z-30 w-52 max-h-[60vh] overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-xl p-2 flex flex-col gap-0.5">
                       <button
                         onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/recipe/${recipe.id}`); toast.success('Link copied!'); setShowMoreOptions(false); }}
                         className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"

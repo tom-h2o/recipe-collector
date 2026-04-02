@@ -363,46 +363,48 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
             </div>
             <div className="space-y-1.5">
               {ingredients.map((ing, i) => (
-                <div key={i} className="flex gap-1.5 items-center">
-                  <div className="flex flex-col shrink-0">
+                <div key={i} className="flex flex-col gap-1">
+                  <div className="flex gap-1.5 items-center">
+                    <div className="flex flex-col shrink-0">
+                      <button
+                        type="button"
+                        disabled={i === 0}
+                        onClick={() => setIngredients((prev) => { const a = [...prev]; [a[i - 1], a[i]] = [a[i], a[i - 1]]; return a; })}
+                        className="p-1.5 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 disabled:opacity-0 transition-colors touch-manipulation"
+                      ><ChevronUp className="w-3.5 h-3.5" /></button>
+                      <button
+                        type="button"
+                        disabled={i === ingredients.length - 1}
+                        onClick={() => setIngredients((prev) => { const a = [...prev]; [a[i], a[i + 1]] = [a[i + 1], a[i]]; return a; })}
+                        className="p-1.5 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 disabled:opacity-0 transition-colors touch-manipulation"
+                      ><ChevronDown className="w-3.5 h-3.5" /></button>
+                    </div>
+                    <Input
+                      value={ing.amount}
+                      onChange={(e) => setIngredients((prev) => prev.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))}
+                      placeholder="qty"
+                      className="w-14 shrink-0 text-sm"
+                    />
+                    <Input
+                      value={ing.name}
+                      onChange={(e) => setIngredients((prev) => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
+                      placeholder="ingredient"
+                      className="flex-1 min-w-0 text-sm"
+                    />
                     <button
                       type="button"
-                      disabled={i === 0}
-                      onClick={() => setIngredients((prev) => { const a = [...prev]; [a[i - 1], a[i]] = [a[i], a[i - 1]]; return a; })}
-                      className="p-0.5 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 disabled:opacity-0 transition-colors"
-                    ><ChevronUp className="w-3 h-3" /></button>
-                    <button
-                      type="button"
-                      disabled={i === ingredients.length - 1}
-                      onClick={() => setIngredients((prev) => { const a = [...prev]; [a[i], a[i + 1]] = [a[i + 1], a[i]]; return a; })}
-                      className="p-0.5 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 disabled:opacity-0 transition-colors"
-                    ><ChevronDown className="w-3 h-3" /></button>
+                      onClick={() => setIngredients((prev) => prev.filter((_, j) => j !== i))}
+                      className="shrink-0 p-1.5 text-zinc-400 hover:text-red-500 transition-colors touch-manipulation"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                  <Input
-                    value={ing.amount}
-                    onChange={(e) => setIngredients((prev) => prev.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))}
-                    placeholder="qty"
-                    className="w-16 shrink-0 text-sm"
-                  />
-                  <Input
-                    value={ing.name}
-                    onChange={(e) => setIngredients((prev) => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
-                    placeholder="ingredient"
-                    className="flex-[2] min-w-0 text-sm"
-                  />
                   <Input
                     value={ing.details || ''}
                     onChange={(e) => setIngredients((prev) => prev.map((x, j) => j === i ? { ...x, details: e.target.value } : x))}
-                    placeholder="prep notes"
-                    className="flex-1 min-w-0 text-sm text-zinc-500 dark:text-zinc-400"
+                    placeholder="prep notes (optional)"
+                    className="ml-9 text-sm text-zinc-500 dark:text-zinc-400"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setIngredients((prev) => prev.filter((_, j) => j !== i))}
-                    className="shrink-0 p-1 text-zinc-400 hover:text-red-500 transition-colors"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
                 </div>
               ))}
               {ingredients.length === 0 && (

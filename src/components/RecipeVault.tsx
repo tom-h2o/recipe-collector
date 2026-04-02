@@ -131,7 +131,7 @@ export function RecipeVault({
           <div className="flex items-center gap-2 flex-wrap">
             <FolderOpen className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
             {collections.map((c) => (
-              <div key={c.id} className="group relative">
+              <div key={c.id} className="inline-flex items-center gap-0.5">
                 <button
                   onClick={() => onCollectionChange(activeCollectionId === c.id ? null : c.id)}
                   className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
@@ -147,9 +147,9 @@ export function RecipeVault({
                 </button>
                 <button
                   onClick={() => onDeleteCollection(c.id)}
-                  className="absolute -top-1 -right-1 hidden group-hover:flex w-4 h-4 rounded-full bg-red-500 text-white items-center justify-center"
+                  className="p-1 text-zinc-300 dark:text-zinc-600 hover:text-red-500 transition-colors"
                   title="Delete collection"
-                ><Trash2 className="w-2.5 h-2.5" /></button>
+                ><Trash2 className="w-3 h-3" /></button>
               </div>
             ))}
             {isCreating ? (
