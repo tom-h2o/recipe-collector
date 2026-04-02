@@ -89,7 +89,7 @@ export function RecipeVault({
     }
 
     return result;
-  }, [recipes, searchQuery, activeFilter, sortBy]);
+  }, [recipes, searchQuery, activeFilter, sortBy, collectionRecipeIds]);
 
   return (
     <>
