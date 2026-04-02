@@ -3,7 +3,6 @@ import { Search, X, ChefHat, ArrowUpDown, FolderOpen, Plus, Trash2 } from 'lucid
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RecipeCard } from './RecipeCard';
-import { parseIngredients } from '@/lib/recipeUtils';
 import { FILTERS, SORT_OPTIONS, type SortOption } from '@/lib/constants';
 import type { Recipe, RecipeTranslation, Collection, RecipeCollection } from '@/types';
 
@@ -63,15 +62,6 @@ export function RecipeVault({
       result = result.filter((r) => ids.has(r.id));
     }
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (r) =>
-          r.title?.toLowerCase().includes(q) ||
-          r.description?.toLowerCase().includes(q) ||
-          parseIngredients(r.ingredients).some((i) => i.name.toLowerCase().includes(q)),
-      );
-    }
     if (activeFilter === '⭐ Favourites') {
       result = result.filter((r) => r.is_favourite);
     } else if (activeFilter) {
@@ -90,7 +80,7 @@ export function RecipeVault({
     }
 
     return result;
-  }, [recipes, searchQuery, activeFilter, sortBy, activeCollectionId, memberships]);
+  }, [recipes, activeFilter, sortBy, activeCollectionId, memberships]);
 
   return (
     <>

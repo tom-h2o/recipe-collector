@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Toaster } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
@@ -54,6 +54,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
   useEffect(() => {
     const path = window.location.pathname;
     if (path.startsWith('/recipe/')) {
@@ -64,7 +66,7 @@ export default function App() {
         });
       }
     } else {
-      fetchRecipes();
+      fetchRecipes('');
       fetchMealPlans();
       fetchShoppingList();
       fetchPantryItems();
@@ -74,6 +76,15 @@ export default function App() {
       fetchCollections();
     }
   }, [fetchRecipes, fetchMealPlans, fetchShoppingList, fetchPantryItems, fetchSettings, fetchInbox, fetchContacts, fetchCollections]);
+
+  // Debounce search query changes (300ms) before fetching from server
+  useEffect(() => {
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => {
+      fetchRecipes(searchQuery);
+    }, 300);
+    return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
+  }, [searchQuery, fetchRecipes]);
 
   function openForm(recipe?: Recipe) {
     setEditingRecipe(recipe ?? null);
@@ -112,7 +123,7 @@ export default function App() {
     const newRecipeId = await acceptShare(share, user?.email ?? '');
     if (newRecipeId) {
       // Refresh vault so the new recipe appears
-      fetchRecipes();
+      fetchRecipes('');
     }
   }
 

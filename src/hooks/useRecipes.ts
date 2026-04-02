@@ -13,15 +13,22 @@ export function useRecipes(userId?: string | null) {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const pollingRefs = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
+  const currentSearchQuery = useRef<string>('');
 
-  const fetchRecipes = useCallback(async () => {
+  const fetchRecipes = useCallback(async (searchQuery: string = '') => {
     setLoading(true);
     setPage(0);
-    const { data } = await supabase
-      .from('recipes')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .range(0, PAGE_SIZE - 1);
+    currentSearchQuery.current = searchQuery;
+
+    let query = supabase.from('recipes').select('*');
+
+    if (searchQuery && searchQuery.trim()) {
+      query = query.textSearch('search_vector', searchQuery.trim());
+    } else {
+      query = query.order('created_at', { ascending: false });
+    }
+
+    const { data } = await query.range(0, PAGE_SIZE - 1);
     if (data) {
       setRecipes(data as Recipe[]);
       setHasMore(data.length === PAGE_SIZE);
@@ -31,11 +38,15 @@ export function useRecipes(userId?: string | null) {
 
   const loadMore = useCallback(async () => {
     const nextPage = page + 1;
-    const { data } = await supabase
-      .from('recipes')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .range(nextPage * PAGE_SIZE, (nextPage + 1) * PAGE_SIZE - 1);
+    let query = supabase.from('recipes').select('*');
+
+    if (currentSearchQuery.current) {
+      query = query.textSearch('search_vector', currentSearchQuery.current);
+    } else {
+      query = query.order('created_at', { ascending: false });
+    }
+
+    const { data } = await query.range(nextPage * PAGE_SIZE, (nextPage + 1) * PAGE_SIZE - 1);
     if (data) {
       setRecipes((prev) => [...prev, ...(data as Recipe[])]);
       setHasMore(data.length === PAGE_SIZE);

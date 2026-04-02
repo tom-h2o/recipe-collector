@@ -250,7 +250,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
         {/* Fixed close button — always visible, never scrolls away */}
         <button
           onClick={handleClose}
-          className="absolute top-3 right-3 z-20 p-1.5 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white transition-colors shadow-md ring-1 ring-white/20"
+          className="absolute top-3 right-3 z-20 p-1.5 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white transition-colors shadow-md ring-1 ring-white/20 print:hidden"
           title="Close"
         >
           <X className="w-4 h-4" />
@@ -267,7 +267,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
               <DialogTitle className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
                 {translation ? translation.title : recipe.title}
               </DialogTitle>
-              <div className="flex items-center gap-1 flex-wrap pt-1">
+              <div className="flex items-center gap-1 flex-wrap pt-1 print:hidden">
                 {recipe.source_url && (
                   <a
                     href={recipe.source_url}
@@ -320,6 +320,11 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                   className="p-2 rounded-full text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                   title="Delete recipe"
                 ><Trash2 className="w-4 h-4" /></button>
+                <button
+                  onClick={() => window.print()}
+                  className="p-2 rounded-full text-zinc-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors print:hidden"
+                  title="Print recipe"
+                ><Printer className="w-4 h-4" /></button>
                 <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-0.5" />
                 <div className="relative">
                   <button
@@ -334,12 +339,6 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                         className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"
                       >
                         <Share2 className="w-3.5 h-3.5 shrink-0" /> Copy share link
-                      </button>
-                      <button
-                        onClick={() => { window.print(); setShowMoreOptions(false); }}
-                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"
-                      >
-                        <Printer className="w-3.5 h-3.5 shrink-0" /> Print
                       </button>
                       <div className="h-px bg-zinc-100 dark:bg-zinc-800 my-1" />
                       <button
