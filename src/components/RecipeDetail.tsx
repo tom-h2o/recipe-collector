@@ -47,7 +47,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
   const [isRegeneratingNutrition, setIsRegeneratingNutrition] = useState(false);
 
   // Sync notes when a different recipe is opened
-  useEffect(() => { setNotesValue(recipe?.notes || ''); }, [recipe?.id]);
+  useEffect(() => { setNotesValue(recipe?.notes || ''); }, [recipe?.id, recipe?.notes]);
 
   // Auto-translate when recipe opens or preferred language changes
   useEffect(() => {
@@ -366,7 +366,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                             return (
                               <button
                                 key={c.id}
-                                onClick={() => { inCollection ? onRemoveFromCollection(c.id) : onAddToCollection(c.id); setShowMoreOptions(false); }}
+                                onClick={() => { if (inCollection) onRemoveFromCollection(c.id); else onAddToCollection(c.id); setShowMoreOptions(false); }}
                                 className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"
                               >
                                 {inCollection ? <FolderMinus className="w-3.5 h-3.5 shrink-0 text-indigo-400" /> : <FolderPlus className="w-3.5 h-3.5 shrink-0 text-zinc-400" />}

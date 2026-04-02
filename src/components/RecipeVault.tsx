@@ -54,14 +54,15 @@ export function RecipeVault({
     return () => document.removeEventListener('keydown', handleKey);
   }, []);
 
-  const collectionRecipeIds = useMemo(() => {
-    if (!activeCollectionId) return null;
-    return new Set(memberships.filter((m) => m.collection_id === activeCollectionId).map((m) => m.recipe_id));
-  }, [activeCollectionId, memberships]);
-
   const filteredRecipes = useMemo(() => {
     let result = recipes;
-    if (collectionRecipeIds) result = result.filter((r) => collectionRecipeIds.has(r.id));
+
+    // Collection filter — inlined to avoid cross-memo dependency
+    if (activeCollectionId) {
+      const ids = new Set(memberships.filter((m) => m.collection_id === activeCollectionId).map((m) => m.recipe_id));
+      result = result.filter((r) => ids.has(r.id));
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -89,7 +90,7 @@ export function RecipeVault({
     }
 
     return result;
-  }, [recipes, searchQuery, activeFilter, sortBy, collectionRecipeIds]);
+  }, [recipes, searchQuery, activeFilter, sortBy, activeCollectionId, memberships]);
 
   return (
     <>
@@ -127,8 +128,7 @@ export function RecipeVault({
           </div>
         </div>
         {/* Collections */}
-        {(collections.length > 0 || true) && (
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
             <FolderOpen className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
             {collections.map((c) => (
               <div key={c.id} className="inline-flex items-center gap-0.5">
@@ -175,7 +175,6 @@ export function RecipeVault({
               ><Plus className="w-3 h-3" /> New</button>
             )}
           </div>
-        )}
 
         <div className="flex flex-wrap gap-2">
           {FILTERS.map((f) => (

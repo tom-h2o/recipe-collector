@@ -17,6 +17,7 @@ export function useTranslationCache(recipes: Recipe[]) {
 
     // Mark as fetched before the query to guard against concurrent effect calls.
     toFetch.forEach((r) => fetchedIds.current.add(r.id));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(true);
 
     void supabase
