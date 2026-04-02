@@ -9,6 +9,8 @@ import { translateSchema } from './_lib/schemas.js';
 const LANGUAGE_NAMES: Record<string, string> = {
   en: 'English',
   de: 'German',
+  fr: 'French',
+  es: 'Spanish',
   pl: 'Polish',
 };
 

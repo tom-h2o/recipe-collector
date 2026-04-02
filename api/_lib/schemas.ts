@@ -73,7 +73,7 @@ export const shareSchema = z.discriminatedUnion('action', [
 
 export const translateSchema = z.object({
   recipeId: z.string().uuid('recipeId must be a UUID'),
-  targetLanguage: z.enum(['en', 'de', 'pl'], { message: 'Unsupported language' }),
+  targetLanguage: z.enum(['en', 'de', 'fr', 'es', 'pl'], { message: 'Unsupported language' }),
   title: z.string().min(1),
   description: z.string().optional().default(''),
   instructions: z.string().min(1),

@@ -35,6 +35,8 @@ export const PAGE_SIZE = 24;
 export const LANGUAGES = [
   { code: 'en', label: 'English', flag: '🇬🇧' },
   { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
+  { code: 'fr', label: 'Français', flag: '🇫🇷' },
+  { code: 'es', label: 'Español', flag: '🇪🇸' },
   { code: 'pl', label: 'Polski', flag: '🇵🇱' },
 ] as const;
 
