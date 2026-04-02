@@ -8,7 +8,7 @@ interface Props {
   recipe: Recipe;
   isProcessing: boolean;
   activeFilter: string | null;
-  translation?: { title: string; description: string | null } | null;
+  translation?: { title: string; description: string | null; ingredients?: Array<{ amount: string; name: string; details?: string }> } | null;
   translationLoading?: boolean;
   onOpen: (r: Recipe) => void;
   onToggleFavourite: (r: Recipe, e: React.MouseEvent) => void;
@@ -16,7 +16,7 @@ interface Props {
 }
 
 export function RecipeCard({ recipe, isProcessing, activeFilter, translation, translationLoading, onOpen, onToggleFavourite, onFilterChange }: Props) {
-  const parsed = parseIngredients(recipe.ingredients);
+  const parsed = translation?.ingredients ? translation.ingredients : parseIngredients(recipe.ingredients);
   const [imgError, setImgError] = useState(false);
   const totalTime = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
 
