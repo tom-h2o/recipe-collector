@@ -14,7 +14,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
   pl: 'Polish',
 };
 
-type TranslatedIngredient = { amount: string; name: string; details: string };
+type TranslatedIngredient = { amount: string; name: string; details?: string };
 
 interface TranslationResult {
   detectedSourceLanguage: string;
@@ -54,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const targetName = LANGUAGE_NAMES[targetLanguage] ?? targetLanguage;
 
     const ingredientText = JSON.stringify(
-      ingredients.map((i) => ({ amount: i.amount, name: i.name, details: i.details })),
+      ingredients.map((i) => ({ amount: i.amount, name: i.name, details: i.details ?? '' })),
     );
 
     const prompt = `You are a professional culinary translator. Translate the following recipe into ${targetName}.
@@ -100,7 +100,7 @@ Return this exact JSON structure:
       title: result.title,
       description: result.description ?? '',
       instructions: result.instructions,
-      ingredients: result.ingredients,
+      ingredients: result.ingredients.map((i) => ({ ...i, details: i.details ?? '' })),
     };
 
     await supabase.from('recipe_translations').upsert(row, { onConflict: 'recipe_id,language_code' });
