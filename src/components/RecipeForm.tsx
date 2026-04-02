@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { parseIngredients } from '@/lib/recipeUtils';
 import { supabase } from '@/lib/supabase';
+import { LANGUAGES } from '@/lib/constants';
 import type { Recipe, Ingredient } from '@/types';
 
 type RecipePayload = Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>;
@@ -427,6 +429,24 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
           <div className="space-y-2">
             <Label htmlFor="instructions" className="font-semibold text-zinc-700 dark:text-zinc-300">Instructions</Label>
             <Textarea id="instructions" value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Step by step instructions..." required className="min-h-[120px]" />
+          </div>
+
+          {/* Original Language */}
+          <div className="space-y-2">
+            <Label htmlFor="original-language" className="font-semibold text-zinc-700 dark:text-zinc-300">Original Language</Label>
+            <Select value={originalLanguage || ''} onValueChange={(v) => setOriginalLanguage(v || null)}>
+              <SelectTrigger id="original-language" className="w-full">
+                <SelectValue placeholder="Detect language..." />
+              </SelectTrigger>
+              <SelectContent>
+                {LANGUAGES.map((lang) => (
+                  <SelectItem key={lang.code} value={lang.code}>
+                    {lang.flag} {lang.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">Language the recipe is written in. Auto-detected during extraction, but can be corrected here.</p>
           </div>
 
           {/* Source */}
