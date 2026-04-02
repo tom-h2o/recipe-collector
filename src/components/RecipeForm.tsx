@@ -254,7 +254,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
                     placeholder="https://..."
                     className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700"
                   />
-                  <Button onClick={handleExtractUrl} disabled={isExtracting || !extractUrl} type="button" variant="secondary" className="whitespace-nowrap px-4 font-medium">
+                  <Button onClick={handleExtractUrl} disabled={isExtracting || !extractUrl} type="button" variant="default" className="whitespace-nowrap px-4 font-medium bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-md">
                     {isExtracting ? 'Extracting...' : 'Auto-Fill'}
                   </Button>
                 </div>
@@ -289,8 +289,8 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
                       type="button"
                       onClick={handlePhotoExtract}
                       disabled={isExtractingPhoto}
-                      variant="secondary"
-                      className="w-full font-medium"
+                      variant="default"
+                      className="w-full font-medium bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-md"
                     >
                       {isExtractingPhoto ? 'Analysing photo...' : 'Extract Recipe from Photo'}
                     </Button>
