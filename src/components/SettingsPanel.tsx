@@ -30,6 +30,13 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (!isOpen) setTab('settings'); }, [isOpen]);
 
+  const hasChanges = JSON.stringify(local) !== JSON.stringify(settings);
+
+  const handleSave = async () => {
+    await onSave(local);
+    onClose();
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogTrigger className="hidden" />
@@ -58,10 +65,9 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
         </div>
 
         {/* Scrollable content area — fills remaining height */}
-        <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
-          <div className="flex-1">
-            {tab === 'settings' && (
-              <div className="space-y-6 py-2">
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {tab === 'settings' && (
+            <div className="space-y-6 py-2">
                 <div className="space-y-4 border-b border-zinc-100 dark:border-zinc-800 pb-6">
                   <Label className="font-bold text-zinc-800 dark:text-zinc-200 text-lg">API Key Configuration</Label>
                   <div className="space-y-2 mt-2">
@@ -139,19 +145,19 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
                 <GeminiLogs />
               </div>
             )}
-          </div>
-
-          {tab === 'settings' && (
-            <div className="shrink-0 bg-gradient-to-b from-transparent to-white dark:to-zinc-900 pt-4 pb-2 border-t border-zinc-100 dark:border-zinc-800 flex gap-3">
-              <Button onClick={() => onSave(local)} disabled={isSaving} className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold shadow-md py-3 text-base">
-                {isSaving ? 'Saving...' : 'Save Settings'}
-              </Button>
-              <Button onClick={() => setLocal((p) => ({ ...p, gemini_prompt: DEFAULT_PROMPT }))} variant="outline" className="flex-1 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-600">
-                Reset Prompt to Default
-              </Button>
-            </div>
-          )}
         </div>
+
+        {/* Button area — always visible at bottom */}
+        {tab === 'settings' && (
+          <div className="shrink-0 bg-gradient-to-b from-transparent via-white via-50% to-white dark:via-zinc-900 dark:to-zinc-900 pt-4 pb-2 border-t border-zinc-100 dark:border-zinc-800 flex gap-3">
+            <Button onClick={handleSave} disabled={!hasChanges || isSaving} className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:from-zinc-300 disabled:to-zinc-300 disabled:cursor-not-allowed text-white font-semibold shadow-md py-3 text-base">
+              {isSaving ? 'Saving...' : 'Save Settings'}
+            </Button>
+            <Button onClick={() => setLocal((p) => ({ ...p, gemini_prompt: DEFAULT_PROMPT }))} variant="outline" className="flex-1 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-600">
+              Reset Prompt to Default
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
