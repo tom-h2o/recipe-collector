@@ -8,6 +8,7 @@ import { useShoppingList } from '@/hooks/useShoppingList';
 import { useSettings } from '@/hooks/useSettings';
 import { useAuth } from '@/hooks/useAuth';
 import { useRecipeShares } from '@/hooks/useRecipeShares';
+import { useCollections } from '@/hooks/useCollections';
 
 import { AuthGate } from '@/components/AuthGate';
 import { Layout } from '@/components/Layout';
@@ -35,7 +36,9 @@ export default function App() {
   const { settings, isSavingSettings, fetchSettings, saveSettings } = useSettings(user?.id);
   const { inboxShares, inboxCount, contacts, fetchInbox, fetchContacts, sendShare, acceptShare, rejectShare } = useRecipeShares(user?.id, user?.email);
   const { translationsCache, translationsLoading, cacheTranslation } = useTranslationCache(recipes);
+  const { collections, memberships, fetchCollections, createCollection, deleteCollection, addToCollection, removeFromCollection } = useCollections(user?.id);
 
+  const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ActiveView>('vault');
   const [publicRecipe, setPublicRecipe] = useState<Recipe | null>(null);
 
@@ -68,8 +71,9 @@ export default function App() {
       fetchSettings();
       fetchInbox();
       fetchContacts();
+      fetchCollections();
     }
-  }, [fetchRecipes, fetchMealPlans, fetchShoppingList, fetchPantryItems, fetchSettings, fetchInbox, fetchContacts]);
+  }, [fetchRecipes, fetchMealPlans, fetchShoppingList, fetchPantryItems, fetchSettings, fetchInbox, fetchContacts, fetchCollections]);
 
   function openForm(recipe?: Recipe) {
     setEditingRecipe(recipe ?? null);
@@ -147,8 +151,14 @@ export default function App() {
               recipeLanguages={Object.fromEntries(recipes.map((r) => [r.id, r.preferred_language ?? '']))}
               translationsCache={translationsCache}
               translationsLoading={translationsLoading}
+              collections={collections}
+              memberships={memberships}
+              activeCollectionId={activeCollectionId}
               onSearchChange={setSearchQuery}
               onFilterChange={setActiveFilter}
+              onCollectionChange={setActiveCollectionId}
+              onCreateCollection={createCollection}
+              onDeleteCollection={deleteCollection}
               onLoadMore={loadMore}
               onOpenRecipe={setSelectedRecipe}
               onToggleFavourite={(r, e) => { e.stopPropagation(); toggleFavourite(r); }}
@@ -208,6 +218,10 @@ export default function App() {
           onUpdateRecipe={handleUpdateRecipe}
           onAddMealPlan={addMealPlan}
           onSaveScaled={saveRecipe}
+          collections={collections}
+          recipeCollectionIds={memberships.filter((m) => m.recipe_id === selectedRecipe?.id).map((m) => m.collection_id)}
+          onAddToCollection={(colId) => selectedRecipe ? addToCollection(colId, selectedRecipe.id) : Promise.resolve()}
+          onRemoveFromCollection={(colId) => selectedRecipe ? removeFromCollection(colId, selectedRecipe.id) : Promise.resolve()}
         />
 
         <CookMode

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ChefHat, Link, Camera, ImagePlus, X, Plus } from 'lucide-react';
+import { ChefHat, Link, Camera, ImagePlus, X, Plus, ChevronUp, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -98,6 +98,8 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
       setTitle(data.title || '');
       setDescription(data.description || '');
       setServings(data.servings ? String(data.servings) : '');
+      setPrepTime(data.prep_time_mins ? String(data.prep_time_mins) : '');
+      setCookTime(data.cook_time_mins ? String(data.cook_time_mins) : '');
       setInstructions(data.instructions || '');
       if (Array.isArray(data.ingredients)) {
         setIngredients(parseIngredients(data.ingredients));
@@ -146,6 +148,8 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
       setTitle(data.title || '');
       setDescription(data.description || '');
       setServings(data.servings ? String(data.servings) : '');
+      setPrepTime(data.prep_time_mins ? String(data.prep_time_mins) : '');
+      setCookTime(data.cook_time_mins ? String(data.cook_time_mins) : '');
       setImageUrl(data.image_url || '');
       setInstructions(data.instructions || '');
       setSourceUrl(extractUrl);
@@ -360,6 +364,20 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
             <div className="space-y-1.5">
               {ingredients.map((ing, i) => (
                 <div key={i} className="flex gap-1.5 items-center">
+                  <div className="flex flex-col shrink-0">
+                    <button
+                      type="button"
+                      disabled={i === 0}
+                      onClick={() => setIngredients((prev) => { const a = [...prev]; [a[i - 1], a[i]] = [a[i], a[i - 1]]; return a; })}
+                      className="p-0.5 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 disabled:opacity-0 transition-colors"
+                    ><ChevronUp className="w-3 h-3" /></button>
+                    <button
+                      type="button"
+                      disabled={i === ingredients.length - 1}
+                      onClick={() => setIngredients((prev) => { const a = [...prev]; [a[i], a[i + 1]] = [a[i + 1], a[i]]; return a; })}
+                      className="p-0.5 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 disabled:opacity-0 transition-colors"
+                    ><ChevronDown className="w-3 h-3" /></button>
+                  </div>
                   <Input
                     value={ing.amount}
                     onChange={(e) => setIngredients((prev) => prev.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))}

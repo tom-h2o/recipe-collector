@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages, Send, MoreHorizontal, Tag, Salad } from 'lucide-react';
+import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages, Send, MoreHorizontal, Tag, Salad, FolderPlus, FolderMinus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
 import { convertTemperaturesInText } from '@/lib/temperatureUtils';
 import { MEAL_TYPES, LANGUAGES, AVAILABLE_TAGS } from '@/lib/constants';
-import type { Recipe, RecipeTranslation } from '@/types';
+import type { Recipe, RecipeTranslation, Collection } from '@/types';
 
 interface Props {
   recipe: Recipe | null;
@@ -21,9 +21,13 @@ interface Props {
   onUpdateRecipe: (id: string, changes: Partial<Recipe>) => void;
   onAddMealPlan?: (date: string, mealType: string, recipeId: string) => Promise<void>;
   onSaveScaled?: (payload: Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>) => Promise<void>;
+  collections?: Collection[];
+  recipeCollectionIds?: string[];
+  onAddToCollection?: (collectionId: string) => Promise<void>;
+  onRemoveFromCollection?: (collectionId: string) => Promise<void>;
 }
 
-export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onCook, onSend, onUpdateRecipe, onAddMealPlan, onSaveScaled }: Props) {
+export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onCook, onSend, onUpdateRecipe, onAddMealPlan, onSaveScaled, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection }: Props) {
   const baseServings0 = recipe?.original_servings || recipe?.servings || 1;
   const [scaledServings, setScaledServings] = useState(baseServings0);
   const [aiIngredients, setAiIngredients] = useState<{ amount: string; name: string; details: string }[] | null>(null);
@@ -354,6 +358,24 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                         {isRegeneratingNutrition ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <Salad className="w-3.5 h-3.5 shrink-0" />}
                         {isRegeneratingNutrition ? 'Regenerating…' : 'Regenerate nutrition'}
                       </button>
+                      {collections && collections.length > 0 && onAddToCollection && onRemoveFromCollection && (
+                        <>
+                          <div className="h-px bg-zinc-100 dark:bg-zinc-800 my-1" />
+                          {collections.map((c) => {
+                            const inCollection = recipeCollectionIds?.includes(c.id);
+                            return (
+                              <button
+                                key={c.id}
+                                onClick={() => { inCollection ? onRemoveFromCollection(c.id) : onAddToCollection(c.id); setShowMoreOptions(false); }}
+                                className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"
+                              >
+                                {inCollection ? <FolderMinus className="w-3.5 h-3.5 shrink-0 text-indigo-400" /> : <FolderPlus className="w-3.5 h-3.5 shrink-0 text-zinc-400" />}
+                                {inCollection ? `Remove from ${c.name}` : `Add to ${c.name}`}
+                              </button>
+                            );
+                          })}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

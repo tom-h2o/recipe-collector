@@ -1,11 +1,11 @@
 import { useMemo, useEffect, useRef, useState } from 'react';
-import { Search, X, ChefHat, ArrowUpDown } from 'lucide-react';
+import { Search, X, ChefHat, ArrowUpDown, FolderOpen, Plus, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RecipeCard } from './RecipeCard';
 import { parseIngredients } from '@/lib/recipeUtils';
 import { FILTERS, SORT_OPTIONS, type SortOption } from '@/lib/constants';
-import type { Recipe, RecipeTranslation } from '@/types';
+import type { Recipe, RecipeTranslation, Collection, RecipeCollection } from '@/types';
 
 interface Props {
   recipes: Recipe[];
@@ -17,8 +17,14 @@ interface Props {
   recipeLanguages: Record<string, string>;
   translationsCache: Record<string, RecipeTranslation>;
   translationsLoading: boolean;
+  collections: Collection[];
+  memberships: RecipeCollection[];
+  activeCollectionId: string | null;
   onSearchChange: (q: string) => void;
   onFilterChange: (tag: string | null) => void;
+  onCollectionChange: (id: string | null) => void;
+  onCreateCollection: (name: string) => Promise<void>;
+  onDeleteCollection: (id: string) => Promise<void>;
   onLoadMore: () => void;
   onOpenRecipe: (r: Recipe) => void;
   onToggleFavourite: (r: Recipe, e: React.MouseEvent) => void;
@@ -27,10 +33,14 @@ interface Props {
 export function RecipeVault({
   recipes, loading, processingIds, searchQuery, activeFilter, hasMore,
   recipeLanguages, translationsCache, translationsLoading,
-  onSearchChange, onFilterChange, onLoadMore, onOpenRecipe, onToggleFavourite,
+  collections, memberships, activeCollectionId,
+  onSearchChange, onFilterChange, onCollectionChange, onCreateCollection, onDeleteCollection,
+  onLoadMore, onOpenRecipe, onToggleFavourite,
 }: Props) {
   const searchRef = useRef<HTMLInputElement>(null);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
+  const [newCollectionName, setNewCollectionName] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
 
   // '/' keyboard shortcut focuses search
   useEffect(() => {
@@ -44,8 +54,14 @@ export function RecipeVault({
     return () => document.removeEventListener('keydown', handleKey);
   }, []);
 
+  const collectionRecipeIds = useMemo(() => {
+    if (!activeCollectionId) return null;
+    return new Set(memberships.filter((m) => m.collection_id === activeCollectionId).map((m) => m.recipe_id));
+  }, [activeCollectionId, memberships]);
+
   const filteredRecipes = useMemo(() => {
     let result = recipes;
+    if (collectionRecipeIds) result = result.filter((r) => collectionRecipeIds.has(r.id));
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -110,6 +126,57 @@ export function RecipeVault({
             </select>
           </div>
         </div>
+        {/* Collections */}
+        {(collections.length > 0 || true) && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <FolderOpen className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+            {collections.map((c) => (
+              <div key={c.id} className="group relative">
+                <button
+                  onClick={() => onCollectionChange(activeCollectionId === c.id ? null : c.id)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
+                    activeCollectionId === c.id
+                      ? 'bg-indigo-500 border-indigo-500 text-white shadow'
+                      : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-indigo-400 hover:text-indigo-600'
+                  }`}
+                >
+                  {c.name}
+                  <span className="text-[10px] opacity-60 font-normal">
+                    {memberships.filter((m) => m.collection_id === c.id).length}
+                  </span>
+                </button>
+                <button
+                  onClick={() => onDeleteCollection(c.id)}
+                  className="absolute -top-1 -right-1 hidden group-hover:flex w-4 h-4 rounded-full bg-red-500 text-white items-center justify-center"
+                  title="Delete collection"
+                ><Trash2 className="w-2.5 h-2.5" /></button>
+              </div>
+            ))}
+            {isCreating ? (
+              <form
+                onSubmit={async (e) => { e.preventDefault(); if (!newCollectionName.trim()) return; await onCreateCollection(newCollectionName); setNewCollectionName(''); setIsCreating(false); }}
+                className="flex items-center gap-1"
+              >
+                <input
+                  autoFocus
+                  value={newCollectionName}
+                  onChange={(e) => setNewCollectionName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Escape') { setIsCreating(false); setNewCollectionName(''); } }}
+                  placeholder="Collection name"
+                  className="px-2 py-1 rounded-full text-xs border border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 w-32"
+                />
+                <button type="submit" className="text-xs font-semibold text-indigo-500 hover:text-indigo-700 px-1">Save</button>
+                <button type="button" onClick={() => { setIsCreating(false); setNewCollectionName(''); }} className="text-xs text-zinc-400 hover:text-zinc-600 px-1">Cancel</button>
+              </form>
+            ) : (
+              <button
+                onClick={() => setIsCreating(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border border-dashed border-zinc-300 dark:border-zinc-600 text-zinc-400 hover:border-indigo-400 hover:text-indigo-500 transition-all"
+              ><Plus className="w-3 h-3" /> New</button>
+            )}
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-2">
           {FILTERS.map((f) => (
             <button
@@ -176,7 +243,7 @@ export function RecipeVault({
                 />
               ))}
             </div>
-            {hasMore && !searchQuery && !activeFilter && (
+            {hasMore && !searchQuery && !activeFilter && !activeCollectionId && (
               <div className="flex justify-center mt-10">
                 <Button
                   onClick={onLoadMore}

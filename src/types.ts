@@ -79,6 +79,18 @@ export interface AppSettings {
 
 export type ActiveView = 'vault' | 'planner' | 'shopping' | 'inbox' | 'public_recipe';
 
+export interface Collection {
+  id: string;
+  user_id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface RecipeCollection {
+  collection_id: string;
+  recipe_id: string;
+}
+
 export interface RecipeShare {
   id: string;
   recipe_id: string;

@@ -17,9 +17,6 @@ The planner only shows the current 7 days. No way to plan ahead or look at past 
 - Add prev/next week buttons to `MealPlanner`
 - Offset the date range by ±7 days per click
 
-### Prep/cook time missing from AI-extract flow
-`extract.ts` may return `prep_time_mins` / `cook_time_mins` but `handleExtractUrl` in `RecipeForm` doesn't set those fields. Now that the form has inputs for them, verify the API response is wired through.
-
 ---
 
 ## Bigger Changes
@@ -28,16 +25,6 @@ The planner only shows the current 7 days. No way to plan ahead or look at past 
 The app is installable (has a manifest) but has no service worker. Recipes don't load without internet.
 - Add a Vite PWA plugin (`vite-plugin-pwa`)
 - Cache the recipe list and images with a stale-while-revalidate strategy
-
-### Recipe collections / folders
-Tags work for categorisation but a proper folder concept (e.g. "Weekend projects", "Kid-friendly") would be useful for larger libraries.
-- New `collections` table with a `recipe_collections` join table
-- UI: folder sidebar or dropdown in RecipeVault
-
-### Ingredient reordering in the editor
-The structured ingredient editor has no way to reorder rows.
-- Add up/down arrow buttons per row (simple, no drag library needed)
-- Or integrate `@dnd-kit/sortable` for drag-to-reorder
 
 ### Cook mode timer
 The step-by-step cook mode has no built-in timer despite most recipe steps mentioning times.
