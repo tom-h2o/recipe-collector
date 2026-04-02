@@ -242,7 +242,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
 
   return (
     <Dialog open={!!recipe} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-[780px] overflow-hidden rounded-3xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-2xl p-0 w-[95vw] sm:w-full">
+      <DialogContent showCloseButton={false} className="sm:max-w-[780px] overflow-hidden rounded-3xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-2xl p-0 w-[95vw] sm:w-full">
         {/* Fixed close button — always visible, never scrolls away */}
         <button
           onClick={handleClose}

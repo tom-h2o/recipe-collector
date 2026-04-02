@@ -202,7 +202,14 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
   return (
     <Dialog open={isOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogTrigger className="hidden" />
-      <DialogContent className="sm:max-w-[580px] max-h-[90vh] overflow-y-auto rounded-2xl w-[95vw] sm:w-full bg-white dark:bg-zinc-900 shadow-2xl border border-zinc-200 dark:border-zinc-800">
+      <DialogContent showCloseButton={false} className="sm:max-w-[580px] overflow-hidden rounded-2xl w-[95vw] sm:w-full bg-white dark:bg-zinc-900 shadow-2xl border border-zinc-200 dark:border-zinc-800 p-0">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-3 right-3 z-20 p-1.5 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white transition-colors shadow-md ring-1 ring-white/20"
+          title="Close"
+        ><X className="w-4 h-4" /></button>
+        <div className="overflow-y-auto max-h-[90vh] p-6">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">
             {editingRecipe ? 'Edit Recipe' : 'Add New Recipe'}
@@ -419,6 +426,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
             </Button>
           </div>
         </form>
+        </div>
       </DialogContent>
     </Dialog>
   );
