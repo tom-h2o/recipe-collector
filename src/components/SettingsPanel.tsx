@@ -3,9 +3,9 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { MODELS, DEFAULT_PROMPT } from '@/lib/constants';
+import { DEFAULT_PROMPT } from '@/lib/constants';
 import { GeminiLogs } from '@/components/GeminiLogs';
 import type { AppSettings } from '@/types';
 
@@ -104,10 +104,21 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
                 <Select value={local.gemini_model} onValueChange={(v) => { if (v) setLocal((p) => ({ ...p, gemini_model: v })); }}>
                   <SelectTrigger className="w-full"><SelectValue placeholder="Select model" /></SelectTrigger>
                   <SelectContent>
-                    {MODELS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                    <SelectGroup>
+                      <SelectLabel className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Gemini 3 — Preview</SelectLabel>
+                      <SelectItem value="gemini-3.1-pro-preview">gemini-3.1-pro-preview</SelectItem>
+                      <SelectItem value="gemini-3-flash-preview">gemini-3-flash-preview</SelectItem>
+                      <SelectItem value="gemini-3.1-flash-lite-preview">gemini-3.1-flash-lite-preview</SelectItem>
+                    </SelectGroup>
+                    <SelectGroup>
+                      <SelectLabel className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Gemini 2.5 — Stable</SelectLabel>
+                      <SelectItem value="gemini-2.5-pro">gemini-2.5-pro</SelectItem>
+                      <SelectItem value="gemini-2.5-flash">gemini-2.5-flash</SelectItem>
+                      <SelectItem value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</SelectItem>
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">Flash is fastest; Pro is most accurate for complex pages.</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">Lite is fastest and cheapest; Flash balances speed and quality; Pro is most accurate. Preview models are newer but may change.</p>
               </div>
 
               <div className="space-y-2">
