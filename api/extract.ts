@@ -13,6 +13,8 @@ const CACHE_TTL_DAYS = 7;
 const DEFAULT_PROMPT = `You are a culinary assistant that extracts recipes from raw extracted webpage text.
 Your task is to find the recipe within the text below and return it strictly formatted as a JSON object.
 
+IMPORTANT: Detect the language of the recipe content. Return the entire response IN THE DETECTED LANGUAGE.
+
 The JSON MUST match this EXACT structure, nothing else:
 {
   "title": "Recipe Title",
