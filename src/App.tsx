@@ -14,6 +14,7 @@ import { AuthGate } from '@/components/AuthGate';
 import { Layout } from '@/components/Layout';
 import { RecipeVault } from '@/components/RecipeVault';
 import { RecipeDetail } from '@/components/RecipeDetail';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { RecipeForm } from '@/components/RecipeForm';
 import { MealPlanner } from '@/components/MealPlanner';
 import { ShoppingList } from '@/components/ShoppingList';
@@ -213,6 +214,7 @@ export default function App() {
           )}
         </Layout>
 
+        <ErrorBoundary key={selectedRecipe?.id ?? 'none'}>
         <RecipeDetail
           key={selectedRecipe?.id ?? 'none'}
           recipe={selectedRecipe}
@@ -232,6 +234,7 @@ export default function App() {
           onAddToCollection={(colId) => selectedRecipe ? addToCollection(colId, selectedRecipe.id) : Promise.resolve()}
           onRemoveFromCollection={(colId) => selectedRecipe ? removeFromCollection(colId, selectedRecipe.id) : Promise.resolve()}
         />
+        </ErrorBoundary>
 
         <RecipeForm
           isOpen={isFormOpen}

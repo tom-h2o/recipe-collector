@@ -219,7 +219,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
   }
 
   const parsed = parseIngredients(recipe.ingredients);
-  const rawInstructions = (translation?.instructions ?? recipe.instructions) ?? '';
+  const rawInstructions = (typeof translation?.instructions === 'string' ? translation.instructions : recipe.instructions) ?? '';
   const displayInstructions = convertTemperaturesInText(rawInstructions, temperatureUnit) ?? '';
   const steps = displayInstructions.split(/\n+/).map((s) => s.trim()).filter(Boolean);
   const totalTime = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
@@ -267,7 +267,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
           <div className="p-4 sm:p-6 md:p-10 space-y-6 sm:space-y-8">
             <DialogHeader className="text-left space-y-2">
               <DialogTitle className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
-                {translation ? translation.title : recipe.title}
+                {translation ? String(translation.title ?? recipe.title) : recipe.title}
               </DialogTitle>
               <div className="flex items-center gap-1 flex-wrap pt-1 print:hidden">
                 {recipe.source_url && (
@@ -526,10 +526,10 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                       {parsed.map((ing, i) => {
                         const aiIng = aiIngredients?.[i];
                         const translatedIng = translation?.ingredients?.[i];
-                        const baseAmount = translatedIng?.amount ?? ing.amount;
+                        const baseAmount = typeof translatedIng?.amount === 'string' ? translatedIng.amount : ing.amount;
                         const displayAmount = aiIng ? aiIng.amount : (scaleAmount(baseAmount, scale) || '—');
-                        const displayName = translatedIng ? translatedIng.name : ing.name;
-                        const rawDetails = translatedIng ? translatedIng.details : ing.details;
+                        const displayName = typeof translatedIng?.name === 'string' ? translatedIng.name : ing.name;
+                        const rawDetails = typeof translatedIng?.details === 'string' ? translatedIng.details : ing.details;
                         const displayDetails = rawDetails ? convertTemperaturesInText(rawDetails, temperatureUnit) : rawDetails;
                         return (
                         <tr key={i} className={`${i % 2 === 0 ? 'bg-zinc-50 dark:bg-zinc-900' : 'bg-white dark:bg-zinc-900/50'} border-b border-zinc-100 dark:border-zinc-800 last:border-0`}>

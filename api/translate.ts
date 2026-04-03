@@ -93,8 +93,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       { supabase, endpoint: 'translate', recipeId },
     );
 
-    if (!result.title || !result.instructions || !Array.isArray(result.ingredients)) {
-      throw new Error('Gemini returned an incomplete translation response.');
+    if (typeof result.title !== 'string' || typeof result.instructions !== 'string' || !Array.isArray(result.ingredients)) {
+      throw new Error('Gemini returned an incomplete or malformed translation response.');
     }
 
     // Save to DB so this language is never re-translated
@@ -102,9 +102,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       recipe_id: recipeId,
       language_code: targetLanguage,
       title: result.title,
-      description: result.description ?? '',
+      description: typeof result.description === 'string' ? result.description : '',
       instructions: result.instructions,
-      ingredients: result.ingredients.map((i) => ({ ...i, details: i.details ?? '' })),
+      ingredients: result.ingredients.map((i) => ({
+        amount: typeof i.amount === 'string' ? i.amount : String(i.amount ?? ''),
+        name: typeof i.name === 'string' ? i.name : String(i.name ?? ''),
+        details: typeof i.details === 'string' ? i.details : '',
+      })),
     };
 
     await supabase.from('recipe_translations').upsert(row, { onConflict: 'recipe_id,language_code' });
