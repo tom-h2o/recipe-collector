@@ -8,11 +8,10 @@ export function useAuth() {
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-      setLoading(false);
-    });
-
+    // onAuthStateChange is the single source of truth for initial state.
+    // It always fires INITIAL_SESSION (or PASSWORD_RECOVERY) on mount before
+    // any async getUser() call could resolve — eliminating the race condition
+    // where loading was set false before PASSWORD_RECOVERY fired.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordRecovery(true);
@@ -23,6 +22,7 @@ export function useAuth() {
         setIsPasswordRecovery(false);
       }
       setUser(session?.user ?? null);
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
