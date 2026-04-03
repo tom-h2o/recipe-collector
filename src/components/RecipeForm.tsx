@@ -233,7 +233,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
               {/* Orbiting sparkles */}
               <div className="relative w-28 h-28">
                 {/* Orbit ring */}
-                <div className="absolute inset-0 rounded-full border-2 border-dashed border-purple-300/50 dark:border-purple-500/30 animate-spin" style={{ animationDuration: '6s' }} />
+                <div className="absolute inset-0 rounded-full border-2 border-dashed border-orange-300/50 dark:border-orange-500/30 animate-spin" style={{ animationDuration: '6s' }} />
 
                 {/* Orbiting dots */}
                 {[0, 60, 120, 180, 240, 300].map((deg, i) => (
@@ -244,22 +244,31 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
                       top: '50%',
                       left: '50%',
                       transform: `rotate(${deg}deg) translateX(52px) translateY(-50%)`,
-                      background: `hsl(${260 + i * 20}, 80%, 65%)`,
+                      background: `hsl(${20 + i * 12}, 90%, 60%)`,
                       animation: `pulse 1.4s ease-in-out ${i * 0.2}s infinite`,
                     }}
                   />
                 ))}
 
-                {/* Center wand icon */}
+                {/* Center chef hat */}
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div
-                    className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg shadow-purple-500/30"
-                    style={{
-                      background: 'linear-gradient(135deg, #a855f7, #ec4899)',
-                      animation: 'pulse 2s ease-in-out infinite',
-                    }}
-                  >
-                    <Wand2 className="w-7 h-7 text-white" strokeWidth={1.5} />
+                  <div className="relative">
+                    <div
+                      className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg shadow-orange-500/40"
+                      style={{
+                        background: 'linear-gradient(135deg, #f97316, #ea580c)',
+                        animation: 'pulse 2s ease-in-out infinite',
+                      }}
+                    >
+                      <ChefHat className="w-8 h-8 text-white" strokeWidth={1.5} />
+                    </div>
+                    {/* Wand badge */}
+                    <div
+                      className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center shadow-md"
+                      style={{ background: 'linear-gradient(135deg, #a855f7, #ec4899)' }}
+                    >
+                      <Wand2 className="w-3 h-3 text-white" strokeWidth={2} />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -276,7 +285,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
                 ].map((s, i) => (
                   <Sparkles
                     key={i}
-                    className={`${s.size} text-purple-400 absolute`}
+                    className={`${s.size} text-orange-400 absolute`}
                     style={{
                       top: s.top,
                       left: (s as { left?: string }).left,
