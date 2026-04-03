@@ -136,39 +136,52 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
               </div>
             )}
 
-            {tab === 'prompts' && (
-              <div className="space-y-6 py-2">
-                <div className="space-y-4">
-                  <Label className="font-bold text-zinc-800 dark:text-zinc-200 text-lg">AI Prompts for Each Task</Label>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Customize the prompts sent to Gemini for different recipe processing tasks.</p>
+            {tab === 'prompts' && (() => {
+              const PROMPT_OPTIONS = [
+                { value: 'extract',   label: '🔗 Extract',   hint: 'Extracts recipes from URLs and photos' },
+                { value: 'tag',       label: '🏷️ Tag',        hint: 'Auto-tags recipes with categories' },
+                { value: 'nutrition', label: '🥗 Nutrition',  hint: 'Estimates nutritional information' },
+                { value: 'translate', label: '🌍 Translate',  hint: 'Translates recipes to other languages' },
+                { value: 'suggest',   label: '💡 Suggest',    hint: 'Suggests recipes from available ingredients' },
+                { value: 'shopping',  label: '🛒 Shopping',   hint: 'Generates organised shopping lists' },
+              ] as const;
+              const current = PROMPT_OPTIONS.find((o) => o.value === promptTab)!;
+              const promptValue =
+                promptTab === 'extract' ? local.gemini_prompt :
+                promptTab === 'tag' ? local.gemini_prompt_tag :
+                promptTab === 'nutrition' ? local.gemini_prompt_nutrition :
+                promptTab === 'translate' ? local.gemini_prompt_translate :
+                promptTab === 'suggest' ? local.gemini_prompt_suggest :
+                local.gemini_prompt_shopping;
+              return (
+                <div className="space-y-4 py-2">
+                  <Select value={promptTab} onValueChange={(v) => setPromptTab(v as typeof promptTab)}>
+                    <SelectTrigger className="w-full font-semibold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel className="text-xs text-zinc-400 font-bold uppercase tracking-wider px-2">Select a prompt to edit</SelectLabel>
+                        {PROMPT_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>
+                            <div className="flex flex-col">
+                              <span className="font-semibold">{o.label}</span>
+                              <span className="text-xs text-zinc-400">{o.hint}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
 
-                  {/* Prompt tab switcher */}
-                  <div className="grid grid-cols-3 gap-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg p-1">
-                    {(['extract', 'tag', 'nutrition', 'translate', 'suggest', 'shopping'] as const).map((pt) => (
-                      <button
-                        key={pt}
-                        onClick={() => setPromptTab(pt)}
-                        className={`py-2 rounded text-xs font-semibold capitalize transition-all ${
-                          promptTab === pt ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
-                        }`}
-                      >
-                        {pt}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Prompt content */}
-                  <div className="space-y-2">
-                    <Label className="font-semibold text-zinc-700 dark:text-zinc-300 capitalize">{promptTab} Prompt</Label>
+                  <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
+                      <Zap className="w-3.5 h-3.5 text-purple-500" />
+                      <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">{current.label} Prompt</span>
+                      <span className="ml-auto text-[10px] text-zinc-400">{promptValue.length} chars</span>
+                    </div>
                     <Textarea
-                      value={
-                        promptTab === 'extract' ? local.gemini_prompt :
-                        promptTab === 'tag' ? local.gemini_prompt_tag :
-                        promptTab === 'nutrition' ? local.gemini_prompt_nutrition :
-                        promptTab === 'translate' ? local.gemini_prompt_translate :
-                        promptTab === 'suggest' ? local.gemini_prompt_suggest :
-                        local.gemini_prompt_shopping
-                      }
+                      value={promptValue}
                       onChange={(e) => {
                         const value = e.target.value;
                         if (promptTab === 'extract') setLocal((p) => ({ ...p, gemini_prompt: value }));
@@ -178,20 +191,13 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
                         else if (promptTab === 'suggest') setLocal((p) => ({ ...p, gemini_prompt_suggest: value }));
                         else if (promptTab === 'shopping') setLocal((p) => ({ ...p, gemini_prompt_shopping: value }));
                       }}
-                      className="min-h-[400px] font-mono text-xs"
+                      className="min-h-[360px] font-mono text-xs border-0 rounded-none focus-visible:ring-0 resize-none"
                     />
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {promptTab === 'extract' && 'Prompt for extracting recipes from URLs.'}
-                      {promptTab === 'tag' && 'Prompt for auto-tagging recipes with relevant categories.'}
-                      {promptTab === 'nutrition' && 'Prompt for estimating nutritional information.'}
-                      {promptTab === 'translate' && 'Prompt for translating recipes to other languages.'}
-                      {promptTab === 'suggest' && 'Prompt for suggesting recipes based on available ingredients.'}
-                      {promptTab === 'shopping' && 'Prompt for generating organized shopping lists.'}
-                    </p>
                   </div>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500">{current.hint}. Leave empty to use the built-in default.</p>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {tab === 'logs' && (
               <div className="py-2">
@@ -201,7 +207,7 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
         </div>
 
         {/* Button area — always visible at bottom */}
-        {tab === 'settings' && (
+        {(tab === 'settings' || tab === 'prompts') && (
           <div className="shrink-0 bg-gradient-to-b from-transparent via-white via-50% to-white dark:via-zinc-900 dark:to-zinc-900 pt-4 pb-2 border-t border-zinc-100 dark:border-zinc-800 flex gap-3">
             <Button onClick={handleSave} disabled={!hasChanges || isSaving} className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:from-zinc-300 disabled:to-zinc-300 disabled:cursor-not-allowed text-white font-semibold shadow-md py-3 text-base">
               {isSaving ? 'Saving...' : 'Save Settings'}

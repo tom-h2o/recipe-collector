@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ChefHat, Link, Camera, ImagePlus, X, Plus, ChevronUp, ChevronDown } from 'lucide-react';
+import { ChefHat, Link, Camera, ImagePlus, X, Plus, ChevronUp, ChevronDown, Wand2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -221,6 +221,86 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
           className="absolute top-3 right-3 z-20 p-1.5 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white transition-colors shadow-md ring-1 ring-white/20"
           title="Close"
         ><X className="w-4 h-4" /></button>
+
+        {/* Magic extraction overlay */}
+        {(isExtracting || isExtractingPhoto) && (
+          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center rounded-2xl overflow-hidden">
+            {/* Blurred background */}
+            <div className="absolute inset-0 backdrop-blur-md bg-white/70 dark:bg-zinc-900/70" />
+
+            {/* Animated content */}
+            <div className="relative flex flex-col items-center gap-6 px-8 text-center">
+              {/* Orbiting sparkles */}
+              <div className="relative w-28 h-28">
+                {/* Orbit ring */}
+                <div className="absolute inset-0 rounded-full border-2 border-dashed border-purple-300/50 dark:border-purple-500/30 animate-spin" style={{ animationDuration: '6s' }} />
+
+                {/* Orbiting dots */}
+                {[0, 60, 120, 180, 240, 300].map((deg, i) => (
+                  <div
+                    key={i}
+                    className="absolute w-2 h-2 rounded-full"
+                    style={{
+                      top: '50%',
+                      left: '50%',
+                      transform: `rotate(${deg}deg) translateX(52px) translateY(-50%)`,
+                      background: `hsl(${260 + i * 20}, 80%, 65%)`,
+                      animation: `pulse 1.4s ease-in-out ${i * 0.2}s infinite`,
+                    }}
+                  />
+                ))}
+
+                {/* Center wand icon */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div
+                    className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg shadow-purple-500/30"
+                    style={{
+                      background: 'linear-gradient(135deg, #a855f7, #ec4899)',
+                      animation: 'pulse 2s ease-in-out infinite',
+                    }}
+                  >
+                    <Wand2 className="w-7 h-7 text-white" strokeWidth={1.5} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Floating sparkle icons */}
+              <div className="absolute inset-0 pointer-events-none">
+                {[
+                  { top: '10%', left: '15%', delay: '0s', size: 'w-4 h-4' },
+                  { top: '20%', right: '12%', delay: '0.5s', size: 'w-3 h-3' },
+                  { bottom: '30%', left: '10%', delay: '0.8s', size: 'w-3 h-3' },
+                  { bottom: '20%', right: '15%', delay: '0.3s', size: 'w-4 h-4' },
+                  { top: '50%', left: '5%', delay: '1.1s', size: 'w-2 h-2' },
+                  { top: '40%', right: '5%', delay: '0.7s', size: 'w-2 h-2' },
+                ].map((s, i) => (
+                  <Sparkles
+                    key={i}
+                    className={`${s.size} text-purple-400 absolute`}
+                    style={{
+                      top: s.top,
+                      left: (s as { left?: string }).left,
+                      right: (s as { right?: string }).right,
+                      bottom: s.bottom,
+                      animation: `pulse 1.8s ease-in-out ${s.delay} infinite`,
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* Text */}
+              <div className="space-y-1">
+                <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                  {isExtractingPhoto ? 'Reading your photo...' : 'Casting spell...'}
+                </p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  {isExtractingPhoto ? 'Gemini is analysing the image' : 'Gemini is extracting the recipe'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="overflow-y-auto max-h-[90vh] p-6">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">
