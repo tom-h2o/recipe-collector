@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { DEFAULT_PROMPT } from '@/lib/constants';
 import { GeminiLogs } from '@/components/GeminiLogs';
 import type { AppSettings } from '@/types';
 
@@ -134,16 +133,6 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
                   </Select>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">Lite is fastest and cheapest; Flash balances speed and quality; Pro is most accurate. Preview models are newer but may change.</p>
                 </div>
-
-                <div className="space-y-2">
-                  <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Extraction Prompt</Label>
-                  <Textarea
-                    value={local.gemini_prompt}
-                    onChange={(e) => setLocal((p) => ({ ...p, gemini_prompt: e.target.value }))}
-                    className="min-h-[300px] font-mono text-xs"
-                  />
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">This is the prompt sent to Gemini. The webpage content is appended automatically.</p>
-                </div>
               </div>
             )}
 
@@ -216,9 +205,6 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
           <div className="shrink-0 bg-gradient-to-b from-transparent via-white via-50% to-white dark:via-zinc-900 dark:to-zinc-900 pt-4 pb-2 border-t border-zinc-100 dark:border-zinc-800 flex gap-3">
             <Button onClick={handleSave} disabled={!hasChanges || isSaving} className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:from-zinc-300 disabled:to-zinc-300 disabled:cursor-not-allowed text-white font-semibold shadow-md py-3 text-base">
               {isSaving ? 'Saving...' : 'Save Settings'}
-            </Button>
-            <Button onClick={() => setLocal((p) => ({ ...p, gemini_prompt: DEFAULT_PROMPT }))} variant="outline" className="flex-1 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-600">
-              Reset Prompt to Default
             </Button>
           </div>
         )}
