@@ -95,6 +95,13 @@ export function Layout({ activeView, user, recipeCount, inboxCount, onSetView, o
       </header>
       {children}
 
+      <footer className="pt-8 pb-4 flex justify-center print:hidden">
+        <span className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-600">
+          <ChefHat className="w-3.5 h-3.5 text-orange-400" />
+          Designed by <span className="font-semibold text-zinc-500 dark:text-zinc-500">Magical Apps</span> · Thomas Holder
+        </span>
+      </footer>
+
       {/* Mobile bottom navigation */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 lg:hidden safe-area-bottom">
         <div className="flex justify-around items-center h-14 max-w-lg mx-auto">
