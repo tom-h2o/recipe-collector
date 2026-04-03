@@ -218,8 +218,8 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
   }
 
   const parsed = parseIngredients(recipe.ingredients);
-  const rawInstructions = translation ? translation.instructions : recipe.instructions;
-  const displayInstructions = convertTemperaturesInText(rawInstructions, temperatureUnit);
+  const rawInstructions = (translation?.instructions ?? recipe.instructions) ?? '';
+  const displayInstructions = convertTemperaturesInText(rawInstructions, temperatureUnit) ?? '';
   const steps = displayInstructions.split(/\n+/).map((s) => s.trim()).filter(Boolean);
   const totalTime = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
 

@@ -93,6 +93,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       { supabase, endpoint: 'translate', recipeId },
     );
 
+    if (!result.title || !result.instructions || !Array.isArray(result.ingredients)) {
+      throw new Error('Gemini returned an incomplete translation response.');
+    }
+
     // Save to DB so this language is never re-translated
     const row = {
       recipe_id: recipeId,
