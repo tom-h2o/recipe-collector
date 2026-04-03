@@ -24,6 +24,36 @@ interface TranslationResult {
   ingredients: TranslatedIngredient[];
 }
 
+function getDefaultTranslatePrompt(targetName: string, title: string, description: string, instructions: string, ingredientText: string): string {
+  return `You are a professional culinary translator. Translate the following recipe into ${targetName}.
+
+Rules:
+- Translate "title", "description", and "instructions" naturally and fluently — not word-for-word. Use phrasing a native speaker would use in a recipe.
+- For "ingredients": translate ONLY the "name" and "details" fields — NEVER change "amount" values. Amounts stay exactly as given.
+- Use correct culinary terminology in the target language (e.g. German: "dünsten" not "kochen" for sweating vegetables).
+- Preserve temperature values exactly as written (e.g. "200°C" stays "200°C") — do not convert units.
+- Preserve cooking times, quantities, and measurements exactly.
+- Detect the ISO 639-1 language code of the original text (e.g. "en", "de", "fr", "pl").
+- Return ONLY valid JSON, no markdown, no explanation.
+
+Input recipe:
+{
+  "title": ${JSON.stringify(title)},
+  "description": ${JSON.stringify(description)},
+  "instructions": ${JSON.stringify(instructions)},
+  "ingredients": ${ingredientText}
+}
+
+Return this exact JSON structure:
+{
+  "detectedSourceLanguage": "en",
+  "title": "...",
+  "description": "...",
+  "instructions": "...",
+  "ingredients": [{ "amount": "...", "name": "...", "details": "..." }]
+}`;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -57,33 +87,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ingredients.map((i) => ({ amount: i.amount, name: i.name, details: i.details ?? '' })),
     );
 
-    const prompt = `You are a professional culinary translator. Translate the following recipe into ${targetName}.
-
-Rules:
-- Translate "title", "description", and "instructions" naturally and fluently — not word-for-word. Use phrasing a native speaker would use in a recipe.
-- For "ingredients": translate ONLY the "name" and "details" fields — NEVER change "amount" values. Amounts stay exactly as given.
-- Use correct culinary terminology in the target language (e.g. German: "dünsten" not "kochen" for sweating vegetables).
-- Preserve temperature values exactly as written (e.g. "200°C" stays "200°C") — do not convert units.
-- Preserve cooking times, quantities, and measurements exactly.
-- Detect the ISO 639-1 language code of the original text (e.g. "en", "de", "fr", "pl").
-- Return ONLY valid JSON, no markdown, no explanation.
-
-Input recipe:
-{
-  "title": ${JSON.stringify(title)},
-  "description": ${JSON.stringify(description)},
-  "instructions": ${JSON.stringify(instructions)},
-  "ingredients": ${ingredientText}
-}
-
-Return this exact JSON structure:
-{
-  "detectedSourceLanguage": "en",
-  "title": "...",
-  "description": "...",
-  "instructions": "...",
-  "ingredients": [{ "amount": "...", "name": "...", "details": "..." }]
-}`;
+    const prompt = settings.gemini_prompt_translate && settings.gemini_prompt_translate.trim()
+      ? settings.gemini_prompt_translate
+      : getDefaultTranslatePrompt(targetName, title, description, instructions, ingredientText);
 
     const client = getGeminiClient(apiKey);
     const result = await generateJson<TranslationResult>(

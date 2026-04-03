@@ -1,4 +1,4 @@
-import { Settings, BarChart2 } from 'lucide-react';
+import { Settings, BarChart2, Zap } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { DEFAULT_PROMPT } from '@/lib/constants';
 import { GeminiLogs } from '@/components/GeminiLogs';
 import type { AppSettings } from '@/types';
 
-type Tab = 'settings' | 'logs';
+type Tab = 'settings' | 'prompts' | 'logs';
 
 interface Props {
   isOpen: boolean;
@@ -22,6 +22,7 @@ interface Props {
 export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: Props) {
   const [local, setLocal] = useState<AppSettings>(settings);
   const [tab, setTab] = useState<Tab>('settings');
+  const [promptTab, setPromptTab] = useState<'extract' | 'tag' | 'nutrition' | 'translate' | 'suggest' | 'shopping'>('extract');
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setLocal(settings); }, [settings, isOpen]);
@@ -55,6 +56,12 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'settings' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
           >
             <Settings className="w-4 h-4" /> General
+          </button>
+          <button
+            onClick={() => setTab('prompts')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'prompts' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+          >
+            <Zap className="w-4 h-4" /> Prompts
           </button>
           <button
             onClick={() => setTab('logs')}
@@ -136,6 +143,63 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
                     className="min-h-[300px] font-mono text-xs"
                   />
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">This is the prompt sent to Gemini. The webpage content is appended automatically.</p>
+                </div>
+              </div>
+            )}
+
+            {tab === 'prompts' && (
+              <div className="space-y-6 py-2">
+                <div className="space-y-4">
+                  <Label className="font-bold text-zinc-800 dark:text-zinc-200 text-lg">AI Prompts for Each Task</Label>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Customize the prompts sent to Gemini for different recipe processing tasks.</p>
+
+                  {/* Prompt tab switcher */}
+                  <div className="grid grid-cols-3 gap-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg p-1">
+                    {(['extract', 'tag', 'nutrition', 'translate', 'suggest', 'shopping'] as const).map((pt) => (
+                      <button
+                        key={pt}
+                        onClick={() => setPromptTab(pt)}
+                        className={`py-2 rounded text-xs font-semibold capitalize transition-all ${
+                          promptTab === pt ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                        }`}
+                      >
+                        {pt}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Prompt content */}
+                  <div className="space-y-2">
+                    <Label className="font-semibold text-zinc-700 dark:text-zinc-300 capitalize">{promptTab} Prompt</Label>
+                    <Textarea
+                      value={
+                        promptTab === 'extract' ? local.gemini_prompt :
+                        promptTab === 'tag' ? local.gemini_prompt_tag :
+                        promptTab === 'nutrition' ? local.gemini_prompt_nutrition :
+                        promptTab === 'translate' ? local.gemini_prompt_translate :
+                        promptTab === 'suggest' ? local.gemini_prompt_suggest :
+                        local.gemini_prompt_shopping
+                      }
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (promptTab === 'extract') setLocal((p) => ({ ...p, gemini_prompt: value }));
+                        else if (promptTab === 'tag') setLocal((p) => ({ ...p, gemini_prompt_tag: value }));
+                        else if (promptTab === 'nutrition') setLocal((p) => ({ ...p, gemini_prompt_nutrition: value }));
+                        else if (promptTab === 'translate') setLocal((p) => ({ ...p, gemini_prompt_translate: value }));
+                        else if (promptTab === 'suggest') setLocal((p) => ({ ...p, gemini_prompt_suggest: value }));
+                        else if (promptTab === 'shopping') setLocal((p) => ({ ...p, gemini_prompt_shopping: value }));
+                      }}
+                      className="min-h-[400px] font-mono text-xs"
+                    />
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {promptTab === 'extract' && 'Prompt for extracting recipes from URLs.'}
+                      {promptTab === 'tag' && 'Prompt for auto-tagging recipes with relevant categories.'}
+                      {promptTab === 'nutrition' && 'Prompt for estimating nutritional information.'}
+                      {promptTab === 'translate' && 'Prompt for translating recipes to other languages.'}
+                      {promptTab === 'suggest' && 'Prompt for suggesting recipes based on available ingredients.'}
+                      {promptTab === 'shopping' && 'Prompt for generating organized shopping lists.'}
+                    </p>
+                  </div>
                 </div>
               </div>
             )}

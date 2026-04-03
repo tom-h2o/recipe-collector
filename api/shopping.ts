@@ -7,20 +7,8 @@ import { captureException } from './_lib/sentry.js';
 import { shoppingSchema } from './_lib/schemas.js';
 import { makeCacheKey, getCached, setCached } from './_lib/cache.js';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
-  try {
-    const { ingredients } = shoppingSchema.parse(req.body);
-
-    const supabase = getServerSupabase();
-    const settings = await getSettings(supabase);
-    const apiKey = resolveApiKey(settings);
-    if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
-
-    const prompt = `You are an AI grocery assistant. Process the following raw ingredient list from multiple recipes into a clean shopping list.
+function getDefaultShoppingPrompt(ingredients: string[]): string {
+  return `You are an AI grocery assistant. Process the following raw ingredient list from multiple recipes into a clean shopping list.
 
 Step 1 — Aggregate duplicates:
 - Combine the same ingredient across recipes: "1 onion" + "2 onions" → "3 onions"
@@ -39,6 +27,24 @@ Return ONLY a JSON array of objects. Only include categories that have items. No
   { "category": "Produce", "items": ["3 onions", "200g cherry tomatoes"] },
   { "category": "Dairy & Eggs", "items": ["500ml whole milk", "200g cheddar"] }
 ]`;
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  setCorsHeaders(res);
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  try {
+    const { ingredients } = shoppingSchema.parse(req.body);
+
+    const supabase = getServerSupabase();
+    const settings = await getSettings(supabase);
+    const apiKey = resolveApiKey(settings);
+    if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
+
+    const prompt = settings.gemini_prompt_shopping && settings.gemini_prompt_shopping.trim()
+      ? settings.gemini_prompt_shopping
+      : getDefaultShoppingPrompt(ingredients);
 
     // 24-hour TTL — same ingredient list should produce the same grouping
     const cacheKey = makeCacheKey('shopping', ingredients);

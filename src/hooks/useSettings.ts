@@ -8,6 +8,11 @@ export function useSettings(userId?: string | null) {
   const [settings, setSettings] = useState<AppSettings>({
     gemini_model: 'gemini-2.5-flash',
     gemini_prompt: DEFAULT_PROMPT,
+    gemini_prompt_tag: '',
+    gemini_prompt_nutrition: '',
+    gemini_prompt_translate: '',
+    gemini_prompt_suggest: '',
+    gemini_prompt_shopping: '',
     active_api_key: 1,
     temperature_unit: 'C',
   });
@@ -18,7 +23,7 @@ export function useSettings(userId?: string | null) {
 
     const { data } = await supabase
       .from('settings')
-      .select('gemini_model, gemini_prompt, active_api_key, temperature_unit')
+      .select('gemini_model, gemini_prompt, gemini_prompt_tag, gemini_prompt_nutrition, gemini_prompt_translate, gemini_prompt_suggest, gemini_prompt_shopping, active_api_key, temperature_unit')
       .eq('user_id', userId)
       .single();
 
@@ -26,6 +31,11 @@ export function useSettings(userId?: string | null) {
       setSettings({
         gemini_model: data.gemini_model || 'gemini-2.5-flash',
         gemini_prompt: data.gemini_prompt || DEFAULT_PROMPT,
+        gemini_prompt_tag: data.gemini_prompt_tag || '',
+        gemini_prompt_nutrition: data.gemini_prompt_nutrition || '',
+        gemini_prompt_translate: data.gemini_prompt_translate || '',
+        gemini_prompt_suggest: data.gemini_prompt_suggest || '',
+        gemini_prompt_shopping: data.gemini_prompt_shopping || '',
         active_api_key: (data.active_api_key as 1 | 2) || 1,
         temperature_unit: (data.temperature_unit as 'C' | 'F') || 'C',
       });
@@ -41,7 +51,19 @@ export function useSettings(userId?: string | null) {
         setIsSavingSettings(false);
         return;
       }
-      const payload = { id: 1, user_id: userId, gemini_model: updated.gemini_model, gemini_prompt: updated.gemini_prompt, active_api_key: updated.active_api_key, temperature_unit: updated.temperature_unit };
+      const payload = {
+        id: 1,
+        user_id: userId,
+        gemini_model: updated.gemini_model,
+        gemini_prompt: updated.gemini_prompt,
+        gemini_prompt_tag: updated.gemini_prompt_tag,
+        gemini_prompt_nutrition: updated.gemini_prompt_nutrition,
+        gemini_prompt_translate: updated.gemini_prompt_translate,
+        gemini_prompt_suggest: updated.gemini_prompt_suggest,
+        gemini_prompt_shopping: updated.gemini_prompt_shopping,
+        active_api_key: updated.active_api_key,
+        temperature_unit: updated.temperature_unit,
+      };
 
       const { error } = await supabase.from('settings').upsert(payload);
       if (!error) {

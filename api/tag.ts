@@ -15,6 +15,26 @@ const AVAILABLE_TAGS = [
   'Baking', 'Grilling', 'One-Pot',
 ];
 
+function getDefaultTagPrompt(title: string, description: string, ingredientText: string, instructionPreview: string): string {
+  return `You are a recipe categorisation assistant.
+Analyse the recipe below and select the most accurate tags from this list:
+${AVAILABLE_TAGS.join(', ')}
+
+Rules:
+- Select between 2 and 6 tags — use as many as genuinely apply, no more.
+- Only use tags from the provided list, verbatim.
+- For "Quick (<30min)": only apply if the total cooking + prep time is clearly under 30 minutes — infer from time mentions in instructions or the prep/cook time fields if present.
+- For cuisine tags (Italian, Asian, etc.): infer from ingredient names, dish names, and cooking techniques even if not explicitly stated.
+- For dietary tags (Vegetarian, Vegan, etc.): be conservative — only tag if clearly applicable from all ingredients.
+- Return a JSON array of strings, nothing else. Example: ["Italian", "Quick (<30min)", "Vegetarian"]
+
+Recipe:
+Title: ${title}
+Description: ${description || ''}
+Ingredients: ${ingredientText}
+Instructions: ${instructionPreview}`;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -40,23 +60,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const instructionPreview = (instructions || '').substring(0, 1000);
 
-    const prompt = `You are a recipe categorisation assistant.
-Analyse the recipe below and select the most accurate tags from this list:
-${AVAILABLE_TAGS.join(', ')}
-
-Rules:
-- Select between 2 and 6 tags — use as many as genuinely apply, no more.
-- Only use tags from the provided list, verbatim.
-- For "Quick (<30min)": only apply if the total cooking + prep time is clearly under 30 minutes — infer from time mentions in instructions or the prep/cook time fields if present.
-- For cuisine tags (Italian, Asian, etc.): infer from ingredient names, dish names, and cooking techniques even if not explicitly stated.
-- For dietary tags (Vegetarian, Vegan, etc.): be conservative — only tag if clearly applicable from all ingredients.
-- Return a JSON array of strings, nothing else. Example: ["Italian", "Quick (<30min)", "Vegetarian"]
-
-Recipe:
-Title: ${title}
-Description: ${description || ''}
-Ingredients: ${ingredientText}
-Instructions: ${instructionPreview}`;
+    const prompt = settings.gemini_prompt_tag && settings.gemini_prompt_tag.trim()
+      ? settings.gemini_prompt_tag
+      : getDefaultTagPrompt(title, description, ingredientText, instructionPreview);
 
     // Cache key based on recipe content — deterministic, 30-day TTL
     const cacheKey = makeCacheKey('tag', { title, description: description ?? '', ingredientText, instructions: instructionPreview });

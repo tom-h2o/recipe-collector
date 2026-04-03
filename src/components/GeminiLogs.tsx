@@ -9,8 +9,10 @@ interface GeminiLog {
   model: string;
   status: 'success' | 'error';
   latency_ms: number | null;
-  input_preview: string | null;
-  output_preview: string | null;
+  input: string | null;
+  output: string | null;
+  input_preview?: string | null;
+  output_preview?: string | null;
   error_message: string | null;
   recipe_id: string | null;
 }
@@ -43,7 +45,7 @@ export function GeminiLogs() {
     setLoading(true);
     const { data } = await supabase
       .from('gemini_logs')
-      .select('*')
+      .select('id, created_at, endpoint, model, status, latency_ms, input, output, error_message, recipe_id')
       .order('created_at', { ascending: false })
       .limit(100);
     if (data) setLogs(data as GeminiLog[]);
@@ -142,20 +144,20 @@ export function GeminiLogs() {
                 </button>
 
                 {expandedId === log.id && (
-                  <div className="px-3 pb-3 pt-1 space-y-2 bg-zinc-50 dark:bg-zinc-900/70 border-t border-zinc-100 dark:border-zinc-800">
-                    {log.input_preview && (
+                  <div className="px-3 pb-3 pt-1 space-y-2 bg-zinc-50 dark:bg-zinc-900/70 border-t border-zinc-100 dark:border-zinc-800 max-h-96 overflow-y-auto">
+                    {log.input && (
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Input (preview)</p>
-                        <pre className="text-xs text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-2 whitespace-pre-wrap break-words font-mono leading-relaxed max-h-24 overflow-y-auto">
-                          {log.input_preview}
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Input Prompt</p>
+                        <pre className="text-xs text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-2 whitespace-pre-wrap break-words font-mono leading-relaxed">
+                          {log.input}
                         </pre>
                       </div>
                     )}
-                    {log.output_preview && (
+                    {log.output && (
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Output (preview)</p>
-                        <pre className="text-xs text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-2 whitespace-pre-wrap break-words font-mono leading-relaxed max-h-24 overflow-y-auto">
-                          {log.output_preview}
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Output Response</p>
+                        <pre className="text-xs text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-2 whitespace-pre-wrap break-words font-mono leading-relaxed">
+                          {log.output}
                         </pre>
                       </div>
                     )}

@@ -3,6 +3,11 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 export interface Settings {
   gemini_model: string;
   gemini_prompt: string;
+  gemini_prompt_tag: string;
+  gemini_prompt_nutrition: string;
+  gemini_prompt_translate: string;
+  gemini_prompt_suggest: string;
+  gemini_prompt_shopping: string;
   active_api_key: number;
   temperature_unit: 'C' | 'F';
 }
@@ -19,19 +24,29 @@ export async function getSettings(supabase: SupabaseClient): Promise<Settings> {
   const defaults: Settings = {
     gemini_model: DEFAULT_MODEL,
     gemini_prompt: '',
+    gemini_prompt_tag: '',
+    gemini_prompt_nutrition: '',
+    gemini_prompt_translate: '',
+    gemini_prompt_suggest: '',
+    gemini_prompt_shopping: '',
     active_api_key: 1,
     temperature_unit: 'C',
   };
   try {
     const { data } = await supabase
       .from('settings')
-      .select('gemini_model, gemini_prompt, active_api_key, temperature_unit')
+      .select('gemini_model, gemini_prompt, gemini_prompt_tag, gemini_prompt_nutrition, gemini_prompt_translate, gemini_prompt_suggest, gemini_prompt_shopping, active_api_key, temperature_unit')
       .eq('id', 1)
       .single();
     if (!data) return defaults;
     return {
       gemini_model: data.gemini_model || defaults.gemini_model,
       gemini_prompt: data.gemini_prompt || defaults.gemini_prompt,
+      gemini_prompt_tag: data.gemini_prompt_tag || defaults.gemini_prompt_tag,
+      gemini_prompt_nutrition: data.gemini_prompt_nutrition || defaults.gemini_prompt_nutrition,
+      gemini_prompt_translate: data.gemini_prompt_translate || defaults.gemini_prompt_translate,
+      gemini_prompt_suggest: data.gemini_prompt_suggest || defaults.gemini_prompt_suggest,
+      gemini_prompt_shopping: data.gemini_prompt_shopping || defaults.gemini_prompt_shopping,
       active_api_key: data.active_api_key ?? defaults.active_api_key,
       temperature_unit: (data.temperature_unit as 'C' | 'F') || defaults.temperature_unit,
     };

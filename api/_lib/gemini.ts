@@ -31,7 +31,7 @@ export async function generateJson<T = unknown>(
     });
     const text = response.text;
     if (!text) throw new Error('Gemini returned an empty response.');
-    outputPreview = text.substring(0, 300);
+    outputPreview = text;
     return JSON.parse(text) as T;
   } catch (err) {
     status = 'error';
@@ -47,8 +47,10 @@ export async function generateJson<T = unknown>(
           model,
           status,
           latency_ms: Date.now() - startTime,
+          input: prompt,
+          output: outputPreview ?? null,
           input_preview: prompt.substring(0, 300),
-          output_preview: outputPreview ?? null,
+          output_preview: outputPreview ? outputPreview.substring(0, 300) : null,
           error_message: errorMessage ?? null,
           recipe_id: logCtx.recipeId ?? null,
         })
