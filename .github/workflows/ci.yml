@@ -36,10 +36,4 @@ jobs:
         SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       run: |
         npx supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
-        # Mark migrations that were already applied manually as applied in CLI history
-        for file in supabase/migrations/*.sql; do
-          version=$(basename "$file" .sql)
-          npx supabase migration repair --status applied "$version" 2>/dev/null || true
-        done
-        # Now push only genuinely new/pending migrations
         npx supabase db push
