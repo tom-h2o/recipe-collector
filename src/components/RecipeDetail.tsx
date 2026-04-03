@@ -515,8 +515,8 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
               )}
             </DialogHeader>
 
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
-              <div className="md:col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-7 gap-8">
+              <div className="md:col-span-3">
                 <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                   <ChefHat className="w-5 h-5 text-orange-500" /> Ingredients
                 </h3>
@@ -573,7 +573,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                 })()}
               </div>
 
-              <div className="md:col-span-3">
+              <div className="md:col-span-4">
                 <h3 className="text-lg font-bold mb-4">Instructions</h3>
                 <ol className="space-y-4">
                   {steps.map((step, i) => (
