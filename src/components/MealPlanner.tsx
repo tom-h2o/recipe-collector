@@ -1,19 +1,27 @@
 import { useState } from 'react';
 import { ChefHat, Users, X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Recipe, MealPlan } from '@/types';
+import type { Recipe, MealPlan, RecipeTranslation } from '@/types';
 import { MEAL_TYPES } from '@/lib/constants';
 
 interface Props {
   recipes: Recipe[];
   mealPlans: MealPlan[];
+  translationsCache?: Record<string, RecipeTranslation>;
   onAddMealPlan: (date: string, mealType: string, recipeId: string) => Promise<void>;
   onRemoveMealPlan: (id: string) => Promise<void>;
   onRefreshMealPlans: () => void;
   onOpenRecipe: (r: Recipe) => void;
 }
 
-export function MealPlanner({ recipes, mealPlans, onAddMealPlan, onRemoveMealPlan, onRefreshMealPlans, onOpenRecipe }: Props) {
+export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPlan, onRemoveMealPlan, onRefreshMealPlans, onOpenRecipe }: Props) {
+  function getTitle(r: Recipe): string {
+    if (r.preferred_language) {
+      const t = translationsCache?.[`${r.id}:${r.preferred_language}`];
+      if (t?.title) return t.title;
+    }
+    return r.title;
+  }
   // Track exactly which cell is being dragged over — CSS :hover is suppressed during drag
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   // Mobile: tap-to-add — track which cell is picking a recipe
@@ -67,11 +75,11 @@ export function MealPlanner({ recipes, mealPlans, onAddMealPlan, onRemoveMealPla
                   <img src={r.image_url} className="w-12 h-12 rounded-lg object-cover shrink-0 bg-zinc-100 dark:bg-zinc-800" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                 ) : (
                   <div className="w-12 h-12 rounded-lg shrink-0 bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-lg font-black text-orange-300 dark:text-orange-700">
-                    {r.title?.[0]?.toUpperCase()}
+                    {getTitle(r)[0]?.toUpperCase()}
                   </div>
                 )}
                 <div className="flex flex-col justify-center overflow-hidden">
-                  <span className="font-semibold text-sm text-zinc-800 dark:text-zinc-200 truncate">{r.title}</span>
+                  <span className="font-semibold text-sm text-zinc-800 dark:text-zinc-200 truncate">{getTitle(r)}</span>
                   <span className="text-xs text-zinc-500 flex items-center gap-1 mt-0.5">
                     <Users className="w-3 h-3" /> {r.servings || '-'}
                   </span>
@@ -154,7 +162,7 @@ export function MealPlanner({ recipes, mealPlans, onAddMealPlan, onRemoveMealPla
                               onClick={() => handleTapAdd(date, meal, r.id)}
                               className="w-full text-left px-2 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors truncate border-b last:border-0 border-zinc-100 dark:border-zinc-800"
                             >
-                              {r.title}
+                              {getTitle(r)}
                             </button>
                           ))}
                         </div>
@@ -164,9 +172,9 @@ export function MealPlanner({ recipes, mealPlans, onAddMealPlan, onRemoveMealPla
                           <span
                             className="truncate font-semibold cursor-pointer py-0.5"
                             onClick={() => m.recipe && onOpenRecipe(m.recipe)}
-                            title={m.recipe?.title}
+                            title={m.recipe ? getTitle(m.recipe) : undefined}
                           >
-                            {m.recipe?.title}
+                            {m.recipe ? getTitle(m.recipe) : undefined}
                           </span>
                           <button
                             onClick={async () => {

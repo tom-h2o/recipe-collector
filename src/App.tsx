@@ -14,7 +14,6 @@ import { AuthGate } from '@/components/AuthGate';
 import { Layout } from '@/components/Layout';
 import { RecipeVault } from '@/components/RecipeVault';
 import { RecipeDetail } from '@/components/RecipeDetail';
-import { CookMode } from '@/components/CookMode';
 import { RecipeForm } from '@/components/RecipeForm';
 import { MealPlanner } from '@/components/MealPlanner';
 import { ShoppingList } from '@/components/ShoppingList';
@@ -43,7 +42,6 @@ export default function App() {
   const [publicRecipe, setPublicRecipe] = useState<Recipe | null>(null);
 
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
-  const [isCookMode, setIsCookMode] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Recipe | null>(null);
@@ -180,6 +178,7 @@ export default function App() {
             <MealPlanner
               recipes={recipes}
               mealPlans={mealPlans}
+              translationsCache={translationsCache}
               onAddMealPlan={addMealPlan}
               onRemoveMealPlan={removeMealPlan}
               onRefreshMealPlans={fetchMealPlans}
@@ -224,7 +223,6 @@ export default function App() {
           onClose={() => setSelectedRecipe(null)}
           onEdit={(r) => openForm(r)}
           onDelete={setDeleteTarget}
-          onCook={() => setIsCookMode(true)}
           onSend={(r) => { setSelectedRecipe(null); setSendTarget(r); }}
           onUpdateRecipe={handleUpdateRecipe}
           onAddMealPlan={addMealPlan}
@@ -233,12 +231,6 @@ export default function App() {
           recipeCollectionIds={memberships.filter((m) => m.recipe_id === selectedRecipe?.id).map((m) => m.collection_id)}
           onAddToCollection={(colId) => selectedRecipe ? addToCollection(colId, selectedRecipe.id) : Promise.resolve()}
           onRemoveFromCollection={(colId) => selectedRecipe ? removeFromCollection(colId, selectedRecipe.id) : Promise.resolve()}
-        />
-
-        <CookMode
-          recipe={selectedRecipe}
-          isOpen={isCookMode}
-          onClose={() => setIsCookMode(false)}
         />
 
         <RecipeForm

@@ -6,6 +6,7 @@ import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
 import { convertTemperaturesInText } from '@/lib/temperatureUtils';
 import { MEAL_TYPES, LANGUAGES, AVAILABLE_TAGS } from '@/lib/constants';
 import type { Recipe, RecipeTranslation, Collection } from '@/types';
+import { CookMode } from '@/components/CookMode';
 
 interface Props {
   recipe: Recipe | null;
@@ -16,7 +17,6 @@ interface Props {
   onClose: () => void;
   onEdit: (r: Recipe) => void;
   onDelete: (r: Recipe) => void;
-  onCook: () => void;
   onSend?: (r: Recipe) => void;
   onUpdateRecipe: (id: string, changes: Partial<Recipe>) => void;
   onAddMealPlan?: (date: string, mealType: string, recipeId: string) => Promise<void>;
@@ -27,12 +27,13 @@ interface Props {
   onRemoveFromCollection?: (collectionId: string) => Promise<void>;
 }
 
-export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onCook, onSend, onUpdateRecipe, onAddMealPlan, onSaveScaled, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection }: Props) {
+export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onSend, onUpdateRecipe, onAddMealPlan, onSaveScaled, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection }: Props) {
   const baseServings0 = recipe?.original_servings || recipe?.servings || 1;
   const [scaledServings, setScaledServings] = useState(baseServings0);
   const [aiIngredients, setAiIngredients] = useState<{ amount: string; name: string; details: string }[] | null>(null);
   const [isAiScaling, setIsAiScaling] = useState(false);
   const [isSavingScaled, setIsSavingScaled] = useState(false);
+  const [isCookMode, setIsCookMode] = useState(false);
   const [showPhotoLightbox, setShowPhotoLightbox] = useState(false);
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [translation, setTranslation] = useState<RecipeTranslation | null>(null);
@@ -245,6 +246,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
   }
 
   return (
+    <>
     <Dialog open={!!recipe} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent showCloseButton={false} className="sm:max-w-[780px] overflow-hidden rounded-3xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-2xl p-0 w-[95vw] sm:w-full">
         {/* Fixed close button — always visible, never scrolls away */}
@@ -306,7 +308,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                 ><Languages className="w-4 h-4" /></button>
                 <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-0.5" />
                 <button
-                  onClick={onCook}
+                  onClick={() => setIsCookMode(true)}
                   className="p-2 rounded-full text-zinc-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
                   title="Cook Mode"
                 ><Flame className="w-4 h-4" /></button>
@@ -694,5 +696,13 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
         </div>
       )}
     </Dialog>
+
+    <CookMode
+      recipe={recipe}
+      isOpen={isCookMode}
+      onClose={() => setIsCookMode(false)}
+      translation={translation}
+    />
+    </>
   );
 }

@@ -214,7 +214,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
   return (
     <Dialog open={isOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogTrigger className="hidden" />
-      <DialogContent showCloseButton={false} className="sm:max-w-[580px] overflow-hidden rounded-2xl w-[95vw] sm:w-full bg-white dark:bg-zinc-900 shadow-2xl border border-zinc-200 dark:border-zinc-800 p-0">
+      <DialogContent showCloseButton={false} className="sm:max-w-[580px] overflow-hidden rounded-2xl w-[95vw] sm:w-full bg-white dark:bg-zinc-900 shadow-2xl border border-zinc-200 dark:border-zinc-800 p-0 flex flex-col max-h-[90vh]">
         <button
           type="button"
           onClick={onClose}
@@ -301,7 +301,8 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
           </div>
         )}
 
-        <div className="overflow-y-auto max-h-[90vh] p-6">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+        <div className="overflow-y-auto flex-1 p-6 pb-2">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">
             {editingRecipe ? 'Edit Recipe' : 'Add New Recipe'}
@@ -310,7 +311,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
             {editingRecipe ? 'Update the details of your recipe.' : 'Import from a URL, snap a photo, or enter details manually.'}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+        <div className="space-y-4 py-2">
 
           {/* Import section */}
           {!editingRecipe && (
@@ -546,13 +547,16 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
             </div>
           </div>
 
-          <div className="pt-2">
-            <Button type="submit" disabled={isSaving || isUploadingImage} className="w-full bg-orange-500 hover:bg-orange-600 rounded-lg text-white font-semibold text-base h-11">
-              {savingLabel}
-            </Button>
-          </div>
-        </form>
         </div>
+        </div>
+
+        {/* Sticky save footer */}
+        <div className="shrink-0 border-t border-zinc-200 dark:border-zinc-800 px-6 py-4">
+          <Button type="submit" disabled={isSaving || isUploadingImage} className="w-full bg-orange-500 hover:bg-orange-600 rounded-lg text-white font-semibold text-base h-11">
+            {savingLabel}
+          </Button>
+        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

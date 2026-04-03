@@ -3,23 +3,30 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { useState } from 'react';
 import { parseIngredients } from '@/lib/recipeUtils';
-import type { Recipe } from '@/types';
+import type { Recipe, RecipeTranslation } from '@/types';
 
 interface Props {
   recipe: Recipe | null;
   isOpen: boolean;
   onClose: () => void;
+  translation?: RecipeTranslation | null;
 }
 
-export function CookMode({ recipe, isOpen, onClose }: Props) {
+export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
   const [cookStep, setCookStep] = useState(0);
   const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
   const [showIngredients, setShowIngredients] = useState(false);
 
   if (!recipe) return null;
 
-  const steps = recipe.instructions.split(/\n+/).map((s) => s.trim()).filter(Boolean);
-  const ingredients = parseIngredients(recipe.ingredients);
+  const rawInstructions = (translation?.instructions ?? recipe.instructions) ?? '';
+  const steps = rawInstructions.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+  const baseIngredients = parseIngredients(recipe.ingredients);
+  const ingredients = baseIngredients.map((ing, i) => {
+    const t = translation?.ingredients?.[i];
+    if (!t) return ing;
+    return { amount: t.amount ?? ing.amount, name: t.name ?? ing.name, details: t.details ?? ing.details };
+  });
   const currentStep = steps[cookStep] || '';
   const isFirst = cookStep === 0;
   const isLast = cookStep === steps.length - 1;
