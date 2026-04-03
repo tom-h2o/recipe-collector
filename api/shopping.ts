@@ -6,27 +6,13 @@ import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { shoppingSchema } from './_lib/schemas.js';
 import { makeCacheKey, getCached, setCached } from './_lib/cache.js';
+import { SHOPPING_TEMPLATE } from './_lib/prompts.js';
 
-function getDefaultShoppingPrompt(ingredients: string[]): string {
-  return `You are an AI grocery assistant. Process the following raw ingredient list from multiple recipes into a clean shopping list.
-
-Step 1 — Aggregate duplicates:
-- Combine the same ingredient across recipes: "1 onion" + "2 onions" → "3 onions"
-- Normalise units to be consistent: prefer metric (g, ml, kg, l) over imperial; prefer whole units (eggs, cans) over fractional.
-- Keep reasonable precision: "425g" is fine, "424.7g" is not. Round to the nearest 5g or 10g for weights over 100g.
-- Pantry staples like "salt", "pepper", "water" can be omitted — the user likely already has them. Exception: large unusual quantities (e.g. "1kg salt") should be kept.
-
-Step 2 — Group by supermarket aisle using these exact category names:
-  Produce · Meat & Fish · Dairy & Eggs · Bakery · Pasta, Rice & Grains · Canned & Jarred · Condiments & Sauces · Oils & Vinegars · Spices & Herbs · Baking · Frozen · Drinks · Other
+function buildShoppingPrompt(template: string, ingredients: string[]): string {
+  return `${template}
 
 Ingredients to process:
-${ingredients.join('\n')}
-
-Return ONLY a JSON array of objects. Only include categories that have items. Nothing else.
-[
-  { "category": "Produce", "items": ["3 onions", "200g cherry tomatoes"] },
-  { "category": "Dairy & Eggs", "items": ["500ml whole milk", "200g cheddar"] }
-]`;
+${ingredients.join('\n')}`;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -42,9 +28,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
 
-    const prompt = settings.gemini_prompt_shopping && settings.gemini_prompt_shopping.trim()
+    const template = settings.gemini_prompt_shopping && settings.gemini_prompt_shopping.trim()
       ? settings.gemini_prompt_shopping
-      : getDefaultShoppingPrompt(ingredients);
+      : SHOPPING_TEMPLATE;
+    const prompt = buildShoppingPrompt(template, ingredients);
 
     // 24-hour TTL — same ingredient list should produce the same grouping
     const cacheKey = makeCacheKey('shopping', ingredients);

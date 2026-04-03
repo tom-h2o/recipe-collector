@@ -6,27 +6,10 @@ import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { tagSchema } from './_lib/schemas.js';
 import { makeCacheKey, getCached, setCached } from './_lib/cache.js';
+import { TAG_TEMPLATE, AVAILABLE_TAGS } from './_lib/prompts.js';
 
-const AVAILABLE_TAGS = [
-  'Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free',
-  'High Protein', 'Low Carb', 'Quick (<30min)', 'Comfort Food',
-  'Italian', 'Asian', 'Mexican', 'Mediterranean', 'Indian', 'American',
-  'Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snack', 'Soup',
-  'Baking', 'Grilling', 'One-Pot',
-];
-
-function getDefaultTagPrompt(title: string, description: string, ingredientText: string, instructionPreview: string): string {
-  return `You are a recipe categorisation assistant.
-Analyse the recipe below and select the most accurate tags from this list:
-${AVAILABLE_TAGS.join(', ')}
-
-Rules:
-- Select between 2 and 6 tags — use as many as genuinely apply, no more.
-- Only use tags from the provided list, verbatim.
-- For "Quick (<30min)": only apply if the total cooking + prep time is clearly under 30 minutes — infer from time mentions in instructions or the prep/cook time fields if present.
-- For cuisine tags (Italian, Asian, etc.): infer from ingredient names, dish names, and cooking techniques even if not explicitly stated.
-- For dietary tags (Vegetarian, Vegan, etc.): be conservative — only tag if clearly applicable from all ingredients.
-- Return a JSON array of strings, nothing else. Example: ["Italian", "Quick (<30min)", "Vegetarian"]
+function buildTagPrompt(template: string, title: string, description: string, ingredientText: string, instructionPreview: string): string {
+  return `${template}
 
 Recipe:
 Title: ${title}
@@ -60,9 +43,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const instructionPreview = (instructions || '').substring(0, 1000);
 
-    const prompt = settings.gemini_prompt_tag && settings.gemini_prompt_tag.trim()
+    const template = settings.gemini_prompt_tag && settings.gemini_prompt_tag.trim()
       ? settings.gemini_prompt_tag
-      : getDefaultTagPrompt(title, description, ingredientText, instructionPreview);
+      : TAG_TEMPLATE;
+    const prompt = buildTagPrompt(template, title, description, ingredientText, instructionPreview);
 
     // Cache key based on recipe content — deterministic, 30-day TTL
     const cacheKey = makeCacheKey('tag', { title, description: description ?? '', ingredientText, instructions: instructionPreview });

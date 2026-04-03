@@ -6,17 +6,10 @@ import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { nutritionSchema } from './_lib/schemas.js';
 import { makeCacheKey, getCached, setCached } from './_lib/cache.js';
+import { NUTRITION_TEMPLATE } from './_lib/prompts.js';
 
-function getDefaultNutritionPrompt(title: string, ingredientText: string, servings: number | null): string {
-  return `You are a registered dietitian and nutritional analysis assistant.
-Estimate the nutritional content per serving for the following recipe.
-
-Guidelines:
-- Base estimates on standard ingredient weights/volumes as listed. If amounts are given in volume (cups, tbsp), apply typical density for that ingredient.
-- Divide total recipe nutrients by the number of servings. If servings is unknown, assume 4.
-- Account for cooking method: roasting/frying adds fat; boiling/steaming does not.
-- Be realistic — a simple salad should not have 600 kcal; a hearty stew should not have 150 kcal.
-- Calibration anchors: plain chicken breast 165g ≈ 280 kcal, 31g protein; 1 cup cooked pasta ≈ 220 kcal, 8g protein, 43g carbs; 1 tbsp olive oil ≈ 120 kcal, 14g fat.
+function buildNutritionPrompt(template: string, title: string, ingredientText: string, servings: number | null): string {
+  return `${template}
 
 Recipe: ${title || ''}
 Servings: ${servings ?? 'unknown'}
@@ -56,9 +49,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }).join('\n')
       : String(ingredients);
 
-    const prompt = settings.gemini_prompt_nutrition && settings.gemini_prompt_nutrition.trim()
+    const template = settings.gemini_prompt_nutrition && settings.gemini_prompt_nutrition.trim()
       ? settings.gemini_prompt_nutrition
-      : getDefaultNutritionPrompt(title, ingredientText, servings);
+      : NUTRITION_TEMPLATE;
+    const prompt = buildNutritionPrompt(template, title, ingredientText, servings);
 
     // Cache key based on ingredients + servings — deterministic, 30-day TTL
     const cacheKey = makeCacheKey('nutrition', { ingredientText, servings: servings ?? null });

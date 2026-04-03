@@ -6,24 +6,15 @@ import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { suggestSchema } from './_lib/schemas.js';
 import { makeCacheKey, getCached, setCached } from './_lib/cache.js';
+import { SUGGEST_TEMPLATE } from './_lib/prompts.js';
 
-function getDefaultSuggestPrompt(userIngredients: string[], recipeList: string): string {
-  return `You are a cooking assistant helping a user decide what to cook tonight.
+function buildSuggestPrompt(template: string, userIngredients: string[], recipeList: string): string {
+  return `${template}
 
 The user currently has these ingredients: ${userIngredients.join(', ')}
 
 Here are the recipes in their collection:
-${recipeList}
-
-Task: rank these recipes by how well they match the available ingredients.
-
-Scoring guidance:
-- A recipe scores high if the user has most or all of the required ingredients.
-- Pantry staples (salt, pepper, water, oil, butter, basic spices) can be assumed to always be available even if not listed.
-- Penalise recipes that require many speciality ingredients the user has not listed.
-- Return at most 5 recipe IDs, ranked best-match first.
-
-Return ONLY a JSON array of recipe ID strings (best match first), nothing else. Example: ["uuid-1", "uuid-2"]`;
+${recipeList}`;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -66,9 +57,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
       .join('\n');
 
-    const prompt = settings.gemini_prompt_suggest && settings.gemini_prompt_suggest.trim()
+    const template = settings.gemini_prompt_suggest && settings.gemini_prompt_suggest.trim()
       ? settings.gemini_prompt_suggest
-      : getDefaultSuggestPrompt(userIngredients, recipeList);
+      : SUGGEST_TEMPLATE;
+    const prompt = buildSuggestPrompt(template, userIngredients, recipeList);
 
     // Short 1-hour TTL — results depend on the recipe library which changes over time
     const cacheKey = makeCacheKey('suggest', userIngredients);
