@@ -44,7 +44,14 @@ CRITICAL RULES:
 - Express all temperatures in °C (Celsius). Convert any °F found in the source to °C.
 - "instructions" should use newlines to separate steps. Remove any existing step numbering.
 - "source_name" should be a short human-readable name (e.g. "Bon Appétit", "Jamie Oliver"). Empty string if unknown.
-- If the text comes from an Instagram post, the recipe might be in the Description field. Extract it accurately!`;
+- If the text comes from an Instagram post, the recipe might be in the Description field. Extract it accurately!
+- Use standard abbreviations for units in "amount" — match the language of the recipe:
+  Metric (all languages): g, kg, ml, l
+  English: tsp, tbsp, cup, oz, lb, fl oz
+  German: TL (Teelöffel), EL (Esslöffel), Tasse, Prise
+  French: c. à c. (café), c. à s. (soupe), tasse, pincée
+  Spanish/Italian: cdta (cucharadita), cda (cucharada), taza
+  Write amounts compactly — no space between number and unit where standard (e.g. "200g", "1TL", "2EL", "½ tsp").`;
 
 // ─── Tag ─────────────────────────────────────────────────────────────────────
 
