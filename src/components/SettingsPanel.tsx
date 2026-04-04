@@ -1,4 +1,4 @@
-import { Settings, BarChart2, Zap } from 'lucide-react';
+import { Settings, BarChart2, Zap, RotateCcw } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -179,6 +179,21 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
                       <Zap className="w-3.5 h-3.5 text-purple-500" />
                       <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">{current.label} Prompt</span>
                       <span className="ml-auto text-[10px] text-zinc-400">{promptValue.length} chars</span>
+                      <button
+                        type="button"
+                        title="Reset this prompt to built-in default"
+                        onClick={() => {
+                          if (promptTab === 'extract') setLocal((p) => ({ ...p, gemini_prompt: '' }));
+                          else if (promptTab === 'tag') setLocal((p) => ({ ...p, gemini_prompt_tag: '' }));
+                          else if (promptTab === 'nutrition') setLocal((p) => ({ ...p, gemini_prompt_nutrition: '' }));
+                          else if (promptTab === 'translate') setLocal((p) => ({ ...p, gemini_prompt_translate: '' }));
+                          else if (promptTab === 'suggest') setLocal((p) => ({ ...p, gemini_prompt_suggest: '' }));
+                          else setLocal((p) => ({ ...p, gemini_prompt_shopping: '' }));
+                        }}
+                        className="flex items-center gap-1 text-[10px] font-semibold text-zinc-400 hover:text-orange-500 transition-colors"
+                      >
+                        <RotateCcw className="w-3 h-3" /> Reset
+                      </button>
                     </div>
                     <Textarea
                       value={promptValue}
@@ -194,7 +209,16 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
                       className="min-h-[360px] font-mono text-xs border-0 rounded-none focus-visible:ring-0 resize-none"
                     />
                   </div>
-                  <p className="text-xs text-zinc-400 dark:text-zinc-500">{current.hint}. Leave empty to use the built-in default.</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500">{current.hint}. Leave empty to use the built-in default.</p>
+                    <button
+                      type="button"
+                      onClick={() => setLocal((p) => ({ ...p, gemini_prompt: '', gemini_prompt_tag: '', gemini_prompt_nutrition: '', gemini_prompt_translate: '', gemini_prompt_suggest: '', gemini_prompt_shopping: '' }))}
+                      className="flex items-center gap-1 text-xs font-semibold text-zinc-400 hover:text-orange-500 transition-colors shrink-0 ml-4"
+                    >
+                      <RotateCcw className="w-3 h-3" /> Reset all prompts
+                    </button>
+                  </div>
                 </div>
               );
             })()}
