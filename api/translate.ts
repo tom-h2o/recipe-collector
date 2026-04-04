@@ -15,14 +15,12 @@ const LANGUAGE_NAMES: Record<string, string> = {
   pl: 'Polish',
 };
 
-type TranslatedIngredient = { amount: string; name: string; details?: string };
-
 interface TranslationResult {
-  detectedSourceLanguage: string;
-  title: string;
-  description: string;
-  instructions: string;
-  ingredients: TranslatedIngredient[];
+  detectedSourceLanguage?: unknown;
+  title: unknown;
+  description: unknown;
+  instructions: unknown;
+  ingredients: unknown;
 }
 
 
@@ -93,36 +91,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       { supabase, endpoint: 'translate', recipeId },
     );
 
-    if (typeof result.title !== 'string' || typeof result.instructions !== 'string' || !Array.isArray(result.ingredients)) {
-      throw new Error('Gemini returned an incomplete or malformed translation response.');
-    }
+    // Coerce Gemini response to expected types — Gemini may return instructions
+    // as an array of strings, or wrap values in objects for certain languages.
+    const safeTitle = typeof result.title === 'string' ? result.title : String(result.title ?? title);
+    const safeDescription = typeof result.description === 'string'
+      ? result.description
+      : Array.isArray(result.description) ? result.description.join(' ') : String(result.description ?? '');
+    const safeInstructions = typeof result.instructions === 'string'
+      ? result.instructions
+      : Array.isArray(result.instructions) ? result.instructions.join('\n') : String(result.instructions ?? instructions);
+    const safeIngredients = Array.isArray(result.ingredients)
+      ? result.ingredients.map((i: Record<string, unknown>) => ({
+          amount: String(i?.amount ?? ''),
+          name: String(i?.name ?? ''),
+          details: String(i?.details ?? ''),
+        }))
+      : ingredients.map((i) => ({ amount: i.amount, name: i.name, details: i.details ?? '' }));
 
     // Save to DB so this language is never re-translated
     const row = {
       recipe_id: recipeId,
       language_code: targetLanguage,
-      title: result.title,
-      description: typeof result.description === 'string' ? result.description : '',
-      instructions: result.instructions,
-      ingredients: result.ingredients.map((i) => ({
-        amount: typeof i.amount === 'string' ? i.amount : String(i.amount ?? ''),
-        name: typeof i.name === 'string' ? i.name : String(i.name ?? ''),
-        details: typeof i.details === 'string' ? i.details : '',
-      })),
+      title: safeTitle,
+      description: safeDescription,
+      instructions: safeInstructions,
+      ingredients: safeIngredients,
     };
 
     await supabase.from('recipe_translations').upsert(row, { onConflict: 'recipe_id,language_code' });
 
     // Also save detected source language back to the recipe (fire-and-forget)
-    if (result.detectedSourceLanguage) {
+    const detectedLang = typeof result.detectedSourceLanguage === 'string' ? result.detectedSourceLanguage : undefined;
+    if (detectedLang) {
       supabase
         .from('recipes')
-        .update({ original_language: result.detectedSourceLanguage })
+        .update({ original_language: detectedLang })
         .eq('id', recipeId)
         .then(() => {}, () => {});
     }
 
-    return res.status(200).json({ ...row, detectedSourceLanguage: result.detectedSourceLanguage, cached: false });
+    return res.status(200).json({ ...row, detectedSourceLanguage: detectedLang, cached: false });
   } catch (err: unknown) {
     if (err instanceof ZodError) {
       return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });

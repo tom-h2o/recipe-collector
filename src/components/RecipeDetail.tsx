@@ -12,6 +12,7 @@ interface Props {
   recipe: Recipe | null;
   preferredLanguage: string | null;
   temperatureUnit?: 'C' | 'F';
+  translationsCache?: Record<string, RecipeTranslation>;
   onLanguageChange: (lang: string | null) => void;
   onTranslationCached: (recipeId: string, langCode: string, t: RecipeTranslation) => void;
   onClose: () => void;
@@ -27,7 +28,7 @@ interface Props {
   onRemoveFromCollection?: (collectionId: string) => Promise<void>;
 }
 
-export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onSend, onUpdateRecipe, onAddMealPlan, onSaveScaled, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection }: Props) {
+export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', translationsCache, onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onSend, onUpdateRecipe, onAddMealPlan, onSaveScaled, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection }: Props) {
   const baseServings0 = recipe?.original_servings || recipe?.servings || 1;
   const [scaledServings, setScaledServings] = useState(baseServings0);
   const [aiIngredients, setAiIngredients] = useState<{ amount: string; name: string; details: string }[] | null>(null);
@@ -36,7 +37,10 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
   const [isCookMode, setIsCookMode] = useState(false);
   const [showPhotoLightbox, setShowPhotoLightbox] = useState(false);
   const [showLangPicker, setShowLangPicker] = useState(false);
-  const [translation, setTranslation] = useState<RecipeTranslation | null>(null);
+  const cachedTranslation = recipe && preferredLanguage
+    ? translationsCache?.[`${recipe.id}:${preferredLanguage}`] ?? null
+    : null;
+  const [translation, setTranslation] = useState<RecipeTranslation | null>(cachedTranslation);
   const [isTranslating, setIsTranslating] = useState(false);
   const [showAddPlan, setShowAddPlan] = useState(false);
   const [planMeal, setPlanMeal] = useState<string>(MEAL_TYPES[2]);
@@ -55,6 +59,10 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
     if (!recipe || !preferredLanguage) { setTranslation(null); return; }
     const origLang = recipe.original_language ?? 'en';
     if (preferredLanguage === origLang) { setTranslation(null); return; }
+
+    // Use cached translation immediately if available — avoids flash of original language
+    const cached = translationsCache?.[`${recipe.id}:${preferredLanguage}`];
+    if (cached) { setTranslation(cached); return; }
 
     let cancelled = false;
     setIsTranslating(true);
