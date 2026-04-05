@@ -32,6 +32,10 @@ export const extractPhotoSchema = z.object({
   mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
 });
 
+export const extractPdfSchema = z.object({
+  pdfBase64: z.string().min(1, 'pdfBase64 is required'),
+});
+
 export const scaleSchema = z.object({
   recipeId: z.string().uuid().optional(),
   ingredients: z.array(

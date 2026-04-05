@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ChefHat, Link, Camera, ImagePlus, X, Plus, ChevronUp, ChevronDown, Wand2, Sparkles } from 'lucide-react';
+import { ChefHat, Link, Camera, ImagePlus, X, Plus, ChevronUp, ChevronDown, Wand2, Sparkles, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import { LANGUAGES } from '@/lib/constants';
 import type { Recipe, Ingredient } from '@/types';
 
 type RecipePayload = Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>;
-type ImportTab = 'url' | 'photo';
+type ImportTab = 'url' | 'photo' | 'pdf';
 
 interface Props {
   isOpen: boolean;
@@ -37,6 +37,11 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isExtractingPhoto, setIsExtractingPhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // PDF import state
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [isExtractingPdf, setIsExtractingPdf] = useState(false);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   // Image upload state
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -76,6 +81,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
       setExtractUrl(''); setSourceUrl(''); setSourceName('');
       setOriginalLanguage(null);
       setPhotoFile(null); setPhotoPreview(null);
+      setPdfFile(null);
       setImageFile(null); setImagePreview(null);
     }
   }, [editingRecipe, isOpen]);
@@ -118,6 +124,37 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
       toast.error(err instanceof Error ? err.message : "Couldn't extract recipe.", { id });
     } finally {
       setIsExtractingPhoto(false);
+    }
+  }
+
+  async function handlePdfExtract() {
+    if (!pdfFile) return;
+    setIsExtractingPdf(true);
+    const id = toast.loading('Reading PDF with Gemini AI...');
+    try {
+      const base64 = await fileToBase64(pdfFile);
+      const res = await fetch('/api/extract-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pdfBase64: base64 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to extract recipe');
+      setTitle(data.title || '');
+      setDescription(data.description || '');
+      setServings(data.servings ? String(data.servings) : '');
+      setPrepTime(data.prep_time_mins ? String(data.prep_time_mins) : '');
+      setCookTime(data.cook_time_mins ? String(data.cook_time_mins) : '');
+      setInstructions(data.instructions || '');
+      setOriginalLanguage(data.original_language && data.original_language.length === 2 ? data.original_language : null);
+      if (Array.isArray(data.ingredients)) {
+        setIngredients(parseIngredients(data.ingredients));
+      }
+      toast.success('Recipe extracted from PDF!', { id });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Couldn't extract recipe.", { id });
+    } finally {
+      setIsExtractingPdf(false);
     }
   }
 
@@ -223,7 +260,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
         ><X className="w-4 h-4" /></button>
 
         {/* Magic extraction overlay */}
-        {(isExtracting || isExtractingPhoto) && (
+        {(isExtracting || isExtractingPhoto || isExtractingPdf) && (
           <div className="absolute inset-0 z-30 flex flex-col items-center justify-center rounded-2xl overflow-hidden">
             {/* Blurred background */}
             <div className="absolute inset-0 backdrop-blur-md bg-white/70 dark:bg-zinc-900/70" />
@@ -300,10 +337,10 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
               {/* Text */}
               <div className="space-y-1">
                 <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                  {isExtractingPhoto ? 'Reading your photo...' : 'Casting spell...'}
+                  {isExtractingPhoto ? 'Reading your photo...' : isExtractingPdf ? 'Reading your PDF...' : 'Casting spell...'}
                 </p>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  {isExtractingPhoto ? 'Gemini is analysing the image' : 'Gemini is extracting the recipe'}
+                  {isExtractingPhoto ? 'Gemini is analysing the image' : isExtractingPdf ? 'Gemini is reading the document' : 'Gemini is extracting the recipe'}
                 </p>
               </div>
             </div>
@@ -340,6 +377,13 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
                   className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all ${importTab === 'photo' ? 'bg-white dark:bg-zinc-800 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
                 >
                   <Camera className="w-3.5 h-3.5" /> From Photo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImportTab('pdf')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all ${importTab === 'pdf' ? 'bg-white dark:bg-zinc-800 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+                >
+                  <FileText className="w-3.5 h-3.5" /> From PDF
                 </button>
               </div>
 
@@ -391,6 +435,45 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
                       className="w-full font-medium bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-md"
                     >
                       {isExtractingPhoto ? 'Analysing photo...' : 'Extract Recipe from Photo'}
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {importTab === 'pdf' && (
+                <div className="space-y-2">
+                  <input ref={pdfInputRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)} />
+                  {!pdfFile ? (
+                    <button
+                      type="button"
+                      onClick={() => pdfInputRef.current?.click()}
+                      className="w-full h-28 border-2 border-dashed border-zinc-300 dark:border-zinc-600 rounded-xl flex flex-col items-center justify-center gap-2 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
+                    >
+                      <FileText className="w-7 h-7" />
+                      <span className="text-xs font-semibold">Tap to upload a PDF recipe</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                      <FileText className="w-5 h-5 text-orange-500 shrink-0" />
+                      <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex-1 truncate">{pdfFile.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setPdfFile(null)}
+                        className="shrink-0 p-1 rounded-full text-zinc-400 hover:text-red-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                  {pdfFile && (
+                    <Button
+                      type="button"
+                      onClick={handlePdfExtract}
+                      disabled={isExtractingPdf}
+                      variant="default"
+                      className="w-full font-medium bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-md"
+                    >
+                      {isExtractingPdf ? 'Reading PDF...' : 'Extract Recipe from PDF'}
                     </Button>
                   )}
                 </div>
