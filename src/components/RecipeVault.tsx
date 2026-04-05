@@ -1,6 +1,5 @@
 import { useMemo, useEffect, useRef, useState } from 'react';
-import { Search, X, ChefHat, ArrowUpDown, FolderOpen, Plus, Trash2 } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { Search, X, ArrowUpDown, FolderOpen, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RecipeCard } from './RecipeCard';
 import { FILTERS, SORT_OPTIONS, type SortOption } from '@/lib/constants';
@@ -56,7 +55,6 @@ export function RecipeVault({
   const filteredRecipes = useMemo(() => {
     let result = recipes;
 
-    // Collection filter — inlined to avoid cross-memo dependency
     if (activeCollectionId) {
       const ids = new Set(memberships.filter((m) => m.collection_id === activeCollectionId).map((m) => m.recipe_id));
       result = result.filter((r) => ids.has(r.id));
@@ -68,7 +66,6 @@ export function RecipeVault({
       result = result.filter((r) => r.tags?.includes(activeFilter));
     }
 
-    // sort
     result = [...result];
     switch (sortBy) {
       case 'oldest': result.sort((a, b) => a.created_at.localeCompare(b.created_at)); break;
@@ -76,7 +73,6 @@ export function RecipeVault({
       case 'z-a': result.sort((a, b) => b.title.localeCompare(a.title)); break;
       case 'rating': result.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)); break;
       case 'favourites': result.sort((a, b) => Number(b.is_favourite) - Number(a.is_favourite)); break;
-      // 'newest' is already the default order from the server
     }
 
     return result;
@@ -87,94 +83,102 @@ export function RecipeVault({
       {/* Search, Sort & Filter */}
       <div className="space-y-3">
         <div className="flex gap-2">
+          {/* Search bar — minimalist, no bottom line, surface-highest bg */}
           <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-sk-outline dark:text-muted-foreground pointer-events-none" />
             <input
               ref={searchRef}
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Search recipes, ingredients… (press / to focus)"
-              className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400/60 transition shadow-sm"
+              className="w-full pl-10 pr-10 py-2.5 rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface dark:text-foreground text-sm font-sans focus:outline-none focus:ring-2 focus:ring-sk-primary/25 dark:focus:ring-primary/25 transition placeholder:text-sk-outline dark:placeholder:text-muted-foreground"
             />
             {searchQuery && (
               <button
                 onClick={() => onSearchChange('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-sk-outline hover:text-sk-primary dark:hover:text-primary"
               >
                 <X className="w-4 h-4" />
               </button>
             )}
           </div>
+          {/* Sort selector */}
           <div className="relative">
-            <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
+            <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-sk-outline dark:text-muted-foreground pointer-events-none" />
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="pl-8 pr-3 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400/60 transition shadow-sm appearance-none cursor-pointer"
+              className="pl-8 pr-3 py-2.5 rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface-variant dark:text-muted-foreground text-sm font-sans focus:outline-none focus:ring-2 focus:ring-sk-primary/25 dark:focus:ring-primary/25 transition appearance-none cursor-pointer"
             >
               {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
         </div>
+
         {/* Collections */}
         <div className="flex items-center gap-2 flex-wrap">
-            <FolderOpen className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-            {collections.map((c) => (
-              <div key={c.id} className="inline-flex items-center gap-0.5">
-                <button
-                  onClick={() => onCollectionChange(activeCollectionId === c.id ? null : c.id)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
-                    activeCollectionId === c.id
-                      ? 'bg-indigo-500 border-indigo-500 text-white shadow'
-                      : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-indigo-400 hover:text-indigo-600'
-                  }`}
-                >
-                  {c.name}
-                  <span className="text-[10px] opacity-60 font-normal">
-                    {memberships.filter((m) => m.collection_id === c.id).length}
-                  </span>
-                </button>
-                <button
-                  onClick={() => onDeleteCollection(c.id)}
-                  className="p-1 text-zinc-300 dark:text-zinc-600 hover:text-red-500 transition-colors"
-                  title="Delete collection"
-                ><Trash2 className="w-3 h-3" /></button>
-              </div>
-            ))}
-            {isCreating ? (
-              <form
-                onSubmit={async (e) => { e.preventDefault(); if (!newCollectionName.trim()) return; await onCreateCollection(newCollectionName); setNewCollectionName(''); setIsCreating(false); }}
-                className="flex items-center gap-1"
-              >
-                <input
-                  autoFocus
-                  value={newCollectionName}
-                  onChange={(e) => setNewCollectionName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Escape') { setIsCreating(false); setNewCollectionName(''); } }}
-                  placeholder="Collection name"
-                  className="px-2 py-1 rounded-full text-xs border border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 w-32"
-                />
-                <button type="submit" className="text-xs font-semibold text-indigo-500 hover:text-indigo-700 px-1">Save</button>
-                <button type="button" onClick={() => { setIsCreating(false); setNewCollectionName(''); }} className="text-xs text-zinc-400 hover:text-zinc-600 px-1">Cancel</button>
-              </form>
-            ) : (
+          <FolderOpen className="w-3.5 h-3.5 text-sk-outline dark:text-muted-foreground shrink-0" />
+          {collections.map((c) => (
+            <div key={c.id} className="inline-flex items-center gap-0.5">
               <button
-                onClick={() => setIsCreating(true)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border border-dashed border-zinc-300 dark:border-zinc-600 text-zinc-400 hover:border-indigo-400 hover:text-indigo-500 transition-all"
-              ><Plus className="w-3 h-3" /> New</button>
-            )}
-          </div>
+                onClick={() => onCollectionChange(activeCollectionId === c.id ? null : c.id)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold font-sans transition-all ${
+                  activeCollectionId === c.id
+                    ? 'bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground shadow-ambient'
+                    : 'bg-sk-surface-highest dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary hover:bg-sk-primary-fixed/30'
+                }`}
+              >
+                {c.name}
+                <span className="text-[10px] opacity-60 font-normal">
+                  {memberships.filter((m) => m.collection_id === c.id).length}
+                </span>
+              </button>
+              <button
+                onClick={() => onDeleteCollection(c.id)}
+                className="p-1 text-sk-outline-variant dark:text-muted-foreground/50 hover:text-destructive transition-colors"
+                title="Delete collection"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
+          {isCreating ? (
+            <form
+              onSubmit={async (e) => { e.preventDefault(); if (!newCollectionName.trim()) return; await onCreateCollection(newCollectionName); setNewCollectionName(''); setIsCreating(false); }}
+              className="flex items-center gap-1"
+            >
+              <input
+                autoFocus
+                value={newCollectionName}
+                onChange={(e) => setNewCollectionName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Escape') { setIsCreating(false); setNewCollectionName(''); } }}
+                placeholder="Collection name"
+                className="px-2 py-1 rounded-full text-xs border-0 bg-sk-surface-highest dark:bg-input focus:outline-none focus:ring-2 focus:ring-sk-primary/25 text-sk-on-surface dark:text-foreground w-32 font-sans"
+              />
+              <button type="submit" className="text-xs font-semibold text-sk-primary dark:text-primary hover:text-sk-primary-container px-1 font-sans">Save</button>
+              <button type="button" onClick={() => { setIsCreating(false); setNewCollectionName(''); }} className="text-xs text-sk-outline hover:text-sk-on-surface-variant px-1 font-sans">Cancel</button>
+            </form>
+          ) : (
+            <button
+              onClick={() => setIsCreating(true)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold font-sans border border-dashed border-sk-outline-variant dark:border-border text-sk-outline dark:text-muted-foreground hover:border-sk-primary hover:text-sk-primary dark:hover:text-primary transition-all"
+            >
+              <Plus className="w-3 h-3" /> New
+            </button>
+          )}
+        </div>
 
+        {/* Filter chips */}
         <div className="flex flex-wrap gap-2">
           {FILTERS.map((f) => (
             <button
               key={f}
               onClick={() => onFilterChange(activeFilter === f ? null : f)}
-              className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
+              className={`px-3 py-1 rounded-full text-xs font-semibold font-sans transition-all ${
                 activeFilter === f
-                  ? 'bg-orange-500 border-orange-500 text-white shadow'
-                  : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-600'
+                  ? 'bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground shadow-ambient'
+                  : 'bg-sk-surface-highest dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary hover:bg-sk-primary-fixed/30'
               }`}
             >
               {f}
@@ -183,7 +187,7 @@ export function RecipeVault({
           {(searchQuery || activeFilter) && (
             <button
               onClick={() => { onSearchChange(''); onFilterChange(null); }}
-              className="px-3 py-1 rounded-full text-xs font-semibold border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:text-red-500 hover:border-red-400 transition-all flex items-center gap-1"
+              className="px-3 py-1 rounded-full text-xs font-semibold font-sans border border-dashed border-sk-outline-variant dark:border-border text-sk-outline dark:text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-all flex items-center gap-1"
             >
               <X className="w-3 h-3" /> Clear all
             </button>
@@ -196,20 +200,31 @@ export function RecipeVault({
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
             {[1, 2, 3].map((i) => (
-              <Card key={i} className="animate-pulse h-[400px] bg-zinc-200 dark:bg-zinc-800 rounded-xl border-none" />
+              <div key={i} className="animate-pulse h-[400px] bg-sk-surface-low dark:bg-muted rounded-xl" />
             ))}
           </div>
         ) : recipes.length === 0 ? (
-          <div className="text-center py-32 bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-zinc-100 dark:border-zinc-800">
-            <ChefHat className="w-20 h-20 mx-auto mb-6 text-zinc-300 dark:text-zinc-700" />
-            <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">No recipes yet</p>
-            <p className="text-zinc-500 dark:text-zinc-400">Click "Add Recipe" or press <kbd className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-xs font-mono">n</kbd> to get started!</p>
+          <div className="text-center py-32 bg-white dark:bg-card rounded-3xl shadow-ambient">
+            {/* Empty-vault Speisekammer key */}
+            <svg className="w-20 h-20 mx-auto mb-6 text-sk-primary-fixed dark:text-muted" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" fill="none" opacity="0.5"/>
+              <circle cx="11" cy="11" r="3" fill="currentColor" opacity="0.3"/>
+              <line x1="16.5" y1="14.5" x2="30" y2="28" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.4"/>
+              <line x1="23" y1="21.5" x2="26" y2="24.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.4"/>
+              <line x1="26" y1="24.5" x2="29" y2="21.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.4"/>
+            </svg>
+            <p className="font-serif text-2xl font-normal text-sk-on-surface dark:text-foreground mb-2">The vault is empty</p>
+            <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground">
+              Click <strong>Add Recipe</strong> or press{' '}
+              <kbd className="px-1.5 py-0.5 rounded-md bg-sk-surface-highest dark:bg-muted text-xs font-mono text-sk-on-surface-variant">n</kbd>{' '}
+              to get started!
+            </p>
           </div>
         ) : filteredRecipes.length === 0 ? (
-          <div className="text-center py-24 bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-zinc-100 dark:border-zinc-800">
-            <Search className="w-16 h-16 mx-auto mb-4 text-zinc-300 dark:text-zinc-700" />
-            <p className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-1">No results found</p>
-            <p className="text-zinc-500 dark:text-zinc-400 text-sm">Try a different search or clear the filters.</p>
+          <div className="text-center py-24 bg-white dark:bg-card rounded-3xl shadow-ambient">
+            <Search className="w-14 h-14 mx-auto mb-4 text-sk-primary-fixed dark:text-muted" />
+            <p className="font-serif text-xl font-normal text-sk-on-surface dark:text-foreground mb-1">No results found</p>
+            <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground">Try a different search or clear the filters.</p>
           </div>
         ) : (
           <>
@@ -237,7 +252,7 @@ export function RecipeVault({
                 <Button
                   onClick={onLoadMore}
                   variant="outline"
-                  className="px-8 rounded-full font-semibold border-zinc-300 dark:border-zinc-700"
+                  className="px-8 rounded-full font-semibold font-sans border-sk-outline-variant dark:border-border text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary hover:border-sk-primary dark:hover:text-primary dark:hover:border-primary"
                 >
                   Load more
                 </Button>

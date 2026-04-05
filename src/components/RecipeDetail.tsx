@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChefHat, Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages, Send, MoreHorizontal, Tag, Salad, FolderPlus, FolderMinus } from 'lucide-react';
+import { Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages, Send, MoreHorizontal, Tag, Salad, FolderPlus, FolderMinus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
@@ -256,7 +256,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
   return (
     <>
     <Dialog open={!!recipe} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent showCloseButton={false} className="sm:max-w-[780px] overflow-hidden rounded-3xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-2xl p-0 w-[95vw] sm:w-full">
+      <DialogContent showCloseButton={false} className="sm:max-w-[780px] overflow-hidden rounded-3xl bg-white dark:bg-card border-0 shadow-ambient p-0 w-[95vw] sm:w-full" style={{ boxShadow: '0 24px 80px rgba(47, 49, 46, 0.12)' }}>
         {/* Fixed close button — always visible, never scrolls away */}
         <button
           onClick={handleClose}
@@ -274,7 +274,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
           )}
           <div className="p-4 sm:p-6 md:p-10 space-y-6 sm:space-y-8">
             <DialogHeader className="text-left space-y-2">
-              <DialogTitle className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
+              <DialogTitle className="font-serif text-2xl sm:text-3xl md:text-[2.25rem] font-normal tracking-tight text-sk-on-surface dark:text-foreground leading-tight">
                 {translation ? String(translation.title ?? recipe.title) : recipe.title}
               </DialogTitle>
               <div className="flex items-center gap-1 flex-wrap pt-1 print:hidden">
@@ -283,78 +283,78 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                     href={recipe.source_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2 rounded-full text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                    className="p-2 rounded-full text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15 transition-colors"
                     title={`View original: ${recipe.source_name || recipe.source_url}`}
                   ><Globe className="w-4 h-4" /></a>
                 )}
                 {!recipe.source_url && recipe.image_url && (
                   <button
                     onClick={() => setShowPhotoLightbox(true)}
-                    className="p-2 rounded-full text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                    className="p-2 rounded-full text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15 transition-colors"
                     title="View original photo"
                   ><ImageIcon className="w-4 h-4" /></button>
                 )}
                 {onSend && (
                   <button
                     onClick={() => onSend(recipe)}
-                    className="p-2 rounded-full text-zinc-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                    className="p-2 rounded-full text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15 transition-colors"
                     title="Send recipe to someone"
                   ><Send className="w-4 h-4" /></button>
                 )}
                 {onAddMealPlan && (
                   <button
                     onClick={() => setShowAddPlan((v) => !v)}
-                    className={`p-2 rounded-full transition-colors ${showAddPlan ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
+                    className={`p-2 rounded-full transition-colors ${showAddPlan ? 'text-sk-primary bg-sk-primary-fixed/40 dark:bg-primary/20' : 'text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15'}`}
                     title="Add to meal plan"
                   ><CalendarPlus className="w-4 h-4" /></button>
                 )}
-                <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-0.5" />
+                <div className="w-px h-5 bg-sk-outline-variant/30 dark:bg-border mx-0.5" />
                 <button
                   onClick={() => setShowLangPicker((v) => !v)}
-                  className={`p-2 rounded-full transition-colors ${showLangPicker ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
+                  className={`p-2 rounded-full transition-colors ${showLangPicker ? 'text-sk-primary bg-sk-primary-fixed/40 dark:bg-primary/20' : 'text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15'}`}
                   title="Translate recipe"
                 ><Languages className="w-4 h-4" /></button>
-                <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-0.5" />
+                <div className="w-px h-5 bg-sk-outline-variant/30 dark:bg-border mx-0.5" />
                 <button
                   onClick={() => setIsCookMode(true)}
-                  className="p-2 rounded-full text-zinc-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                  className="p-2 rounded-full text-sk-outline hover:text-sk-secondary dark:hover:text-secondary-foreground hover:bg-sk-secondary-container/30 dark:hover:bg-secondary/20 transition-colors"
                   title="Cook Mode"
                 ><Flame className="w-4 h-4" /></button>
                 <button
                   onClick={() => { onClose(); onEdit(recipe); }}
-                  className="p-2 rounded-full text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                  className="p-2 rounded-full text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15 transition-colors"
                   title="Edit recipe"
                 ><Pencil className="w-4 h-4" /></button>
                 <button
                   onClick={() => onDelete(recipe)}
-                  className="p-2 rounded-full text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  className="p-2 rounded-full text-sk-outline hover:text-destructive hover:bg-destructive/10 transition-colors"
                   title="Delete recipe"
                 ><Trash2 className="w-4 h-4" /></button>
                 <button
                   onClick={() => window.print()}
-                  className="p-2 rounded-full text-zinc-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors print:hidden"
+                  className="p-2 rounded-full text-sk-outline hover:text-sk-on-surface-variant hover:bg-sk-surface-low dark:hover:bg-muted transition-colors print:hidden"
                   title="Print recipe"
                 ><Printer className="w-4 h-4" /></button>
-                <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-0.5" />
+                <div className="w-px h-5 bg-sk-outline-variant/30 dark:bg-border mx-0.5" />
                 <div className="relative">
                   <button
                     onClick={() => setShowMoreOptions((v) => !v)}
-                    className={`p-2 rounded-full transition-colors ${showMoreOptions ? 'text-zinc-600 bg-zinc-100 dark:bg-zinc-800' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                    className={`p-2 rounded-full transition-colors ${showMoreOptions ? 'text-sk-on-surface-variant bg-sk-surface-low dark:bg-muted' : 'text-sk-outline hover:text-sk-on-surface-variant hover:bg-sk-surface-low dark:hover:bg-muted'}`}
                     title="More options"
                   ><MoreHorizontal className="w-4 h-4" /></button>
                   {showMoreOptions && (
-                    <div className="absolute right-0 top-full mt-1 z-30 w-52 max-h-[60vh] overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-xl p-2 flex flex-col gap-0.5">
+                    <div className="absolute right-0 top-full mt-1 z-30 w-52 max-h-[60vh] overflow-y-auto bg-white dark:bg-card rounded-2xl shadow-ambient p-2 flex flex-col gap-0.5" style={{ boxShadow: '0 12px 40px rgba(47,49,46,0.10)' }}>
                       <button
                         onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/recipe/${recipe.id}`); toast.success('Link copied!'); setShowMoreOptions(false); }}
-                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"
+                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium font-sans text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted hover:text-sk-primary dark:hover:text-primary transition-colors text-left"
                       >
                         <Share2 className="w-3.5 h-3.5 shrink-0" /> Copy share link
                       </button>
-                      <div className="h-px bg-zinc-100 dark:bg-zinc-800 my-1" />
+                      <div className="h-px bg-sk-surface-container dark:bg-border my-1" />
                       <button
                         onClick={() => { handleRegenerateTags(); setShowMoreOptions(false); }}
                         disabled={isRegeneratingTags || isRegeneratingNutrition}
-                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left disabled:opacity-50"
+                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium font-sans text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted hover:text-sk-primary dark:hover:text-primary transition-colors text-left disabled:opacity-50"
                       >
                         {isRegeneratingTags ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <Tag className="w-3.5 h-3.5 shrink-0" />}
                         {isRegeneratingTags ? 'Regenerating…' : 'Regenerate tags'}
@@ -362,23 +362,23 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                       <button
                         onClick={() => { handleRegenerateNutrition(); setShowMoreOptions(false); }}
                         disabled={isRegeneratingTags || isRegeneratingNutrition}
-                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left disabled:opacity-50"
+                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium font-sans text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted hover:text-sk-primary dark:hover:text-primary transition-colors text-left disabled:opacity-50"
                       >
                         {isRegeneratingNutrition ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <Salad className="w-3.5 h-3.5 shrink-0" />}
                         {isRegeneratingNutrition ? 'Regenerating…' : 'Regenerate nutrition'}
                       </button>
                       {collections && collections.length > 0 && onAddToCollection && onRemoveFromCollection && (
                         <>
-                          <div className="h-px bg-zinc-100 dark:bg-zinc-800 my-1" />
+                          <div className="h-px bg-sk-surface-container dark:bg-border my-1" />
                           {collections.map((c) => {
                             const inCollection = recipeCollectionIds?.includes(c.id);
                             return (
                               <button
                                 key={c.id}
                                 onClick={() => { if (inCollection) onRemoveFromCollection(c.id); else onAddToCollection(c.id); setShowMoreOptions(false); }}
-                                className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"
+                                className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium font-sans text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted hover:text-sk-primary dark:hover:text-primary transition-colors text-left"
                               >
-                                {inCollection ? <FolderMinus className="w-3.5 h-3.5 shrink-0 text-indigo-400" /> : <FolderPlus className="w-3.5 h-3.5 shrink-0 text-zinc-400" />}
+                                {inCollection ? <FolderMinus className="w-3.5 h-3.5 shrink-0 text-sk-primary dark:text-primary" /> : <FolderPlus className="w-3.5 h-3.5 shrink-0 text-sk-outline" />}
                                 {inCollection ? `Remove from ${c.name}` : `Add to ${c.name}`}
                               </button>
                             );
@@ -401,10 +401,10 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                         key={lang.code}
                         onClick={() => handleTranslate(lang.code)}
                         disabled={isTranslating}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold font-sans transition-colors ${
                           isActive
-                            ? 'bg-blue-500 text-white border-blue-500'
-                            : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-blue-400 hover:text-blue-500'
+                            ? 'bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground'
+                            : 'bg-sk-surface-low dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary hover:bg-sk-primary-fixed/40'
                         } disabled:opacity-50`}
                         title={isOriginal ? 'Original language' : `Translate to ${lang.label}`}
                       >
@@ -418,20 +418,20 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                 </div>
               )}
 
-              <div className="flex items-center gap-4 flex-wrap pt-1">
+              <div className="flex items-center gap-3 flex-wrap pt-1">
                 {recipe.servings && (
-                  <div className="inline-flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/50 rounded-full px-3 py-1.5">
-                    <Users className="w-4 h-4 text-orange-500" />
+                  <div className="inline-flex items-center gap-2 bg-sk-primary-fixed/30 dark:bg-primary/15 rounded-full px-3 py-1.5">
+                    <Users className="w-4 h-4 text-sk-primary dark:text-primary" />
                     <button
                       onClick={() => changeServings(Math.max(1, scaledServings - 1))}
-                      className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-600 hover:bg-orange-200 flex items-center justify-center font-bold transition-colors"
+                      className="w-6 h-6 rounded-full bg-sk-primary-fixed/60 dark:bg-primary/25 text-sk-primary dark:text-primary hover:bg-sk-primary-fixed flex items-center justify-center font-bold transition-colors"
                     ><Minus className="w-3 h-3" /></button>
-                    <span className="text-sm font-bold text-orange-600 dark:text-orange-400 min-w-[1.5rem] text-center">{scaledServings}</span>
+                    <span className="text-sm font-semibold font-sans text-sk-primary dark:text-primary min-w-[1.5rem] text-center">{scaledServings}</span>
                     <button
                       onClick={() => changeServings(scaledServings + 1)}
-                      className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-600 hover:bg-orange-200 flex items-center justify-center font-bold transition-colors"
+                      className="w-6 h-6 rounded-full bg-sk-primary-fixed/60 dark:bg-primary/25 text-sk-primary dark:text-primary hover:bg-sk-primary-fixed flex items-center justify-center font-bold transition-colors"
                     ><Plus className="w-3 h-3" /></button>
-                    <span className="text-xs font-semibold text-orange-500 ml-1">
+                    <span className="text-xs font-sans font-semibold text-sk-primary dark:text-primary ml-1">
                       {scaledServings === baseServings ? 'servings' : `servings (original: ${baseServings})`}
                     </span>
                   </div>
@@ -440,7 +440,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                   <button
                     onClick={handleAiScale}
                     disabled={isAiScaling}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white text-xs font-bold rounded-full transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sk-secondary-container hover:bg-[#f0b48a] dark:bg-secondary dark:hover:bg-secondary/80 disabled:opacity-50 text-[#794e2e] dark:text-secondary-foreground text-xs font-bold font-sans rounded-full transition-colors"
                     title="Let AI round the quantities intelligently (no 1.5 eggs)"
                   >
                     {isAiScaling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
@@ -451,7 +451,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                   <button
                     onClick={handleSaveScaled}
                     disabled={isSavingScaled}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs font-bold rounded-full transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 disabled:opacity-50 text-white text-xs font-bold font-sans rounded-full transition-colors"
                     title="Save as a new recipe with these AI-rounded quantities"
                   >
                     <Copy className="w-3.5 h-3.5" />
@@ -459,27 +459,27 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                   </button>
                 )}
                 {totalTime > 0 && (
-                  <div className="inline-flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+                  <div className="inline-flex items-center gap-1.5 text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
                     <Clock className="w-4 h-4" />
                     {recipe.prep_time_mins != null && recipe.prep_time_mins > 0 && (
                       <span>Prep {recipe.prep_time_mins}m</span>
                     )}
                     {recipe.prep_time_mins != null && recipe.prep_time_mins > 0 && recipe.cook_time_mins != null && recipe.cook_time_mins > 0 && (
-                      <span className="text-zinc-300 dark:text-zinc-700">·</span>
+                      <span className="text-sk-outline-variant">·</span>
                     )}
                     {recipe.cook_time_mins != null && recipe.cook_time_mins > 0 && (
                       <span>Cook {recipe.cook_time_mins}m</span>
                     )}
                   </div>
                 )}
-                <span className="text-sm text-zinc-400 font-medium">{parsed.length} ingredients</span>
+                <span className="text-sm font-sans text-sk-outline dark:text-muted-foreground">{parsed.length} ingredients</span>
                 {(recipe.source_name || recipe.source_url) && (
                   recipe.source_url
-                    ? <a href={recipe.source_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-orange-500 transition-colors">
+                    ? <a href={recipe.source_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm font-sans text-sk-outline hover:text-sk-primary dark:hover:text-primary transition-colors">
                         <ExternalLink className="w-3.5 h-3.5" />
                         {recipe.source_name || new URL(recipe.source_url).hostname.replace(/^www\./, '')}
                       </a>
-                    : <span className="inline-flex items-center gap-1.5 text-sm text-zinc-400">
+                    : <span className="inline-flex items-center gap-1.5 text-sm font-sans text-sk-outline">
                         <ExternalLink className="w-3.5 h-3.5" />
                         {recipe.source_name}
                       </span>
@@ -487,34 +487,34 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
               </div>
 
               {(translation ? translation.description : recipe.description) && (
-                <DialogDescription className="text-base text-zinc-600 dark:text-zinc-400 leading-relaxed pt-1">
+                <DialogDescription className="font-serif text-base font-normal text-sk-on-surface-variant dark:text-muted-foreground leading-relaxed pt-1 italic">
                   {translation ? translation.description : recipe.description}
                 </DialogDescription>
               )}
 
               {/* Add to plan form */}
               {showAddPlan && onAddMealPlan && (
-                <div className="mt-2 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-2xl space-y-3">
-                  <p className="text-sm font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1.5"><CalendarPlus className="w-4 h-4" /> Add to meal plan</p>
+                <div className="mt-2 p-4 bg-sk-primary-fixed/20 rounded-2xl space-y-3">
+                  <p className="text-sm font-semibold font-sans text-sk-primary dark:text-primary flex items-center gap-1.5"><CalendarPlus className="w-4 h-4" /> Add to meal plan</p>
                   <div className="flex gap-2 flex-wrap">
                     <select
                       value={planDate}
                       onChange={(e) => setPlanDate(e.target.value)}
-                      className="flex-1 min-w-[120px] text-sm rounded-xl border border-blue-200 dark:border-blue-800 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                      className="flex-1 min-w-[120px] text-sm font-sans rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface dark:text-foreground px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sk-primary/25"
                     >
                       {planDates.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
                     </select>
                     <select
                       value={planMeal}
                       onChange={(e) => setPlanMeal(e.target.value)}
-                      className="flex-1 min-w-[100px] text-sm rounded-xl border border-blue-200 dark:border-blue-800 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                      className="flex-1 min-w-[100px] text-sm font-sans rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface dark:text-foreground px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sk-primary/25"
                     >
                       {MEAL_TYPES.map((m) => <option key={m} value={m}>{m}</option>)}
                     </select>
                     <button
                       onClick={handleAddToPlan}
                       disabled={isAddingToPlan}
-                      className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
+                      className="px-4 py-2 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white text-sm font-semibold font-sans rounded-full transition-colors disabled:opacity-50"
                     >
                       {isAddingToPlan ? 'Adding…' : 'Add'}
                     </button>
@@ -525,10 +525,11 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
 
             <div className="grid grid-cols-1 md:grid-cols-7 gap-8">
               <div className="md:col-span-3">
-                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                  <ChefHat className="w-5 h-5 text-orange-500" /> Ingredients
+                <h3 className="font-sans text-xs font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground mb-4">
+                  Ingredients
                 </h3>
-                <div className="bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 overflow-hidden">
+                {/* Ingredient list — no dividers, tonal background rows */}
+                <div className="rounded-xl overflow-hidden bg-sk-surface-low dark:bg-muted">
                   <table className="w-full text-sm">
                     <tbody>
                       {parsed.map((ing, i) => {
@@ -540,15 +541,15 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                         const rawDetails = typeof translatedIng?.details === 'string' ? translatedIng.details : ing.details;
                         const displayDetails = rawDetails ? convertTemperaturesInText(rawDetails, temperatureUnit) : rawDetails;
                         return (
-                        <tr key={i} className={`${i % 2 === 0 ? 'bg-zinc-50 dark:bg-zinc-900' : 'bg-white dark:bg-zinc-900/50'} border-b border-zinc-100 dark:border-zinc-800 last:border-0`}>
-                          <td className="py-2.5 px-4 font-semibold text-orange-600 dark:text-orange-400 whitespace-nowrap w-1/3">
-                            {displayAmount}
-                          </td>
-                          <td className="py-2.5 px-4 text-zinc-800 dark:text-zinc-200">
-                            {displayName}
-                            {displayDetails ? <span className="text-zinc-500 dark:text-zinc-400">, {displayDetails}</span> : ''}
-                          </td>
-                        </tr>
+                          <tr key={i} className={i % 2 === 0 ? 'bg-sk-surface-low dark:bg-muted' : 'bg-white dark:bg-card/50'}>
+                            <td className="py-2.5 px-4 font-semibold font-sans text-sk-primary dark:text-primary whitespace-nowrap w-1/3">
+                              {displayAmount}
+                            </td>
+                            <td className="py-2.5 px-4 font-sans text-sk-on-surface dark:text-foreground">
+                              {displayName}
+                              {displayDetails ? <span className="text-sk-on-surface-variant dark:text-muted-foreground">, {displayDetails}</span> : ''}
+                            </td>
+                          </tr>
                         );
                       })}
                     </tbody>
@@ -560,19 +561,21 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                   const fmt = (v: number) => Math.round(v * scale);
                   return (
                     <div className="mt-4">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">
+                      <p className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground mb-2">
                         Per serving {scale !== 1 ? `(scaled ×${scale.toFixed(2)})` : ''}
-                      </h4>
+                      </p>
                       <div className="grid grid-cols-2 gap-2">
                         {[
-                          { label: 'Calories', value: fmt(n.calories), unit: 'kcal', color: 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' },
-                          { label: 'Protein', value: fmt(n.protein_g), unit: 'g', color: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' },
-                          { label: 'Carbs', value: fmt(n.carbs_g), unit: 'g', color: 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400' },
-                          { label: 'Fat', value: fmt(n.fat_g), unit: 'g', color: 'bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400' },
+                          { label: 'Calories', value: fmt(n.calories), unit: 'kcal' },
+                          { label: 'Protein', value: fmt(n.protein_g), unit: 'g' },
+                          { label: 'Carbs', value: fmt(n.carbs_g), unit: 'g' },
+                          { label: 'Fat', value: fmt(n.fat_g), unit: 'g' },
                         ].map((stat) => (
-                          <div key={stat.label} className={`rounded-xl p-2.5 text-center border border-transparent ${stat.color}`}>
-                            <div className="text-lg font-extrabold">{stat.value}<span className="text-xs font-medium ml-0.5">{stat.unit}</span></div>
-                            <div className="text-[10px] uppercase tracking-widest font-bold opacity-70 mt-0.5">{stat.label}</div>
+                          <div key={stat.label} className="rounded-xl p-2.5 text-center bg-sk-surface-low dark:bg-muted">
+                            <div className="font-sans text-lg font-bold text-sk-primary dark:text-primary">
+                              {stat.value}<span className="text-xs font-medium ml-0.5 text-sk-on-surface-variant">{stat.unit}</span>
+                            </div>
+                            <div className="font-sans text-[10px] uppercase tracking-widest font-semibold text-sk-outline dark:text-muted-foreground mt-0.5">{stat.label}</div>
                           </div>
                         ))}
                       </div>
@@ -582,12 +585,17 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
               </div>
 
               <div className="md:col-span-4">
-                <h3 className="text-lg font-bold mb-4">Instructions</h3>
-                <ol className="space-y-4">
+                <h3 className="font-sans text-xs font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground mb-4">
+                  Instructions
+                </h3>
+                {/* Steps — primary-fixed circle numbers, no bullet points */}
+                <ol className="space-y-5">
                   {steps.map((step, i) => (
                     <li key={i} className="flex gap-4">
-                      <span className="shrink-0 w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center text-sm font-bold mt-0.5">{i + 1}</span>
-                      <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                      <span className="shrink-0 w-7 h-7 rounded-full bg-sk-primary-fixed dark:bg-primary/20 text-sk-on-primary-fixed dark:text-primary flex items-center justify-center text-sm font-bold font-sans mt-0.5">
+                        {i + 1}
+                      </span>
+                      <p className="font-sans text-sk-on-surface dark:text-foreground leading-relaxed">
                         {step.replace(/^step\s*\d+[.:)]\s*/i, '')}
                       </p>
                     </li>
@@ -597,29 +605,30 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
             </div>
 
             {/* Tags */}
-            <div className="border-t border-zinc-100 dark:border-zinc-800 pt-6">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm font-bold text-zinc-600 dark:text-zinc-400">Tags</span>
+            <div className="pt-6">
+              <div className="h-px bg-gradient-to-r from-transparent via-sk-outline-variant/20 to-transparent mb-6" />
+              <div className="flex items-center gap-2 mb-3">
+                <span className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground">Tags</span>
                 <button
                   onClick={() => setShowTagEditor((v) => !v)}
-                  className={`p-1 rounded-md transition-colors ${showTagEditor ? 'text-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                  className={`p-1 rounded-md transition-colors ${showTagEditor ? 'text-sk-primary bg-sk-primary-fixed/40 dark:bg-primary/20' : 'text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30'}`}
                   title="Edit tags"
                 ><Pencil className="w-3 h-3" /></button>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {(recipe.tags || []).map((tag) => (
-                  <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/50 text-orange-600 dark:text-orange-400">
+                  <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold font-sans bg-sk-primary-fixed/40 dark:bg-primary/15 text-sk-primary dark:text-primary">
                     {tag}
                     {showTagEditor && (
                       <button
                         onClick={() => onUpdateRecipe(recipe.id, { tags: recipe.tags.filter((t) => t !== tag) })}
-                        className="ml-0.5 hover:text-red-500 transition-colors"
+                        className="ml-0.5 hover:text-destructive transition-colors"
                       ><X className="w-2.5 h-2.5" /></button>
                     )}
                   </span>
                 ))}
                 {recipe.tags?.length === 0 && !showTagEditor && (
-                  <span className="text-xs text-zinc-400">No tags yet — use ⋯ to regenerate</span>
+                  <span className="text-xs font-sans text-sk-outline dark:text-muted-foreground">No tags yet — use ⋯ to regenerate</span>
                 )}
               </div>
               {showTagEditor && (
@@ -628,7 +637,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                     <button
                       key={tag}
                       onClick={() => onUpdateRecipe(recipe.id, { tags: [...(recipe.tags || []), tag] })}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border border-dashed border-zinc-300 dark:border-zinc-600 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold font-sans border border-dashed border-sk-outline-variant dark:border-border text-sk-outline dark:text-muted-foreground hover:border-sk-primary hover:text-sk-primary dark:hover:text-primary transition-colors"
                     >
                       <Plus className="w-2.5 h-2.5" />{tag}
                     </button>
@@ -638,9 +647,10 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
             </div>
 
             {/* Rating & Notes */}
-            <div className="border-t border-zinc-100 dark:border-zinc-800 pt-6 space-y-4">
+            <div className="pt-6 space-y-4">
+              <div className="h-px bg-gradient-to-r from-transparent via-sk-outline-variant/20 to-transparent mb-6 -mt-2" />
               <div className="flex items-center gap-3">
-                <span className="text-sm font-bold text-zinc-600 dark:text-zinc-400">Your Rating:</span>
+                <span className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground">Your Rating</span>
                 <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
@@ -651,20 +661,20 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                       }}
                       className="transition-transform hover:scale-125"
                     >
-                      <Star className={`w-6 h-6 ${star <= (recipe.rating || 0) ? 'fill-yellow-400 text-yellow-400' : 'text-zinc-300 dark:text-zinc-600'}`} />
+                      <Star className={`w-6 h-6 ${star <= (recipe.rating || 0) ? 'fill-sk-primary text-sk-primary dark:fill-primary dark:text-primary' : 'text-sk-outline-variant dark:text-muted-foreground/40'}`} />
                     </button>
                   ))}
                 </div>
-                {recipe.rating && <span className="text-xs text-zinc-400 font-medium">Click again to remove</span>}
+                {recipe.rating && <span className="text-xs font-sans text-sk-outline dark:text-muted-foreground">Click again to remove</span>}
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-bold text-zinc-600 dark:text-zinc-400">Personal Notes</label>
+                <label className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground">Personal Notes</label>
                 <textarea
                   value={notesValue}
                   onChange={(e) => setNotesValue(e.target.value)}
                   onBlur={() => onUpdateRecipe(recipe.id, { notes: notesValue })}
                   placeholder="e.g. Add more garlic next time, great with crusty bread..."
-                  className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 text-sm px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-400/60 min-h-[70px] resize-none"
+                  className="w-full rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface dark:text-foreground font-sans text-sm px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sk-primary/25 min-h-[70px] resize-none placeholder:text-sk-outline dark:placeholder:text-muted-foreground"
                 />
               </div>
             </div>

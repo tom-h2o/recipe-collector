@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Star, Users, Loader2, Clock, ExternalLink } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { parseIngredients } from '@/lib/recipeUtils';
 import type { Recipe } from '@/types';
 
@@ -21,11 +20,13 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, translation, tr
   const totalTime = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
 
   return (
-    <Card
+    <div
       onClick={() => onOpen(recipe)}
-      className="cursor-pointer overflow-hidden flex flex-col group hover:shadow-2xl transition-all duration-300 border-zinc-200/60 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 rounded-2xl"
+      className="cursor-pointer overflow-hidden flex flex-col group rounded-xl bg-white dark:bg-card hover:shadow-ambient transition-all duration-300"
+      style={{ boxShadow: '0 2px 12px rgba(47, 49, 46, 0.04)' }}
     >
-      <div className="aspect-[4/3] w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative">
+      {/* Image — 40% of card height */}
+      <div className="aspect-[4/3] w-full overflow-hidden bg-sk-surface-low dark:bg-muted relative rounded-xl">
         {recipe.image_url && !imgError ? (
           <img
             src={recipe.image_url}
@@ -34,68 +35,80 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, translation, tr
             onError={() => setImgError(true)}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-100 to-orange-50 dark:from-orange-900/30 dark:to-zinc-800">
-            <span className="text-6xl font-black text-orange-300 dark:text-orange-700 select-none">
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-sk-primary-fixed to-sk-surface-low dark:from-muted dark:to-muted">
+            <span className="text-6xl font-serif font-normal text-sk-primary/30 dark:text-primary/20 select-none">
               {recipe.title?.[0]?.toUpperCase() ?? '?'}
             </span>
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-4">
-          <span className="text-white text-sm font-semibold px-4 py-1.5 rounded-full border border-white/30 bg-white/20 backdrop-blur-sm">
+        {/* Hover overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-sk-on-surface/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-4">
+          <span className="font-sans text-white text-sm font-semibold px-4 py-1.5 rounded-full border border-white/30 bg-white/15 backdrop-blur-sm">
             View Recipe
           </span>
         </div>
+        {/* Favourite button */}
         <button
           onClick={(e) => onToggleFavourite(recipe, e)}
-          className="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm shadow transition-transform hover:scale-110"
+          className="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-white/85 dark:bg-card/85 backdrop-blur-sm shadow-sm transition-transform hover:scale-110"
           title={recipe.is_favourite ? 'Unfavourite' : 'Favourite'}
         >
-          <Star className={`w-4 h-4 ${recipe.is_favourite ? 'fill-yellow-400 text-yellow-400' : 'text-zinc-400'}`} />
+          <Star className={`w-4 h-4 ${recipe.is_favourite ? 'fill-sk-primary text-sk-primary dark:fill-primary dark:text-primary' : 'text-sk-outline dark:text-muted-foreground'}`} />
         </button>
+        {/* Processing badge */}
         {(isProcessing || translationLoading) && (
-          <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 bg-black/60 backdrop-blur-sm text-white text-[10px] font-semibold px-2.5 py-1 rounded-full">
+          <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 bg-sk-on-surface/70 backdrop-blur-sm text-white text-[10px] font-semibold px-2.5 py-1 rounded-full font-sans">
             <Loader2 className="w-3 h-3 animate-spin" />
             {isProcessing ? 'Processing…' : 'Translating…'}
           </div>
         )}
       </div>
 
-      <CardHeader className="pt-5">
-        <CardTitle className="line-clamp-1 text-xl font-bold">{translation?.title ?? recipe.title}</CardTitle>
-        <CardDescription className="line-clamp-2 mt-1 text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-          {(translation ? translation.description : recipe.description) || 'No description provided.'}
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent className="flex-1 pb-3">
-        <h4 className="font-bold text-xs uppercase tracking-wider mb-3 text-zinc-400">
-          {parsed.length} Ingredient{parsed.length !== 1 ? 's' : ''}
-        </h4>
-        <div className="flex flex-wrap gap-1.5">
-          {parsed.slice(0, 5).map((ing, i) => (
-            <span
-              key={i}
-              className="px-2.5 py-1 bg-zinc-100 dark:bg-zinc-800/80 text-xs font-medium rounded-md text-zinc-700 dark:text-zinc-300 max-w-[140px] truncate"
-            >
-              {ing.name}
-            </span>
-          ))}
-          {parsed.length > 5 && (
-            <span className="px-2.5 py-1 bg-orange-50 dark:bg-orange-900/20 text-xs font-medium rounded-md text-orange-600 dark:text-orange-400">
-              +{parsed.length - 5} more
-            </span>
-          )}
+      {/* Card body */}
+      <div className="flex flex-col flex-1 px-4 pt-4 pb-3 gap-3">
+        {/* Title + description */}
+        <div>
+          <h3 className="font-serif text-lg font-normal leading-snug line-clamp-1 text-sk-on-surface dark:text-foreground">
+            {translation?.title ?? recipe.title}
+          </h3>
+          <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
+            {(translation ? translation.description : recipe.description) || 'No description provided.'}
+          </p>
         </div>
+
+        {/* Ingredients */}
+        <div>
+          <p className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground mb-2">
+            {parsed.length} Ingredient{parsed.length !== 1 ? 's' : ''}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {parsed.slice(0, 5).map((ing, i) => (
+              <span
+                key={i}
+                className="px-2.5 py-0.5 bg-sk-surface-low dark:bg-muted text-xs font-sans font-medium rounded-full text-sk-on-surface-variant dark:text-muted-foreground max-w-[140px] truncate"
+              >
+                {ing.name}
+              </span>
+            ))}
+            {parsed.length > 5 && (
+              <span className="px-2.5 py-0.5 bg-sk-primary-fixed/50 dark:bg-primary/15 text-xs font-sans font-medium rounded-full text-sk-primary dark:text-primary">
+                +{parsed.length - 5} more
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Tags */}
         {recipe.tags?.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+          <div className="flex flex-wrap gap-1.5 pt-2">
             {recipe.tags.map((tag) => (
               <span
                 key={tag}
                 onClick={(e) => { e.stopPropagation(); onFilterChange(tag); }}
-                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer transition-all ${
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold font-sans cursor-pointer transition-all ${
                   activeFilter === tag
-                    ? 'bg-orange-500 border-orange-500 text-white'
-                    : 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50 text-orange-600 dark:text-orange-400 hover:bg-orange-100'
+                    ? 'bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground'
+                    : 'bg-sk-primary-fixed/40 dark:bg-primary/15 text-sk-primary dark:text-primary hover:bg-sk-primary-fixed/70'
                 }`}
               >
                 {tag}
@@ -103,33 +116,34 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, translation, tr
             ))}
           </div>
         )}
-      </CardContent>
+      </div>
 
-      <CardFooter className="border-t border-zinc-100 dark:border-zinc-800/50 py-3 bg-zinc-50/50 dark:bg-zinc-900/50 flex justify-between items-center">
+      {/* Footer — tonal background, no border */}
+      <div className="px-4 py-3 bg-sk-surface-low dark:bg-muted rounded-b-xl flex justify-between items-center">
         <div className="flex items-center gap-3">
           {recipe.servings ? (
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500">
+            <span className="flex items-center gap-1.5 text-xs font-sans font-semibold text-sk-on-surface-variant dark:text-muted-foreground">
               <Users className="w-3.5 h-3.5" /> Serves {recipe.servings}
             </span>
           ) : null}
           {totalTime > 0 && (
-            <span className="flex items-center gap-1 text-xs font-semibold text-zinc-500">
+            <span className="flex items-center gap-1 text-xs font-sans font-semibold text-sk-on-surface-variant dark:text-muted-foreground">
               <Clock className="w-3.5 h-3.5" /> {totalTime}m
             </span>
           )}
         </div>
         <div className="flex items-center gap-2">
           {recipe.source_name && (
-            <span className="flex items-center gap-1 text-[10px] font-semibold text-zinc-400 max-w-[100px] truncate">
+            <span className="flex items-center gap-1 text-[10px] font-sans font-semibold text-sk-outline dark:text-muted-foreground max-w-[100px] truncate">
               <ExternalLink className="w-3 h-3 shrink-0" />
               {recipe.source_name}
             </span>
           )}
-          <p className="text-xs font-semibold text-zinc-400">
+          <p className="text-xs font-sans font-semibold text-sk-outline dark:text-muted-foreground">
             {new Date(recipe.created_at).toLocaleDateString()}
           </p>
         </div>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 }

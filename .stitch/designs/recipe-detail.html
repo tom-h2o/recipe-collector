@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+                  "error-container": "#ffdad6",
+                  "surface-container-high": "#e9e8e4",
+                  "surface-container-lowest": "#ffffff",
+                  "on-secondary-fixed": "#301400",
+                  "surface-container": "#efeeea",
+                  "on-tertiary": "#ffffff",
+                  "surface": "#faf9f5",
+                  "on-tertiary-fixed": "#151f00",
+                  "surface-dim": "#dbdad6",
+                  "on-surface": "#1b1c1a",
+                  "secondary-fixed-dim": "#f4bb92",
+                  "on-secondary-container": "#794e2e",
+                  "secondary-fixed": "#ffdcc5",
+                  "on-error-container": "#93000a",
+                  "secondary": "#805533",
+                  "on-secondary": "#ffffff",
+                  "inverse-surface": "#2f312e",
+                  "outline-variant": "#bfcaba",
+                  "on-background": "#1b1c1a",
+                  "error": "#ba1a1a",
+                  "surface-tint": "#3a6843",
+                  "background": "#faf9f5",
+                  "on-secondary-fixed-variant": "#653d1e",
+                  "on-primary-container": "#cafece",
+                  "surface-variant": "#e3e2df",
+                  "on-primary-fixed-variant": "#22502d",
+                  "primary-container": "#497851",
+                  "on-tertiary-container": "#dafe85",
+                  "on-tertiary-fixed-variant": "#394d00",
+                  "surface-container-highest": "#e3e2df",
+                  "tertiary": "#455d00",
+                  "on-primary-fixed": "#00210a",
+                  "inverse-primary": "#a0d3a5",
+                  "primary-fixed": "#bcefc0",
+                  "secondary-container": "#fdc39a",
+                  "on-surface-variant": "#40493d",
+                  "on-error": "#ffffff",
+                  "tertiary-fixed-dim": "#b0d360",
+                  "tertiary-container": "#5a7706",
+                  "primary": "#315f3b",
+                  "tertiary-fixed": "#ccf078",
+                  "outline": "#707a6c",
+                  "primary-fixed-dim": "#a0d3a5",
+                  "inverse-on-surface": "#f2f1ed",
+                  "on-primary": "#ffffff",
+                  "surface-container-low": "#f4f4f0",
+                  "surface-bright": "#faf9f5"
+          },
+          "borderRadius": {
+                  "DEFAULT": "0.125rem",
+                  "lg": "0.25rem",
+                  "xl": "0.5rem",
+                  "full": "0.75rem"
+          },
+          "fontFamily": {
+                  "headline": ["Newsreader"],
+                  "body": ["Manrope"],
+                  "label": ["Manrope"]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    body { font-family: 'Manrope', sans-serif; }
+    .serif { font-family: 'Newsreader', serif; }
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen">
+<!-- SideNavBar Anchor -->
+<aside class="fixed left-0 top-0 h-full flex flex-col z-40 bg-[#f4f4f0] dark:bg-stone-900 h-screen w-64 rounded-r-none border-r-0 border-r border-stone-200/15 shadow-none hidden md:flex">
+<div class="px-8 py-8">
+<div class="flex items-center gap-2 mb-8">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="restaurant_menu">restaurant_menu</span>
+<h1 class="font-serif text-[#2E7D32] text-xl">The Atelier</h1>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 bg-[#e9e8e4] dark:bg-stone-800 text-[#2E7D32] dark:text-emerald-400 rounded-none border-l-4 border-[#2E7D32] px-6 py-3 transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+<span class="font-label text-xs tracking-[0.05em] uppercase font-bold">All Recipes</span>
+</a>
+<a class="flex items-center gap-3 text-stone-600 dark:text-stone-400 px-6 py-3 hover:bg-[#e9e8e4] dark:hover:bg-stone-800 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="heart_pantry">dine_heart</span>
+<span class="font-label text-xs tracking-[0.05em] uppercase">Favorites</span>
+</a>
+<a class="flex items-center gap-3 text-stone-600 dark:text-stone-400 px-6 py-3 hover:bg-[#e9e8e4] dark:hover:bg-stone-800 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_today">calendar_today</span>
+<span class="font-label text-xs tracking-[0.05em] uppercase">Meal Plan</span>
+</a>
+<a class="flex items-center gap-3 text-stone-600 dark:text-stone-400 px-6 py-3 hover:bg-[#e9e8e4] dark:hover:bg-stone-800 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="shopping_basket">shopping_basket</span>
+<span class="font-label text-xs tracking-[0.05em] uppercase">Grocery List</span>
+</a>
+</nav>
+</div>
+<div class="mt-auto px-8 py-8 border-t border-stone-200/10">
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 text-stone-600 dark:text-stone-400 px-6 py-3 hover:bg-[#e9e8e4] dark:hover:bg-stone-800 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label text-xs tracking-[0.05em] uppercase">Settings</span>
+</a>
+<a class="flex items-center gap-3 text-stone-600 dark:text-stone-400 px-6 py-3 hover:bg-[#e9e8e4] dark:hover:bg-stone-800 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+<span class="font-label text-xs tracking-[0.05em] uppercase">Support</span>
+</a>
+</nav>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="md:ml-64 min-h-screen">
+<!-- TopNavBar Anchor -->
+<header class="sticky top-0 z-30 bg-[#faf9f5] dark:bg-stone-950 flex justify-between items-center w-full px-8 py-4 max-w-full tonal-transition bg-[#f4f4f0] dark:bg-stone-900">
+<div class="flex items-center gap-4">
+<button class="md:hidden p-2 text-stone-600">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<span class="text-3xl font-serif text-[#2E7D32] dark:text-emerald-400 italic">Speisekammer</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden lg:flex items-center gap-8 font-label text-xs tracking-[0.05em] uppercase">
+<a class="text-[#2E7D32] dark:text-emerald-400 font-bold border-b-2 border-[#2E7D32] hover:text-[#2E7D32] transition-colors duration-300" href="#">Discover</a>
+<a class="text-stone-600 dark:text-stone-400 hover:text-[#2E7D32] transition-colors duration-300" href="#">Collections</a>
+<a class="text-stone-600 dark:text-stone-400 hover:text-[#2E7D32] transition-colors duration-300" href="#">Journal</a>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-stone-600" data-icon="search">search</span>
+<span class="material-symbols-outlined text-primary" data-icon="account_circle">account_circle</span>
+</div>
+</div>
+</header>
+<!-- Recipe Hero Section -->
+<section class="px-8 pt-8 pb-12">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+<div class="lg:col-span-7 order-2 lg:order-1">
+<span class="font-label text-xs font-bold text-primary tracking-[0.1em] uppercase mb-4 block">Main Course • 55 Minutes</span>
+<h2 class="serif text-5xl md:text-7xl text-on-surface leading-tight mb-6">Herb-Crusted Rack of Lamb</h2>
+<p class="text-on-surface-variant font-body text-lg leading-relaxed mb-8 max-w-xl">
+            A celebration of seasonal aromatics. Tender, grass-fed lamb enveloped in a vibrant crust of mint, rosemary, and sourdough crumbs, roasted to a delicate pink finish.
+          </p>
+<div class="flex flex-wrap gap-4 items-center">
+<button class="bg-primary text-on-primary rounded-full px-8 py-3 font-label text-sm font-bold flex items-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm" data-icon="menu_book">menu_book</span>
+              Cook Now
+            </button>
+<button class="bg-secondary-container text-on-secondary-container rounded-full px-8 py-3 font-label text-sm font-bold flex items-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm" data-icon="shopping_basket">shopping_basket</span>
+              Add to Grocery List
+            </button>
+<button class="w-12 h-12 rounded-full border border-outline-variant/30 flex items-center justify-center hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined" data-icon="favorite">favorite</span>
+</button>
+</div>
+</div>
+<div class="lg:col-span-5 order-1 lg:order-2">
+<div class="relative">
+<div class="absolute -inset-4 bg-primary/10 rounded-xl -rotate-2"></div>
+<img class="relative w-full aspect-[4/5] object-cover rounded-xl shadow-2xl rotate-1" data-alt="gourmet plated herb crusted rack of lamb with vibrant green crust and soft lighting on a dark stone plate" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDD6frjh_Z9ilA5iEOR0oCUKfR2c4ryVYC5-nPm5WcaQvP4seuYpbU6wTxSYoEdvBhJqjzAEexoG2CWfDYeVzF18xDFBMPfFJjQ66lvTnWSHTVFfXDIIoOQUw8ZdwYeWGr8fUYWrv46SQt57qcLT9oKCaQev3iyqzBez5alDajaSWk--E1Xds2qx1KqxFFfyIlywSq7cmlX67AlCCl2szQOb3bxzNuF2AnJ6fAJtOAb9MGXw5zSaS1NirtpC7SeVITlYOFNVYapj7Y"/>
+</div>
+</div>
+</div>
+</section>
+<!-- Content Bento Grid -->
+<section class="px-8 pb-20">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<!-- Ingredients & Scaling (Bento Item) -->
+<div class="lg:col-span-4 flex flex-col gap-8">
+<div class="bg-surface-container-low p-8 rounded-xl">
+<div class="flex justify-between items-center mb-6">
+<h3 class="serif text-2xl">Ingredients</h3>
+<button class="text-primary font-label text-xs font-bold uppercase tracking-wider flex items-center gap-1 hover:underline">
+<span class="material-symbols-outlined text-xs" data-icon="translate">translate</span>
+                Translate
+              </button>
+</div>
+<!-- AI Scaling Component -->
+<div class="mb-8 p-4 bg-surface-container-high/50 rounded-xl flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label text-[10px] uppercase text-primary font-bold">AI Scaler</span>
+<span class="text-sm font-body font-bold">2 Servings</span>
+</div>
+<div class="flex items-center gap-3">
+<button class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center hover:bg-outline-variant/30 transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="remove">remove</span>
+</button>
+<button class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center hover:bg-outline-variant/30 transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+</button>
+</div>
+</div>
+<ul class="space-y-4 font-body text-on-surface">
+<li class="flex justify-between border-b border-outline-variant/10 pb-2">
+<span>Rack of Lamb (8 ribs)</span>
+<span class="text-primary font-bold">1 lb</span>
+</li>
+<li class="flex justify-between border-b border-outline-variant/10 pb-2">
+<span>Fresh Rosemary, minced</span>
+<span class="text-primary font-bold">2 tbsp</span>
+</li>
+<li class="flex justify-between border-b border-outline-variant/10 pb-2">
+<span>Fresh Mint, chopped</span>
+<span class="text-primary font-bold">1/4 cup</span>
+</li>
+<li class="flex justify-between border-b border-outline-variant/10 pb-2">
+<span>Sourdough Breadcrumbs</span>
+<span class="text-primary font-bold">1/2 cup</span>
+</li>
+<li class="flex justify-between border-b border-outline-variant/10 pb-2">
+<span>Dijon Mustard</span>
+<span class="text-primary font-bold">3 tbsp</span>
+</li>
+<li class="flex justify-between border-b border-outline-variant/10 pb-2">
+<span>Garlic Cloves, crushed</span>
+<span class="text-primary font-bold">3 pcs</span>
+</li>
+<li class="flex justify-between border-b border-outline-variant/10 pb-2">
+<span>Sea Salt &amp; Black Pepper</span>
+<span class="text-primary font-bold">to taste</span>
+</li>
+</ul>
+</div>
+<div class="bg-surface-container-low p-8 rounded-xl">
+<h3 class="serif text-2xl mb-6">Nutrition Facts</h3>
+<div class="grid grid-cols-2 gap-4">
+<div class="flex flex-col">
+<span class="font-label text-[10px] uppercase text-on-surface-variant">Calories</span>
+<span class="text-xl serif text-primary">480 kcal</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label text-[10px] uppercase text-on-surface-variant">Protein</span>
+<span class="text-xl serif text-primary">34g</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label text-[10px] uppercase text-on-surface-variant">Fat</span>
+<span class="text-xl serif text-primary">28g</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label text-[10px] uppercase text-on-surface-variant">Carbs</span>
+<span class="text-xl serif text-primary">12g</span>
+</div>
+</div>
+<div class="mt-6 pt-6 border-t border-outline-variant/20 flex items-center gap-2">
+<span class="bg-tertiary-fixed text-on-tertiary-fixed px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">Keto Friendly</span>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">High Protein</span>
+</div>
+</div>
+</div>
+<!-- Instructions (Bento Item) -->
+<div class="lg:col-span-8 bg-surface-container-lowest p-8 md:p-12 rounded-xl shadow-[0_12px_40px_rgba(47,49,46,0.06)]">
+<div class="flex items-center gap-4 mb-10">
+<h3 class="serif text-3xl">The Preparation</h3>
+<div class="h-[1px] flex-grow bg-outline-variant/20"></div>
+</div>
+<div class="space-y-12">
+<div class="flex gap-6">
+<div class="flex-shrink-0 w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-bold text-lg">1</div>
+<div class="space-y-2">
+<h4 class="font-label text-sm font-bold uppercase tracking-widest text-primary">Preparation &amp; Searing</h4>
+<p class="font-body text-lg text-on-surface leading-relaxed">
+                  Preheat your oven to 400°F (200°C). Season the lamb racks generously with sea salt and freshly cracked black pepper. Heat a heavy skillet over high heat with a splash of olive oil and sear the lamb on all sides until golden brown, about 2-3 minutes per side.
+                </p>
+</div>
+</div>
+<div class="flex gap-6">
+<div class="flex-shrink-0 w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-bold text-lg">2</div>
+<div class="space-y-2">
+<h4 class="font-label text-sm font-bold uppercase tracking-widest text-primary">Herb Crust Assembly</h4>
+<p class="font-body text-lg text-on-surface leading-relaxed">
+                  In a small bowl, combine the sourdough breadcrumbs, minced rosemary, chopped mint, and crushed garlic. Stir in a teaspoon of olive oil to moisten. Brush the fatty side of the lamb generously with Dijon mustard—this acts as the glue for your aromatics.
+                </p>
+</div>
+</div>
+<div class="flex gap-6">
+<div class="flex-shrink-0 w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-bold text-lg">3</div>
+<div class="space-y-2">
+<h4 class="font-label text-sm font-bold uppercase tracking-widest text-primary">Roasting</h4>
+<p class="font-body text-lg text-on-surface leading-relaxed">
+                  Press the herb mixture firmly onto the mustard-coated lamb. Place the racks in a roasting pan, bone-side down. Roast for 15-20 minutes for medium-rare, or until the internal temperature reaches 130°F (54°C).
+                </p>
+</div>
+</div>
+<div class="flex gap-6">
+<div class="flex-shrink-0 w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-bold text-lg">4</div>
+<div class="space-y-2">
+<h4 class="font-label text-sm font-bold uppercase tracking-widest text-primary">Resting &amp; Carving</h4>
+<p class="font-body text-lg text-on-surface leading-relaxed">
+                  Transfer the lamb to a warm plate and tent loosely with foil. Allow it to rest for at least 10 minutes. This ensures the juices redistribute, resulting in a tender texture. Carve between the ribs and serve with a sprig of fresh mint.
+                </p>
+</div>
+</div>
+</div>
+<!-- Chef's Notes Glassmorphism -->
+<div class="mt-16 p-8 rounded-xl bg-primary/5 border border-primary/10 relative overflow-hidden">
+<div class="absolute -right-10 -bottom-10 opacity-10">
+<span class="material-symbols-outlined text-[160px]" data-icon="eco">eco</span>
+</div>
+<div class="relative z-10">
+<h5 class="serif italic text-xl text-primary mb-3">Chef's Notes</h5>
+<p class="font-body text-on-surface-variant italic leading-relaxed">
+                "The secret to a crust that stays on is the quality of your mustard and the fineness of the breadcrumbs. If using store-bought crumbs, pulse them in a processor for 10 seconds with the fresh herbs for a more vibrant, integrated flavor."
+              </p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Footer Space -->
+<footer class="px-8 py-12 bg-surface-container border-t border-outline-variant/10">
+<div class="flex flex-col md:flex-row justify-between items-center gap-8">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-2xl" data-icon="potted_plant">potted_plant</span>
+<span class="font-serif italic text-lg text-[#2E7D32]">Speisekammer</span>
+</div>
+<p class="font-body text-xs text-on-surface-variant tracking-wide">© 2024 THE DIGITAL EPICUREAN • CURATED PANTRY &amp; ATELIER</p>
+<div class="flex gap-6">
+<a class="text-on-surface-variant hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined" data-icon="share">share</span></a>
+<a class="text-on-surface-variant hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined" data-icon="print">print</span></a>
+<a class="text-on-surface-variant hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined" data-icon="mail">mail</span></a>
+</div>
+</div>
+</footer>
+</main>
+<!-- Mobile Bottom Navigation (Hidden on desktop) -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 bg-surface-bright flex justify-around items-center py-3 px-6 z-50 border-t border-outline-variant/10 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+<a class="flex flex-col items-center gap-1 text-primary" href="#">
+<span class="material-symbols-outlined" data-icon="menu_book" style="font-variation-settings: 'FILL' 1;">menu_book</span>
+<span class="text-[10px] font-label font-bold uppercase">Recipes</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-stone-400" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_today">calendar_today</span>
+<span class="text-[10px] font-label uppercase">Plan</span>
+</a>
+<div class="relative -top-6">
+<button class="w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-3xl" data-icon="add">add</span>
+</button>
+</div>
+<a class="flex flex-col items-center gap-1 text-stone-400" href="#">
+<span class="material-symbols-outlined" data-icon="shopping_basket">shopping_basket</span>
+<span class="text-[10px] font-label uppercase">List</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-stone-400" href="#">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+<span class="text-[10px] font-label uppercase">Profile</span>
+</a>
+</nav>
+</body></html>

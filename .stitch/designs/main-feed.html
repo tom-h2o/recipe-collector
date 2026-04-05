@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "error-container": "#ffdad6",
+                    "surface-container-high": "#e9e8e4",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary-fixed": "#301400",
+                    "surface-container": "#efeeea",
+                    "on-tertiary": "#ffffff",
+                    "surface": "#faf9f5",
+                    "on-tertiary-fixed": "#151f00",
+                    "surface-dim": "#dbdad6",
+                    "on-surface": "#1b1c1a",
+                    "secondary-fixed-dim": "#f4bb92",
+                    "on-secondary-container": "#794e2e",
+                    "secondary-fixed": "#ffdcc5",
+                    "on-error-container": "#93000a",
+                    "secondary": "#805533",
+                    "on-secondary": "#ffffff",
+                    "inverse-surface": "#2f312e",
+                    "outline-variant": "#bfcaba",
+                    "on-background": "#1b1c1a",
+                    "error": "#ba1a1a",
+                    "surface-tint": "#3a6843",
+                    "background": "#faf9f5",
+                    "on-secondary-fixed-variant": "#653d1e",
+                    "on-primary-container": "#cafece",
+                    "surface-variant": "#e3e2df",
+                    "on-primary-fixed-variant": "#22502d",
+                    "primary-container": "#497851",
+                    "on-tertiary-container": "#dafe85",
+                    "on-tertiary-fixed-variant": "#394d00",
+                    "surface-container-highest": "#e3e2df",
+                    "tertiary": "#455d00",
+                    "on-primary-fixed": "#00210a",
+                    "inverse-primary": "#a0d3a5",
+                    "primary-fixed": "#bcefc0",
+                    "secondary-container": "#fdc39a",
+                    "on-surface-variant": "#40493d",
+                    "on-error": "#ffffff",
+                    "tertiary-fixed-dim": "#b0d360",
+                    "tertiary-container": "#5a7706",
+                    "primary": "#315f3b",
+                    "tertiary-fixed": "#ccf078",
+                    "outline": "#707a6c",
+                    "primary-fixed-dim": "#a0d3a5",
+                    "inverse-on-surface": "#f2f1ed",
+                    "on-primary": "#ffffff",
+                    "surface-container-low": "#f4f4f0",
+                    "surface-bright": "#faf9f5"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": [
+                            "Newsreader"
+                    ],
+                    "body": [
+                            "Manrope"
+                    ],
+                    "label": [
+                            "Manrope"
+                    ]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; }
+        h1, h2, h3 { font-family: 'Newsreader', serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- SideNavBar Component -->
+<aside class="fixed left-0 top-0 h-full flex flex-col z-40 bg-[#f4f4f0] dark:bg-stone-900 h-screen w-64 rounded-r-none border-r border-stone-200/15 shadow-none hidden md:flex">
+<div class="px-8 py-10 flex flex-col gap-1">
+<div class="flex items-center gap-3 mb-8">
+<span class="material-symbols-outlined text-[#2E7D32] text-3xl" data-icon="key">key</span>
+<div>
+<h1 class="font-serif text-[#2E7D32] text-xl leading-none">The Atelier</h1>
+<p class="text-[10px] uppercase tracking-[0.15em] text-stone-500 font-label mt-1">Your Curated Pantry</p>
+</div>
+</div>
+<nav class="flex flex-col gap-1">
+<!-- Active Tab: All Recipes -->
+<a class="flex items-center gap-3 bg-[#e9e8e4] dark:bg-stone-800 text-[#2E7D32] dark:text-emerald-400 rounded-none border-l-4 border-[#2E7D32] px-6 py-3 transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+<span class="text-xs font-label uppercase tracking-wider">All Recipes</span>
+</a>
+<a class="flex items-center gap-3 text-stone-600 dark:text-stone-400 px-6 py-3 hover:bg-[#e9e8e4] dark:hover:bg-stone-800 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="heart_pantry">favorite</span>
+<span class="text-xs font-label uppercase tracking-wider">Favorites</span>
+</a>
+<a class="flex items-center gap-3 text-stone-600 dark:text-stone-400 px-6 py-3 hover:bg-[#e9e8e4] dark:hover:bg-stone-800 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_today">calendar_today</span>
+<span class="text-xs font-label uppercase tracking-wider">Meal Plan</span>
+</a>
+<a class="flex items-center gap-3 text-stone-600 dark:text-stone-400 px-6 py-3 hover:bg-[#e9e8e4] dark:hover:bg-stone-800 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="shopping_basket">shopping_basket</span>
+<span class="text-xs font-label uppercase tracking-wider">Grocery List</span>
+</a>
+</nav>
+</div>
+<div class="mt-auto px-8 py-10 flex flex-col gap-1">
+<a class="flex items-center gap-3 text-stone-600 dark:text-stone-400 px-6 py-3 hover:bg-[#e9e8e4] dark:hover:bg-stone-800 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="text-xs font-label uppercase tracking-wider">Settings</span>
+</a>
+<a class="flex items-center gap-3 text-stone-600 dark:text-stone-400 px-6 py-3 hover:bg-[#e9e8e4] dark:hover:bg-stone-800 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+<span class="text-xs font-label uppercase tracking-wider">Support</span>
+</a>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="md:ml-64 min-h-screen">
+<!-- TopAppBar Component -->
+<header class="flex justify-between items-center w-full px-8 py-6 max-w-full bg-[#faf9f5] dark:bg-stone-950 sticky top-0 z-30">
+<div class="flex items-center gap-4">
+<span class="text-3xl font-serif text-[#2E7D32] dark:text-emerald-400 italic">Speisekammer</span>
+</div>
+<div class="flex-1 max-w-xl mx-12 hidden lg:block">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline" data-icon="search">search</span>
+<input class="w-full bg-surface-container-highest border-none rounded-lg pl-12 pr-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 placeholder:text-outline italic" placeholder="Search the pantry vault..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<button class="material-symbols-outlined text-stone-600 hover:text-[#2E7D32] transition-colors" data-icon="account_circle">account_circle</button>
+</div>
+</header>
+<!-- Content Section -->
+<div class="px-8 pb-12 max-w-7xl mx-auto">
+<!-- Hero Section / Header -->
+<div class="py-12 mb-8 flex flex-col md:flex-row md:items-end justify-between gap-8">
+<div class="max-w-2xl">
+<span class="text-primary font-label text-xs uppercase tracking-[0.2em] mb-4 block">Seasonal Selection</span>
+<h2 class="text-5xl md:text-6xl font-headline text-on-surface leading-tight">Gathered for your evening table.</h2>
+</div>
+<div class="flex items-center gap-3">
+<button class="bg-primary text-on-primary px-8 py-3 rounded-full font-label text-sm uppercase tracking-wider flex items-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+                        New Recipe
+                    </button>
+</div>
+</div>
+<!-- Filter Chips -->
+<div class="flex flex-wrap gap-3 mb-12">
+<button class="px-6 py-2 rounded-full border border-primary bg-primary text-on-primary text-xs font-label uppercase tracking-widest">All</button>
+<button class="px-6 py-2 rounded-full border border-outline-variant/30 text-on-surface-variant text-xs font-label uppercase tracking-widest hover:border-primary transition-colors">Vegetarian</button>
+<button class="px-6 py-2 rounded-full border border-outline-variant/30 text-on-surface-variant text-xs font-label uppercase tracking-widest hover:border-primary transition-colors">15-min</button>
+<button class="px-6 py-2 rounded-full border border-outline-variant/30 text-on-surface-variant text-xs font-label uppercase tracking-widest hover:border-primary transition-colors">Dinner</button>
+<button class="px-6 py-2 rounded-full border border-outline-variant/30 text-on-surface-variant text-xs font-label uppercase tracking-widest hover:border-primary transition-colors">Seafood</button>
+<button class="px-6 py-2 rounded-full border border-outline-variant/30 text-on-surface-variant text-xs font-label uppercase tracking-widest hover:border-primary transition-colors">Autumn</button>
+</div>
+<!-- Bento-Style Grid Gallery -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8">
+<!-- Main Featured Recipe (Large) -->
+<div class="lg:col-span-8 lg:row-span-2 group cursor-pointer">
+<div class="relative overflow-hidden rounded-xl bg-surface-container-low aspect-[16/10]">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="Gourmet roasted salmon with seasonal herbs and root vegetables on a handcrafted ceramic plate, warm kitchen lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDAcKVoL0IKvrZ8zRlChOnM3PW-mlDpwd6wDSu5pkd7ZhD1iFdeXKbYcuhHiXxI3ffont98zk9_YHKDgE4j1UUxhumWLOL2AJBHHd986un6c5TrmS_RvxDiD3fm_OM1n8T15x9P-jsZzem7_6GhT3SKgFPmYbhEcmzdsH-VXHGShLpD7RZ_-Z8gpvQb1caWbKwXhgn14kGcyt1uINZVqEEzGmjCstmfrblvBtOaK7GGvplac5-F1Pwlyl49gpmHRiUEdzufLdJaznM"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<button class="absolute top-6 right-6 w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white hover:bg-primary transition-all">
+<span class="material-symbols-outlined" data-icon="favorite">favorite</span>
+</button>
+</div>
+<div class="mt-6 flex justify-between items-start">
+<div>
+<span class="text-tertiary font-label text-[10px] uppercase tracking-[0.2em]">Chef's Special • Seafood</span>
+<h3 class="text-3xl mt-2 group-hover:text-primary transition-colors">Herb-Crusted Highland Salmon</h3>
+<div class="flex items-center gap-4 mt-3 text-on-surface-variant">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-base" data-icon="schedule">schedule</span>
+<span class="text-xs font-label">35 MINS</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-base" data-icon="restaurant">restaurant</span>
+<span class="text-xs font-label">SERVES 4</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Secondary Card 1 -->
+<div class="lg:col-span-4 group cursor-pointer">
+<div class="relative overflow-hidden rounded-xl bg-surface-container-low aspect-square">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="Fresh vibrant kale and avocado harvest bowl with toasted seeds and citrus vinaigrette, bright natural light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAmWec6jVR1wiC1zgRY4EYkIxH9H-P90_Haj9PQssM8f4W8Vk3dX3WxKyEPRm32bdX_3vweXZuuT12kNrAy039dkrMT722S11i7LjYpDh4OdLeHH-E_6HFuSI2b8gvlZ9VtmgDUzhj-XVvzTzV-39qutwX8PobYlhtFkxPinUt21DtkCWqJcn5XK422DOWrpLf-noL6oWlKMyi6S7jtge3MDZTz0CoMzI5ko3N7aQMgC-kjX3jRFaNsWDrA1RNeiCFw3thphV3zFFU"/>
+<button class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-primary transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="favorite">favorite</span>
+</button>
+</div>
+<div class="mt-4">
+<span class="text-primary font-label text-[10px] uppercase tracking-[0.2em]">Vegetarian • 15-min</span>
+<h3 class="text-xl mt-1 group-hover:text-primary transition-colors">Winter Harvest Grain Bowl</h3>
+<p class="text-xs font-label text-on-surface-variant mt-2 uppercase tracking-wider">15 MINS • 420 KCAL</p>
+</div>
+</div>
+<!-- Secondary Card 2 -->
+<div class="lg:col-span-4 group cursor-pointer">
+<div class="relative overflow-hidden rounded-xl bg-surface-container-low aspect-square">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="Rustic tomato soup in a dark clay bowl with a swirl of fresh cream and toasted basil leaves, moody lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuASmct_GTRGlDldXqhiCSP_CPjc6kXGiOE80vcAyJ32ujBimz6Bf4M10Gecsh113wP301X72rbwzvEVUsRuCVlxE2f7OZOezxcPQUXIWjI-7rn5qVtWJRkrb3cxf2qC_20PlD810xwqfLMk5P9Fczh_OGjhuhRr4mPjoUWISTAglOUufR4F-z7ullpwsyCCv6F1_kq0TZs0VtWkVUsjlVra8zJkUYLgsuLVd22T0JyAUbc4WB5iU8TNXDdwKE0OL4ZhClyQxzaBlk0"/>
+<button class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-primary transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="favorite">favorite</span>
+</button>
+</div>
+<div class="mt-4">
+<span class="text-primary font-label text-[10px] uppercase tracking-[0.2em]">Soups • Dinner</span>
+<h3 class="text-xl mt-1 group-hover:text-primary transition-colors">Roasted Heirloom Tomato Bisque</h3>
+<p class="text-xs font-label text-on-surface-variant mt-2 uppercase tracking-wider">45 MINS • 280 KCAL</p>
+</div>
+</div>
+<!-- Row 3 - Multiple Cards -->
+<div class="lg:col-span-3 group cursor-pointer">
+<div class="relative overflow-hidden rounded-xl bg-surface-container-low aspect-[4/5]">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Artisanal avocado toast with poached egg and micro-greens on thick sourdough, overhead photography style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBe920uawNIyFNxuxv0bc2aXfTVr03Zi3cboLa8XI6Nxh-zRHawe0Pu1kkPTSy_KcIYbV-_ZHsr6VUPRa6qXoipJrIvJPKKlbLLfeuFWP_KclcHsDrTl0E0trSvYm0UlvHRK3iLjAVXTnDLEmPgZCFGWWiVCkUzl8IGoVtW3oJ5scM7CmMJqs6Nhxg10GePNNhpePYrUYnn3-J5XaOXuDZDwine4nqEzMTNgHcOK7pXXCffYOIJpgaOOHfZmGhU_S5ha_9AXS9X-O4"/>
+</div>
+<div class="mt-4">
+<h3 class="text-lg">Poached Egg Sourdough</h3>
+<p class="text-[10px] font-label text-on-surface-variant uppercase tracking-widest mt-1">10 MINS</p>
+</div>
+</div>
+<div class="lg:col-span-3 group cursor-pointer">
+<div class="relative overflow-hidden rounded-xl bg-surface-container-low aspect-[4/5]">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Vibrant summer pesto pasta with cherry tomatoes and fresh parmesan in a white bowl, airy bright lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCQxBZVWuwsP_d5_BU0YrVVQq5nD5OsWjQeIf_VS3v_LOuvGXw6_GCOYJHCjXQBBzOz2X1lJq6JtZT1TiLFDSXelJ02WsRoOGRif1x7wSA3hCI-KYtZpTVG-OynWK4tb_6hUHvWdRjPAzKHuzpVM-eQBceEpLRXK1m7TYYy6rltpmLW5EBmWRk4lbNcLW6K5NYQEtc0jTRU9-QoiJJvxbyvVFEe8AkgWcTCQs1DhH9WzkL-wJd5gPIO4gG5_qUXYjdOKWHO8kW75e0"/>
+</div>
+<div class="mt-4">
+<h3 class="text-lg">Basil &amp; Pine Nut Linguine</h3>
+<p class="text-[10px] font-label text-on-surface-variant uppercase tracking-widest mt-1">20 MINS</p>
+</div>
+</div>
+<div class="lg:col-span-3 group cursor-pointer">
+<div class="relative overflow-hidden rounded-xl bg-surface-container-low aspect-[4/5]">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Perfectly seared medium-rare steak with rosemary butter and garlic cloves on a dark iron skillet" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDzj5vaowoyCwvacge27K_99m3ONp96lcEpmPztnsoNTg7n9eAo8m5WtqdfGQlcieXfXlsZjEmoKIF9tO7h0fHLJiAA1MdycYgYvMNiedwa8RY0bClorjzNgjF0ObMP73g9ulTUpeXpK9ETiEIbK7JAK9yzkxbViFKDC8qcqc5vfppM84cLOvnHLs8nOmS9gtwkOhamEYKO4f3swSle2qt1_UtWsTaSPmSVvKljjR9V3fKdmt-oyvS9wY_kVi30vJlosZvxN6OS4ts"/>
+</div>
+<div class="mt-4">
+<h3 class="text-lg">Cast-Iron Ribeye</h3>
+<p class="text-[10px] font-label text-on-surface-variant uppercase tracking-widest mt-1">25 MINS</p>
+</div>
+</div>
+<div class="lg:col-span-3 group cursor-pointer">
+<div class="relative overflow-hidden rounded-xl bg-surface-container-low aspect-[4/5]">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Elegant dessert of dark chocolate mousse topped with edible flowers and berries in a crystal glass" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAg7aCug7bohLw74HrTFwKqE5U2v9PuCth_geUOCi_dcDDv1NgMaNYoBgHbsy71xUEUTEZVG66rVpN-69OWbBOw1br7JK38H2rxKOJIwn6zrDJiSIIDMnNHP7CPuQCndnDeO1chQHtTQ2dMTn1ugljOcwLGTduzOyvfFeoQb1gUySv6CgsEpxCPxaUv1wk7o0Lrkx4RGc-n1e0qb3SkcDeLfDCTll9_irQ1UlfmC_XBEQS6YIucF7-T-iyIvtbSXpEi-u6uG3dh38Q"/>
+</div>
+<div class="mt-4">
+<h3 class="text-lg">Silk Chocolate Mousse</h3>
+<p class="text-[10px] font-label text-on-surface-variant uppercase tracking-widest mt-1">60 MINS</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Action Button (Mobile only) -->
+<button class="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center z-50">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+</button>
+<!-- BottomNavBar (Mobile only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full bg-surface-container-low border-t border-outline-variant/15 flex justify-around items-center py-3 z-40">
+<a class="flex flex-col items-center gap-1 text-primary" href="#">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+<span class="text-[10px] font-label uppercase tracking-tighter">Pantry</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-on-surface-variant" href="#">
+<span class="material-symbols-outlined" data-icon="favorite">favorite</span>
+<span class="text-[10px] font-label uppercase tracking-tighter">Saved</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-on-surface-variant" href="#">
+<span class="material-symbols-outlined" data-icon="shopping_basket">shopping_basket</span>
+<span class="text-[10px] font-label uppercase tracking-tighter">Cart</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-on-surface-variant" href="#">
+<span class="material-symbols-outlined" data-icon="account_circle">person</span>
+<span class="text-[10px] font-label uppercase tracking-tighter">Profile</span>
+</a>
+</nav>
+</body></html>

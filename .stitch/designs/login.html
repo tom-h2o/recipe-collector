@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Recipe Vault - Heirloom Roasted Carrots</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-error-container": "#93000a",
+                    "tertiary": "#455d00",
+                    "surface-container-high": "#e9e8e4",
+                    "surface-bright": "#faf9f5",
+                    "on-surface": "#1b1c1a",
+                    "primary-fixed": "#bcefc0",
+                    "on-tertiary": "#ffffff",
+                    "outline": "#707a6c",
+                    "error-container": "#ffdad6",
+                    "on-tertiary-fixed-variant": "#394d00",
+                    "background": "#faf9f5",
+                    "on-tertiary-container": "#dafe85",
+                    "tertiary-fixed-dim": "#b0d360",
+                    "primary": "#315f3b",
+                    "surface-container-highest": "#e3e2df",
+                    "tertiary-container": "#5a7706",
+                    "secondary-fixed-dim": "#f4bb92",
+                    "on-primary-fixed": "#00210a",
+                    "on-secondary-container": "#794e2e",
+                    "on-secondary-fixed": "#301400",
+                    "on-error": "#ffffff",
+                    "outline-variant": "#bfcaba",
+                    "surface-variant": "#e3e2df",
+                    "secondary-container": "#fdc39a",
+                    "primary-container": "#497851",
+                    "secondary-fixed": "#ffdcc5",
+                    "on-primary": "#ffffff",
+                    "inverse-surface": "#2f312e",
+                    "on-tertiary-fixed": "#151f00",
+                    "surface": "#faf9f5",
+                    "surface-dim": "#dbdad6",
+                    "surface-container": "#efeeea",
+                    "surface-container-lowest": "#ffffff",
+                    "primary-fixed-dim": "#a0d3a5",
+                    "surface-tint": "#3a6843",
+                    "on-secondary-fixed-variant": "#653d1e",
+                    "on-primary-container": "#cafece",
+                    "surface-container-low": "#f4f4f0",
+                    "error": "#ba1a1a",
+                    "on-secondary": "#ffffff",
+                    "inverse-primary": "#a0d3a5",
+                    "secondary": "#805533",
+                    "inverse-on-surface": "#f2f1ed",
+                    "on-surface-variant": "#40493d",
+                    "tertiary-fixed": "#ccf078",
+                    "on-background": "#1b1c1a",
+                    "on-primary-fixed-variant": "#22502d"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Newsreader"],
+                    "body": ["Manrope"],
+                    "label": ["Manrope"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Manrope', sans-serif; }
+        h1, h2, h3, .serif-font { font-family: 'Newsreader', serif; }
+        .glass-panel {
+            background: rgba(227, 226, 223, 0.6);
+            backdrop-filter: blur(24px);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen overflow-x-hidden">
+<!-- TopNavBar (Shared Component) -->
+<nav class="fixed top-0 w-full z-50 bg-[#faf9f5]/60 dark:bg-stone-950/60 backdrop-blur-xl">
+<div class="flex justify-between items-center w-full px-8 py-4 max-w-screen-2xl mx-auto">
+<div class="text-2xl font-serif italic text-emerald-900 dark:text-emerald-50">Recipe Vault</div>
+<div class="hidden md:flex items-center space-x-8 font-serif text-stone-900 dark:text-stone-100">
+<a class="text-stone-600 dark:text-stone-400 hover:text-emerald-700 transition-colors" href="#">Discover</a>
+<a class="text-emerald-800 dark:text-emerald-400 font-bold border-b-2 border-emerald-800 dark:border-emerald-400 pb-1 transition-colors" href="#">My Kitchen</a>
+<a class="text-stone-600 dark:text-stone-400 hover:text-emerald-700 transition-colors" href="#">Collections</a>
+</div>
+<div class="flex items-center space-x-4">
+<span class="material-symbols-outlined text-emerald-800" data-icon="search">search</span>
+<span class="material-symbols-outlined text-emerald-800" data-icon="account_circle">account_circle</span>
+</div>
+</div>
+</nav>
+<!-- Main Content Background (Simulating the App underneath the drawer) -->
+<main class="pt-24 px-8 max-w-7xl mx-auto opacity-40">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<div class="h-64 bg-surface-container rounded-full"></div>
+<div class="h-64 bg-surface-container rounded-full"></div>
+<div class="h-64 bg-surface-container rounded-full"></div>
+<div class="h-96 col-span-2 bg-surface-container rounded-full"></div>
+<div class="h-96 bg-surface-container rounded-full"></div>
+</div>
+</main>
+<!-- Drawer Overlay -->
+<div class="fixed inset-0 bg-inverse-surface/20 backdrop-blur-sm z-[60] flex justify-end">
+<!-- Recipe Detail Drawer -->
+<aside class="w-full md:w-[640px] h-full bg-surface shadow-2xl overflow-y-auto flex flex-col animate-slide-in">
+<!-- Sticky Header Actions -->
+<div class="sticky top-0 z-[70] flex justify-between items-center px-6 py-4 glass-panel">
+<button class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-highest hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-on-surface" data-icon="close">close</span>
+</button>
+<div class="flex space-x-3">
+<button class="px-6 py-2 rounded-full bg-secondary-container text-on-secondary-container font-bold text-sm tracking-tight flex items-center space-x-2">
+<span class="material-symbols-outlined text-lg" data-icon="outdoor_grill">outdoor_grill</span>
+<span>Cook Mode</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full border border-outline-variant/30 text-on-surface">
+<span class="material-symbols-outlined" data-icon="favorite">favorite</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full border border-outline-variant/30 text-on-surface">
+<span class="material-symbols-outlined" data-icon="share">share</span>
+</button>
+</div>
+</div>
+<!-- Hero Image Section -->
+<div class="relative w-full h-[400px]">
+<img alt="Artisan roasted heirloom carrots with honey glaze" class="w-full h-full object-cover" data-alt="Close-up of vibrant roasted heirloom carrots with golden honey glaze and fresh herb garnish on a dark rustic ceramic plate with soft window lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBjGeMU18fjtVB2YoKungopWzAGbAKfJF4AqMiOJaC6f6vX9zktcaGzwPvd7Uvz2v18_siX2T2VrRZh325ZNxXoisewfSsZ4YR0xa9gdCxRL362Y68mO5aa8SyIDOgZPb3C-D2-45DrKth_vD78YPhaqFnyGr-Z9t3kJWqrlXEFw98ttqruAM1iAfv_cBYU8bnrPUbaKUs7Pk41hUdenvx9niHMbhRg9YsaSpzh2TY01cc7U0gqNEupD6_tvJkqGyywEEKabtsXhgo"/>
+<div class="absolute bottom-0 left-0 w-full p-8 bg-gradient-to-t from-surface to-transparent">
+<span class="inline-block px-3 py-1 bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold uppercase tracking-widest rounded-full mb-3">VEGETARIAN • 35 MINS</span>
+<h1 class="text-4xl md:text-5xl font-semibold text-on-surface leading-tight">Honey-Glazed Heirloom Carrots</h1>
+<p class="mt-2 italic text-on-surface-variant font-serif">A vibrant side dish using ancient garden varieties and raw forest honey.</p>
+</div>
+</div>
+<!-- Content Container -->
+<div class="px-8 pb-24">
+<!-- Quick Stats -->
+<div class="grid grid-cols-4 gap-4 py-8 border-b border-outline-variant/10">
+<div class="text-center">
+<span class="block text-xs uppercase tracking-widest font-bold text-outline mb-1">Prep</span>
+<span class="text-lg font-semibold">10m</span>
+</div>
+<div class="text-center">
+<span class="block text-xs uppercase tracking-widest font-bold text-outline mb-1">Cook</span>
+<span class="text-lg font-semibold">25m</span>
+</div>
+<div class="text-center">
+<span class="block text-xs uppercase tracking-widest font-bold text-outline mb-1">Cal</span>
+<span class="text-lg font-semibold text-tertiary">142</span>
+</div>
+<div class="text-center">
+<span class="block text-xs uppercase tracking-widest font-bold text-outline mb-1">Level</span>
+<span class="text-lg font-semibold">Easy</span>
+</div>
+</div>
+<!-- AI Scaling & Translation Features -->
+<div class="mt-8 flex flex-wrap gap-4 items-center justify-between">
+<!-- Servings Counter -->
+<div class="bg-surface-container-low rounded-full px-4 py-2 flex items-center space-x-6">
+<span class="text-sm font-bold tracking-tight text-on-surface">Servings</span>
+<div class="flex items-center space-x-4">
+<button class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface">
+<span class="material-symbols-outlined text-sm" data-icon="remove">remove</span>
+</button>
+<span class="font-bold text-lg">4</span>
+<button class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+</button>
+</div>
+<button class="text-[10px] font-bold uppercase text-primary tracking-widest flex items-center">
+<span class="material-symbols-outlined text-xs mr-1" data-icon="auto_awesome">auto_awesome</span>
+                            AI Scale
+                        </button>
+</div>
+<!-- Translation -->
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-outline" data-icon="language">language</span>
+<select class="bg-transparent border-none focus:ring-0 text-sm font-bold text-on-surface-variant p-0 cursor-pointer">
+<option>English</option>
+<option>Deutsch</option>
+<option>Français</option>
+<option>Español</option>
+<option>Polski</option>
+</select>
+</div>
+</div>
+<!-- Ingredients Section -->
+<section class="mt-12">
+<h2 class="text-2xl font-semibold mb-6">The Ingredients</h2>
+<div class="space-y-4">
+<div class="flex justify-between items-center p-4 bg-surface-container-lowest rounded-xl">
+<div class="flex items-center space-x-4">
+<div class="w-1.5 h-1.5 bg-primary rounded-full"></div>
+<span class="text-on-surface font-medium">Heirloom carrots (bunched)</span>
+</div>
+<span class="text-on-surface-variant text-sm font-bold">2 lbs</span>
+</div>
+<div class="flex justify-between items-center p-4 bg-surface-container-lowest rounded-xl">
+<div class="flex items-center space-x-4">
+<div class="w-1.5 h-1.5 bg-primary rounded-full"></div>
+<span class="text-on-surface font-medium">Extra virgin olive oil</span>
+</div>
+<span class="text-on-surface-variant text-sm font-bold">3 tbsp</span>
+</div>
+<div class="flex justify-between items-center p-4 bg-surface-container-lowest rounded-xl">
+<div class="flex items-center space-x-4">
+<div class="w-1.5 h-1.5 bg-primary rounded-full"></div>
+<span class="text-on-surface font-medium">Raw forest honey</span>
+</div>
+<span class="text-on-surface-variant text-sm font-bold">2 tbsp</span>
+</div>
+<div class="flex justify-between items-center p-4 bg-surface-container-lowest rounded-xl">
+<div class="flex items-center space-x-4">
+<div class="w-1.5 h-1.5 bg-primary rounded-full"></div>
+<span class="text-on-surface font-medium">Fresh thyme sprigs</span>
+</div>
+<span class="text-on-surface-variant text-sm font-bold">4-5</span>
+</div>
+</div>
+</section>
+<!-- Steps Section -->
+<section class="mt-12">
+<h2 class="text-2xl font-semibold mb-6">Instructions</h2>
+<div class="space-y-8">
+<div class="flex space-x-6">
+<div class="flex-shrink-0 w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-bold text-sm">1</div>
+<div class="space-y-2">
+<h3 class="text-lg font-semibold leading-none">Prepare the Garden Harvest</h3>
+<p class="text-on-surface-variant leading-relaxed">Preheat your oven to 400°F (200°C). Scrub the heirloom carrots thoroughly but leave the skin on to preserve the earthy nutrients and rustic texture. Trim the tops, leaving about an inch of green.</p>
+</div>
+</div>
+<div class="flex space-x-6">
+<div class="flex-shrink-0 w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-bold text-sm">2</div>
+<div class="space-y-2">
+<h3 class="text-lg font-semibold leading-none">The Glaze Emulsion</h3>
+<p class="text-on-surface-variant leading-relaxed">In a small copper bowl, whisk together the olive oil, forest honey, and salt. AI Tip: If your honey is too thick, warm it slightly over a candle-lit flame for a perfect pour.</p>
+</div>
+</div>
+<div class="flex space-x-6">
+<div class="flex-shrink-0 w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-bold text-sm">3</div>
+<div class="space-y-2">
+<h3 class="text-lg font-semibold leading-none">Roast &amp; Infuse</h3>
+<p class="text-on-surface-variant leading-relaxed">Toss the carrots with the glaze on a heavy baking sheet. Spread them in an asymmetric single layer and tuck the thyme sprigs between them. Roast for 20-25 minutes until the tips are slightly charred.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- AI Nutrition Panel -->
+<section class="mt-16 p-8 bg-surface-container-high rounded-3xl relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4">
+<span class="material-symbols-outlined text-tertiary-container/30 text-6xl" data-icon="auto_awesome">auto_awesome</span>
+</div>
+<div class="relative z-10">
+<div class="flex items-center space-x-2 mb-6">
+<span class="material-symbols-outlined text-tertiary" data-icon="analytics">analytics</span>
+<h2 class="text-xl font-semibold">AI Nutrition Analysis</h2>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+<div>
+<span class="block text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-1">Protein</span>
+<div class="flex items-end space-x-1">
+<span class="text-2xl font-bold">2.4</span>
+<span class="text-sm font-medium pb-1">g</span>
+</div>
+</div>
+<div>
+<span class="block text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-1">Net Carbs</span>
+<div class="flex items-end space-x-1">
+<span class="text-2xl font-bold">18.1</span>
+<span class="text-sm font-medium pb-1">g</span>
+</div>
+</div>
+<div>
+<span class="block text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-1">Fiber</span>
+<div class="flex items-end space-x-1">
+<span class="text-2xl font-bold">5.8</span>
+<span class="text-sm font-medium pb-1">g</span>
+</div>
+</div>
+<div>
+<span class="block text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-1">Healthy Fat</span>
+<div class="flex items-end space-x-1">
+<span class="text-2xl font-bold">7.2</span>
+<span class="text-sm font-medium pb-1">g</span>
+</div>
+</div>
+</div>
+<div class="mt-8 pt-6 border-t border-outline-variant/20">
+<p class="text-xs italic text-on-surface-variant/70">"This recipe is exceptionally high in Vitamin A (Beta-carotene) and Antioxidants. Best paired with a protein rich in healthy omega-3s for optimal absorption." — Epicurean AI Assistant</p>
+</div>
+</div>
+</section>
+</div>
+</aside>
+</div>
+<!-- BottomNavBar (Shared Component - Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-end px-6 pb-6 pt-2 bg-[#faf9f5]/80 dark:bg-stone-950/80 backdrop-blur-2xl z-50 rounded-t-[2rem] border-t border-emerald-900/5 shadow-[0_-12px_40px_rgba(47,49,46,0.06)]">
+<div class="flex flex-col items-center justify-center text-stone-500 dark:text-stone-400 p-2">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="text-[10px] uppercase tracking-widest font-sans font-bold">Home</span>
+</div>
+<div class="flex flex-col items-center justify-center text-stone-500 dark:text-stone-400 p-2">
+<span class="material-symbols-outlined" data-icon="auto_awesome">auto_awesome</span>
+<span class="text-[10px] uppercase tracking-widest font-sans font-bold">AI Assistant</span>
+</div>
+<div class="flex flex-col items-center justify-center text-stone-500 dark:text-stone-400 p-2">
+<span class="material-symbols-outlined" data-icon="outdoor_grill">outdoor_grill</span>
+<span class="text-[10px] uppercase tracking-widest font-sans font-bold">Cook Mode</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-emerald-800 text-white rounded-full p-3 mb-2 scale-110">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+<span class="text-[10px] uppercase tracking-widest font-sans font-bold">Vault</span>
+</div>
+</nav>
+</body></html>

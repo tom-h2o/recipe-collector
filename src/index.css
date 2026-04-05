@@ -1,87 +1,136 @@
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Manrope:wght@200..800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  .theme {
-    --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif
-  }
   :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
+    /* Speisekammer — "The Curated Atelier" design system */
+    /* Parchment surface */
+    --background: oklch(0.985 0.006 90);
+    --foreground: oklch(0.17 0.006 162);
+    /* Cards: white on parchment canvas */
     --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
+    --card-foreground: oklch(0.17 0.006 162);
     --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0)
+    --popover-foreground: oklch(0.17 0.006 162);
+    /* Herb-inspired emerald green primary */
+    --primary: oklch(0.39 0.094 145);
+    --primary-foreground: oklch(1 0 0);
+    /* Warm-wood secondary (secondary-container) */
+    --secondary: oklch(0.84 0.11 57);
+    --secondary-foreground: oklch(0.44 0.086 55);
+    /* Surface-container-low for muted areas */
+    --muted: oklch(0.965 0.004 90);
+    --muted-foreground: oklch(0.33 0.022 144);
+    /* Surface-container for accents */
+    --accent: oklch(0.94 0.004 90);
+    --accent-foreground: oklch(0.17 0.006 162);
+    --destructive: oklch(0.508 0.175 25);
+    /* Ghost border — outline-variant at very low opacity */
+    --border: oklch(0.81 0.027 147 / 30%);
+    /* Surface-container-highest for inputs */
+    --input: oklch(0.91 0.004 90);
+    --ring: oklch(0.39 0.094 145);
+    /* xl roundness per design system */
+    --radius: 0.75rem;
+    --sidebar: oklch(0.965 0.004 90);
+    --sidebar-foreground: oklch(0.17 0.006 162);
+    --sidebar-primary: oklch(0.39 0.094 145);
+    --sidebar-primary-foreground: oklch(1 0 0);
+    --sidebar-accent: oklch(0.94 0.004 90);
+    --sidebar-accent-foreground: oklch(0.17 0.006 162);
+    --sidebar-border: oklch(0.81 0.027 147 / 20%);
+    --sidebar-ring: oklch(0.39 0.094 145);
+    /* Speisekammer extended tokens */
+    --sk-primary: #315f3b;
+    --sk-primary-container: #497851;
+    --sk-primary-fixed: #bcefc0;
+    --sk-on-primary-fixed: #00210a;
+    --sk-secondary: #805533;
+    --sk-secondary-container: #fdc39a;
+    --sk-tertiary: #455d00;
+    --sk-surface: #faf9f5;
+    --sk-surface-low: #f4f4f0;
+    --sk-surface-container: #efeeea;
+    --sk-surface-high: #e9e8e4;
+    --sk-surface-highest: #e3e2df;
+    --sk-on-surface: #1b1c1a;
+    --sk-on-surface-variant: #40493d;
+    --sk-outline: #707a6c;
+    --sk-outline-variant: #bfcaba;
   }
+
   .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
+    /* Dark mode — inverse surface tones */
+    --background: oklch(0.215 0.012 162);
+    --foreground: oklch(0.945 0.004 90);
+    --card: oklch(0.26 0.012 162);
+    --card-foreground: oklch(0.945 0.004 90);
+    --popover: oklch(0.26 0.012 162);
+    --popover-foreground: oklch(0.945 0.004 90);
+    --primary: oklch(0.83 0.078 147);
+    --primary-foreground: oklch(0.17 0.062 147);
+    --secondary: oklch(0.36 0.072 55);
+    --secondary-foreground: oklch(0.84 0.11 57);
+    --muted: oklch(0.28 0.012 162);
+    --muted-foreground: oklch(0.65 0.02 144);
+    --accent: oklch(0.30 0.012 162);
+    --accent-foreground: oklch(0.945 0.004 90);
     --destructive: oklch(0.704 0.191 22.216);
     --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --input: oklch(1 0 0 / 12%);
+    --ring: oklch(0.83 0.078 147);
+    --sidebar: oklch(0.26 0.012 162);
+    --sidebar-foreground: oklch(0.945 0.004 90);
+    --sidebar-primary: oklch(0.83 0.078 147);
+    --sidebar-primary-foreground: oklch(0.17 0.062 147);
+    --sidebar-accent: oklch(0.30 0.012 162);
+    --sidebar-accent-foreground: oklch(0.945 0.004 90);
     --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0)
+    --sidebar-ring: oklch(0.83 0.078 147);
   }
+
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
+    font-family: 'Manrope', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
+
+  h1, h2, h3, h4 {
+    font-family: 'Newsreader', serif;
+  }
+
   html {
-    @apply font-sans;
+    font-family: 'Manrope', sans-serif;
+  }
+}
+
+/* Speisekammer typography utilities */
+@layer utilities {
+  .font-serif {
+    font-family: 'Newsreader', serif;
+  }
+  .font-sans {
+    font-family: 'Manrope', sans-serif;
+  }
+  /* Category label style: uppercase, spaced, primary color */
+  .label-category {
+    @apply text-xs font-semibold uppercase tracking-widest text-[#315f3b];
+  }
+  /* Ambient shadow for floating elements */
+  .shadow-ambient {
+    box-shadow: 0 12px 40px rgba(47, 49, 46, 0.06);
+  }
+  /* Ghost border for high-density data */
+  .border-ghost {
+    border: 1px solid rgba(191, 202, 186, 0.15);
   }
 }
 
@@ -104,12 +153,10 @@
     @apply bg-white text-black;
   }
 
-  /* Hide app navigation, buttons, and UI chrome */
   nav, .no-print, [class*="print:hidden"] {
     display: none !important;
   }
 
-  /* Clean recipe section styling */
   .print-recipe {
     @apply max-w-4xl mx-auto;
   }
@@ -131,7 +178,6 @@
     @apply text-xl font-bold mb-3 border-b-2 border-gray-400 pb-2;
   }
 
-  /* Ingredients list */
   .print-ingredients {
     @apply list-none pl-0;
   }
@@ -140,12 +186,10 @@
     @apply mb-2 list-disc list-inside;
   }
 
-  /* Instructions */
   .print-instructions {
     @apply leading-relaxed whitespace-pre-wrap;
   }
 
-  /* Nutrition table */
   .print-nutrition {
     @apply w-full border-collapse;
   }
@@ -159,12 +203,10 @@
     @apply bg-gray-100 font-bold;
   }
 
-  /* Metadata */
   .print-metadata {
     @apply text-sm text-gray-600 mb-6;
   }
 
-  /* Prevent page breaks in important sections */
   .print-section {
     page-break-inside: avoid;
   }
@@ -177,7 +219,6 @@
     page-break-inside: avoid;
   }
 
-  /* Link styles */
   a {
     @apply text-black underline;
   }

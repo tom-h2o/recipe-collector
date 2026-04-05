@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChefHat, Mail, Lock, Eye, EyeOff, KeyRound, Sun, Moon } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, KeyRound, Sun, Moon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,27 @@ interface Props {
 
 type AuthMode = 'password' | 'magic';
 type PasswordStep = 'signin' | 'forgot' | 'reset';
+
+/* Speisekammer skeleton key icon */
+function SpeisekammerLogo({ size = 48 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 36 36"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" stroke="#315f3b" strokeWidth="2.5" fill="none"/>
+      <circle cx="11" cy="11" r="3" fill="#315f3b"/>
+      <line x1="16.5" y1="14.5" x2="30" y2="28" stroke="#315f3b" strokeWidth="2.5" strokeLinecap="round"/>
+      <line x1="23" y1="21.5" x2="26" y2="24.5" stroke="#315f3b" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="26" y1="24.5" x2="29" y2="21.5" stroke="#315f3b" strokeWidth="2" strokeLinecap="round"/>
+      <path d="M7 4 Q11 1 15 5 Q11 8 7 4Z" fill="#bcefc0" opacity="0.8"/>
+    </svg>
+  );
+}
 
 export function AuthGate({ children }: Props) {
   const {
@@ -82,7 +103,6 @@ export function AuthGate({ children }: Props) {
           setUnconfirmedEmail(email);
           setIsSignUp(false);
         }
-        // if needsConfirmation is false, onAuthStateChange already signed the user in
       } else {
         const { error } = await signInWithPassword(email, password);
         if (error) {
@@ -161,8 +181,8 @@ export function AuthGate({ children }: Props) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center">
-        <ChefHat className="w-10 h-10 text-orange-500 animate-pulse" />
+      <div className="min-h-screen bg-sk-surface dark:bg-background flex items-center justify-center">
+        <SpeisekammerLogo size={48} />
       </div>
     );
   }
@@ -170,18 +190,24 @@ export function AuthGate({ children }: Props) {
   // Password recovery mode — user clicked the reset link in their email
   if (isPasswordRecovery) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-sk-surface dark:bg-background flex items-center justify-center p-6">
         <div className="w-full max-w-sm space-y-8">
           <div className="text-center space-y-3">
             <div className="flex items-center justify-center gap-3">
-              <KeyRound className="w-10 h-10 text-orange-500" />
-              <h1 className="text-3xl font-extrabold text-zinc-900 dark:text-zinc-50 tracking-tight">Set New Password</h1>
+              <KeyRound className="w-9 h-9 text-sk-primary dark:text-primary" />
+              <h1 className="font-serif text-3xl font-normal text-sk-on-surface dark:text-foreground">
+                Set New Password
+              </h1>
             </div>
-            <p className="text-zinc-500 dark:text-zinc-400">Choose a new password for your account.</p>
+            <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground">
+              Choose a new password for your account.
+            </p>
           </div>
           <form onSubmit={handleSetNewPassword} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="new-password" className="font-semibold text-zinc-700 dark:text-zinc-300">New password</Label>
+              <Label htmlFor="new-password" className="font-sans font-semibold text-sk-on-surface-variant dark:text-muted-foreground text-xs uppercase tracking-widest">
+                New password
+              </Label>
               <div className="relative">
                 <Input
                   id="new-password"
@@ -192,12 +218,12 @@ export function AuthGate({ children }: Props) {
                   required
                   minLength={8}
                   autoComplete="new-password"
-                  className="pr-10"
+                  className="pr-10 bg-sk-surface-highest dark:bg-input border-0 focus-visible:ring-sk-primary/30"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sk-outline hover:text-sk-primary"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -206,7 +232,7 @@ export function AuthGate({ children }: Props) {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full h-11 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl"
+              className="w-full h-11 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white font-semibold rounded-full border-0"
             >
               {isSubmitting ? 'Saving…' : 'Set new password'}
             </Button>
@@ -218,47 +244,65 @@ export function AuthGate({ children }: Props) {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-start justify-center p-6 pt-24">
+      <div className="min-h-screen bg-sk-surface dark:bg-background flex items-start justify-center p-6 pt-24">
         <button
           onClick={toggleDark}
-          className="fixed top-4 right-4 p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition-colors"
+          className="fixed top-4 right-4 p-2 rounded-full hover:bg-sk-surface-low dark:hover:bg-muted text-sk-outline dark:text-muted-foreground transition-colors"
           aria-label="Toggle dark mode"
         >
           {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </button>
         <div className="w-full max-w-sm">
-          <div className="text-center space-y-3 mb-8">
-            <div className="flex items-center justify-center gap-3">
-              <ChefHat className="w-12 h-12 text-orange-500" />
-              <h1 className="text-4xl font-extrabold text-zinc-900 dark:text-zinc-50 tracking-tight">Recipe Vault</h1>
+          {/* Speisekammer branding */}
+          <div className="text-center space-y-2 mb-10">
+            <div className="flex items-center justify-center gap-3 mb-1">
+              <SpeisekammerLogo size={44} />
+              <h1 className="font-serif text-3xl sm:text-4xl font-normal text-sk-primary dark:text-primary tracking-tight">
+                Speisekammer
+              </h1>
             </div>
-            <p className="text-zinc-500 dark:text-zinc-400">Sign in to access your recipes</p>
+            <p className="font-sans text-xs uppercase tracking-[0.15em] text-sk-on-surface-variant dark:text-muted-foreground">
+              Your Curated Recipe Vault
+            </p>
+            <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground mt-2">
+              Sign in to access your recipes
+            </p>
           </div>
 
           {/* Mode toggle */}
-          <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-xl p-1 gap-1 mb-8">
+          <div className="flex bg-sk-surface-low dark:bg-muted rounded-full p-1 gap-1 mb-8">
             <button
               onClick={() => { setMode('password'); setPasswordStep('signin'); setUnconfirmedEmail(null); }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-all ${mode === 'password' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-sm font-semibold transition-all ${
+                mode === 'password'
+                  ? 'bg-white dark:bg-card shadow-ambient text-sk-primary dark:text-primary'
+                  : 'text-sk-on-surface-variant hover:text-sk-primary dark:hover:text-primary'
+              }`}
             >
               <Lock className="w-3.5 h-3.5" /> Password
             </button>
             <button
               onClick={() => { setMode('magic'); setMagicSent(false); setUnconfirmedEmail(null); setMagicError(null); }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-all ${mode === 'magic' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-sm font-semibold transition-all ${
+                mode === 'magic'
+                  ? 'bg-white dark:bg-card shadow-ambient text-sk-primary dark:text-primary'
+                  : 'text-sk-on-surface-variant hover:text-sk-primary dark:hover:text-primary'
+              }`}
             >
               <Mail className="w-3.5 h-3.5" /> Magic Link
             </button>
           </div>
 
-          {/* Form area — fixed min-height so tabs/headline above never move */}
+          {/* Form area */}
           <div className="min-h-[320px]">
 
           {mode === 'password' && passwordStep === 'signin' && (
             <>
               <form onSubmit={handlePasswordSubmit} className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="email" className="font-semibold text-zinc-700 dark:text-zinc-300">Email address</Label>
+                  <Label htmlFor="email" className="font-sans font-semibold text-sk-on-surface-variant dark:text-muted-foreground text-xs uppercase tracking-widest">
+                    Email address
+                  </Label>
                   <Input
                     id="email"
                     type="email"
@@ -267,10 +311,13 @@ export function AuthGate({ children }: Props) {
                     placeholder="you@example.com"
                     required
                     autoComplete="email"
+                    className="bg-sk-surface-highest dark:bg-input border-0 focus-visible:ring-sk-primary/30 rounded-xl"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="password" className="font-semibold text-zinc-700 dark:text-zinc-300">Password</Label>
+                  <Label htmlFor="password" className="font-sans font-semibold text-sk-on-surface-variant dark:text-muted-foreground text-xs uppercase tracking-widest">
+                    Password
+                  </Label>
                   <div className="relative">
                     <Input
                       id="password"
@@ -281,27 +328,26 @@ export function AuthGate({ children }: Props) {
                       required
                       minLength={isSignUp ? 8 : undefined}
                       autoComplete={isSignUp ? 'new-password' : 'current-password'}
-                      className={`pr-10 ${loginError ? 'border-red-400 focus-visible:ring-red-400' : ''}`}
+                      className={`pr-10 bg-sk-surface-highest dark:bg-input border-0 focus-visible:ring-sk-primary/30 rounded-xl ${loginError ? 'ring-2 ring-destructive/40' : ''}`}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-sk-outline hover:text-sk-primary"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
 
-                {/* Inline error with reset suggestion */}
                 {loginError && (
-                  <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-xl text-sm space-y-1.5">
-                    <p className="text-red-700 dark:text-red-400">{loginError}</p>
+                  <div className="p-3 bg-destructive/8 border border-destructive/20 rounded-xl text-sm space-y-1.5">
+                    <p className="text-destructive dark:text-destructive">{loginError}</p>
                     {!isSignUp && (
                       <button
                         type="button"
                         onClick={() => { setPasswordStep('forgot'); setResetSent(false); setLoginError(null); }}
-                        className="font-semibold text-red-700 dark:text-red-400 underline"
+                        className="font-semibold text-destructive underline"
                       >
                         Reset password or set one for the first time →
                       </button>
@@ -312,7 +358,7 @@ export function AuthGate({ children }: Props) {
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full h-11 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl"
+                  className="w-full h-11 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white font-semibold rounded-full border-0"
                 >
                   {isSubmitting ? 'Please wait…' : isSignUp ? 'Create account' : 'Sign in'}
                 </Button>
@@ -320,7 +366,7 @@ export function AuthGate({ children }: Props) {
                   <button
                     type="button"
                     onClick={() => { setPasswordStep('forgot'); setResetSent(false); }}
-                    className="w-full text-sm text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+                    className="w-full text-sm text-sk-outline hover:text-sk-primary dark:hover:text-primary transition-colors font-sans"
                   >
                     Forgot password?
                   </button>
@@ -328,21 +374,22 @@ export function AuthGate({ children }: Props) {
                 <button
                   type="button"
                   onClick={() => { setIsSignUp((v) => !v); setUnconfirmedEmail(null); setLoginError(null); }}
-                  className="w-full text-sm text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
+                  className="w-full text-sm text-sk-on-surface-variant hover:text-sk-on-surface dark:hover:text-foreground transition-colors font-sans"
                 >
                   {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
                 </button>
               </form>
 
-              {/* Unconfirmed email banner */}
               {unconfirmedEmail && (
-                <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-2xl text-sm space-y-2">
-                  <p className="font-semibold text-amber-800 dark:text-amber-300">Email not confirmed</p>
-                  <p className="text-amber-700 dark:text-amber-400">Check your inbox (and spam folder) for a confirmation email sent to <strong>{unconfirmedEmail}</strong>.</p>
+                <div className="p-4 bg-sk-secondary-container/30 border border-sk-secondary-container rounded-2xl text-sm space-y-2 mt-4">
+                  <p className="font-semibold text-sk-secondary dark:text-secondary-foreground">Email not confirmed</p>
+                  <p className="text-sk-on-surface-variant dark:text-muted-foreground">
+                    Check your inbox (and spam folder) for a confirmation email sent to <strong>{unconfirmedEmail}</strong>.
+                  </p>
                   <button
                     onClick={handleResendConfirmation}
                     disabled={isSubmitting}
-                    className="text-amber-700 dark:text-amber-400 underline font-semibold disabled:opacity-50"
+                    className="text-sk-primary dark:text-primary underline font-semibold disabled:opacity-50"
                   >
                     {isSubmitting ? 'Sending…' : 'Resend confirmation email'}
                   </button>
@@ -354,11 +401,13 @@ export function AuthGate({ children }: Props) {
           {mode === 'password' && passwordStep === 'forgot' && (
             !resetSent ? (
               <form onSubmit={handleForgotPassword} className="space-y-4">
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                <p className="text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
                   Enter your email and we'll send a link to set a new password. This also works if you've never set a password (e.g. you always used magic link).
                 </p>
                 <div className="space-y-1.5">
-                  <Label htmlFor="reset-email" className="font-semibold text-zinc-700 dark:text-zinc-300">Email address</Label>
+                  <Label htmlFor="reset-email" className="font-sans font-semibold text-sk-on-surface-variant dark:text-muted-foreground text-xs uppercase tracking-widest">
+                    Email address
+                  </Label>
                   <Input
                     id="reset-email"
                     type="email"
@@ -367,33 +416,41 @@ export function AuthGate({ children }: Props) {
                     placeholder="you@example.com"
                     required
                     autoComplete="email"
+                    className="bg-sk-surface-highest dark:bg-input border-0 focus-visible:ring-sk-primary/30 rounded-xl"
                   />
                 </div>
                 {resetError && (
-                  <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-xl text-sm text-red-700 dark:text-red-400">
+                  <div className="p-3 bg-destructive/8 border border-destructive/20 rounded-xl text-sm text-destructive">
                     {resetError}
                   </div>
                 )}
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full h-11 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl"
+                  className="w-full h-11 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white font-semibold rounded-full border-0"
                 >
                   {isSubmitting ? 'Sending…' : 'Send reset link'}
                 </Button>
                 <button
                   type="button"
                   onClick={() => { setPasswordStep('signin'); setResetError(null); }}
-                  className="w-full text-sm text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+                  className="w-full text-sm text-sk-outline hover:text-sk-primary dark:hover:text-primary transition-colors font-sans"
                 >
                   ← Back to sign in
                 </button>
               </form>
             ) : (
-              <div className="text-center p-6 bg-green-50 dark:bg-green-900/20 rounded-2xl border border-green-200 dark:border-green-800/50">
-                <p className="font-bold text-green-700 dark:text-green-400">Check your inbox!</p>
-                <p className="text-sm text-green-600 dark:text-green-500 mt-1">We sent a password reset link to <strong>{email}</strong></p>
-                <button onClick={() => { setPasswordStep('signin'); setResetSent(false); }} className="mt-3 text-xs text-zinc-400 underline">Back to sign in</button>
+              <div className="text-center p-6 bg-sk-primary-fixed/30 rounded-2xl border border-sk-primary-fixed">
+                <p className="font-serif font-normal text-lg text-sk-primary dark:text-primary">Check your inbox!</p>
+                <p className="text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground mt-1">
+                  We sent a password reset link to <strong>{email}</strong>
+                </p>
+                <button
+                  onClick={() => { setPasswordStep('signin'); setResetSent(false); }}
+                  className="mt-3 text-xs text-sk-outline underline font-sans"
+                >
+                  Back to sign in
+                </button>
               </div>
             )
           )}
@@ -402,7 +459,9 @@ export function AuthGate({ children }: Props) {
             !magicSent ? (
               <form onSubmit={handleMagicSubmit} className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="magic-email" className="font-semibold text-zinc-700 dark:text-zinc-300">Email address</Label>
+                  <Label htmlFor="magic-email" className="font-sans font-semibold text-sk-on-surface-variant dark:text-muted-foreground text-xs uppercase tracking-widest">
+                    Email address
+                  </Label>
                   <Input
                     id="magic-email"
                     type="email"
@@ -410,27 +469,35 @@ export function AuthGate({ children }: Props) {
                     onChange={(e) => { setEmail(e.target.value); setMagicError(null); }}
                     placeholder="you@example.com"
                     required
+                    className="bg-sk-surface-highest dark:bg-input border-0 focus-visible:ring-sk-primary/30 rounded-xl"
                   />
                 </div>
                 {magicError && (
-                  <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-xl text-sm text-red-700 dark:text-red-400">
+                  <div className="p-3 bg-destructive/8 border border-destructive/20 rounded-xl text-sm text-destructive">
                     {magicError}
                   </div>
                 )}
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full h-11 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl"
+                  className="w-full h-11 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white font-semibold rounded-full border-0"
                 >
                   <Mail className="w-4 h-4 mr-2" />
                   {isSubmitting ? 'Sending…' : 'Send Magic Link'}
                 </Button>
               </form>
             ) : (
-              <div className="text-center p-6 bg-green-50 dark:bg-green-900/20 rounded-2xl border border-green-200 dark:border-green-800/50">
-                <p className="font-bold text-green-700 dark:text-green-400">Check your inbox!</p>
-                <p className="text-sm text-green-600 dark:text-green-500 mt-1">We sent a magic link to <strong>{email}</strong></p>
-                <button onClick={() => setMagicSent(false)} className="mt-3 text-xs text-zinc-400 underline">Use a different email</button>
+              <div className="text-center p-6 bg-sk-primary-fixed/30 rounded-2xl border border-sk-primary-fixed">
+                <p className="font-serif font-normal text-lg text-sk-primary dark:text-primary">Check your inbox!</p>
+                <p className="text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground mt-1">
+                  We sent a magic link to <strong>{email}</strong>
+                </p>
+                <button
+                  onClick={() => setMagicSent(false)}
+                  className="mt-3 text-xs text-sk-outline underline font-sans"
+                >
+                  Use a different email
+                </button>
               </div>
             )
           )}
@@ -448,12 +515,14 @@ export function AuthGate({ children }: Props) {
 
   if (!claimed && hasUnclaimed) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-6">
-        <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-xl p-10 space-y-6 text-center">
-          <ChefHat className="w-16 h-16 text-orange-500 mx-auto" />
+      <div className="min-h-screen bg-sk-surface dark:bg-background flex items-center justify-center p-6">
+        <div className="w-full max-w-md bg-white dark:bg-card rounded-3xl shadow-ambient p-10 space-y-6 text-center">
+          <SpeisekammerLogo size={56} />
           <div>
-            <h2 className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-50">Welcome back!</h2>
-            <p className="text-zinc-500 dark:text-zinc-400 mt-2">
+            <h2 className="font-serif text-2xl font-normal text-sk-on-surface dark:text-foreground">
+              Welcome back!
+            </h2>
+            <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground mt-2">
               We found existing recipes that aren't assigned to any account yet. Claim them as yours to continue.
             </p>
           </div>
@@ -461,13 +530,13 @@ export function AuthGate({ children }: Props) {
             <Button
               onClick={claimExistingRecipes}
               disabled={isClaiming}
-              className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl"
+              className="w-full h-12 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white font-semibold rounded-full border-0"
             >
               {isClaiming ? 'Claiming...' : 'Claim all existing recipes'}
             </Button>
             <button
               onClick={() => { setClaimed(true); setHasUnclaimed(false); }}
-              className="text-sm text-zinc-400 hover:text-zinc-600 transition-colors"
+              className="text-sm font-sans text-sk-outline hover:text-sk-on-surface-variant transition-colors"
             >
               Skip (existing recipes will remain visible but unassigned)
             </button>
