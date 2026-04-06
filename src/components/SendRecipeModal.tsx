@@ -117,7 +117,7 @@ export function SendRecipeModal({ recipe, contacts, isOpen, onClose, onSend }: P
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+              className="flex-1 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white border-0"
             >
               <Send className="w-4 h-4 mr-2" />
               {isSubmitting ? 'Sending…' : 'Send'}

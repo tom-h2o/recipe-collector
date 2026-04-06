@@ -270,7 +270,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
               {/* Orbiting sparkles */}
               <div className="relative w-28 h-28">
                 {/* Orbit ring */}
-                <div className="absolute inset-0 rounded-full border-2 border-dashed border-orange-300/50 dark:border-orange-500/30 animate-spin" style={{ animationDuration: '6s' }} />
+                <div className="absolute inset-0 rounded-full border-2 border-dashed border-sk-primary/30 dark:border-sk-primary/20 animate-spin" style={{ animationDuration: '6s' }} />
 
                 {/* Orbiting dots */}
                 {[0, 60, 120, 180, 240, 300].map((deg, i) => (
@@ -291,9 +291,9 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="relative">
                     <div
-                      className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg shadow-orange-500/40"
+                      className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg shadow-sk-primary/20"
                       style={{
-                        background: 'linear-gradient(135deg, #f97316, #ea580c)',
+                        background: 'linear-gradient(135deg, #315f3b, #497851)',
                         animation: 'pulse 2s ease-in-out infinite',
                       }}
                     >
@@ -322,7 +322,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
                 ].map((s, i) => (
                   <Sparkles
                     key={i}
-                    className={`${s.size} text-orange-400 absolute`}
+                    className={`${s.size} text-sk-primary/60 absolute`}
                     style={{
                       top: s.top,
                       left: (s as { left?: string }).left,
@@ -396,7 +396,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
                     placeholder="https://..."
                     className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700"
                   />
-                  <Button onClick={handleExtractUrl} disabled={isExtracting || !extractUrl} type="button" variant="default" className="whitespace-nowrap px-4 font-medium bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-md">
+                  <Button onClick={handleExtractUrl} disabled={isExtracting || !extractUrl} type="button" variant="default" className="whitespace-nowrap px-4 font-medium bg-sk-primary hover:bg-sk-primary-container shadow-ambient border-0">
                     {isExtracting ? 'Extracting...' : 'Auto-Fill'}
                   </Button>
                 </div>
@@ -409,7 +409,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="w-full h-28 border-2 border-dashed border-zinc-300 dark:border-zinc-600 rounded-xl flex flex-col items-center justify-center gap-2 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
+                      className="w-full h-28 border-2 border-dashed border-sk-outline-variant dark:border-border rounded-xl flex flex-col items-center justify-center gap-2 text-sk-outline hover:border-sk-primary hover:text-sk-primary transition-colors"
                     >
                       <Camera className="w-7 h-7" />
                       <span className="text-xs font-semibold">Tap to upload a photo or recipe card</span>
@@ -432,7 +432,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
                       onClick={handlePhotoExtract}
                       disabled={isExtractingPhoto}
                       variant="default"
-                      className="w-full font-medium bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-md"
+                      className="w-full font-medium bg-sk-primary hover:bg-sk-primary-container shadow-ambient border-0"
                     >
                       {isExtractingPhoto ? 'Analysing photo...' : 'Extract Recipe from Photo'}
                     </Button>
@@ -447,14 +447,14 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
                     <button
                       type="button"
                       onClick={() => pdfInputRef.current?.click()}
-                      className="w-full h-28 border-2 border-dashed border-zinc-300 dark:border-zinc-600 rounded-xl flex flex-col items-center justify-center gap-2 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
+                      className="w-full h-28 border-2 border-dashed border-sk-outline-variant dark:border-border rounded-xl flex flex-col items-center justify-center gap-2 text-sk-outline hover:border-sk-primary hover:text-sk-primary transition-colors"
                     >
                       <FileText className="w-7 h-7" />
                       <span className="text-xs font-semibold">Tap to upload a PDF recipe</span>
                     </button>
                   ) : (
                     <div className="flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                      <FileText className="w-5 h-5 text-orange-500 shrink-0" />
+                      <FileText className="w-5 h-5 text-sk-primary shrink-0" />
                       <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex-1 truncate">{pdfFile.name}</span>
                       <button
                         type="button"
@@ -471,7 +471,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
                       onClick={handlePdfExtract}
                       disabled={isExtractingPdf}
                       variant="default"
-                      className="w-full font-medium bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-md"
+                      className="w-full font-medium bg-sk-primary hover:bg-sk-primary-container shadow-ambient border-0"
                     >
                       {isExtractingPdf ? 'Reading PDF...' : 'Extract Recipe from PDF'}
                     </Button>
@@ -519,7 +519,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
                 <button
                   type="button"
                   onClick={() => imageInputRef.current?.click()}
-                  className="shrink-0 p-2 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-orange-500 hover:border-orange-400 transition-colors"
+                  className="shrink-0 p-2 rounded-lg border border-sk-outline-variant/40 dark:border-border text-sk-outline hover:text-sk-primary hover:border-sk-primary transition-colors"
                   title="Upload image"
                 >
                   <ImagePlus className="w-4 h-4" />
@@ -537,7 +537,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
               <button
                 type="button"
                 onClick={() => setIngredients((prev) => [...prev, { amount: '', name: '', details: '' }])}
-                className="flex items-center gap-1 text-xs font-semibold text-orange-500 hover:text-orange-600 transition-colors"
+                className="flex items-center gap-1 text-xs font-semibold text-sk-primary hover:text-sk-primary-container transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" /> Add
               </button>
@@ -592,7 +592,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
                 <button
                   type="button"
                   onClick={() => setIngredients([{ amount: '', name: '', details: '' }])}
-                  className="w-full py-5 border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-400 text-sm hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-5 border-2 border-dashed border-sk-outline-variant dark:border-border rounded-xl text-sk-outline text-sm hover:border-sk-primary hover:text-sk-primary transition-colors flex items-center justify-center gap-2"
                 >
                   <Plus className="w-4 h-4" /> Add first ingredient
                 </button>
@@ -644,7 +644,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
 
         {/* Sticky save footer */}
         <div className="shrink-0 border-t border-zinc-200 dark:border-zinc-800 px-6 py-4">
-          <Button type="submit" disabled={isSaving || isUploadingImage} className="w-full bg-orange-500 hover:bg-orange-600 rounded-lg text-white font-semibold text-base h-11">
+          <Button type="submit" disabled={isSaving || isUploadingImage} className="w-full bg-sk-primary hover:bg-sk-primary-container rounded-full text-white font-semibold text-base h-11 border-0">
             {savingLabel}
           </Button>
         </div>

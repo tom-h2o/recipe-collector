@@ -54,7 +54,7 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
       {/* Recipe sidebar — collapsible on mobile */}
       <div className="w-full lg:w-1/3 xl:w-1/4 space-y-4 hidden lg:block">
         <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-          <ChefHat className="w-5 h-5 text-orange-500" /> Draggable Recipes
+          <ChefHat className="w-5 h-5 text-sk-primary" /> Draggable Recipes
         </h2>
         {recipes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl">
@@ -69,12 +69,12 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
                 key={r.id}
                 draggable
                 onDragStart={(e) => { e.dataTransfer.setData('recipe_id', r.id); e.dataTransfer.effectAllowed = 'copy'; }}
-                className="p-3 bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 cursor-grab active:cursor-grabbing hover:border-orange-300 dark:hover:border-orange-700 transition-colors flex gap-3"
+                className="p-3 bg-white dark:bg-card rounded-xl shadow-ambient border-ghost cursor-grab active:cursor-grabbing hover:border-sk-primary/40 transition-colors flex gap-3"
               >
                 {r.image_url ? (
                   <img src={r.image_url} className="w-12 h-12 rounded-lg object-cover shrink-0 bg-zinc-100 dark:bg-zinc-800" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                 ) : (
-                  <div className="w-12 h-12 rounded-lg shrink-0 bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-lg font-black text-orange-300 dark:text-orange-700">
+                  <div className="w-12 h-12 rounded-lg shrink-0 bg-sk-primary-fixed dark:bg-primary/15 flex items-center justify-center text-lg font-serif font-bold text-sk-primary dark:text-primary">
                     {getTitle(r)[0]?.toUpperCase()}
                   </div>
                 )}
@@ -96,11 +96,11 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
           return (
             <div key={date} className="bg-white dark:bg-zinc-900/50 p-3 sm:p-5 rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-800">
               <div className="flex items-center justify-between mb-3">
-                <h3 className={`font-bold text-base sm:text-lg ${isToday ? 'text-orange-600 dark:text-orange-400' : 'text-zinc-800 dark:text-zinc-200'}`}>
+                <h3 className={`font-serif font-bold text-base sm:text-lg ${isToday ? 'text-sk-primary dark:text-primary' : 'text-sk-on-surface dark:text-foreground'}`}>
                   {label} {isToday && '(Today)'}
                 </h3>
                 {dayCalories > 0 && (
-                  <span className="text-xs font-bold px-2.5 py-1 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-full border border-orange-200 dark:border-orange-800/50">
+                  <span className="text-xs font-bold px-2.5 py-1 bg-sk-primary-fixed/40 dark:bg-primary/15 text-sk-primary dark:text-primary rounded-full">
                     ~{Math.round(dayCalories)} kcal
                   </span>
                 )}
@@ -138,8 +138,8 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
                       }}
                       className={`min-h-[70px] sm:min-h-[80px] border-2 border-dashed rounded-xl p-2 sm:p-2.5 transition-colors flex flex-col ${
                         isOver
-                          ? 'border-orange-400 dark:border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                          : 'border-zinc-200 dark:border-zinc-800'
+                          ? 'border-sk-primary dark:border-primary bg-sk-primary-fixed/20 dark:bg-primary/10'
+                          : 'border-sk-outline-variant/40 dark:border-border'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1.5 sm:mb-2">
@@ -147,7 +147,7 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
                         {/* Mobile tap-to-add button */}
                         <button
                           onClick={() => setAddingCell(isAdding ? null : { date, meal })}
-                          className="lg:hidden p-0.5 rounded text-zinc-300 dark:text-zinc-600 hover:text-orange-500 dark:hover:text-orange-400 transition-colors"
+                          className="lg:hidden p-0.5 rounded text-sk-outline-variant dark:text-muted-foreground/50 hover:text-sk-primary dark:hover:text-primary transition-colors"
                           title="Add recipe"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -160,7 +160,7 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
                             <button
                               key={r.id}
                               onClick={() => handleTapAdd(date, meal, r.id)}
-                              className="w-full text-left px-2 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors truncate border-b last:border-0 border-zinc-100 dark:border-zinc-800"
+                              className="w-full text-left px-2 py-1.5 text-xs font-medium text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/10 transition-colors truncate border-b last:border-0 border-sk-outline-variant/20 dark:border-border"
                             >
                               {getTitle(r)}
                             </button>
@@ -168,7 +168,7 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
                         </div>
                       )}
                       {mealPlans.filter((m) => m.date === date && m.meal_type === meal).map((m) => (
-                        <div key={m.id} className="bg-gradient-to-r from-orange-100 to-orange-50 dark:from-orange-900/40 dark:to-orange-900/20 text-orange-900 dark:text-orange-100 p-1.5 sm:p-2 rounded-lg mt-1 sm:mt-1.5 flex justify-between items-center group shadow-sm text-xs sm:text-sm border border-orange-200/50 dark:border-orange-800/50">
+                        <div key={m.id} className="bg-sk-primary-fixed/40 dark:bg-primary/15 text-sk-on-surface dark:text-foreground p-1.5 sm:p-2 rounded-lg mt-1 sm:mt-1.5 flex justify-between items-center group shadow-ambient text-xs sm:text-sm">
                           <span
                             className="truncate font-semibold cursor-pointer py-0.5"
                             onClick={() => m.recipe && onOpenRecipe(m.recipe)}

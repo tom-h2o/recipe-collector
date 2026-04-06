@@ -274,7 +274,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
           )}
           <div className="p-4 sm:p-6 md:p-10 space-y-6 sm:space-y-8">
             <DialogHeader className="text-left space-y-2">
-              <DialogTitle className="font-serif text-2xl sm:text-3xl md:text-[2.25rem] font-normal tracking-tight text-sk-on-surface dark:text-foreground leading-tight">
+              <DialogTitle className="font-serif text-2xl sm:text-3xl md:text-[2.25rem] font-bold tracking-tight text-sk-on-surface dark:text-foreground leading-tight">
                 {translation ? String(translation.title ?? recipe.title) : recipe.title}
               </DialogTitle>
               <div className="flex items-center gap-1 flex-wrap pt-1 print:hidden">

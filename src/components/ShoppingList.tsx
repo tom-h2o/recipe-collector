@@ -64,7 +64,7 @@ export function ShoppingList({
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <h2 className="text-2xl font-bold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-          <ShoppingCart className="w-6 h-6 text-orange-500" /> Smart Shopping List
+          <ShoppingCart className="w-6 h-6 text-sk-primary" /> Smart Shopping List
         </h2>
         <div className="flex gap-2">
           {shoppingList.length > 0 && tab === 'shopping' && (
@@ -96,7 +96,7 @@ export function ShoppingList({
           <ShoppingCart className="w-4 h-4" />
           To Buy
           {shoppingList.length > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 bg-orange-500 text-white text-[10px] font-bold rounded-full">{shoppingList.length}</span>
+            <span className="ml-1 px-1.5 py-0.5 bg-sk-primary text-white text-[10px] font-bold rounded-full">{shoppingList.length}</span>
           )}
         </button>
         <button
@@ -144,7 +144,7 @@ export function ShoppingList({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {Object.entries(shoppingGrouped).map(([cat, items]) => (
               <div key={cat} className="bg-white dark:bg-zinc-900/50 p-5 rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-800">
-                <h3 className="font-bold text-lg text-orange-600 dark:text-orange-400 mb-3 ml-2">{cat}</h3>
+                <h3 className="font-sans font-semibold text-sm uppercase tracking-widest text-sk-primary dark:text-primary mb-3 ml-2">{cat}</h3>
                 <div className="space-y-1">
                   {items.map((item) => {
                     const inPantry = isPantryItem(item);
@@ -154,7 +154,7 @@ export function ShoppingList({
                           type="checkbox"
                           checked={item.is_checked}
                           onChange={(e) => onToggleItem(item.id, e.target.checked)}
-                          className="w-5 h-5 mt-0.5 rounded border border-zinc-300 dark:border-zinc-600 text-orange-500 focus:ring-orange-500 cursor-pointer bg-white dark:bg-zinc-800"
+                          className="w-5 h-5 mt-0.5 rounded border border-sk-outline-variant dark:border-border text-sk-primary focus:ring-sk-primary/30 cursor-pointer bg-white dark:bg-card"
                         />
                         <span className={`flex-1 text-sm ${item.is_checked ? 'line-through text-zinc-400 dark:text-zinc-500' : 'text-zinc-800 dark:text-zinc-200'}`}>
                           {inPantry && <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5 mb-0.5" title="Already in pantry" />}
@@ -232,7 +232,7 @@ export function ShoppingList({
                         <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => onMoveItemToShopping(item)}
-                            className="text-orange-400 hover:text-orange-600 p-1"
+                            className="text-sk-outline hover:text-sk-primary p-1"
                             title="Move to shopping list"
                           >
                             <ArrowLeft className="w-3.5 h-3.5" />

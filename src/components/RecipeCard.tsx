@@ -68,7 +68,7 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, translation, tr
       <div className="flex flex-col flex-1 px-4 pt-4 pb-3 gap-3">
         {/* Title + description */}
         <div>
-          <h3 className="font-serif text-lg font-normal leading-snug line-clamp-1 text-sk-on-surface dark:text-foreground">
+          <h3 className="font-serif text-lg font-bold leading-snug line-clamp-1 text-sk-on-surface dark:text-foreground">
             {translation?.title ?? recipe.title}
           </h3>
           <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground mt-1 line-clamp-2 leading-relaxed">

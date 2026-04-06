@@ -74,11 +74,11 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
                     className="w-full flex items-start gap-2.5 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors text-left group"
                   >
                     {checkedIngredients.has(i)
-                      ? <CheckSquare className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
+                      ? <CheckSquare className="w-4 h-4 text-sk-primary shrink-0 mt-0.5" />
                       : <Square className="w-4 h-4 text-white/30 group-hover:text-white/50 shrink-0 mt-0.5" />
                     }
                     <span className={`text-sm leading-snug ${checkedIngredients.has(i) ? 'line-through text-white/30' : 'text-white/80'}`}>
-                      {ing.amount && <span className="font-semibold text-orange-300">{ing.amount} </span>}
+                      {ing.amount && <span className="font-semibold text-sk-primary-fixed">{ing.amount} </span>}
                       {ing.name}
                       {ing.details && <span className="text-white/40">, {ing.details}</span>}
                     </span>
@@ -94,13 +94,13 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
             {/* Header — never scrolls */}
             <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-white/10">
               <div className="flex items-center gap-3 min-w-0">
-                <ChefHat className="w-6 h-6 text-orange-400 shrink-0" />
+                <ChefHat className="w-6 h-6 text-sk-primary shrink-0" />
                 <span className="font-bold text-lg text-white truncate">{recipe.title}</span>
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <button
                   onClick={() => setShowIngredients((v) => !v)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${showIngredients ? 'bg-orange-500/20 text-orange-400' : 'hover:bg-white/10 text-white/50 hover:text-white/80'}`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${showIngredients ? 'bg-sk-primary/20 text-sk-primary-fixed' : 'hover:bg-white/10 text-white/50 hover:text-white/80'}`}
                 >
                   <List className="w-4 h-4" />
                   <span className="hidden sm:inline">Ingredients</span>
@@ -115,7 +115,7 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
             {/* Step text — scrollable, fills available space */}
             <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 md:px-16">
               <div className="flex flex-col items-center justify-center min-h-full py-6 sm:py-10 gap-6 sm:gap-8">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 shrink-0 rounded-full bg-orange-500 text-white flex items-center justify-center text-2xl sm:text-3xl font-black shadow-lg shadow-orange-500/30">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 shrink-0 rounded-full bg-sk-primary text-white flex items-center justify-center text-2xl sm:text-3xl font-black shadow-lg shadow-sk-primary/20">
                   {cookStep + 1}
                 </div>
                 <p className="max-w-2xl w-full text-center text-lg sm:text-2xl md:text-3xl font-semibold leading-relaxed text-white">
@@ -130,7 +130,7 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
                 <button
                   key={i}
                   onClick={() => setCookStep(i)}
-                  className={`rounded-full transition-all ${i === cookStep ? 'w-6 h-2.5 bg-orange-500' : 'w-2.5 h-2.5 bg-white/20 hover:bg-white/40'}`}
+                  className={`rounded-full transition-all ${i === cookStep ? 'w-6 h-2.5 bg-sk-primary-fixed' : 'w-2.5 h-2.5 bg-white/20 hover:bg-white/40'}`}
                 />
               ))}
             </div>
@@ -146,11 +146,11 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
                 ← Previous
               </Button>
               {isLast ? (
-                <Button onClick={handleClose} className="flex-1 h-12 sm:h-14 text-base sm:text-lg font-bold rounded-2xl bg-orange-500 hover:bg-orange-600">
+                <Button onClick={handleClose} className="flex-1 h-12 sm:h-14 text-base sm:text-lg font-bold rounded-2xl bg-sk-primary hover:bg-sk-primary-container">
                   ✓ Done!
                 </Button>
               ) : (
-                <Button onClick={() => setCookStep((s) => Math.min(steps.length - 1, s + 1))} className="flex-1 h-12 sm:h-14 text-base sm:text-lg font-bold rounded-2xl bg-orange-500 hover:bg-orange-600">
+                <Button onClick={() => setCookStep((s) => Math.min(steps.length - 1, s + 1))} className="flex-1 h-12 sm:h-14 text-base sm:text-lg font-bold rounded-2xl bg-sk-primary hover:bg-sk-primary-container">
                   Next →
                 </Button>
               )}
