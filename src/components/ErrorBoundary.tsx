@@ -23,7 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <p className="font-semibold text-zinc-700 dark:text-zinc-300">Something went wrong displaying this recipe.</p>
           <button
             onClick={() => this.setState({ error: null })}
-            className="text-sm text-orange-500 hover:underline"
+            className="text-sm text-sk-primary hover:underline"
           >
             Try again
           </button>

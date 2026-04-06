@@ -51,7 +51,7 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
       <DialogContent className="sm:max-w-[640px] h-[82vh] flex flex-col rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl overflow-hidden">
         <DialogHeader className="shrink-0">
           <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-            <Settings className="w-6 h-6 text-orange-500" /> Settings
+            <Settings className="w-6 h-6 text-sk-primary" /> Settings
           </DialogTitle>
           <DialogDescription>Configure the Gemini AI model, prompt, and API keys.</DialogDescription>
         </DialogHeader>
@@ -109,8 +109,8 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
                         onClick={() => setLocal((p) => ({ ...p, temperature_unit: unit }))}
                         className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-colors ${
                           local.temperature_unit === unit
-                            ? 'bg-orange-500 border-orange-500 text-white'
-                            : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-orange-300'
+                            ? 'bg-sk-primary border-sk-primary text-white'
+                            : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-sk-primary/40'
                         }`}
                       >
                         °{unit} — {unit === 'C' ? 'Celsius' : 'Fahrenheit'}
@@ -212,7 +212,7 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
                           else if (promptTab === 'suggest') setLocal((p) => ({ ...p, gemini_prompt_suggest: '' }));
                           else setLocal((p) => ({ ...p, gemini_prompt_shopping: '' }));
                         }}
-                        className="flex items-center gap-1 text-[10px] font-semibold text-zinc-400 hover:text-orange-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        className="flex items-center gap-1 text-[10px] font-semibold text-zinc-400 hover:text-sk-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                       >
                         <RotateCcw className="w-3 h-3" /> Reset
                       </button>
@@ -238,7 +238,7 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
                     <button
                       type="button"
                       onClick={() => setLocal((p) => ({ ...p, gemini_prompt: '', gemini_prompt_tag: '', gemini_prompt_nutrition: '', gemini_prompt_translate: '', gemini_prompt_suggest: '', gemini_prompt_shopping: '' }))}
-                      className="flex items-center gap-1 text-xs font-semibold text-zinc-400 hover:text-orange-500 transition-colors shrink-0 ml-4 disabled:opacity-30"
+                      className="flex items-center gap-1 text-xs font-semibold text-zinc-400 hover:text-sk-primary transition-colors shrink-0 ml-4 disabled:opacity-30"
                       disabled={Object.values(DEFAULTS).every((_, i) => {
                         const keys = ['gemini_prompt', 'gemini_prompt_tag', 'gemini_prompt_nutrition', 'gemini_prompt_translate', 'gemini_prompt_suggest', 'gemini_prompt_shopping'] as const;
                         return !local[keys[i]].trim();
@@ -261,7 +261,7 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
         {/* Button area — always visible at bottom */}
         {(tab === 'settings' || tab === 'prompts') && (
           <div className="shrink-0 bg-gradient-to-b from-transparent via-white via-50% to-white dark:via-zinc-900 dark:to-zinc-900 pt-4 pb-2 border-t border-zinc-100 dark:border-zinc-800 flex gap-3">
-            <Button onClick={handleSave} disabled={!hasChanges || isSaving} className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:from-zinc-300 disabled:to-zinc-300 disabled:cursor-not-allowed text-white font-semibold shadow-md py-3 text-base">
+            <Button onClick={handleSave} disabled={!hasChanges || isSaving} className="flex-1 bg-sk-primary hover:bg-sk-primary-container disabled:bg-zinc-300 disabled:cursor-not-allowed text-white font-semibold shadow-md py-3 text-base border-0 rounded-full">
               {isSaving ? 'Saving...' : 'Save Settings'}
             </Button>
           </div>

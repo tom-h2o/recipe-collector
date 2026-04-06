@@ -32,7 +32,7 @@ export function PublicRecipe({ recipe }: Props) {
         </div>
 
         {recipe.servings && (
-          <div className="inline-flex items-center gap-2 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 px-4 py-2 rounded-full font-bold">
+          <div className="inline-flex items-center gap-2 bg-sk-primary-fixed/40 text-sk-primary px-4 py-2 rounded-full font-bold">
             <Users className="w-4 h-4" /> Serves {recipe.servings}
           </div>
         )}
@@ -40,13 +40,13 @@ export function PublicRecipe({ recipe }: Props) {
         <div className="grid md:grid-cols-2 gap-12">
           <div>
             <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 border-b pb-2">
-              <ChefHat className="text-orange-500 w-6 h-6" /> Ingredients
+              <ChefHat className="text-sk-primary w-6 h-6" /> Ingredients
             </h2>
             <ul className="space-y-3">
               {parsed.map((i, idx) => (
                 <li key={idx} className="flex items-start gap-2 border-b border-zinc-100 dark:border-zinc-800 pb-2">
-                  <div className="w-2 h-2 mt-2 rounded-full bg-orange-400 shrink-0" />
-                  {i.amount && <span className="font-bold text-orange-600 dark:text-orange-400">{i.amount}</span>}
+                  <div className="w-2 h-2 mt-2 rounded-full bg-sk-primary shrink-0" />
+                  {i.amount && <span className="font-bold text-sk-primary">{i.amount}</span>}
                   <span className="text-zinc-800 dark:text-zinc-200">
                     {i.name}
                     {i.details ? <span className="text-zinc-500 dark:text-zinc-400">, {i.details}</span> : ''}
