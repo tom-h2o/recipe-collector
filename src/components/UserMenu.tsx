@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { LogOut, User, KeyRound, Eye, EyeOff, X } from 'lucide-react';
+import { LogOut, User, KeyRound, Eye, EyeOff, X, Download, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,9 +18,12 @@ export function UserMenu({ user, onSignOut }: Props) {
   const { updatePassword } = useAuth();
   const [open, setOpen] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -40,6 +45,12 @@ export function UserMenu({ user, onSignOut }: Props) {
     setShowChangePassword(true);
   }
 
+  function openDeleteConfirm() {
+    setOpen(false);
+    setDeleteConfirmText('');
+    setShowDeleteConfirm(true);
+  }
+
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
     setIsSubmitting(true);
@@ -53,6 +64,49 @@ export function UserMenu({ user, onSignOut }: Props) {
       setError(err instanceof Error ? err.message : 'Something went wrong.');
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleExportRecipes() {
+    setOpen(false);
+    const id = toast.loading('Exporting recipes…');
+    try {
+      const { data, error } = await supabase
+        .from('recipes')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `speisekammer-recipes-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${data?.length ?? 0} recipes`, { id });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Export failed', { id });
+    }
+  }
+
+  async function handleDeleteAccount() {
+    setIsDeleting(true);
+    try {
+      const res = await apiFetch('/api/account', { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to delete account');
+      }
+      toast.success('Account deleted.');
+      onSignOut();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete account');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
     }
   }
 
@@ -115,11 +169,28 @@ export function UserMenu({ user, onSignOut }: Props) {
                 Change password
               </button>
               <button
+                onClick={handleExportRecipes}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"
+              >
+                <Download className="w-4 h-4 text-zinc-400" />
+                Export recipes (JSON)
+              </button>
+
+              <div className="my-1 border-t border-zinc-100 dark:border-zinc-800" />
+
+              <button
                 onClick={() => { setOpen(false); onSignOut(); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"
+              >
+                <LogOut className="w-4 h-4 text-zinc-400" />
+                Sign out
+              </button>
+              <button
+                onClick={openDeleteConfirm}
                 className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
               >
-                <LogOut className="w-4 h-4" />
-                Sign out
+                <Trash2 className="w-4 h-4" />
+                Delete account
               </button>
             </div>
           </div>
@@ -168,23 +239,56 @@ export function UserMenu({ user, onSignOut }: Props) {
                 <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
               )}
               <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowChangePassword(false)}
-                  className="flex-1"
-                >
+                <Button type="button" variant="outline" onClick={() => setShowChangePassword(false)} className="flex-1">
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 bg-sk-primary hover:bg-sk-primary-container text-white border-0"
-                >
+                <Button type="submit" disabled={isSubmitting} className="flex-1 bg-sk-primary hover:bg-sk-primary-container text-white border-0">
                   {isSubmitting ? 'Saving…' : 'Save password'}
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete account confirmation modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-xl p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-red-600 dark:text-red-400">Delete account</h2>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-400"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              This will permanently delete your account and all your recipes, meal plans, and settings. This cannot be undone.
+            </p>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              Type <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">delete</span> to confirm.
+            </p>
+            <Input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="delete"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowDeleteConfirm(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={deleteConfirmText !== 'delete' || isDeleting}
+                onClick={handleDeleteAccount}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white border-0"
+              >
+                {isDeleting ? 'Deleting…' : 'Delete account'}
+              </Button>
+            </div>
           </div>
         </div>
       )}
