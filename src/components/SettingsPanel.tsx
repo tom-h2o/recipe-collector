@@ -126,10 +126,13 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
                     <SelectTrigger className="w-full"><SelectValue placeholder="Select model" /></SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
+                        <SelectLabel className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Gemini 3 — Stable</SelectLabel>
+                        <SelectItem value="gemini-3.5-flash">gemini-3.5-flash</SelectItem>
+                        <SelectItem value="gemini-3.1-flash-lite">gemini-3.1-flash-lite</SelectItem>
+                      </SelectGroup>
+                      <SelectGroup>
                         <SelectLabel className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Gemini 3 — Preview</SelectLabel>
                         <SelectItem value="gemini-3.1-pro-preview">gemini-3.1-pro-preview</SelectItem>
-                        <SelectItem value="gemini-3-flash-preview">gemini-3-flash-preview</SelectItem>
-                        <SelectItem value="gemini-3.1-flash-lite-preview">gemini-3.1-flash-lite-preview</SelectItem>
                       </SelectGroup>
                       <SelectGroup>
                         <SelectLabel className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Gemini 2.5 — Stable</SelectLabel>
