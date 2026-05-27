@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { GeminiLogs } from '@/components/GeminiLogs';
+import { MODEL_GROUPS } from '@/lib/constants';
 import type { AppSettings } from '@/types';
 
 type Tab = 'settings' | 'prompts' | 'logs';
@@ -125,21 +126,14 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
                   <Select value={local.gemini_model} onValueChange={(v) => { if (v) setLocal((p) => ({ ...p, gemini_model: v })); }}>
                     <SelectTrigger className="w-full"><SelectValue placeholder="Select model" /></SelectTrigger>
                     <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Gemini 3 — Stable</SelectLabel>
-                        <SelectItem value="gemini-3.5-flash">gemini-3.5-flash</SelectItem>
-                        <SelectItem value="gemini-3.1-flash-lite">gemini-3.1-flash-lite</SelectItem>
-                      </SelectGroup>
-                      <SelectGroup>
-                        <SelectLabel className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Gemini 3 — Preview</SelectLabel>
-                        <SelectItem value="gemini-3.1-pro-preview">gemini-3.1-pro-preview</SelectItem>
-                      </SelectGroup>
-                      <SelectGroup>
-                        <SelectLabel className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Gemini 2.5 — Stable</SelectLabel>
-                        <SelectItem value="gemini-2.5-pro">gemini-2.5-pro</SelectItem>
-                        <SelectItem value="gemini-2.5-flash">gemini-2.5-flash</SelectItem>
-                        <SelectItem value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</SelectItem>
-                      </SelectGroup>
+                      {MODEL_GROUPS.map((group) => (
+                        <SelectGroup key={group.label}>
+                          <SelectLabel className="text-xs text-zinc-400 font-bold uppercase tracking-wider">{group.label}</SelectLabel>
+                          {group.models.map((m) => (
+                            <SelectItem key={m} value={m}>{m}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">Lite is fastest and cheapest; Flash balances speed and quality; Pro is most accurate. Preview models are newer but may change.</p>
