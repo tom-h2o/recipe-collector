@@ -11,8 +11,9 @@ npm run lint         # ESLint
 npm run test         # Vitest run (single pass)
 npm run test:watch   # Vitest watch mode
 npm run test:ui      # Vitest with browser UI
-npm run db:migrate   # supabase db push (applies /supabase/migrations/ to the remote DB)
 ```
+
+npm run db:migrate   # npx supabase db push — applies any new /supabase/migrations/ files to the remote DB
 
 To run a single test file: `npx vitest run src/lib/recipeUtils.test.ts`
 
