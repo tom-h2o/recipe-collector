@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 import { createHash } from 'crypto';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey } from './_lib/supabase.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { extractSchema } from './_lib/schemas.js';
@@ -20,6 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { url } = extractSchema.parse(req.body);
 
     const supabase = getServerSupabase();
+    const userId = await getUserId(req);
     const settings = await getSettings(supabase);
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY is not configured.' });
@@ -66,7 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const finalPrompt = `${promptTemplate}\n\nWebpage Text to Extract From:\n${combinedContent}`;
 
     const client = getGeminiClient(apiKey);
-    const recipeData = await generateJson(client, settings.gemini_model, finalPrompt, { supabase, endpoint: 'extract' });
+    const recipeData = await generateJson(client, settings.gemini_model, finalPrompt, { supabase, endpoint: 'extract', userId });
 
     // Store in cache (fire-and-forget)
     supabase.from('url_cache').upsert({ url_hash: urlHash, extracted_data: recipeData }).then(() => {}, () => {});

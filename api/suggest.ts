@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey } from './_lib/supabase.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { suggestSchema } from './_lib/schemas.js';
@@ -26,6 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { ingredients: userIngredients } = suggestSchema.parse(req.body);
 
     const supabase = getServerSupabase();
+    const userId = await getUserId(req);
     const settings = await getSettings(supabase);
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
@@ -70,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       validIds = cachedIds;
     } else {
       const client = getGeminiClient(apiKey);
-      const suggestedIds = await generateJson<string[]>(client, settings.gemini_model, prompt, { supabase, endpoint: 'suggest' });
+      const suggestedIds = await generateJson<string[]>(client, settings.gemini_model, prompt, { supabase, endpoint: 'suggest', userId });
       validIds = Array.isArray(suggestedIds) ? suggestedIds : [];
       setCached(supabase, cacheKey, 'suggest', validIds, 1);
     }

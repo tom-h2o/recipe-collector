@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey } from './_lib/supabase.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { scaleSchema } from './_lib/schemas.js';
@@ -18,6 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { recipeId, ingredients, currentServings, targetServings } = scaleSchema.parse(req.body);
 
     const supabase = getServerSupabase();
+    const userId = await getUserId(req);
 
     // Cache key: recipe + exact target serving count (deterministic, 30-day TTL)
     const cacheKey = recipeId ? `scale:${recipeId}:${currentServings}:${targetServings}` : null;
@@ -61,7 +62,7 @@ Rules:
       client,
       settings.gemini_model,
       prompt,
-      { supabase, endpoint: 'scale' },
+      { supabase, endpoint: 'scale', userId },
     );
 
     if (cacheKey) setCached(supabase, cacheKey, 'scale', scaled, 24 * 30);

@@ -381,15 +381,15 @@ export function AuthGate({ children }: Props) {
               </form>
 
               {unconfirmedEmail && (
-                <div className="p-4 bg-sk-secondary-container/30 border border-sk-secondary-container rounded-2xl text-sm space-y-2 mt-4">
-                  <p className="font-semibold text-sk-secondary dark:text-secondary-foreground">Email not confirmed</p>
+                <div className="p-4 bg-sk-primary-fixed/30 border border-sk-primary-fixed rounded-2xl text-sm space-y-2 mt-4">
+                  <p className="font-semibold text-sk-primary dark:text-primary">Check your inbox</p>
                   <p className="text-sk-on-surface-variant dark:text-muted-foreground">
-                    Check your inbox (and spam folder) for a confirmation email sent to <strong>{unconfirmedEmail}</strong>.
+                    We sent a confirmation link to <strong>{unconfirmedEmail}</strong>. Click it to activate your account, then sign in here.
                   </p>
                   <button
                     onClick={handleResendConfirmation}
                     disabled={isSubmitting}
-                    className="text-sk-primary dark:text-primary underline font-semibold disabled:opacity-50"
+                    className="text-sk-primary dark:text-primary underline font-semibold disabled:opacity-50 text-xs"
                   >
                     {isSubmitting ? 'Sending…' : 'Resend confirmation email'}
                   </button>

@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type { VercelRequest } from '@vercel/node';
 
 export interface Settings {
   gemini_model: string;
@@ -53,6 +54,14 @@ export async function getSettings(supabase: SupabaseClient): Promise<Settings> {
   } catch {
     return defaults;
   }
+}
+
+export async function getUserId(req: VercelRequest): Promise<string | null> {
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith('Bearer ')) return null;
+  const token = auth.slice(7);
+  const { data: { user } } = await getServerSupabase().auth.getUser(token);
+  return user?.id ?? null;
 }
 
 export function resolveApiKey(settings: Settings): string {

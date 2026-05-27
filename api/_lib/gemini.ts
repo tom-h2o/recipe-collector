@@ -6,6 +6,7 @@ export interface GeminiLogContext {
   supabase: SupabaseClient;
   endpoint: string;
   recipeId?: string | null;
+  userId?: string | null;
 }
 
 export function getGeminiClient(apiKey: string): GoogleGenAI {
@@ -53,6 +54,7 @@ export async function generateJson<T = unknown>(
           output_preview: outputPreview ? outputPreview.substring(0, 300) : null,
           error_message: errorMessage ?? null,
           recipe_id: logCtx.recipeId ?? null,
+          user_id: logCtx.userId ?? null,
         })
         .then(() => {}, () => {});
     }

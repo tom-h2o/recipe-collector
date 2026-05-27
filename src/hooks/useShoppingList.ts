@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { parseIngredients } from '@/lib/recipeUtils';
 import type { ShoppingItem, PantryItem, MealPlan } from '@/types';
 
@@ -51,7 +52,7 @@ export function useShoppingList(userId?: string | null) {
         parseIngredients(m.recipe?.ingredients ?? []).map((i) => `${i.amount} ${i.name}`.trim()),
       );
 
-      const res = await fetch('/api/shopping', {
+      const res = await apiFetch('/api/shopping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ingredients: rawIngredients }),

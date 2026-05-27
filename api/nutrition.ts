@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey } from './_lib/supabase.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { nutritionSchema } from './_lib/schemas.js';
@@ -35,6 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { recipeId, title, ingredients, servings } = nutritionSchema.parse(req.body);
 
     const supabase = getServerSupabase();
+    const userId = await getUserId(req);
     const settings = await getSettings(supabase);
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
@@ -63,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const client = getGeminiClient(apiKey);
-    const nutrition = await generateJson(client, settings.gemini_model, prompt, { supabase, endpoint: 'nutrition', recipeId });
+    const nutrition = await generateJson(client, settings.gemini_model, prompt, { supabase, endpoint: 'nutrition', recipeId, userId });
 
     await supabase.from('recipes').update({ nutrition }).eq('id', recipeId);
     setCached(supabase, cacheKey, 'nutrition', nutrition, 24 * 30); // 30 days

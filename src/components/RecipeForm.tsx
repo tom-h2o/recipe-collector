@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { parseIngredients } from '@/lib/recipeUtils';
 import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { LANGUAGES } from '@/lib/constants';
 import type { Recipe, Ingredient } from '@/types';
 
@@ -99,7 +100,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
     const id = toast.loading('Analysing photo with Gemini AI...');
     try {
       const base64 = await fileToBase64(photoFile);
-      const res = await fetch('/api/extract-photo', {
+      const res = await apiFetch('/api/extract-photo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageBase64: base64, mimeType: photoFile.type }),
@@ -133,7 +134,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
     const id = toast.loading('Reading PDF with Gemini AI...');
     try {
       const base64 = await fileToBase64(pdfFile);
-      const res = await fetch('/api/extract-pdf', {
+      const res = await apiFetch('/api/extract-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pdfBase64: base64 }),
@@ -181,7 +182,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
     setIsExtracting(true);
     const id = toast.loading('Extracting recipe with Gemini AI...');
     try {
-      const res = await fetch('/api/extract', {
+      const res = await apiFetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: extractUrl }),

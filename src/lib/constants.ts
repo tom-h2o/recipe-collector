@@ -1,8 +1,9 @@
 export const MODELS = [
-  // Gemini 3.x — preview
+  // Gemini 3.5 — stable
+  'gemini-3.5-flash',
+  // Gemini 3.1 — stable / preview
   'gemini-3.1-pro-preview',
-  'gemini-3-flash-preview',
-  'gemini-3.1-flash-lite-preview',
+  'gemini-3.1-flash-lite',
   // Gemini 2.5 — stable
   'gemini-2.5-pro',
   'gemini-2.5-flash',

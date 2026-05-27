@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,7 +26,7 @@ export function SuggestModal({ isOpen, onClose, onSelectRecipe }: Props) {
     const id = toast.loading('Finding matches with Gemini AI...');
     try {
       const ingredientsList = ingredientInput.split(',').map((s) => s.trim()).filter(Boolean);
-      const res = await fetch('/api/suggest', {
+      const res = await apiFetch('/api/suggest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ingredients: ingredientsList }),

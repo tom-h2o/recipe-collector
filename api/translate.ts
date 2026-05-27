@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey } from './_lib/supabase.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { translateSchema } from './_lib/schemas.js';
@@ -55,6 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       translateSchema.parse(req.body);
 
     const supabase = getServerSupabase();
+    const userId = await getUserId(req);
 
     // Check DB cache first — translations are permanent once generated
     const { data: existing } = await supabase
@@ -88,7 +89,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       client,
       settings.gemini_model,
       prompt,
-      { supabase, endpoint: 'translate', recipeId },
+      { supabase, endpoint: 'translate', recipeId, userId },
     );
 
     // Coerce Gemini response to expected types — Gemini may return instructions

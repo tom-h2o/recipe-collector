@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey } from './_lib/supabase.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { extractPhotoSchema } from './_lib/schemas.js';
@@ -49,6 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { imageBase64, mimeType } = extractPhotoSchema.parse(req.body);
 
     const supabase = getServerSupabase();
+    const userId = await getUserId(req);
     const settings = await getSettings(supabase);
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY is not configured.' });
@@ -85,6 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         latency_ms: Date.now() - startTime,
         input_preview: `[image ${mimeType}]`,
         output_preview: text.substring(0, 300),
+        user_id: userId ?? null,
       }).then(() => {}, () => {});
 
       return res.status(200).json(recipeData);
@@ -98,6 +100,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         latency_ms: Date.now() - startTime,
         input_preview: `[image ${mimeType}]`,
         error_message: errorMessage,
+        user_id: userId ?? null,
       }).then(() => {}, () => {});
       throw err;
     }

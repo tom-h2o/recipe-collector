@@ -3,6 +3,7 @@ import { Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
+import { apiFetch } from '@/lib/api';
 import { convertTemperaturesInText } from '@/lib/temperatureUtils';
 import { MEAL_TYPES, LANGUAGES, AVAILABLE_TAGS } from '@/lib/constants';
 import type { Recipe, RecipeTranslation, Collection } from '@/types';
@@ -66,7 +67,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
 
     let cancelled = false;
     setIsTranslating(true);
-    fetch('/api/translate', {
+    apiFetch('/api/translate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -120,7 +121,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
     if (!recipe) return;
     setIsAiScaling(true);
     try {
-      const res = await fetch('/api/scale', {
+      const res = await apiFetch('/api/scale', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -179,7 +180,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
     if (!recipe) return;
     setIsRegeneratingTags(true);
     try {
-      const res = await fetch('/api/tag', {
+      const res = await apiFetch('/api/tag', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -205,7 +206,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
     if (!recipe) return;
     setIsRegeneratingNutrition(true);
     try {
-      const res = await fetch('/api/nutrition', {
+      const res = await apiFetch('/api/nutrition', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

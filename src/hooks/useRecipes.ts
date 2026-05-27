@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { PAGE_SIZE } from '@/lib/constants';
 import type { Recipe } from '@/types';
 
@@ -113,7 +114,7 @@ export function useRecipes(userId?: string | null) {
           // Auto-find a cover image when none was provided
           if (!payload.image_url) {
             const savedId = newRow.id;
-            fetch('/api/find-image', {
+            apiFetch('/api/find-image', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ title: payload.title, description: payload.description }),
@@ -128,7 +129,7 @@ export function useRecipes(userId?: string | null) {
               .catch(console.warn);
           }
 
-          fetch('/api/tag', {
+          apiFetch('/api/tag', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -139,7 +140,7 @@ export function useRecipes(userId?: string | null) {
               instructions: payload.instructions,
             }),
           }).catch(console.warn);
-          fetch('/api/nutrition', {
+          apiFetch('/api/nutrition', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
