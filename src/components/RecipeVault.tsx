@@ -60,7 +60,7 @@ export function RecipeVault({
       result = result.filter((r) => ids.has(r.id));
     }
 
-    if (activeFilter === '⭐ Favourites') {
+    if (activeFilter === FILTERS[0]) {
       result = result.filter((r) => r.is_favourite);
     } else if (activeFilter) {
       result = result.filter((r) => r.tags?.includes(activeFilter));

@@ -1,12 +1,12 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import { DEFAULT_PROMPT } from '@/lib/constants';
+import { DEFAULT_MODEL, DEFAULT_PROMPT } from '@/lib/constants';
 import type { AppSettings } from '@/types';
 
 export function useSettings(userId?: string | null) {
   const [settings, setSettings] = useState<AppSettings>({
-    gemini_model: 'gemini-2.5-flash',
+    gemini_model: DEFAULT_MODEL,
     gemini_prompt: DEFAULT_PROMPT,
     gemini_prompt_tag: '',
     gemini_prompt_nutrition: '',
@@ -29,7 +29,7 @@ export function useSettings(userId?: string | null) {
 
     if (data) {
       setSettings({
-        gemini_model: data.gemini_model || 'gemini-2.5-flash',
+        gemini_model: data.gemini_model || DEFAULT_MODEL,
         gemini_prompt: data.gemini_prompt || DEFAULT_PROMPT,
         gemini_prompt_tag: data.gemini_prompt_tag || '',
         gemini_prompt_nutrition: data.gemini_prompt_nutrition || '',

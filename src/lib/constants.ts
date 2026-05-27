@@ -1,3 +1,5 @@
+export const DEFAULT_MODEL = 'gemini-2.5-flash';
+
 export const MODEL_GROUPS = [
   { label: 'Gemini 3 — Stable',  models: ['gemini-3.5-flash', 'gemini-3.1-flash-lite'] },
   { label: 'Gemini 3 — Preview', models: ['gemini-3.1-pro-preview'] },
@@ -26,6 +28,7 @@ export const AVAILABLE_TAGS = [
 ] as const;
 
 export const MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snack'] as const;
+export const DEFAULT_MEAL_TYPE: typeof MEAL_TYPES[number] = 'Dinner';
 
 export const PAGE_SIZE = 24;
 

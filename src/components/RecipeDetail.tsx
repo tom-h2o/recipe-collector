@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
 import { apiFetch } from '@/lib/api';
 import { convertTemperaturesInText } from '@/lib/temperatureUtils';
-import { MEAL_TYPES, LANGUAGES, AVAILABLE_TAGS } from '@/lib/constants';
+import { MEAL_TYPES, DEFAULT_MEAL_TYPE, LANGUAGES, AVAILABLE_TAGS } from '@/lib/constants';
 import type { Recipe, RecipeTranslation, Collection } from '@/types';
 import { CookMode } from '@/components/CookMode';
 
@@ -44,7 +44,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
   const [translation, setTranslation] = useState<RecipeTranslation | null>(cachedTranslation);
   const [isTranslating, setIsTranslating] = useState(false);
   const [showAddPlan, setShowAddPlan] = useState(false);
-  const [planMeal, setPlanMeal] = useState<string>(MEAL_TYPES[2]);
+  const [planMeal, setPlanMeal] = useState<string>(DEFAULT_MEAL_TYPE);
   const [isAddingToPlan, setIsAddingToPlan] = useState(false);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [showTagEditor, setShowTagEditor] = useState(false);

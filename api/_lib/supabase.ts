@@ -13,7 +13,7 @@ export interface Settings {
   temperature_unit: 'C' | 'F';
 }
 
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_MODEL = 'gemini-2.5-flash'; // keep in sync with DEFAULT_MODEL in src/lib/constants.ts
 
 export function getServerSupabase(): SupabaseClient {
   const url = process.env.VITE_SUPABASE_URL || '';
