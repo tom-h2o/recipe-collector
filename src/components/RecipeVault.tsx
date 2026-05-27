@@ -200,7 +200,20 @@ export function RecipeVault({
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse h-[400px] bg-sk-surface-low dark:bg-muted rounded-xl" />
+              <div key={i} className="animate-pulse rounded-xl overflow-hidden bg-white dark:bg-card" style={{ boxShadow: '0 2px 12px rgba(47,49,46,0.04)' }}>
+                <div className="aspect-[4/3] bg-sk-surface-low dark:bg-muted" />
+                <div className="px-4 pt-4 pb-3 space-y-3">
+                  <div className="h-5 bg-sk-surface-low dark:bg-muted rounded-full w-3/4" />
+                  <div className="space-y-1.5">
+                    <div className="h-3 bg-sk-surface-low dark:bg-muted rounded-full w-full" />
+                    <div className="h-3 bg-sk-surface-low dark:bg-muted rounded-full w-2/3" />
+                  </div>
+                  <div className="flex gap-1.5 pt-1">
+                    {[1, 2, 3].map((j) => <div key={j} className="h-5 w-16 bg-sk-surface-low dark:bg-muted rounded-full" />)}
+                  </div>
+                </div>
+                <div className="h-10 bg-sk-surface-low dark:bg-muted mx-0 rounded-b-xl" />
+              </div>
             ))}
           </div>
         ) : recipes.length === 0 ? (
@@ -222,9 +235,23 @@ export function RecipeVault({
           </div>
         ) : filteredRecipes.length === 0 ? (
           <div className="text-center py-24 bg-white dark:bg-card rounded-3xl shadow-ambient">
-            <Search className="w-14 h-14 mx-auto mb-4 text-sk-primary-fixed dark:text-muted" />
-            <p className="font-serif text-xl font-normal text-sk-on-surface dark:text-foreground mb-1">No results found</p>
-            <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground">Try a different search or clear the filters.</p>
+            {activeCollectionId && !searchQuery && !activeFilter ? (
+              <>
+                <FolderOpen className="w-14 h-14 mx-auto mb-4 text-sk-primary-fixed dark:text-muted" />
+                <p className="font-serif text-xl font-normal text-sk-on-surface dark:text-foreground mb-1">
+                  {collections.find((c) => c.id === activeCollectionId)?.name ?? 'This collection'} is empty
+                </p>
+                <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground">
+                  Open a recipe and use <strong>⋯ → Add to collection</strong> to populate it.
+                </p>
+              </>
+            ) : (
+              <>
+                <Search className="w-14 h-14 mx-auto mb-4 text-sk-primary-fixed dark:text-muted" />
+                <p className="font-serif text-xl font-normal text-sk-on-surface dark:text-foreground mb-1">No results found</p>
+                <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground">Try a different search or clear the filters.</p>
+              </>
+            )}
           </div>
         ) : (
           <>

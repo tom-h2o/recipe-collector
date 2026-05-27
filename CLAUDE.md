@@ -10,6 +10,7 @@ npm run build        # tsc -b && vite build (must pass before committing)
 npm run lint         # ESLint
 npm run test         # Vitest run (single pass)
 npm run test:watch   # Vitest watch mode
+npm run test:ui      # Vitest with browser UI
 npm run db:migrate   # supabase db push (applies /supabase/migrations/ to the remote DB)
 ```
 
@@ -19,14 +20,15 @@ To run a single test file: `npx vitest run src/lib/recipeUtils.test.ts`
 
 **Deployment:** Vercel. The frontend is a Vite/React SPA; the backend is Vercel Serverless Functions in `/api/`. Routing is handled by `vercel.json` — all `/api/*` calls go to the functions, everything else serves `index.html`.
 
-**Database:** Supabase (Postgres + RLS). Schema is in `/supabase/migrations/` (25 migrations). Tables: `recipes`, `meal_plan`, `shopping_list`, `settings`, `url_cache`, `gemini_logs`, `pantry_items`, `recipe_translations`, `recipe_shares`, `contacts`, and storage for recipe photos.
+**Database:** Supabase (Postgres + RLS). Schema is in `/supabase/migrations/` (25 migrations). Tables: `recipes`, `meal_plan`, `shopping_list`, `settings`, `url_cache`, `gemini_logs`, `pantry_items`, `recipe_translations`, `recipe_shares`, `contacts`, `collections`, `recipe_collections`, and storage for recipe photos.
 
 **AI:** Google Gemini (via `@google/genai`). All API endpoints call Gemini and return JSON. The active model and system prompt are stored in the `settings` table, configurable per-user from the UI.
 
 ### Frontend (`/src/`)
 
 - `App.tsx` — root component: initialises all hooks, wires up views, handles routing for the `/recipe/:id` public share URL
-- `types.ts` — all shared TypeScript interfaces (`Recipe`, `Ingredient`, `Nutrition`, `MealPlan`, `ShoppingItem`, `PantryItem`, `AppSettings`, `RecipeTranslation`, `RecipeShare`, `Contact`)
+- `types.ts` — all shared TypeScript interfaces (`Recipe`, `Ingredient`, `Nutrition`, `MealPlan`, `ShoppingItem`, `PantryItem`, `AppSettings`, `RecipeTranslation`, `RecipeShare`, `Contact`, `Collection`, `RecipeCollection`)
+- `components/ui/` — shadcn/ui primitives (built on `@base-ui/react`); add new primitives here via the shadcn CLI, don't hand-author
 - `lib/constants.ts` — `MODELS`, `FILTERS`, `AVAILABLE_TAGS`, `MEAL_TYPES`, `LANGUAGES`, `SORT_OPTIONS`, `PAGE_SIZE` (24), `DEFAULT_PROMPT`
 - `lib/recipeUtils.ts` — `parseIngredients()` (handles both `Ingredient[]` and legacy `string[]`), `scaleAmount()`, `recipeToIngredientText()`
 - `lib/supabase.ts` — singleton Supabase browser client
@@ -37,9 +39,13 @@ To run a single test file: `npx vitest run src/lib/recipeUtils.test.ts`
 - `useMealPlans`, `useShoppingList`, `useSettings` — self-explanatory
 - `useAuth` — Supabase Auth: password + magic link. Returns `user`, `loading`, `isPasswordRecovery`, `sendPasswordReset`, `updatePassword`, `resendConfirmation`, `signOut`
 - `useRecipeShares` — inbox (pending shares), contacts for autocomplete, `sendShare`/`acceptShare`/`rejectShare`
+- `useCollections` — manages `collections` and `recipe_collections` tables; CRUD for user-created recipe collections; takes `userId` param
+- `useTranslationCache` — pre-fetches translations for every recipe that has a `preferred_language` set; uses a `fetchedIds` ref to prevent re-querying on unrelated recipe list updates (e.g., toggling a favourite)
 - `useDarkMode` — syncs with `prefers-color-scheme` and persists in `localStorage`
 
 **Components** (one per feature, all in `/src/components/`):
+- `ErrorBoundary` — standard React error boundary; wraps top-level app subtrees
+- `PublicRecipe` — printable standalone recipe view rendered at the `/recipe/:id` public share URL (no auth required); print-optimised via Tailwind `print:` utilities
 - `AuthGate` — wraps the whole app; shows login UI if unauthenticated; handles "claim existing recipes" for pre-auth data. Includes password, magic link, forgot password, and set-new-password (recovery) flows. All errors shown inline (never toast-only).
 - `Layout` — header, nav tabs (Vault / Meal Planner / Shopping / Inbox), action buttons. Inbox tab shows orange badge when pending shares exist.
 - `RecipeVault` — grid with search, filter chips, sort, infinite scroll ("Load more")
@@ -77,6 +83,7 @@ Each handler follows the same pattern: validate with Zod → read settings from 
 - `scale.ts` — AI-assisted recipe scaling
 - `translate.ts` — translate recipe to another language (cached in `recipe_translations` table)
 - `extract-photo.ts` — extract recipe from an uploaded image
+- `extract-pdf.ts` — extract recipe from an uploaded PDF file
 - `find-image.ts` — find a suitable image URL for a recipe
 - `share.ts` — recipe sharing: `send` / `accept` / `reject` actions. `accept` copies the recipe + all translations to the recipient's vault using the service key.
 
@@ -101,3 +108,4 @@ GitHub Actions secret needed for DB migrations: `SUPABASE_DB_URL` (Postgres conn
 - **Recipe sharing RLS:** `recipe_shares` uses `auth.email() = recipient_email` so recipients can see their inbox without needing a `user_id` lookup. Service key is used server-side for copying recipes on accept.
 - **Password recovery flow:** Supabase fires `PASSWORD_RECOVERY` then immediately `SIGNED_IN` on reset link click. `useAuth` intentionally does not clear `isPasswordRecovery` on `SIGNED_IN` — only on `USER_UPDATED`/`SIGNED_OUT`/etc. — so `AuthGate` can show the set-password form.
 - **Gemini logging:** every `generateJson()` call inserts a row into `gemini_logs` with latency, status, input/output previews. Visible in `GeminiLogs` component (admin).
+- **Known dead code:** `recipeToIngredientText()` in `recipeUtils.ts` (no app callers, kept for its test); `useLanguagePreference` hook in `hooks/` (localStorage approach superseded by the `recipes.preferred_language` DB column).

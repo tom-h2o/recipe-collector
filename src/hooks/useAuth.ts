@@ -28,13 +28,6 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, []);
 
-  async function signInWithGoogle() {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin },
-    });
-  }
-
   async function signInWithEmail(email: string): Promise<{ error: string | null }> {
     const { error } = await supabase.auth.signInWithOtp({
       email,
@@ -90,7 +83,7 @@ export function useAuth() {
 
   return {
     user, loading, isPasswordRecovery,
-    signInWithGoogle, signInWithEmail, signInWithPassword, signUpWithPassword,
+    signInWithEmail, signInWithPassword, signUpWithPassword,
     sendPasswordReset, updatePassword, resendConfirmation, signOut,
   };
 }

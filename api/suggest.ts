@@ -30,12 +30,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
 
-    // Fetch only the 50 most recent recipes — title + ingredients only (not full *)
     const { data: recipes } = await supabase
       .from('recipes')
       .select('id, title, ingredients')
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(200);
 
     if (!recipes || recipes.length === 0) {
       return res.status(200).json({ suggestions: [] });

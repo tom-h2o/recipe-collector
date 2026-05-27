@@ -59,7 +59,7 @@ export function AuthGate({ children }: Props) {
   const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
   const [isClaiming, setIsClaiming] = useState(false);
   const [claimed, setClaimed] = useState(false);
-  const [hasUnclaimed, setHasUnclaimed] = useState(false);
+  const [hasUnclaimed, setHasUnclaimed] = useState<boolean | null>(null);
 
   async function checkUnclaimed() {
     const { count } = await supabase
@@ -508,8 +508,8 @@ export function AuthGate({ children }: Props) {
     );
   }
 
-  // Logged in — show claim prompt once if unclaimed data exists
-  if (!claimed && hasUnclaimed === false && !isClaiming) {
+  // Logged in — check for unclaimed data exactly once (null = not yet checked)
+  if (!claimed && hasUnclaimed === null && !isClaiming) {
     checkUnclaimed();
   }
 
@@ -535,7 +535,7 @@ export function AuthGate({ children }: Props) {
               {isClaiming ? 'Claiming...' : 'Claim all existing recipes'}
             </Button>
             <button
-              onClick={() => { setClaimed(true); setHasUnclaimed(false); }}
+              onClick={() => setClaimed(true)}
               className="text-sm font-sans text-sk-outline hover:text-sk-on-surface-variant transition-colors"
             >
               Skip (existing recipes will remain visible but unassigned)

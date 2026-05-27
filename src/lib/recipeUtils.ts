@@ -39,13 +39,6 @@ export function parseIngredients(raw: Ingredient[] | string[]): Ingredient[] {
   });
 }
 
-export function recipeToIngredientText(ingredients: Ingredient[] | string[]): string {
-  const parsed = parseIngredients(ingredients);
-  return parsed
-    .map((i) => `${i.amount} ${i.name}${i.details ? `, ${i.details}` : ''}`.trim())
-    .join('\n');
-}
-
 export function scaleAmount(amount: string, scale: number): string {
   return amount.replace(/[\d.]+/g, (n) => {
     const scaled = parseFloat(n) * scale;

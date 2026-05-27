@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ChefHat, Users, X, Plus } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ChefHat, Users, X, Plus, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Recipe, MealPlan, RecipeTranslation } from '@/types';
 import { MEAL_TYPES } from '@/lib/constants';
@@ -22,15 +22,19 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
     }
     return r.title;
   }
+  const [weekOffset, setWeekOffset] = useState(0);
   // Track exactly which cell is being dragged over — CSS :hover is suppressed during drag
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
-  // Mobile: tap-to-add — track which cell is picking a recipe
-  const [addingCell, setAddingCell] = useState<{ date: string; meal: string } | null>(null);
+  // Mobile: picker modal state
+  const [mobilePicker, setMobilePicker] = useState<{ date: string; meal: string } | null>(null);
+  const [mobileSearch, setMobileSearch] = useState('');
 
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
-    d.setDate(d.getDate() + i);
-    return { date: d.toISOString().split('T')[0], label: d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }), isToday: i === 0 };
+    d.setDate(d.getDate() + weekOffset * 7 + i);
+    const dateStr = d.toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0];
+    return { date: dateStr, label: d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }), isToday: dateStr === today };
   });
 
   function getDayCalories(date: string): number {
@@ -39,17 +43,32 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
       .reduce((sum, m) => sum + (m.recipe?.nutrition?.calories ?? 0), 0);
   }
 
-  async function handleTapAdd(date: string, meal: string, recipeId: string) {
+  const mobileFilteredRecipes = useMemo(() => {
+    if (!mobileSearch.trim()) return recipes;
+    const q = mobileSearch.toLowerCase();
+    return recipes.filter((r) => getTitle(r).toLowerCase().includes(q));
+  }, [recipes, mobileSearch]);
+
+  async function handleMobilePick(recipeId: string) {
+    if (!mobilePicker) return;
     try {
-      await onAddMealPlan(date, meal, recipeId);
+      await onAddMealPlan(mobilePicker.date, mobilePicker.meal, recipeId);
       onRefreshMealPlans();
-      setAddingCell(null);
+      setMobilePicker(null);
+      setMobileSearch('');
     } catch {
       toast.error('Failed to add meal plan.');
     }
   }
 
+  const weeklyCalories = useMemo(
+    () => days.reduce((sum, { date }) => sum + getDayCalories(date), 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [days, mealPlans],
+  );
+
   return (
+    <>
     <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 animate-in fade-in duration-500">
       {/* Recipe sidebar — collapsible on mobile */}
       <div className="w-full lg:w-1/3 xl:w-1/4 space-y-4 hidden lg:block">
@@ -91,6 +110,42 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
       </div>
 
       <div className="flex-1 space-y-4">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setWeekOffset((w) => w - 1)}
+            className="p-2 rounded-xl bg-sk-surface-highest dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary transition-colors"
+            title="Previous week"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <div className="flex flex-col items-center gap-1">
+            <span className="font-serif text-sm text-sk-on-surface-variant dark:text-muted-foreground">
+              {weekOffset === 0 ? 'This week' : weekOffset === 1 ? 'Next week' : weekOffset === -1 ? 'Last week' : weekOffset > 0 ? `${weekOffset} weeks ahead` : `${Math.abs(weekOffset)} weeks ago`}
+            </span>
+            <div className="flex items-center gap-2">
+              {weeklyCalories > 0 && (
+                <span className="text-[11px] font-semibold font-sans text-sk-primary dark:text-primary bg-sk-primary-fixed/40 dark:bg-primary/15 px-2 py-0.5 rounded-full">
+                  ~{Math.round(weeklyCalories).toLocaleString()} kcal / week
+                </span>
+              )}
+              {weekOffset !== 0 && (
+                <button
+                  onClick={() => setWeekOffset(0)}
+                  className="text-xs font-semibold font-sans px-2.5 py-1 rounded-full bg-sk-primary-fixed/40 dark:bg-primary/15 text-sk-primary dark:text-primary hover:bg-sk-primary-fixed dark:hover:bg-primary/30 transition-colors"
+                >
+                  Today
+                </button>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={() => setWeekOffset((w) => w + 1)}
+            className="p-2 rounded-xl bg-sk-surface-highest dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary transition-colors"
+            title="Next week"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
         {days.map(({ date, label, isToday }) => {
           const dayCalories = getDayCalories(date);
           return (
@@ -109,7 +164,6 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
                 {MEAL_TYPES.map((meal) => {
                   const cellKey = `${date}-${meal}`;
                   const isOver = dragOverKey === cellKey;
-                  const isAdding = addingCell?.date === date && addingCell?.meal === meal;
                   return (
                     <div
                       key={meal}
@@ -144,29 +198,15 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
                     >
                       <div className="flex items-center justify-between mb-1.5 sm:mb-2">
                         <div className="font-bold text-[10px] sm:text-xs uppercase tracking-wider text-zinc-400 dark:text-zinc-500">{meal}</div>
-                        {/* Mobile tap-to-add button */}
+                        {/* Mobile tap-to-add — opens searchable picker modal */}
                         <button
-                          onClick={() => setAddingCell(isAdding ? null : { date, meal })}
+                          onClick={() => { setMobilePicker({ date, meal }); setMobileSearch(''); }}
                           className="lg:hidden p-0.5 rounded text-sk-outline-variant dark:text-muted-foreground/50 hover:text-sk-primary dark:hover:text-primary transition-colors"
                           title="Add recipe"
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      {/* Mobile recipe picker */}
-                      {isAdding && recipes.length > 0 && (
-                        <div className="mb-2 max-h-32 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-sm lg:hidden">
-                          {recipes.map((r) => (
-                            <button
-                              key={r.id}
-                              onClick={() => handleTapAdd(date, meal, r.id)}
-                              className="w-full text-left px-2 py-1.5 text-xs font-medium text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/10 transition-colors truncate border-b last:border-0 border-sk-outline-variant/20 dark:border-border"
-                            >
-                              {getTitle(r)}
-                            </button>
-                          ))}
-                        </div>
-                      )}
                       {mealPlans.filter((m) => m.date === date && m.meal_type === meal).map((m) => (
                         <div key={m.id} className="bg-sk-primary-fixed/40 dark:bg-primary/15 text-sk-on-surface dark:text-foreground p-1.5 sm:p-2 rounded-lg mt-1 sm:mt-1.5 flex justify-between items-center group shadow-ambient text-xs sm:text-sm">
                           <span
@@ -200,5 +240,61 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
         })}
       </div>
     </div>
+
+    {/* Mobile recipe picker modal — bottom sheet */}
+    {mobilePicker && (
+      <div className="fixed inset-0 z-50 lg:hidden flex flex-col justify-end bg-black/50" onClick={() => { setMobilePicker(null); setMobileSearch(''); }}>
+        <div className="bg-white dark:bg-zinc-900 rounded-t-3xl p-5 space-y-4 max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-serif text-base font-bold text-sk-on-surface dark:text-foreground">
+                Add to {mobilePicker.meal}
+              </p>
+              <p className="font-sans text-xs text-sk-on-surface-variant dark:text-muted-foreground">
+                {new Date(mobilePicker.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
+              </p>
+            </div>
+            <button onClick={() => { setMobilePicker(null); setMobileSearch(''); }} className="p-2 rounded-full hover:bg-sk-surface-low dark:hover:bg-muted text-sk-outline transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-sk-outline dark:text-muted-foreground pointer-events-none" />
+            <input
+              autoFocus
+              type="text"
+              value={mobileSearch}
+              onChange={(e) => setMobileSearch(e.target.value)}
+              placeholder="Search recipes…"
+              className="w-full pl-9 pr-4 py-2.5 rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface dark:text-foreground text-sm font-sans focus:outline-none focus:ring-2 focus:ring-sk-primary/25 placeholder:text-sk-outline"
+            />
+          </div>
+          <div className="overflow-y-auto flex-1 -mx-1 px-1 space-y-1">
+            {mobileFilteredRecipes.length === 0 ? (
+              <p className="text-center py-8 text-sm font-sans text-sk-outline dark:text-muted-foreground">No recipes match</p>
+            ) : mobileFilteredRecipes.map((r) => (
+              <button
+                key={r.id}
+                onClick={() => handleMobilePick(r.id)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/10 transition-colors text-left"
+              >
+                {r.image_url ? (
+                  <img src={r.image_url} className="w-10 h-10 rounded-lg object-cover shrink-0 bg-sk-surface-low" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg shrink-0 bg-sk-primary-fixed dark:bg-primary/15 flex items-center justify-center text-base font-serif font-bold text-sk-primary dark:text-primary">
+                    {getTitle(r)[0]?.toUpperCase()}
+                  </div>
+                )}
+                <div className="overflow-hidden">
+                  <p className="font-semibold text-sm text-sk-on-surface dark:text-foreground truncate">{getTitle(r)}</p>
+                  {r.servings && <p className="text-xs text-sk-on-surface-variant dark:text-muted-foreground">Serves {r.servings}</p>}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

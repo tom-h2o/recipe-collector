@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseIngredients, recipeToIngredientText, scaleAmount } from './recipeUtils';
+import { parseIngredients, scaleAmount } from './recipeUtils';
 
 describe('parseIngredients', () => {
   it('returns empty array for empty input', () => {
@@ -41,22 +41,6 @@ describe('parseIngredients', () => {
     expect(result[0].name).toBe('olive oil');
     expect(result[1].name).toBe('garlic');
     expect(result[1].details).toBe('minced');
-  });
-});
-
-describe('recipeToIngredientText', () => {
-  it('serialises ingredients to newline-separated text', () => {
-    const ingredients = [
-      { amount: '200g', name: 'pasta', details: '' },
-      { amount: '2', name: 'eggs', details: 'beaten' },
-    ];
-    const text = recipeToIngredientText(ingredients);
-    expect(text).toBe('200g pasta\n2 eggs, beaten');
-  });
-
-  it('omits details when empty', () => {
-    const ingredients = [{ amount: '1 cup', name: 'milk', details: '' }];
-    expect(recipeToIngredientText(ingredients)).toBe('1 cup milk');
   });
 });
 

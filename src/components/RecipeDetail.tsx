@@ -260,18 +260,24 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
         {/* Fixed close button — always visible, never scrolls away */}
         <button
           onClick={handleClose}
-          className="absolute top-3 right-3 z-20 p-1.5 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white transition-colors shadow-md ring-1 ring-white/20 print:hidden"
+          className="absolute top-3 right-3 z-20 p-1.5 rounded-full bg-sk-on-surface/30 hover:bg-sk-on-surface/50 backdrop-blur-sm text-white transition-colors shadow-md ring-1 ring-white/20 print:hidden"
           title="Close"
         >
           <X className="w-4 h-4" />
         </button>
         <div className="overflow-y-auto max-h-[92vh]">
         <div className="flex flex-col">
-          {recipe.image_url && (
-            <div className="w-full h-48 sm:h-60 md:h-80 overflow-hidden shrink-0 rounded-t-3xl">
+          <div className="w-full h-32 sm:h-44 md:h-64 overflow-hidden shrink-0 rounded-t-3xl relative">
+            {recipe.image_url ? (
               <img src={recipe.image_url} className="w-full h-full object-cover" alt={recipe.title} />
-            </div>
-          )}
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-sk-primary-fixed via-sk-surface-low to-sk-surface-highest dark:from-primary/20 dark:via-muted dark:to-muted">
+                <span className="text-[6rem] sm:text-[8rem] font-serif font-normal text-sk-primary/20 dark:text-primary/15 select-none leading-none">
+                  {recipe.title?.[0]?.toUpperCase() ?? '?'}
+                </span>
+              </div>
+            )}
+          </div>
           <div className="p-4 sm:p-6 md:p-10 space-y-6 sm:space-y-8">
             <DialogHeader className="text-left space-y-2">
               <DialogTitle className="font-serif text-2xl sm:text-3xl md:text-[2.25rem] font-bold tracking-tight text-sk-on-surface dark:text-foreground leading-tight">
