@@ -3,7 +3,7 @@ import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getUserId } from './_lib/supabase.js';
 import { captureException } from './_lib/sentry.js';
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? '';
+const ADMIN_EMAIL = process.env.VITE_ADMIN_EMAIL ?? '';
 
 async function assertAdmin(req: VercelRequest, res: VercelResponse): Promise<string | null> {
   const userId = await getUserId(req);
