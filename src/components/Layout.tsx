@@ -1,4 +1,4 @@
-import { Plus, Settings, Wand2, Sun, Moon, Inbox, CalendarDays, ShoppingCart, BookOpen } from 'lucide-react';
+import { Plus, Settings, Wand2, Sun, Moon, Inbox, CalendarDays, ShoppingCart, BookOpen, ShieldCheck } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import type { ActiveView } from '@/types';
 import { UserMenu } from '@/components/UserMenu';
@@ -7,6 +7,7 @@ import { useDarkMode } from '@/hooks/useDarkMode';
 interface Props {
   activeView: ActiveView;
   user: User | null;
+  isAdmin: boolean;
   recipeCount: number;
   inboxCount: number;
   onSetView: (v: ActiveView) => void;
@@ -22,9 +23,10 @@ const MOBILE_TABS = [
   { view: 'planner' as const, icon: CalendarDays, label: 'Planner' },
   { view: 'shopping' as const, icon: ShoppingCart, label: 'Shopping' },
   { view: 'inbox' as const, icon: Inbox, label: 'Inbox' },
+  { view: 'admin' as const, icon: ShieldCheck, label: 'Admin' },
 ] as const;
 
-export function Layout({ activeView, user, recipeCount, inboxCount, onSetView, onOpenSettings, onOpenSuggest, onAddRecipe, onSignOut, children }: Props) {
+export function Layout({ activeView, user, isAdmin, recipeCount, inboxCount, onSetView, onOpenSettings, onOpenSuggest, onAddRecipe, onSignOut, children }: Props) {
   const { isDark, toggle } = useDarkMode();
 
   return (
@@ -94,6 +96,18 @@ export function Layout({ activeView, user, recipeCount, inboxCount, onSetView, o
                 )}
               </button>
             ))}
+            {isAdmin && (
+              <button
+                onClick={() => onSetView('admin')}
+                className={`px-5 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 flex items-center gap-1.5 ${
+                  activeView === 'admin'
+                    ? 'bg-white dark:bg-card shadow-ambient text-sk-primary dark:text-primary'
+                    : 'text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary hover:bg-white/60 dark:hover:bg-card/40'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" /> Admin
+              </button>
+            )}
           </div>
         </div>
 
@@ -153,7 +167,7 @@ export function Layout({ activeView, user, recipeCount, inboxCount, onSetView, o
       {/* Mobile bottom navigation */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-sk-surface dark:bg-card border-t border-sk-outline-variant/20 dark:border-border lg:hidden safe-area-bottom shadow-ambient">
         <div className="flex justify-around items-center h-14 max-w-lg mx-auto">
-          {MOBILE_TABS.map(({ view, icon: Icon, label }) => {
+          {MOBILE_TABS.filter((t) => t.view !== 'admin' || isAdmin).map(({ view, icon: Icon, label }) => {
             const isActive = activeView === view;
             return (
               <button

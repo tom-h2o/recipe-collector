@@ -82,7 +82,36 @@ export interface AppSettings {
   temperature_unit: 'C' | 'F';
 }
 
-export type ActiveView = 'vault' | 'planner' | 'shopping' | 'inbox' | 'public_recipe';
+export type ActiveView = 'vault' | 'planner' | 'shopping' | 'inbox' | 'public_recipe' | 'admin';
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  created_at: string;
+  last_sign_in_at: string | null;
+  recipe_count: number;
+  ai_call_count: number;
+}
+
+export interface AdminStats {
+  total_users: number;
+  total_recipes: number;
+  total_ai_calls: number;
+  calls_today: number;
+  calls_this_week: number;
+  model_breakdown: { model: string; count: number }[];
+}
+
+export interface AdminLog {
+  id: string;
+  created_at: string;
+  endpoint: string;
+  model: string;
+  status: string;
+  latency_ms: number | null;
+  user_id: string | null;
+  user_email?: string | null;
+}
 
 export interface Collection {
   id: string;

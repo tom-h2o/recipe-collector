@@ -23,10 +23,13 @@ import { SuggestModal } from '@/components/SuggestModal';
 import { PublicRecipe } from '@/components/PublicRecipe';
 import { SendRecipeModal } from '@/components/SendRecipeModal';
 import { RecipeInbox } from '@/components/RecipeInbox';
+import { AdminPanel } from '@/components/AdminPanel';
 
 import { supabase } from '@/lib/supabase';
 import { useTranslationCache } from '@/hooks/useTranslationCache';
 import type { ActiveView, Recipe } from '@/types';
+
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL ?? '';
 
 export default function App() {
   const { user, signOut } = useAuth();
@@ -142,6 +145,7 @@ export default function App() {
         <Layout
           activeView={activeView}
           user={user}
+          isAdmin={!!ADMIN_EMAIL && user?.email === ADMIN_EMAIL}
           recipeCount={recipes.length}
           inboxCount={inboxCount}
           onSetView={setActiveView}
@@ -212,6 +216,8 @@ export default function App() {
               onBack={() => setActiveView('vault')}
             />
           )}
+
+          {activeView === 'admin' && <AdminPanel />}
         </Layout>
 
         <ErrorBoundary key={selectedRecipe?.id ?? 'none'}>
