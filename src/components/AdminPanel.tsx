@@ -35,7 +35,7 @@ export function AdminPanel() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiFetch('/api/admin');
+      const res = await apiFetch('/api/account');
       if (!res.ok) throw new Error((await res.json()).error);
       setData(await res.json());
     } catch (err) {
@@ -50,7 +50,7 @@ export function AdminPanel() {
   async function handleDeleteUser(user: AdminUser) {
     setDeletingId(user.id);
     try {
-      const res = await apiFetch(`/api/admin?userId=${user.id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/account?userId=${user.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error((await res.json()).error);
       toast.success(`Deleted ${user.email}`);
       setData((prev) => prev ? { ...prev, users: prev.users.filter((u) => u.id !== user.id) } : prev);
