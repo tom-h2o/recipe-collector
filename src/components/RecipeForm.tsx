@@ -100,7 +100,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
     const id = toast.loading('Analysing photo with Gemini AI...');
     try {
       const base64 = await fileToBase64(photoFile);
-      const res = await apiFetch('/api/extract-photo', {
+      const res = await apiFetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageBase64: base64, mimeType: photoFile.type }),
@@ -134,7 +134,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
     const id = toast.loading('Reading PDF with Gemini AI...');
     try {
       const base64 = await fileToBase64(pdfFile);
-      const res = await apiFetch('/api/extract-pdf', {
+      const res = await apiFetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pdfBase64: base64 }),
