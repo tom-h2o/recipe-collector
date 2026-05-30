@@ -40,7 +40,7 @@ export default function App() {
   const { settings, isSavingSettings, fetchSettings, saveSettings } = useSettings(user?.id);
   const { inboxShares, inboxCount, contacts, fetchInbox, fetchContacts, sendShare, acceptShare, rejectShare } = useRecipeShares(user?.id, user?.email);
   const { translationsCache, translationsLoading, cacheTranslation } = useTranslationCache(recipes);
-  const { collections, memberships, fetchCollections, createCollection, deleteCollection, addToCollection, removeFromCollection } = useCollections(user?.id);
+  const { collections, memberships, fetchCollections, createCollection, deleteCollection, renameCollection, addToCollection, removeFromCollection } = useCollections(user?.id);
 
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ActiveView>('vault');
@@ -177,6 +177,7 @@ export default function App() {
               onCollectionChange={setActiveCollectionId}
               onCreateCollection={createCollection}
               onDeleteCollection={deleteCollection}
+              onRenameCollection={renameCollection}
               onLoadMore={loadMore}
               onOpenRecipe={setSelectedRecipe}
               onToggleFavourite={(r, e) => { e.stopPropagation(); toggleFavourite(r); }}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, BookOpen, Sparkles, Trash2, RefreshCw, Calendar, TrendingUp, Star, ChevronDown, ChevronRight } from 'lucide-react';
+import { Users, BookOpen, Sparkles, Trash2, RefreshCw, Calendar, TrendingUp, Star, ChevronDown, ChevronRight, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -36,6 +36,9 @@ export function AdminPanel() {
   const [confirmDelete, setConfirmDelete] = useState<AdminUser | null>(null);
   const [recipeSearch, setRecipeSearch] = useState('');
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
+  const [usersPage, setUsersPage] = useState(0);
+  const [logsPage, setLogsPage] = useState(0);
+  const PAGE_SIZE = 25;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -185,42 +188,57 @@ export function AdminPanel() {
       )}
 
       {/* Users tab */}
-      {tab === 'users' && (
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                  <th className="text-left px-6 py-3 font-semibold">Email</th>
-                  <th className="text-left px-4 py-3 font-semibold">Joined</th>
-                  <th className="text-left px-4 py-3 font-semibold">Last seen</th>
-                  <th className="text-right px-4 py-3 font-semibold">Recipes</th>
-                  <th className="text-right px-4 py-3 font-semibold">AI calls</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
-                {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
-                    <td className="px-6 py-3 font-medium text-zinc-900 dark:text-zinc-100">{u.email}</td>
-                    <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{formatDate(u.created_at)}</td>
-                    <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{formatDate(u.last_sign_in_at)}</td>
-                    <td className="px-4 py-3 text-right text-zinc-700 dark:text-zinc-300">
-                      <button onClick={() => { setExpandedUsers(new Set([u.email])); setTab('recipes'); }} className="hover:text-sk-primary hover:underline">{u.recipe_count}</button>
-                    </td>
-                    <td className="px-4 py-3 text-right text-zinc-700 dark:text-zinc-300">{u.ai_call_count}</td>
-                    <td className="px-4 py-3">
-                      <button onClick={() => setConfirmDelete(u)} disabled={deletingId === u.id} className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Delete user">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {tab === 'users' && (() => {
+        const pageUsers = users.slice(usersPage * PAGE_SIZE, (usersPage + 1) * PAGE_SIZE);
+        const totalPages = Math.ceil(users.length / PAGE_SIZE);
+        return (
+          <div className="space-y-3">
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                      <th className="text-left px-6 py-3 font-semibold">Email</th>
+                      <th className="text-left px-4 py-3 font-semibold">Joined</th>
+                      <th className="text-left px-4 py-3 font-semibold">Last seen</th>
+                      <th className="text-right px-4 py-3 font-semibold">Recipes</th>
+                      <th className="text-right px-4 py-3 font-semibold">AI calls</th>
+                      <th className="px-4 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
+                    {pageUsers.map((u) => (
+                      <tr key={u.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
+                        <td className="px-6 py-3 font-medium text-zinc-900 dark:text-zinc-100">{u.email}</td>
+                        <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{formatDate(u.created_at)}</td>
+                        <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{formatDate(u.last_sign_in_at)}</td>
+                        <td className="px-4 py-3 text-right text-zinc-700 dark:text-zinc-300">
+                          <button onClick={() => { setExpandedUsers(new Set([u.email])); setTab('recipes'); }} className="hover:text-sk-primary hover:underline">{u.recipe_count}</button>
+                        </td>
+                        <td className="px-4 py-3 text-right text-zinc-700 dark:text-zinc-300">{u.ai_call_count}</td>
+                        <td className="px-4 py-3">
+                          <button onClick={() => setConfirmDelete(u)} disabled={deletingId === u.id} className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Delete user">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
+                <span>{usersPage * PAGE_SIZE + 1}–{Math.min((usersPage + 1) * PAGE_SIZE, users.length)} of {users.length}</span>
+                <div className="flex gap-1">
+                  <button onClick={() => setUsersPage((p) => p - 1)} disabled={usersPage === 0} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
+                  <button onClick={() => setUsersPage((p) => p + 1)} disabled={usersPage >= totalPages - 1} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors"><ChevronRight className="w-4 h-4" /></button>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Recipes tab */}
       {tab === 'recipes' && (
@@ -295,42 +313,57 @@ export function AdminPanel() {
       )}
 
       {/* Logs tab */}
-      {tab === 'logs' && (
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                  <th className="text-left px-6 py-3 font-semibold">Time</th>
-                  <th className="text-left px-4 py-3 font-semibold">User</th>
-                  <th className="text-left px-4 py-3 font-semibold">Endpoint</th>
-                  <th className="text-left px-4 py-3 font-semibold">Model</th>
-                  <th className="text-left px-4 py-3 font-semibold">Status</th>
-                  <th className="text-right px-4 py-3 font-semibold">Latency</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
-                {logs.map((l) => (
-                  <tr key={l.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
-                    <td className="px-6 py-2.5 text-zinc-500 dark:text-zinc-400 whitespace-nowrap text-xs">{formatTime(l.created_at)}</td>
-                    <td className="px-4 py-2.5 text-zinc-500 dark:text-zinc-400 text-xs max-w-[160px] truncate">{l.user_email ?? '—'}</td>
-                    <td className="px-4 py-2.5 font-mono text-xs text-zinc-700 dark:text-zinc-300">{l.endpoint}</td>
-                    <td className="px-4 py-2.5 font-mono text-xs text-zinc-500 dark:text-zinc-400">{l.model ?? '—'}</td>
-                    <td className="px-4 py-2.5">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${l.status === 'success' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>
-                        {l.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-right text-xs text-zinc-500 dark:text-zinc-400">
-                      {l.latency_ms != null ? `${l.latency_ms}ms` : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {tab === 'logs' && (() => {
+        const pageLogs = logs.slice(logsPage * PAGE_SIZE, (logsPage + 1) * PAGE_SIZE);
+        const totalPages = Math.ceil(logs.length / PAGE_SIZE);
+        return (
+          <div className="space-y-3">
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                      <th className="text-left px-6 py-3 font-semibold">Time</th>
+                      <th className="text-left px-4 py-3 font-semibold">User</th>
+                      <th className="text-left px-4 py-3 font-semibold">Endpoint</th>
+                      <th className="text-left px-4 py-3 font-semibold">Model</th>
+                      <th className="text-left px-4 py-3 font-semibold">Status</th>
+                      <th className="text-right px-4 py-3 font-semibold">Latency</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
+                    {pageLogs.map((l) => (
+                      <tr key={l.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
+                        <td className="px-6 py-2.5 text-zinc-500 dark:text-zinc-400 whitespace-nowrap text-xs">{formatTime(l.created_at)}</td>
+                        <td className="px-4 py-2.5 text-zinc-500 dark:text-zinc-400 text-xs max-w-[160px] truncate">{l.user_email ?? '—'}</td>
+                        <td className="px-4 py-2.5 font-mono text-xs text-zinc-700 dark:text-zinc-300">{l.endpoint}</td>
+                        <td className="px-4 py-2.5 font-mono text-xs text-zinc-500 dark:text-zinc-400">{l.model ?? '—'}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${l.status === 'success' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>
+                            {l.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 text-right text-xs text-zinc-500 dark:text-zinc-400">
+                          {l.latency_ms != null ? `${l.latency_ms}ms` : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
+                <span>{logsPage * PAGE_SIZE + 1}–{Math.min((logsPage + 1) * PAGE_SIZE, logs.length)} of {logs.length}</span>
+                <div className="flex gap-1">
+                  <button onClick={() => setLogsPage((p) => p - 1)} disabled={logsPage === 0} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
+                  <button onClick={() => setLogsPage((p) => p + 1)} disabled={logsPage >= totalPages - 1} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors"><ChevronRight className="w-4 h-4" /></button>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Delete user confirmation */}
       {confirmDelete && (
