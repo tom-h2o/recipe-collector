@@ -59,9 +59,10 @@ export function AuthGate({ children }: Props) {
   const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
   const [isClaiming, setIsClaiming] = useState(false);
   const [claimed, setClaimed] = useState(false);
-  const [hasUnclaimed, setHasUnclaimed] = useState<boolean | null>(null);
+  const [hasUnclaimed, setHasUnclaimed] = useState<boolean | null | 'checking'>(null);
 
   async function checkUnclaimed() {
+    setHasUnclaimed('checking');
     const { count } = await supabase
       .from('recipes')
       .select('id', { count: 'exact', head: true })
@@ -513,7 +514,7 @@ export function AuthGate({ children }: Props) {
     checkUnclaimed();
   }
 
-  if (!claimed && hasUnclaimed) {
+  if (!claimed && hasUnclaimed === true) {
     return (
       <div className="min-h-screen bg-sk-surface dark:bg-background flex items-center justify-center p-6">
         <div className="w-full max-w-md bg-white dark:bg-card rounded-3xl shadow-ambient p-10 space-y-6 text-center">

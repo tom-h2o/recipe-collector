@@ -1,31 +1,31 @@
-import { useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
-import type { MealPlan } from '@/types';
+import { useCallback } from 'react';
+import { useRecipeStore } from '@/store/recipeStore';
 
 export function useMealPlans(userId?: string | null) {
-  const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
+  const store = useRecipeStore();
 
   const fetchMealPlans = useCallback(async () => {
-    const { data } = await supabase
-      .from('meal_plan')
-      .select('*, recipe:recipes(*)')
-      .order('date', { ascending: true });
-    if (data) setMealPlans(data as MealPlan[]);
-  }, []);
+    await store.fetchMealPlans();
+  }, [store.fetchMealPlans]);
 
-  const addMealPlan = useCallback(async (date: string, mealType: string, recipeId: string) => {
-    const payload = userId
-      ? { date, meal_type: mealType, recipe_id: recipeId, user_id: userId }
-      : { date, meal_type: mealType, recipe_id: recipeId };
-    const { error } = await supabase.from('meal_plan').insert(payload);
-    if (error) throw error;
-  }, [userId]);
+  const addMealPlan = useCallback(
+    async (date: string, mealType: string, recipeId: string) => {
+      await store.addMealPlan(date, mealType, recipeId, userId ?? null);
+    },
+    [store.addMealPlan, userId]
+  );
 
-  const removeMealPlan = useCallback(async (id: string) => {
-    const { error } = await supabase.from('meal_plan').delete().eq('id', id);
-    if (error) throw error;
-    setMealPlans((prev) => prev.filter((m) => m.id !== id));
-  }, []);
+  const removeMealPlan = useCallback(
+    async (id: string) => {
+      await store.removeMealPlan(id);
+    },
+    [store.removeMealPlan]
+  );
 
-  return { mealPlans, fetchMealPlans, addMealPlan, removeMealPlan };
+  return {
+    mealPlans: store.mealPlans,
+    fetchMealPlans,
+    addMealPlan,
+    removeMealPlan,
+  };
 }

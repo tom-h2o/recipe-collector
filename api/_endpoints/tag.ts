@@ -53,7 +53,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const cacheKey = makeCacheKey('tag', { title, description: description ?? '', ingredientText, instructions: instructionPreview });
     const cachedTags = await getCached<string[]>(supabase, cacheKey);
     if (cachedTags) {
-      await supabase.from('recipes').update({ tags: cachedTags }).eq('id', recipeId);
+      let embedding: number[] | null = null;
+      try {
+        const client = getGeminiClient(apiKey);
+        const embeddingText = `Title: ${title}\nDescription: ${description || ''}\nIngredients: ${ingredientText}\nInstructions: ${instructions || ''}`;
+        const embedResponse = await client.models.embedContent({
+          model: 'text-embedding-004',
+          contents: embeddingText,
+        });
+        if (embedResponse.embedding?.values) {
+          embedding = embedResponse.embedding.values;
+        }
+      } catch (embedErr) {
+        console.warn('Embedding generation failed (cached path):', embedErr);
+      }
+
+      const updatePayload: any = { tags: cachedTags };
+      if (embedding) {
+        updatePayload.embedding = embedding;
+      }
+      await supabase.from('recipes').update(updatePayload).eq('id', recipeId);
       return res.status(200).json({ tags: cachedTags });
     }
 
@@ -61,7 +80,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const tags = await generateJson<string[]>(client, settings.gemini_model, prompt, { supabase, endpoint: 'tag', recipeId, userId });
     const validTags = Array.isArray(tags) ? tags.filter((t) => AVAILABLE_TAGS.includes(t)) : [];
 
-    await supabase.from('recipes').update({ tags: validTags }).eq('id', recipeId);
+    // Generate text embedding using Gemini
+    let embedding: number[] | null = null;
+    try {
+      const embeddingText = `Title: ${title}\nDescription: ${description || ''}\nIngredients: ${ingredientText}\nInstructions: ${instructions || ''}`;
+      const embedResponse = await client.models.embedContent({
+        model: 'text-embedding-004',
+        contents: embeddingText,
+      });
+      if (embedResponse.embedding?.values) {
+        embedding = embedResponse.embedding.values;
+      }
+    } catch (embedErr) {
+      console.warn('Embedding generation failed:', embedErr);
+    }
+
+    const updatePayload: any = { tags: validTags };
+    if (embedding) {
+      updatePayload.embedding = embedding;
+    }
+    await supabase.from('recipes').update(updatePayload).eq('id', recipeId);
     setCached(supabase, cacheKey, 'tag', validTags, 24 * 30); // 30 days
 
     return res.status(200).json({ tags: validTags });

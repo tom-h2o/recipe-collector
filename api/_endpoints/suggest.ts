@@ -31,46 +31,94 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
 
-    const { data: recipes } = await supabase
-      .from('recipes')
-      .select('id, title, ingredients')
-      .order('created_at', { ascending: false })
-      .limit(200);
+    // Try embeddings-based similarity search using pgvector first
+    let queryEmbedding: number[] | null = null;
+    let vectorRecipes: any[] = [];
+    try {
+      const client = getGeminiClient(apiKey);
+      const embedResponse = await client.models.embedContent({
+        model: 'text-embedding-004',
+        contents: `Available ingredients: ${userIngredients.join(', ')}`,
+      });
+      if (embedResponse.embedding?.values) {
+        queryEmbedding = embedResponse.embedding.values;
+      }
 
-    if (!recipes || recipes.length === 0) {
-      return res.status(200).json({ suggestions: [] });
-    }
-
-    // Pre-filter candidates locally using in-memory string matching overlap
-    const scoredCandidates = recipes.map((r) => {
-      const ingList = Array.isArray(r.ingredients)
-        ? r.ingredients.map((i: unknown) => {
-            if (typeof i === 'object' && i !== null && 'name' in i) {
-              return (i as { name: string }).name;
-            }
-            return String(i);
-          })
-        : [];
-      
-      let matches = 0;
-      const lowerIngList = ingList.map(name => name.toLowerCase());
-      
-      for (const userIng of userIngredients) {
-        const query = userIng.toLowerCase().trim();
-        if (!query) continue;
-        if (lowerIngList.some((ing) => ing.includes(query) || query.includes(ing))) {
-          matches += 1;
+      if (queryEmbedding && userId) {
+        const { data: matchedVector } = await supabase.rpc('match_recipes', {
+          query_embedding: queryEmbedding,
+          match_threshold: 0.1, // Generous threshold to match as many as possible
+          match_count: 30,
+          filter_user_id: userId,
+        });
+        if (matchedVector && matchedVector.length > 0) {
+          vectorRecipes = matchedVector;
         }
       }
-      
-      return { recipe: r, score: matches, ingredientsText: ingList.join(', ') };
-    });
+    } catch (vectorErr) {
+      console.warn('Vector similarity search failed or pgvector not set up, using fallback:', vectorErr);
+    }
 
-    // Sort candidates and select the top 30 most relevant candidates
-    const topCandidates = scoredCandidates
-      .filter((c) => c.score > 0 || scoredCandidates.length <= 30)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 30);
+    let topCandidates: any[] = [];
+    if (vectorRecipes.length > 0) {
+      topCandidates = vectorRecipes.map((r) => ({
+        recipe: r,
+        ingredientsText: Array.isArray(r.ingredients)
+          ? r.ingredients.map((i: any) => {
+              if (typeof i === 'object' && i !== null && 'name' in i) {
+                return (i as { name: string }).name;
+              }
+              return String(i);
+            }).join(', ')
+          : String(r.ingredients ?? ''),
+      }));
+    } else {
+      // Fallback: Local in-memory string-matching ranker
+      const { data: recipes } = await supabase
+        .from('recipes')
+        .select('id, title, ingredients')
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (!recipes || recipes.length === 0) {
+        return res.status(200).json({ suggestions: [] });
+      }
+
+      const scoredCandidates = recipes.map((r) => {
+        const ingList = Array.isArray(r.ingredients)
+          ? r.ingredients.map((i: unknown) => {
+              if (typeof i === 'object' && i !== null && 'name' in i) {
+                return (i as { name: string }).name;
+              }
+              return String(i);
+            })
+          : [];
+        
+        let matches = 0;
+        const lowerIngList = ingList.map(name => name.toLowerCase());
+        
+        for (const userIng of userIngredients) {
+          const query = userIng.toLowerCase().trim();
+          if (!query) continue;
+          if (lowerIngList.some((ing) => ing.includes(query) || query.includes(ing))) {
+            matches += 1;
+          }
+        }
+        
+        return { recipe: r, score: matches, ingredientsText: ingList.join(', ') };
+      });
+
+      const matchedCandidates = scoredCandidates
+        .filter((c) => c.score > 0 || scoredCandidates.length <= 30)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 30);
+
+      topCandidates = matchedCandidates;
+    }
+
+    if (topCandidates.length === 0) {
+      return res.status(200).json({ suggestions: [] });
+    }
 
     const recipeList = topCandidates
       .map((c) => `ID: ${c.recipe.id} | Title: ${c.recipe.title} | Ingredients: ${c.ingredientsText}`)

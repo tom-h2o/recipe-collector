@@ -1,243 +1,63 @@
-import { useState, useCallback, useRef } from 'react';
-import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
-import { apiFetch } from '@/lib/api';
-import { PAGE_SIZE } from '@/lib/constants';
+import { useCallback } from 'react';
+import { useRecipeStore } from '@/store/recipeStore';
 import type { Recipe } from '@/types';
+import type { RecipePayload } from '@/store/recipeStore';
 
-export type RecipePayload = Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>;
+export type { RecipePayload };
 
 export function useRecipes(userId?: string | null) {
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
-  const pollingRefs = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
-  const currentSearchQuery = useRef<string>('');
-  const currentTagFilter = useRef<string | null>(null);
-  const currentCollectionId = useRef<string | null>(null);
-  const currentMemberships = useRef<any[]>([]);
-  const currentSortBy = useRef<string>('newest');
+  const store = useRecipeStore();
 
-  const fetchRecipes = useCallback(async (
-    searchQuery: string = '',
-    tagFilter: string | null = null,
-    collectionId: string | null = null,
-    memberships: any[] = [],
-    sortBy: string = 'newest'
-  ) => {
-    setLoading(true);
-    setPage(0);
-    currentSearchQuery.current = searchQuery;
-    currentTagFilter.current = tagFilter;
-    currentCollectionId.current = collectionId;
-    currentMemberships.current = memberships;
-    currentSortBy.current = sortBy;
-
-    let query = supabase.from('recipes').select('*');
-
-    if (searchQuery && searchQuery.trim()) {
-      query = query.textSearch('search_vector', searchQuery.trim());
-    }
-
-    if (tagFilter) {
-      if (tagFilter === '⭐ Favourites') {
-        query = query.eq('is_favourite', true);
-      } else {
-        query = query.contains('tags', [tagFilter]);
-      }
-    }
-
-    if (collectionId) {
-      const ids = memberships.filter((m) => m.collection_id === collectionId).map((m) => m.recipe_id);
-      query = query.in('id', ids);
-    }
-
-    // Apply sorting
-    switch (sortBy) {
-      case 'oldest': query = query.order('created_at', { ascending: true }); break;
-      case 'a-z': query = query.order('title', { ascending: true }); break;
-      case 'z-a': query = query.order('title', { ascending: false }); break;
-      case 'rating': query = query.order('rating', { ascending: false, nullsFirst: false }); break;
-      case 'favourites': query = query.order('is_favourite', { ascending: false }).order('created_at', { ascending: false }); break;
-      default: query = query.order('created_at', { ascending: false }); break;
-    }
-
-    const { data } = await query.range(0, PAGE_SIZE - 1);
-    if (data) {
-      setRecipes(data as Recipe[]);
-      setHasMore(data.length === PAGE_SIZE);
-    }
-    setLoading(false);
-  }, []);
+  const fetchRecipes = useCallback(
+    async (
+      searchQuery: string = '',
+      tagFilter: string | null = null,
+      collectionId: string | null = null,
+      memberships: any[] = [],
+      sortBy: string = 'newest'
+    ) => {
+      await store.fetchRecipes(searchQuery, tagFilter, collectionId, memberships, sortBy);
+    },
+    [store.fetchRecipes]
+  );
 
   const loadMore = useCallback(async () => {
-    const nextPage = page + 1;
-    let query = supabase.from('recipes').select('*');
-
-    if (currentSearchQuery.current) {
-      query = query.textSearch('search_vector', currentSearchQuery.current);
-    }
-    if (currentTagFilter.current) {
-      if (currentTagFilter.current === '⭐ Favourites') {
-        query = query.eq('is_favourite', true);
-      } else {
-        query = query.contains('tags', [currentTagFilter.current]);
-      }
-    }
-    if (currentCollectionId.current) {
-      const ids = currentMemberships.current.filter((m) => m.collection_id === currentCollectionId.current).map((m) => m.recipe_id);
-      query = query.in('id', ids);
-    }
-
-    // Apply sorting
-    switch (currentSortBy.current) {
-      case 'oldest': query = query.order('created_at', { ascending: true }); break;
-      case 'a-z': query = query.order('title', { ascending: true }); break;
-      case 'z-a': query = query.order('title', { ascending: false }); break;
-      case 'rating': query = query.order('rating', { ascending: false, nullsFirst: false }); break;
-      case 'favourites': query = query.order('is_favourite', { ascending: false }).order('created_at', { ascending: false }); break;
-      default: query = query.order('created_at', { ascending: false }); break;
-    }
-
-    const { data } = await query.range(nextPage * PAGE_SIZE, (nextPage + 1) * PAGE_SIZE - 1);
-    if (data) {
-      setRecipes((prev) => [...prev, ...(data as Recipe[])]);
-      setHasMore(data.length === PAGE_SIZE);
-      setPage(nextPage);
-    }
-  }, [page]);
-
-  function startPolling(recipeId: string) {
-    setProcessingIds((prev) => new Set([...prev, recipeId]));
-    const started = Date.now();
-    const interval = setInterval(async () => {
-      const { data } = await supabase
-        .from('recipes')
-        .select('id, tags, nutrition')
-        .eq('id', recipeId)
-        .single();
-
-      const done = data && Array.isArray(data.tags) && data.tags.length > 0 && data.nutrition !== null;
-      const timedOut = Date.now() - started > 30000;
-
-      if (done || timedOut) {
-        clearInterval(interval);
-        pollingRefs.current.delete(recipeId);
-        setProcessingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(recipeId);
-          return next;
-        });
-        if (timedOut && !done) {
-          toast.warning('Auto-tagging took too long — you can edit tags manually.', { duration: 5000 });
-        }
-        if (data) {
-          setRecipes((prev) => prev.map((r) => (r.id === recipeId ? { ...r, ...data } : r)));
-        }
-      }
-    }, 2000);
-    pollingRefs.current.set(recipeId, interval);
-  }
+    await store.loadMore();
+  }, [store.loadMore]);
 
   const saveRecipe = useCallback(
     async (payload: RecipePayload, editingId?: string) => {
-      if (editingId) {
-        const { error } = await supabase.from('recipes').update(payload).eq('id', editingId);
-        if (error) throw error;
-        setRecipes((prev) => prev.map((r) => (r.id === editingId ? { ...r, ...payload } : r)));
-      } else {
-        // original_servings is fixed at import time — always mirrors servings on first save
-        const withOriginal = { ...payload, original_servings: payload.original_servings ?? payload.servings };
-        const insertPayload = userId ? { ...withOriginal, user_id: userId } : withOriginal;
-        const { error } = await supabase.from('recipes').insert([insertPayload]);
-        if (error) throw error;
-
-        const { data: newRow } = await supabase
-          .from('recipes')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (newRow?.id) {
-          setRecipes((prev) => [newRow as Recipe, ...prev]);
-          startPolling(newRow.id);
-
-          // Auto-find a cover image when none was provided
-          if (!payload.image_url) {
-            const savedId = newRow.id;
-            apiFetch('/api/find-image', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ title: payload.title, description: payload.description }),
-            })
-              .then((r) => r.json())
-              .then(({ imageUrl }: { imageUrl: string }) => {
-                if (imageUrl) {
-                  supabase.from('recipes').update({ image_url: imageUrl }).eq('id', savedId).then(() => {}, () => {});
-                  setRecipes((prev) => prev.map((r) => r.id === savedId ? { ...r, image_url: imageUrl } : r));
-                }
-              })
-              .catch(console.warn);
-          }
-
-          apiFetch('/api/tag', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              recipeId: newRow.id,
-              title: payload.title,
-              description: payload.description,
-              ingredients: payload.ingredients,
-              instructions: payload.instructions,
-            }),
-          }).catch(console.warn);
-          apiFetch('/api/nutrition', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              recipeId: newRow.id,
-              title: payload.title,
-              ingredients: payload.ingredients,
-              servings: payload.servings,
-            }),
-          }).catch(console.warn);
-        }
-      }
+      await store.saveRecipe(payload, userId ?? null, editingId);
     },
-    [userId],
+    [store.saveRecipe, userId]
   );
 
-  const deleteRecipe = useCallback(async (id: string) => {
-    const { error } = await supabase.from('recipes').delete().eq('id', id);
-    if (error) throw error;
-    setRecipes((prev) => prev.filter((r) => r.id !== id));
-  }, []);
+  const deleteRecipe = useCallback(
+    async (id: string) => {
+      await store.deleteRecipe(id);
+    },
+    [store.deleteRecipe]
+  );
 
-  const toggleFavourite = useCallback(async (recipe: Recipe) => {
-    const { error } = await supabase
-      .from('recipes')
-      .update({ is_favourite: !recipe.is_favourite })
-      .eq('id', recipe.id);
-    if (error) throw error;
-    setRecipes((prev) =>
-      prev.map((r) => (r.id === recipe.id ? { ...r, is_favourite: !r.is_favourite } : r)),
-    );
-  }, []);
+  const toggleFavourite = useCallback(
+    async (recipe: Recipe) => {
+      await store.toggleFavourite(recipe);
+    },
+    [store.toggleFavourite]
+  );
 
-  const updateRecipe = useCallback(async (id: string, changes: Partial<Recipe>) => {
-    const { error } = await supabase.from('recipes').update(changes).eq('id', id);
-    if (error) throw error;
-    setRecipes((prev) => prev.map((r) => (r.id === id ? { ...r, ...changes } : r)));
-  }, []);
+  const updateRecipe = useCallback(
+    async (id: string, changes: Partial<Recipe>) => {
+      await store.updateRecipe(id, changes);
+    },
+    [store.updateRecipe]
+  );
 
   return {
-    recipes,
-    loading,
-    processingIds,
-    hasMore,
+    recipes: store.recipes,
+    loading: store.loading,
+    processingIds: store.processingIds,
+    hasMore: store.hasMore,
     fetchRecipes,
     loadMore,
     saveRecipe,
