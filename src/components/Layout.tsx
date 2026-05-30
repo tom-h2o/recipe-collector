@@ -113,16 +113,14 @@ export function Layout({ activeView, user, isAdmin, recipeCount, inboxCount, onS
 
         {/* Action buttons */}
         <div className="flex items-center gap-1 sm:gap-2 justify-end">
-          {activeView === 'vault' && (
-            <button
-              onClick={onOpenSuggest}
-              className="inline-flex items-center justify-center gap-2 bg-sk-secondary-container hover:bg-[#f0b48a] dark:bg-secondary dark:hover:bg-secondary/80 text-[#794e2e] dark:text-secondary-foreground font-semibold rounded-full transition-all duration-200 hover:scale-[1.02] h-9 sm:h-10 text-sm w-9 sm:w-auto sm:px-5"
-              title="Suggest a recipe"
-            >
-              <Wand2 className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline">Suggest</span>
-            </button>
-          )}
+          <button
+            onClick={onOpenSuggest}
+            className="inline-flex items-center justify-center gap-2 bg-sk-secondary-container hover:bg-[#f0b48a] dark:bg-secondary dark:hover:bg-secondary/80 text-[#794e2e] dark:text-secondary-foreground font-semibold rounded-full transition-all duration-200 hover:scale-[1.02] h-9 sm:h-10 text-sm w-9 sm:w-auto sm:px-5"
+            title="Suggest a recipe"
+          >
+            <Wand2 className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Suggest</span>
+          </button>
           <button
             onClick={toggle}
             className="p-2 sm:p-2.5 rounded-full text-sk-outline dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary hover:bg-sk-surface-low dark:hover:bg-muted transition-colors"
