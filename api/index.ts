@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import { handle } from 'hono/vercel';
 import { cors } from 'hono/cors';
+import { handle } from './_lib/vercelAdapter.js';
 
 import account from './_endpoints/account.js';
 import extract from './_endpoints/extract.js';
