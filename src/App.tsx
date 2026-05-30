@@ -81,6 +81,9 @@ export default function App() {
     }
   }, [fetchRecipes, fetchMealPlans, fetchShoppingList, fetchPantryItems, fetchSettings, fetchInbox, fetchContacts, fetchCollections]);
 
+  // Scroll to top whenever the active view changes
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [activeView]);
+
   // Debounce search query changes (300ms) before fetching from server
   useEffect(() => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
@@ -141,7 +144,7 @@ export default function App() {
 
   return (
     <AuthGate>
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 px-4 py-4 sm:p-6 md:p-10 font-sans print:p-0 print:bg-white text-zinc-900 dark:text-zinc-50">
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans print:p-0 print:bg-white text-zinc-900 dark:text-zinc-50">
         <Toaster richColors position="top-right" className="print:hidden" />
 
         <Layout
