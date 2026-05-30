@@ -1,4 +1,5 @@
-import type { Context } from 'hono';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getUserId } from './_lib/supabase.js';
 import { captureException } from './_lib/sentry.js';
 
@@ -8,8 +9,8 @@ class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-async function assertAdmin(c: Context): Promise<void> {
-  const userId = await getUserId(c.req.header('authorization'));
+async function assertAdmin(authHeader: string | undefined): Promise<void> {
+  const userId = await getUserId(authHeader);
   if (!userId) throw new HttpError(401, 'Unauthorized');
   const supabase = getServerSupabase();
   const { data, error } = await supabase.auth.admin.getUserById(userId);
@@ -27,16 +28,21 @@ async function deleteUserData(userId: string): Promise<void> {
   if (error) throw error;
 }
 
-export default async function handler(c: Context) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  setCorsHeaders(res);
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  const auth = req.headers.authorization as string | undefined;
+
   try {
     // ── GET /api/account — admin dashboard ────────────────────────────────────
-    if (c.req.method === 'GET') {
-      await assertAdmin(c);
+    if (req.method === 'GET') {
+      await assertAdmin(auth);
 
       const supabase = getServerSupabase();
       const { data: listData, error: listError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
       if (listError || !listData?.users) {
-        return c.json({ error: listError?.message || 'Failed to list users' }, 500);
+        return res.status(500).json({ error: listError?.message || 'Failed to list users' });
       }
       const authUsers = listData.users;
 
@@ -93,7 +99,7 @@ export default async function handler(c: Context) {
         user_email: r.user_id ? (userEmailMap[r.user_id] ?? null) : null,
       }));
 
-      return c.json({
+      return res.status(200).json({
         stats: { total_users: authUsers.length, total_recipes: totalRecipes ?? 0, total_ai_calls: totalAiCalls ?? 0, calls_today: callsToday ?? 0, calls_this_week: callsThisWeek ?? 0, model_breakdown },
         users,
         logs,
@@ -102,26 +108,26 @@ export default async function handler(c: Context) {
     }
 
     // ── DELETE /api/account — delete own account or (admin) any user ──────────
-    if (c.req.method === 'DELETE') {
-      const targetUserId = c.req.query('userId');
+    if (req.method === 'DELETE') {
+      const targetUserId = req.query.userId as string | undefined;
 
       if (targetUserId) {
-        await assertAdmin(c);
+        await assertAdmin(auth);
         await deleteUserData(targetUserId);
       } else {
-        const userId = await getUserId(c.req.header('authorization'));
-        if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+        const userId = await getUserId(auth);
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
         await deleteUserData(userId);
       }
 
-      return c.json({ ok: true });
+      return res.status(200).json({ ok: true });
     }
 
-    return c.json({ error: 'Method not allowed' }, 405);
+    return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
-    if (err instanceof HttpError) return c.json({ error: err.message }, err.status as 401 | 403 | 500);
+    if (err instanceof HttpError) return res.status(err.status).json({ error: err.message });
     captureException(err);
     const message = err instanceof Error ? err.message : 'Request failed';
-    return c.json({ error: message }, 500);
+    return res.status(500).json({ error: message });
   }
 }
