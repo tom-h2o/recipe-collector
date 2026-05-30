@@ -37,6 +37,14 @@ export function useCollections(userId?: string | null) {
     setMemberships((prev) => prev.filter((m) => m.collection_id !== id));
   }, []);
 
+  const renameCollection = useCallback(async (id: string, name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const { error } = await supabase.from('collections').update({ name: trimmed }).eq('id', id);
+    if (error) throw error;
+    setCollections((prev) => prev.map((c) => (c.id === id ? { ...c, name: trimmed } : c)));
+  }, []);
+
   const addToCollection = useCallback(async (collectionId: string, recipeId: string) => {
     const { error } = await supabase
       .from('recipe_collections')
@@ -63,6 +71,7 @@ export function useCollections(userId?: string | null) {
     fetchCollections,
     createCollection,
     deleteCollection,
+    renameCollection,
     addToCollection,
     removeFromCollection,
   };

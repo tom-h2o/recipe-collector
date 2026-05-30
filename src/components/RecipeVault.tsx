@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, X, ArrowUpDown, FolderOpen, Plus, Trash2 } from 'lucide-react';
+import { Search, X, ArrowUpDown, FolderOpen, Plus, Trash2, Pencil, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RecipeCard } from './RecipeCard';
 import { FILTERS, SORT_OPTIONS, type SortOption } from '@/lib/constants';
@@ -23,6 +23,7 @@ interface Props {
   onCollectionChange: (id: string | null) => void;
   onCreateCollection: (name: string) => Promise<void>;
   onDeleteCollection: (id: string) => Promise<void>;
+  onRenameCollection: (id: string, name: string) => Promise<void>;
   onLoadMore: () => void;
   onOpenRecipe: (r: Recipe) => void;
   onToggleFavourite: (r: Recipe, e: React.MouseEvent) => void;
@@ -35,12 +36,14 @@ export function RecipeVault({
   recipeLanguages, translationsCache, translationsLoading,
   collections, memberships, activeCollectionId,
   sortBy, onSortChange,
-  onSearchChange, onFilterChange, onCollectionChange, onCreateCollection, onDeleteCollection,
+  onSearchChange, onFilterChange, onCollectionChange, onCreateCollection, onDeleteCollection, onRenameCollection,
   onLoadMore, onOpenRecipe, onToggleFavourite,
 }: Props) {
   const searchRef = useRef<HTMLInputElement>(null);
   const [newCollectionName, setNewCollectionName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   // '/' keyboard shortcut focuses search
   useEffect(() => {
@@ -98,27 +101,60 @@ export function RecipeVault({
         <div className="flex items-center gap-2 flex-wrap">
           <FolderOpen className="w-3.5 h-3.5 text-sk-outline dark:text-muted-foreground shrink-0" />
           {collections.map((c) => (
-            <div key={c.id} className="inline-flex items-center gap-0.5">
-              <button
-                onClick={() => onCollectionChange(activeCollectionId === c.id ? null : c.id)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold font-sans transition-all ${
-                  activeCollectionId === c.id
-                    ? 'bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground shadow-ambient'
-                    : 'bg-sk-surface-highest dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary hover:bg-sk-primary-fixed/30'
-                }`}
-              >
-                {c.name}
-                <span className="text-[10px] opacity-60 font-normal">
-                  {memberships.filter((m) => m.collection_id === c.id).length}
-                </span>
-              </button>
-              <button
-                onClick={() => onDeleteCollection(c.id)}
-                className="p-1 text-sk-outline-variant dark:text-muted-foreground/50 hover:text-destructive transition-colors"
-                title="Delete collection"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
+            <div key={c.id} className="inline-flex items-center gap-0.5 group/chip">
+              {renamingId === c.id ? (
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!renameValue.trim()) return;
+                    await onRenameCollection(c.id, renameValue);
+                    setRenamingId(null);
+                  }}
+                  className="flex items-center gap-1"
+                >
+                  <input
+                    autoFocus
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Escape') setRenamingId(null); }}
+                    onBlur={() => setRenamingId(null)}
+                    className="px-2 py-1 rounded-full text-xs border-0 bg-sk-surface-highest dark:bg-input focus:outline-none focus:ring-2 focus:ring-sk-primary/25 text-sk-on-surface dark:text-foreground w-28 font-sans"
+                  />
+                  <button type="submit" className="p-1 text-sk-primary dark:text-primary">
+                    <Check className="w-3 h-3" />
+                  </button>
+                </form>
+              ) : (
+                <>
+                  <button
+                    onClick={() => onCollectionChange(activeCollectionId === c.id ? null : c.id)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold font-sans transition-all ${
+                      activeCollectionId === c.id
+                        ? 'bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground shadow-ambient'
+                        : 'bg-sk-surface-highest dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary hover:bg-sk-primary-fixed/30'
+                    }`}
+                  >
+                    {c.name}
+                    <span className="text-[10px] opacity-60 font-normal">
+                      {memberships.filter((m) => m.collection_id === c.id).length}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => { setRenamingId(c.id); setRenameValue(c.name); }}
+                    className="p-1 text-sk-outline-variant dark:text-muted-foreground/40 hover:text-sk-primary dark:hover:text-primary transition-colors opacity-0 group-hover/chip:opacity-100"
+                    title="Rename collection"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => onDeleteCollection(c.id)}
+                    className="p-1 text-sk-outline-variant dark:text-muted-foreground/40 hover:text-destructive transition-colors opacity-0 group-hover/chip:opacity-100"
+                    title="Delete collection"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </>
+              )}
             </div>
           ))}
           {isCreating ? (

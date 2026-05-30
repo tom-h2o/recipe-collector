@@ -1,227 +1,139 @@
-# Recipe Vault Architecture
+# Architecture
 
-This document describes the system architecture, data models, technical stack, and design patterns of the **Recipe Vault** application. It reflects the latest implemented state, including the recent migration to unified APIs, normalized database constraints, in-memory candidate ranking, and server-side filtering and sorting.
+This document describes the system architecture, data models, and design patterns of **Speisekammer** (Recipe Vault). It reflects the current implemented state.
 
 ---
 
 ## System Overview
 
-Recipe Vault is built as a modern, serverless web application. It combines a single-page React frontend, a unified serverless Hono API gateway, a hosted PostgreSQL database with row-level security (RLS), and Gemini AI integration.
+Speisekammer is a serverless web application: a React SPA frontend, independent Vercel Serverless Functions for the API, a hosted PostgreSQL database with row-level security, and Google Gemini for AI.
 
-```mermaid
-graph TD
-    Client[React SPA client] -->|Auth & Database Queries via RLS| Supabase[Supabase Platform]
-    Client -->|API Requests| VercelAPI[Vercel Serverless Function /api/*]
-    
-    subgraph Vercel Serverless API
-        VercelAPI --> Router[Hono Router at api/index.ts]
-        Router --> Adapter[Hono-to-Vercel Adapter]
-        Adapter --> Endpoints[API Handlers in api/_endpoints/]
-        Endpoints --> Cheerio[Cheerio HTML Scraper]
-        Endpoints --> Gemini["@google/genai SDK"]
-        Endpoints --> SupabaseService[Supabase Service Client]
-    end
-
-    subgraph Supabase Platform
-        Supabase --> Auth[Supabase Auth]
-        Supabase --> DB[(PostgreSQL Database)]
-        Supabase --> Storage[Supabase Storage]
-    end
-
-    Gemini -->|AI Processing| GeminiCloud[Google Gemini AI Engine]
-    SupabaseService -->|Service Role access| DB
+```
+Browser
+  │
+  ├─── Supabase JS client (auth + direct DB queries via RLS)
+  │
+  └─── apiFetch() → Vercel Serverless Functions (/api/*.ts)
+            │
+            ├── Supabase service key (bypasses RLS)
+            ├── Google Gemini (@google/genai)
+            └── Cheerio (HTML scraping, extract endpoint only)
 ```
 
 ---
 
 ## Technology Stack
 
-| Layer | Component | Details |
-|---|---|---|
-| **Frontend** | React 19 / Vite 8 / TS | Core runtime environment and build toolchain. |
-| **Styling** | Tailwind CSS / shadcn/ui | Component layout using utility-first classes and `@base-ui/react` primitives. |
-| **Database** | Supabase PostgreSQL | Relational storage with row-level security policies (RLS). |
-| **Authentication** | Supabase Auth | User login, registration, password recovery, and email magic links. |
-| **Backend API** | Hono / Vercel Serverless | Consolidated API gateway handling routing inside a single warmed-up serverless function. |
-| **AI Engine** | Google Gemini | Generative AI integration using the official `@google/genai` library. |
-| **Monitoring** | Sentry | Full-stack error recording and latency monitoring. |
+| Layer | Technology |
+|---|---|
+| Frontend | React 19 + Vite 8 + TypeScript + Tailwind CSS |
+| UI Components | shadcn/ui (`@base-ui/react` primitives) |
+| Backend | Vercel Serverless Functions (Node.js runtime, 10 functions) |
+| Database | Supabase PostgreSQL + Row Level Security |
+| Auth | Supabase Auth (password, magic link, password recovery) |
+| AI | Google Gemini via `@google/genai` |
+| Vector Search | pgvector (Supabase extension, 768-dim `gemini-embedding-2`) |
+| Monitoring | Sentry (full-stack) |
+| PWA | vite-plugin-pwa + Workbox |
 
 ---
 
-## Database Schema Design
+## API Structure
 
-The Supabase PostgreSQL database contains the following tables:
+Each endpoint is a standalone Vercel serverless function at `api/<name>.ts`. There is no router. Vercel maps `/api/<name>` to the corresponding file automatically.
 
-```mermaid
-erDiagram
-    users ||--o{ recipes : "owns"
-    users ||--o{ meal_plan : "plans"
-    users ||--o{ shopping_list : "creates"
-    users ||--o{ pantry_items : "tracks"
-    users ||--o{ collections : "organises"
-    users ||--o{ contacts : "interacts"
-    users ||--o{ settings : "configures"
-
-    recipes ||--o{ recipe_translations : "has"
-    recipes ||--o{ recipe_collections : "included_in"
-    collections ||--o{ recipe_collections : "contains"
-    
-    recipes {
-        uuid id PK
-        varchar title
-        text description
-        jsonb ingredients "Constraint: Always structured Ingredient[]"
-        text instructions
-        varchar image_url
-        int servings
-        timestamp created_at
-        text_array tags
-        boolean is_favourite
-        jsonb nutrition
-        numeric rating
-        text notes
-        int prep_time_mins
-        int cook_time_mins
-        varchar source_url
-        varchar source_name
-        int original_servings
-        varchar original_language
-        varchar preferred_language
-        uuid user_id FK
-        tsvector search_vector
-    }
-
-    recipe_translations {
-        uuid id PK
-        uuid recipe_id FK
-        varchar language_code
-        varchar title
-        text description
-        text instructions
-        jsonb ingredients
-        timestamp created_at
-    }
-
-    meal_plan {
-        uuid id PK
-        date date
-        uuid recipe_id FK
-        varchar meal_type
-        uuid user_id FK
-    }
-
-    shopping_list {
-        uuid id PK
-        text item
-        varchar category
-        boolean is_checked
-        uuid user_id FK
-    }
-
-    pantry_items {
-        uuid id PK
-        text item
-        varchar category
-        uuid user_id FK
-        timestamp created_at
-    }
-
-    collections {
-        uuid id PK
-        varchar name
-        uuid user_id FK
-        timestamp created_at
-    }
-
-    recipe_collections {
-        uuid collection_id PK, FK
-        uuid recipe_id PK, FK
-    }
-
-    settings {
-        uuid user_id PK, FK
-        varchar gemini_model
-        text gemini_prompt
-        text gemini_prompt_tag
-        text gemini_prompt_nutrition
-        text gemini_prompt_translate
-        text gemini_prompt_suggest
-        text gemini_prompt_shopping
-        varchar temperature_unit
-    }
-
-    url_cache {
-        varchar url_hash PK
-        jsonb extracted_data
-        timestamp created_at
-    }
-
-    gemini_logs {
-        uuid id PK
-        timestamp created_at
-        varchar endpoint
-        varchar model
-        varchar status
-        int latency_ms
-        uuid user_id FK
-        text input
-        text output
-        text input_preview
-        text output_preview
-        text error_message
-        uuid recipe_id FK
-    }
+```
+api/
+├── _lib/
+│   ├── cache.ts        # URL and AI result caching helpers
+│   ├── cors.ts         # setCorsHeaders()
+│   ├── gemini.ts       # getGeminiClient(), generateJson() (logs to gemini_logs)
+│   ├── prompts.ts      # Default AI prompt templates
+│   ├── rateLimit.ts    # checkRateLimit(), DAILY_LIMIT = 100
+│   ├── schemas.ts      # Zod request body schemas
+│   ├── sentry.ts       # Server-side Sentry init
+│   └── supabase.ts     # getServerSupabase(), getSettings(), getUserId()
+├── account.ts          # Admin dashboard (GET) + account deletion (DELETE)
+├── extract.ts          # URL scrape / photo / PDF → recipe JSON
+├── find-image.ts       # Unsplash image search
+├── nutrition.ts        # Nutrition estimates
+├── scale.ts            # AI-assisted serving size scaling
+├── share.ts            # Recipe sharing (send / accept / reject)
+├── shopping.ts         # Shopping list generation from meal plan
+├── suggest.ts          # Ingredient-based recipe suggestions
+├── tag.ts              # Recipe tagging + text embedding
+└── translate.ts        # Recipe translation (cached in DB)
 ```
 
----
-
-## Core Architectural Patterns
-
-### 1. Unified Hono Serverless API Router
-The API resides under a unified gateway router at `/api/index.ts` utilizing Hono:
-*   All endpoints are located inside a private `/api/_endpoints/` directory. Vercel ignores files prefixed with an underscore, preventing duplicate compilations.
-*   A type-safe Hono-to-Vercel adapter (`/api/_lib/honoAdapter.ts`) intercepts Hono requests, extracts parameters, mocks `VercelRequest` and `VercelResponse` objects, and executes handlers.
-*   By bundling all controllers into a single serverless deployment, the warm instance is shared across concurrent triggers (e.g. tagging and nutrition estimation on save), reducing cold start delays to nearly zero.
-
-### 2. Database-Level Filtering & Complete Pagination
-The main recipe vault operations are performed entirely in PostgreSQL:
-*   Tag filtering (using `.contains('tags', ...)`), collection lookups (using `.in('id', ids)`), search queries (using `.textSearch()`), and sorting are constructed dynamically at the database level inside `useRecipes.ts`.
-*   This database-driven design eliminates client-side sorting/filtering overhead and keeps the "Load more" pagination button fully active across all filter and search contexts, enabling access to large vaults.
-
-### 3. Normalized Database Schema for Ingredients
-The `ingredients` column in the `recipes` table is fully normalized and guarded:
-*   A database migration (`0036_normalize_ingredients.sql`) converted all legacy text string array entries into structured JSON objects `{ amount: string, name: string, details: string }`.
-*   A Postgres database check constraint (`chk_ingredients_format`) enforces that all future entries strictly adhere to the structured array format, eliminating technical debt and guaranteeing field alignment.
-
-### 4. Smart Local Candidate Pre-Filtering
-To avoid high token overhead and long context latency inside the recipe suggest engine `/api/suggest`:
-*   The API queries up to 200 of the user's recipes from the database and runs a local, in-memory string-matching scoring algorithm in JavaScript.
-*   It filters candidates down to the top 30 most relevant candidates based on ingredient match overlap before compiling the prompt for Gemini. This reduces context size and cuts cumulative latency by 70–80%.
-
-### 5. Multi-modal AI Ingestion Pipeline
-*   **Web Scraping (Cheerio)**: Fetches raw HTML, strips boilerplate elements (scripts, styles, navigation, footers), hashes the URL to check the `url_cache` table (7-day TTL), and passes structured text content to Gemini.
-*   **Photo Extraction**: Transmits Base64 encoded images directly to the Gemini multimodal model, matching user-preferred temperature units.
-*   **PDF Extraction**: Decodes document data and parses tabular and text-based layouts using the `@google/genai` document parser.
+Every handler follows the same flow:
+1. `setCorsHeaders(res)` + OPTIONS guard + method guard
+2. Zod parse `req.body`
+3. Check DB/URL cache → return cached result (bypasses rate limit)
+4. `checkRateLimit(supabase, userId)` → 429 if exceeded
+5. `getSettings(supabase, userId)` → user's model + prompts
+6. Call Gemini via `generateJson()`
+7. Return JSON + log to `gemini_logs`
 
 ---
 
-## Future Architectural Improvement Opportunities
+## Database Schema
 
-### 1. Unified Global State Manager
-> [!NOTE]
-> **Issue**: The codebase uses isolated custom hooks (`useRecipes`, `useMealPlans`, `useShoppingList`) that maintain localized states. This creates potential desynchronization risks across the application tree and leads to redundant database fetches.
-*   **Actionable Solution**:
-    *   Introduce a lightweight state management store (such as `Zustand`) or a unified React Context provider for global records (Recipes, Meal Plans, Shopping Lists, User Settings). This guarantees a single source of truth and instant visual updates when mutations occur.
+38 migrations in `/supabase/migrations/`. Key tables:
 
-### 2. Embeddings-Based Vector Search for Recommender
-> [!TIP]
-> **Issue**: The suggest algorithm utilizes string match pre-filtering for 200 recipes. For vaults containing thousands of recipes, this may miss candidate entries outside the order limits.
-*   **Actionable Solution**:
-    *   Implement vector search. Generate text embeddings for each recipe using pgvector in Supabase and match available ingredients using cosine similarity inside SQL queries, bypassing token boundaries.
+### `recipes`
+Central table. All columns are per-user via `user_id`. `ingredients` is always `Ingredient[]` (enforced by a DB check constraint since migration 0036). `embedding` (vector 768) stores text embeddings for pgvector similarity search.
 
-### 3. Progressive Web App (PWA) Offline Capability
-> [!NOTE]
-> **Issue**: The application is installable but fails to operate or render without an active network connection.
-*   **Actionable Solution**:
-    *   Add `vite-plugin-pwa` to the Vite configuration.
-    *   Setup a custom service worker caching project assets and caching recipe entries in local IndexedDB storage to support offline browsing.
+### `settings`
+One row per user, keyed by `user_id`. A global fallback row (`id=1, user_id=null`) holds defaults for users who haven't saved settings yet. The `id` column uses a sequence starting at 2 so new rows don't collide with the fallback. Stores: `gemini_model`, `gemini_prompt_*` (one per endpoint), `temperature_unit`.
+
+### `gemini_logs`
+One row per `generateJson()` call. Used for: Sentry-correlated error tracing, the admin usage dashboard, per-user rate limiting (count of today's rows by `user_id`), and the usage meter in Settings.
+
+### Other tables
+`meal_plan`, `shopping_list`, `pantry_items`, `recipe_translations`, `recipe_shares`, `contacts`, `collections`, `recipe_collections`, `url_cache`, `ai_cache`.
+
+---
+
+## Key Patterns
+
+### Per-User Settings
+`getSettings(supabase, userId?)` tries the user's row (`user_id = userId`) first. Falls back to the global `id=1` row if no per-user row exists yet. The frontend upserts on `user_id` conflict, so saving settings is idempotent.
+
+### Rate Limiting
+`checkRateLimit(supabase, userId)` counts `gemini_logs` rows for today (UTC midnight reset). Limit: 100 calls/day. Checked **after** cache lookups so cached responses don't consume quota. The `DAILY_LIMIT` constant is exported from `rateLimit.ts` and imported by `useUsage.ts` — no duplication.
+
+### Vector Similarity Search
+`tag.ts` generates a 768-dimensional embedding (`gemini-embedding-2`) for every recipe and stores it in `recipes.embedding`. `suggest.ts` generates an embedding from the user's ingredient list and calls the `match_recipes` pgvector function (cosine similarity, threshold 0.1). Falls back to in-memory string scoring if the vector search returns nothing.
+
+### Ingredients Normalisation
+The `ingredients` column is guaranteed to be `Ingredient[]` on all rows created after migration 0036. Legacy data was migrated in the same migration. A Postgres check constraint (`chk_ingredients_format`) prevents future regressions. Frontend code still uses `parseIngredients()` defensively for safety.
+
+### Recipe Sharing
+`recipe_shares` uses `auth.email() = recipient_email` for RLS so recipients can read their inbox without a `user_id` lookup. The `accept` action runs server-side with the service key, copying the full recipe + all translations to the recipient's vault.
+
+### Vercel Function Count
+The Hobby plan limit is 12 serverless functions. Currently 10 are deployed. Before adding a new `api/*.ts` file, either merge it with an existing endpoint or upgrade the plan.
+
+---
+
+## Frontend Data Flow
+
+Most reads go directly from the browser to Supabase (via RLS-enforced anon key):
+
+```
+Component → hook (useRecipes, useMealPlans, …) → supabase.from().select()
+```
+
+AI operations go through the API:
+
+```
+Component → apiFetch() → api/*.ts → Gemini → response → optimistic UI update
+```
+
+`apiFetch()` in `src/lib/api.ts` automatically attaches the Supabase session Bearer token to every request. API functions call `getUserId(req.headers.authorization)` to extract the user.
+
+---
+
+## Auth Flow
+
+Supabase Auth handles login, magic links, and password recovery. `useAuth` in `src/hooks/useAuth.ts` subscribes to `onAuthStateChange`. The password recovery state machine is intentionally held open on `SIGNED_IN` events (Supabase fires `PASSWORD_RECOVERY` then immediately `SIGNED_IN`) and only closed on `USER_UPDATED`, so `AuthGate` can render the set-new-password form correctly.

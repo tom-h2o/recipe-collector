@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages, Send, MoreHorizontal, Tag, Salad, FolderPlus, FolderMinus } from 'lucide-react';
+import { Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages, Send, MoreHorizontal, Tag, Salad, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
@@ -374,28 +374,33 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                         {isRegeneratingNutrition ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <Salad className="w-3.5 h-3.5 shrink-0" />}
                         {isRegeneratingNutrition ? 'Regenerating…' : 'Regenerate nutrition'}
                       </button>
-                      {collections && collections.length > 0 && onAddToCollection && onRemoveFromCollection && (
-                        <>
-                          <div className="h-px bg-sk-surface-container dark:bg-border my-1" />
-                          {collections.map((c) => {
-                            const inCollection = recipeCollectionIds?.includes(c.id);
-                            return (
-                              <button
-                                key={c.id}
-                                onClick={() => { if (inCollection) onRemoveFromCollection(c.id); else onAddToCollection(c.id); setShowMoreOptions(false); }}
-                                className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium font-sans text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted hover:text-sk-primary dark:hover:text-primary transition-colors text-left"
-                              >
-                                {inCollection ? <FolderMinus className="w-3.5 h-3.5 shrink-0 text-sk-primary dark:text-primary" /> : <FolderPlus className="w-3.5 h-3.5 shrink-0 text-sk-outline" />}
-                                {inCollection ? `Remove from ${c.name}` : `Add to ${c.name}`}
-                              </button>
-                            );
-                          })}
-                        </>
-                      )}
                     </div>
                   )}
                 </div>
               </div>
+
+              {/* Collections — always visible if any collections exist */}
+              {collections && collections.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap py-0.5">
+                  <FolderOpen className="w-3.5 h-3.5 text-sk-outline dark:text-muted-foreground shrink-0" />
+                  {collections.map((c) => {
+                    const inCollection = recipeCollectionIds?.includes(c.id);
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => inCollection ? onRemoveFromCollection?.(c.id) : onAddToCollection?.(c.id)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold font-sans transition-all ${
+                          inCollection
+                            ? 'bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground shadow-sm'
+                            : 'bg-sk-surface-low dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary hover:bg-sk-primary-fixed/30'
+                        }`}
+                      >
+                        {c.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Language picker — shown when translate button is active */}
               {showLangPicker && (
