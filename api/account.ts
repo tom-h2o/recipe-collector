@@ -79,10 +79,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const logs = (recentLogs ?? []).map((l) => ({ ...l, user_email: l.user_id ? (userEmailMap[l.user_id] ?? null) : null }));
 
+      const { data: recentRecipes } = await supabase
+        .from('recipes')
+        .select('id, title, description, image_url, tags, created_at, user_id, is_favourite, servings, prep_time_mins, cook_time_mins')
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      const recipes = (recentRecipes ?? []).map((r) => ({
+        ...r,
+        user_email: r.user_id ? (userEmailMap[r.user_id] ?? null) : null,
+      }));
+
       return res.status(200).json({
         stats: { total_users: authUsers.length, total_recipes: totalRecipes ?? 0, total_ai_calls: totalAiCalls ?? 0, calls_today: callsToday ?? 0, calls_this_week: callsThisWeek ?? 0, model_breakdown },
         users,
         logs,
+        recipes,
       });
     }
 

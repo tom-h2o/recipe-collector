@@ -102,6 +102,21 @@ export interface AdminStats {
   model_breakdown: { model: string; count: number }[];
 }
 
+export interface AdminRecipe {
+  id: string;
+  title: string;
+  description: string | null;
+  image_url: string | null;
+  tags: string[] | null;
+  created_at: string;
+  user_id: string | null;
+  user_email: string | null;
+  is_favourite: boolean;
+  servings: number | null;
+  prep_time_mins: number | null;
+  cook_time_mins: number | null;
+}
+
 export interface AdminLog {
   id: string;
   created_at: string;
