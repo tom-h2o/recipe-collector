@@ -80,7 +80,6 @@ Rules:
 export default async function handler(c: Context) {
   const supabase = getServerSupabase();
   const userId = await getUserId(c.req.header('authorization'));
-  if (userId) { const rl = await checkRateLimit(supabase, userId); if (!rl.allowed) return rateLimitResponse(c, rl); }
   const settings = await getSettings(supabase, userId);
   const apiKey = resolveApiKey(settings);
   if (!apiKey) return c.json({ error: 'GEMINI_API_KEY is not configured.' }, 500);
@@ -90,6 +89,7 @@ export default async function handler(c: Context) {
 
     // ── Photo extraction ───────────────────────────────────────────────────────
     if (body?.imageBase64 !== undefined) {
+      if (userId) { const rl = await checkRateLimit(supabase, userId); if (!rl.allowed) return rateLimitResponse(c, rl); }
       const { imageBase64, mimeType } = extractPhotoSchema.parse(body);
       const client = getGeminiClient(apiKey);
       const startTime = Date.now();
@@ -116,6 +116,7 @@ export default async function handler(c: Context) {
 
     // ── PDF extraction ─────────────────────────────────────────────────────────
     if (body?.pdfBase64 !== undefined) {
+      if (userId) { const rl = await checkRateLimit(supabase, userId); if (!rl.allowed) return rateLimitResponse(c, rl); }
       const { pdfBase64 } = extractPdfSchema.parse(body);
       const client = getGeminiClient(apiKey);
       const startTime = Date.now();
@@ -151,6 +152,7 @@ export default async function handler(c: Context) {
       const ageMs = Date.now() - new Date(cached.created_at).getTime();
       if (ageMs < CACHE_TTL_DAYS * 24 * 60 * 60 * 1000) return c.json(cached.extracted_data);
     }
+    if (userId) { const rl = await checkRateLimit(supabase, userId); if (!rl.allowed) return rateLimitResponse(c, rl); }
 
     const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RecipeCollector/1.0)' } });
     if (!response.ok) throw new Error(`Failed to fetch URL: ${response.statusText}`);

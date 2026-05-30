@@ -8,14 +8,13 @@ class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-async function assertAdmin(c: Context): Promise<string> {
+async function assertAdmin(c: Context): Promise<void> {
   const userId = await getUserId(c.req.header('authorization'));
   if (!userId) throw new HttpError(401, 'Unauthorized');
   const supabase = getServerSupabase();
   const { data, error } = await supabase.auth.admin.getUserById(userId);
   if (error || !data?.user) throw new HttpError(403, error?.message || 'Forbidden');
   if (data.user.email !== ADMIN_EMAIL) throw new HttpError(403, 'Forbidden');
-  return userId;
 }
 
 async function deleteUserData(userId: string): Promise<void> {
@@ -32,7 +31,7 @@ export default async function handler(c: Context) {
   try {
     // ── GET /api/account — admin dashboard ────────────────────────────────────
     if (c.req.method === 'GET') {
-      const adminId = await assertAdmin(c);
+      await assertAdmin(c);
 
       const supabase = getServerSupabase();
       const { data: listData, error: listError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
@@ -94,7 +93,6 @@ export default async function handler(c: Context) {
         user_email: r.user_id ? (userEmailMap[r.user_id] ?? null) : null,
       }));
 
-      void adminId;
       return c.json({
         stats: { total_users: authUsers.length, total_recipes: totalRecipes ?? 0, total_ai_calls: totalAiCalls ?? 0, calls_today: callsToday ?? 0, calls_this_week: callsThisWeek ?? 0, model_breakdown },
         users,

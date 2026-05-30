@@ -16,13 +16,13 @@ export default async function handler(c: Context) {
 
     const supabase = getServerSupabase();
     const userId = await getUserId(c.req.header('authorization'));
-    if (userId) { const rl = await checkRateLimit(supabase, userId); if (!rl.allowed) return rateLimitResponse(c, rl); }
 
     const cacheKey = recipeId ? `scale:${recipeId}:${currentServings}:${targetServings}` : null;
     if (cacheKey) {
       const cached = await getCached<ScaledIngredient[]>(supabase, cacheKey);
       if (cached) return c.json({ ingredients: cached, cached: true });
     }
+    if (userId) { const rl = await checkRateLimit(supabase, userId); if (!rl.allowed) return rateLimitResponse(c, rl); }
 
     const settings = await getSettings(supabase, userId);
     const apiKey = resolveApiKey(settings);

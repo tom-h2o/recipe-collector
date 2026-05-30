@@ -26,7 +26,6 @@ export default async function handler(c: Context) {
 
     const supabase = getServerSupabase();
     const userId = await getUserId(c.req.header('authorization'));
-    if (userId) { const rl = await checkRateLimit(supabase, userId); if (!rl.allowed) return rateLimitResponse(c, rl); }
     const settings = await getSettings(supabase, userId);
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return c.json({ error: 'GEMINI_API_KEY is not configured.' }, 500);
@@ -72,6 +71,7 @@ export default async function handler(c: Context) {
       await supabase.from('recipes').update(updatePayload).eq('id', recipeId);
       return c.json({ tags: cachedTags });
     }
+    if (userId) { const rl = await checkRateLimit(supabase, userId); if (!rl.allowed) return rateLimitResponse(c, rl); }
 
     const client = getGeminiClient(apiKey);
     const tags = await generateJson<string[]>(client, settings.gemini_model, prompt, { supabase, endpoint: 'tag', recipeId, userId });

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Context } from 'hono';
 
-const DAILY_LIMIT = 100;
+export const DAILY_LIMIT = 100;
 
 export interface RateLimitResult {
   allowed: boolean;

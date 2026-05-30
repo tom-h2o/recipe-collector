@@ -52,7 +52,6 @@ export default async function handler(c: Context) {
 
     const supabase = getServerSupabase();
     const userId = await getUserId(c.req.header('authorization'));
-    if (userId) { const rl = await checkRateLimit(supabase, userId); if (!rl.allowed) return rateLimitResponse(c, rl); }
 
     const { data: existing } = await supabase
       .from('recipe_translations')
@@ -63,6 +62,7 @@ export default async function handler(c: Context) {
 
     if (existing) return c.json({ ...existing, cached: true });
 
+    if (userId) { const rl = await checkRateLimit(supabase, userId); if (!rl.allowed) return rateLimitResponse(c, rl); }
     const settings = await getSettings(supabase, userId);
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return c.json({ error: 'GEMINI_API_KEY is not configured.' }, 500);

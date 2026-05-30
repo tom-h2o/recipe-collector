@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { DAILY_LIMIT } from '../../api/_lib/rateLimit';
 
 export interface UsageStats {
   used: number;
@@ -7,8 +8,6 @@ export interface UsageStats {
   remaining: number;
   byEndpoint: { endpoint: string; count: number }[];
 }
-
-const DAILY_LIMIT = 100;
 
 export function useUsage(userId?: string | null) {
   const [usage, setUsage] = useState<UsageStats | null>(null);
