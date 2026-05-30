@@ -70,7 +70,7 @@ export default function App() {
         });
       }
     } else {
-      fetchRecipes('', activeFilter, activeCollectionId, memberships, sortBy);
+      fetchRecipes('');
       fetchMealPlans();
       fetchShoppingList();
       fetchPantryItems();
@@ -79,7 +79,7 @@ export default function App() {
       fetchContacts();
       fetchCollections();
     }
-  }, [fetchRecipes, activeFilter, activeCollectionId, memberships, sortBy, fetchMealPlans, fetchShoppingList, fetchPantryItems, fetchSettings, fetchInbox, fetchContacts, fetchCollections]);
+  }, [fetchRecipes, fetchMealPlans, fetchShoppingList, fetchPantryItems, fetchSettings, fetchInbox, fetchContacts, fetchCollections]);
 
   // Debounce search query changes (300ms) before fetching from server
   useEffect(() => {
