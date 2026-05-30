@@ -1,8 +1,7 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Context } from 'hono';
 import * as cheerio from 'cheerio';
 import { createHash } from 'crypto';
 import { ZodError } from 'zod';
-import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
@@ -77,21 +76,19 @@ Rules:
 - "image_url" and "source_name" should always be empty string.`;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
+export default async function handler(c: Context) {
   const supabase = getServerSupabase();
-  const userId = await getUserId(req);
+  const userId = await getUserId(c.req.header('authorization'));
   const settings = await getSettings(supabase);
   const apiKey = resolveApiKey(settings);
-  if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY is not configured.' });
+  if (!apiKey) return c.json({ error: 'GEMINI_API_KEY is not configured.' }, 500);
 
   try {
+    const body = await c.req.json().catch(() => ({}));
+
     // ── Photo extraction ───────────────────────────────────────────────────────
-    if (req.body?.imageBase64 !== undefined) {
-      const { imageBase64, mimeType } = extractPhotoSchema.parse(req.body);
+    if (body?.imageBase64 !== undefined) {
+      const { imageBase64, mimeType } = extractPhotoSchema.parse(body);
       const client = getGeminiClient(apiKey);
       const startTime = Date.now();
       try {
@@ -107,7 +104,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!text) throw new Error('Gemini returned an empty response.');
         const recipeData = JSON.parse(text);
         supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: settings.gemini_model, status: 'success', latency_ms: Date.now() - startTime, input_preview: `[image ${mimeType}]`, output_preview: text.substring(0, 300), user_id: userId ?? null }).then(() => {}, () => {});
-        return res.status(200).json(recipeData);
+        return c.json(recipeData);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
         supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: settings.gemini_model, status: 'error', latency_ms: Date.now() - startTime, input_preview: `[image ${mimeType}]`, error_message: errorMessage, user_id: userId ?? null }).then(() => {}, () => {});
@@ -116,8 +113,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // ── PDF extraction ─────────────────────────────────────────────────────────
-    if (req.body?.pdfBase64 !== undefined) {
-      const { pdfBase64 } = extractPdfSchema.parse(req.body);
+    if (body?.pdfBase64 !== undefined) {
+      const { pdfBase64 } = extractPdfSchema.parse(body);
       const client = getGeminiClient(apiKey);
       const startTime = Date.now();
       try {
@@ -133,7 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!text) throw new Error('Gemini returned an empty response.');
         const recipeData = JSON.parse(text);
         supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: settings.gemini_model, status: 'success', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', output_preview: text.substring(0, 300), user_id: userId ?? null }).then(() => {}, () => {});
-        return res.status(200).json(recipeData);
+        return c.json(recipeData);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
         supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: settings.gemini_model, status: 'error', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', error_message: errorMessage, user_id: userId ?? null }).then(() => {}, () => {});
@@ -142,7 +139,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // ── URL extraction ─────────────────────────────────────────────────────────
-    const { url } = extractSchema.parse(req.body);
+    const { url } = extractSchema.parse(body);
     const tempNote = `\n- Express all temperatures in °${settings.temperature_unit} (${settings.temperature_unit === 'C' ? 'Celsius' : 'Fahrenheit'}). Convert any other unit found.`;
     const promptTemplate = (settings.gemini_prompt?.trim() ? settings.gemini_prompt : EXTRACT_TEMPLATE) + tempNote;
 
@@ -150,7 +147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: cached } = await supabase.from('url_cache').select('extracted_data, created_at').eq('url_hash', urlHash).single();
     if (cached) {
       const ageMs = Date.now() - new Date(cached.created_at).getTime();
-      if (ageMs < CACHE_TTL_DAYS * 24 * 60 * 60 * 1000) return res.status(200).json(cached.extracted_data);
+      if (ageMs < CACHE_TTL_DAYS * 24 * 60 * 60 * 1000) return c.json(cached.extracted_data);
     }
 
     const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RecipeCollector/1.0)' } });
@@ -170,12 +167,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const recipeData = await generateJson(client, settings.gemini_model, finalPrompt, { supabase, endpoint: 'extract', userId });
 
     supabase.from('url_cache').upsert({ url_hash: urlHash, extracted_data: recipeData }).then(() => {}, () => {});
-    return res.status(200).json(recipeData);
+    return c.json(recipeData);
 
   } catch (err: unknown) {
-    if (err instanceof ZodError) return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
+    if (err instanceof ZodError) return c.json({ error: err.errors[0]?.message ?? 'Invalid request' }, 400);
     captureException(err);
     const message = err instanceof Error ? err.message : 'Failed to extract recipe';
-    return res.status(500).json({ error: message });
+    return c.json({ error: message }, 500);
   }
 }

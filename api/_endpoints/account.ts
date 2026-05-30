@@ -1,21 +1,20 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { setCorsHeaders } from './_lib/cors.js';
+import type { Context } from 'hono';
 import { getServerSupabase, getUserId } from './_lib/supabase.js';
 import { captureException } from './_lib/sentry.js';
 
 const ADMIN_EMAIL = process.env.VITE_ADMIN_EMAIL ?? '';
 
-async function assertAdmin(req: VercelRequest, res: VercelResponse): Promise<string | null> {
-  const userId = await getUserId(req);
-  if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return null; }
+class HttpError extends Error {
+  constructor(public status: number, message: string) { super(message); }
+}
+
+async function assertAdmin(c: Context): Promise<string> {
+  const userId = await getUserId(c.req.header('authorization'));
+  if (!userId) throw new HttpError(401, 'Unauthorized');
   const supabase = getServerSupabase();
   const { data, error } = await supabase.auth.admin.getUserById(userId);
-  if (error || !data?.user) {
-    res.status(403).json({ error: error?.message || 'Forbidden' });
-    return null;
-  }
-  const user = data.user;
-  if (user.email !== ADMIN_EMAIL) { res.status(403).json({ error: 'Forbidden' }); return null; }
+  if (error || !data?.user) throw new HttpError(403, error?.message || 'Forbidden');
+  if (data.user.email !== ADMIN_EMAIL) throw new HttpError(403, 'Forbidden');
   return userId;
 }
 
@@ -29,20 +28,16 @@ async function deleteUserData(userId: string): Promise<void> {
   if (error) throw error;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
-
+export default async function handler(c: Context) {
   try {
     // ── GET /api/account — admin dashboard ────────────────────────────────────
-    if (req.method === 'GET') {
-      const adminId = await assertAdmin(req, res);
-      if (!adminId) return;
+    if (c.req.method === 'GET') {
+      const adminId = await assertAdmin(c);
 
       const supabase = getServerSupabase();
       const { data: listData, error: listError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
       if (listError || !listData?.users) {
-        return res.status(500).json({ error: listError?.message || 'Failed to list users' });
+        return c.json({ error: listError?.message || 'Failed to list users' }, 500);
       }
       const authUsers = listData.users;
 
@@ -99,7 +94,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         user_email: r.user_id ? (userEmailMap[r.user_id] ?? null) : null,
       }));
 
-      return res.status(200).json({
+      void adminId;
+      return c.json({
         stats: { total_users: authUsers.length, total_recipes: totalRecipes ?? 0, total_ai_calls: totalAiCalls ?? 0, calls_today: callsToday ?? 0, calls_this_week: callsThisWeek ?? 0, model_breakdown },
         users,
         logs,
@@ -108,28 +104,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // ── DELETE /api/account — delete own account or (admin) any user ──────────
-    if (req.method === 'DELETE') {
-      const targetUserId = req.query.userId as string | undefined;
+    if (c.req.method === 'DELETE') {
+      const targetUserId = c.req.query('userId');
 
       if (targetUserId) {
-        // Admin deleting another user
-        const adminId = await assertAdmin(req, res);
-        if (!adminId) return;
+        await assertAdmin(c);
         await deleteUserData(targetUserId);
       } else {
-        // User deleting their own account
-        const userId = await getUserId(req);
-        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+        const userId = await getUserId(c.req.header('authorization'));
+        if (!userId) return c.json({ error: 'Unauthorized' }, 401);
         await deleteUserData(userId);
       }
 
-      return res.status(200).json({ ok: true });
+      return c.json({ ok: true });
     }
 
-    return res.status(405).json({ error: 'Method not allowed' });
+    return c.json({ error: 'Method not allowed' }, 405);
   } catch (err) {
+    if (err instanceof HttpError) return c.json({ error: err.message }, err.status as 401 | 403 | 500);
     captureException(err);
     const message = err instanceof Error ? err.message : 'Request failed';
-    return res.status(500).json({ error: message });
+    return c.json({ error: message }, 500);
   }
 }

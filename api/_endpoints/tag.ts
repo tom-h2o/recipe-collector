@@ -1,6 +1,6 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import type { Context } from 'hono';
 import { ZodError } from 'zod';
-import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
@@ -18,19 +18,16 @@ Ingredients: ${ingredientText}
 Instructions: ${instructionPreview}`;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
+export default async function handler(c: Context) {
   try {
-    const { recipeId, title, description, ingredients, instructions } = tagSchema.parse(req.body);
+    const body = await c.req.json().catch(() => ({}));
+    const { recipeId, title, description, ingredients, instructions } = tagSchema.parse(body);
 
     const supabase = getServerSupabase();
-    const userId = await getUserId(req);
+    const userId = await getUserId(c.req.header('authorization'));
     const settings = await getSettings(supabase);
     const apiKey = resolveApiKey(settings);
-    if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY is not configured.' });
+    if (!apiKey) return c.json({ error: 'GEMINI_API_KEY is not configured.' }, 500);
 
     const ingredientText = Array.isArray(ingredients)
       ? ingredients.map((i: unknown) => {
@@ -49,7 +46,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : TAG_TEMPLATE;
     const prompt = buildTagPrompt(template, title, description, ingredientText, instructionPreview);
 
-    // Cache key based on recipe content — deterministic, 30-day TTL
     const cacheKey = makeCacheKey('tag', { title, description: description ?? '', ingredientText, instructions: instructionPreview });
     const cachedTags = await getCached<string[]>(supabase, cacheKey);
     if (cachedTags) {
@@ -70,18 +66,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const updatePayload: Record<string, unknown> = { tags: cachedTags };
-      if (embedding) {
-        updatePayload.embedding = embedding;
-      }
+      if (embedding) updatePayload.embedding = embedding;
       await supabase.from('recipes').update(updatePayload).eq('id', recipeId);
-      return res.status(200).json({ tags: cachedTags });
+      return c.json({ tags: cachedTags });
     }
 
     const client = getGeminiClient(apiKey);
     const tags = await generateJson<string[]>(client, settings.gemini_model, prompt, { supabase, endpoint: 'tag', recipeId, userId });
     const validTags = Array.isArray(tags) ? tags.filter((t) => AVAILABLE_TAGS.includes(t)) : [];
 
-    // Generate text embedding using Gemini
     let embedding: number[] | null = null;
     try {
       const embeddingText = `Title: ${title}\nDescription: ${description || ''}\nIngredients: ${ingredientText}\nInstructions: ${instructions || ''}`;
@@ -98,20 +91,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const updatePayload: Record<string, unknown> = { tags: validTags };
-    if (embedding) {
-      updatePayload.embedding = embedding;
-    }
+    if (embedding) updatePayload.embedding = embedding;
     await supabase.from('recipes').update(updatePayload).eq('id', recipeId);
-    setCached(supabase, cacheKey, 'tag', validTags, 24 * 30); // 30 days
+    setCached(supabase, cacheKey, 'tag', validTags, 24 * 30);
 
-    return res.status(200).json({ tags: validTags });
+    return c.json({ tags: validTags });
   } catch (err: unknown) {
-    if (err instanceof ZodError) {
-      return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
-    }
+    if (err instanceof ZodError) return c.json({ error: err.errors[0]?.message ?? 'Invalid request' }, 400);
     captureException(err);
     const message = err instanceof Error ? err.message : 'Failed to tag recipe';
     console.error('Tagging error:', err);
-    return res.status(500).json({ error: message });
+    return c.json({ error: message }, 500);
   }
 }

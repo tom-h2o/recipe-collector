@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Context } from 'hono';
 import { ZodError } from 'zod';
-import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
@@ -18,21 +17,17 @@ Here are the recipes in their collection:
 ${recipeList}`;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
+export default async function handler(c: Context) {
   try {
-    const { ingredients: userIngredients } = suggestSchema.parse(req.body);
+    const body = await c.req.json().catch(() => ({}));
+    const { ingredients: userIngredients } = suggestSchema.parse(body);
 
     const supabase = getServerSupabase();
-    const userId = await getUserId(req);
+    const userId = await getUserId(c.req.header('authorization'));
     const settings = await getSettings(supabase);
     const apiKey = resolveApiKey(settings);
-    if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
+    if (!apiKey) return c.json({ error: 'GEMINI_API_KEY not configured.' }, 500);
 
-    // Try embeddings-based similarity search using pgvector first
     let queryEmbedding: number[] | null = null;
     let vectorRecipes: any[] = [];
     try {
@@ -49,7 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (queryEmbedding && userId) {
         const { data: matchedVector } = await supabase.rpc('match_recipes', {
           query_embedding: queryEmbedding,
-          match_threshold: 0.1, // Generous threshold to match as many as possible
+          match_threshold: 0.1,
           match_count: 30,
           filter_user_id: userId,
         });
@@ -75,16 +70,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           : String(r.ingredients ?? ''),
       }));
     } else {
-      // Fallback: Local in-memory string-matching ranker
       const { data: recipes } = await supabase
         .from('recipes')
         .select('id, title, ingredients')
         .order('created_at', { ascending: false })
         .limit(200);
 
-      if (!recipes || recipes.length === 0) {
-        return res.status(200).json({ suggestions: [] });
-      }
+      if (!recipes || recipes.length === 0) return c.json({ suggestions: [] });
 
       const scoredCandidates = recipes.map((r) => {
         const ingList = Array.isArray(r.ingredients)
@@ -95,32 +87,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               return String(i);
             })
           : [];
-        
+
         let matches = 0;
-        const lowerIngList = ingList.map(name => name.toLowerCase());
-        
+        const lowerIngList = ingList.map((name: string) => name.toLowerCase());
+
         for (const userIng of userIngredients) {
           const query = userIng.toLowerCase().trim();
           if (!query) continue;
-          if (lowerIngList.some((ing) => ing.includes(query) || query.includes(ing))) {
+          if (lowerIngList.some((ing: string) => ing.includes(query) || query.includes(ing))) {
             matches += 1;
           }
         }
-        
+
         return { recipe: r, score: matches, ingredientsText: ingList.join(', ') };
       });
 
-      const matchedCandidates = scoredCandidates
+      topCandidates = scoredCandidates
         .filter((c) => c.score > 0 || scoredCandidates.length <= 30)
         .sort((a, b) => b.score - a.score)
         .slice(0, 30);
-
-      topCandidates = matchedCandidates;
     }
 
-    if (topCandidates.length === 0) {
-      return res.status(200).json({ suggestions: [] });
-    }
+    if (topCandidates.length === 0) return c.json({ suggestions: [] });
 
     const recipeList = topCandidates
       .map((c) => `ID: ${c.recipe.id} | Title: ${c.recipe.title} | Ingredients: ${c.ingredientsText}`)
@@ -131,7 +119,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : SUGGEST_TEMPLATE;
     const prompt = buildSuggestPrompt(template, userIngredients, recipeList);
 
-    // Short 1-hour TTL — results depend on the recipe library which changes over time
     const cacheKey = makeCacheKey('suggest', userIngredients);
     const cachedIds = await getCached<string[]>(supabase, cacheKey);
 
@@ -145,20 +132,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       setCached(supabase, cacheKey, 'suggest', validIds, 1);
     }
 
-    // Fetch full recipe data for matched IDs
     const { data: matchedRecipes } = await supabase
       .from('recipes')
       .select('*')
       .in('id', validIds);
 
-    return res.status(200).json({ suggestions: matchedRecipes ?? [] });
+    return c.json({ suggestions: matchedRecipes ?? [] });
   } catch (err: unknown) {
-    if (err instanceof ZodError) {
-      return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
-    }
+    if (err instanceof ZodError) return c.json({ error: err.errors[0]?.message ?? 'Invalid request' }, 400);
     captureException(err);
     const message = err instanceof Error ? err.message : 'Failed to suggest recipes';
     console.error('Suggest error:', err);
-    return res.status(500).json({ error: message });
+    return c.json({ error: message }, 500);
   }
 }

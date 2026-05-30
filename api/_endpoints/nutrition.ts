@@ -1,6 +1,5 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Context } from 'hono';
 import { ZodError } from 'zod';
-import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
@@ -26,19 +25,16 @@ Return ONLY a JSON object with these exact keys (all values are numbers rounded 
 }`;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
+export default async function handler(c: Context) {
   try {
-    const { recipeId, title, ingredients, servings } = nutritionSchema.parse(req.body);
+    const body = await c.req.json().catch(() => ({}));
+    const { recipeId, title, ingredients, servings } = nutritionSchema.parse(body);
 
     const supabase = getServerSupabase();
-    const userId = await getUserId(req);
+    const userId = await getUserId(c.req.header('authorization'));
     const settings = await getSettings(supabase);
     const apiKey = resolveApiKey(settings);
-    if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
+    if (!apiKey) return c.json({ error: 'GEMINI_API_KEY not configured.' }, 500);
 
     const ingredientText = Array.isArray(ingredients)
       ? ingredients.map((i: unknown) => {
@@ -55,28 +51,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : NUTRITION_TEMPLATE;
     const prompt = buildNutritionPrompt(template, title, ingredientText, servings);
 
-    // Cache key based on ingredients + servings — deterministic, 30-day TTL
     const cacheKey = makeCacheKey('nutrition', { ingredientText, servings: servings ?? null });
     const cachedNutrition = await getCached(supabase, cacheKey);
     if (cachedNutrition) {
       await supabase.from('recipes').update({ nutrition: cachedNutrition }).eq('id', recipeId);
-      return res.status(200).json({ nutrition: cachedNutrition });
+      return c.json({ nutrition: cachedNutrition });
     }
 
     const client = getGeminiClient(apiKey);
     const nutrition = await generateJson(client, settings.gemini_model, prompt, { supabase, endpoint: 'nutrition', recipeId, userId });
 
     await supabase.from('recipes').update({ nutrition }).eq('id', recipeId);
-    setCached(supabase, cacheKey, 'nutrition', nutrition, 24 * 30); // 30 days
+    setCached(supabase, cacheKey, 'nutrition', nutrition, 24 * 30);
 
-    return res.status(200).json({ nutrition });
+    return c.json({ nutrition });
   } catch (err: unknown) {
-    if (err instanceof ZodError) {
-      return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
-    }
+    if (err instanceof ZodError) return c.json({ error: err.errors[0]?.message ?? 'Invalid request' }, 400);
     captureException(err);
     const message = err instanceof Error ? err.message : 'Failed to estimate nutrition';
     console.error('Nutrition error:', err);
-    return res.status(500).json({ error: message });
+    return c.json({ error: message }, 500);
   }
 }

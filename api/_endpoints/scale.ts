@@ -1,6 +1,5 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Context } from 'hono';
 import { ZodError } from 'zod';
-import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
@@ -9,27 +8,23 @@ import { getCached, setCached } from './_lib/cache.js';
 
 type ScaledIngredient = { amount: string; name: string; details: string };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
+export default async function handler(c: Context) {
   try {
-    const { recipeId, ingredients, currentServings, targetServings } = scaleSchema.parse(req.body);
+    const body = await c.req.json().catch(() => ({}));
+    const { recipeId, ingredients, currentServings, targetServings } = scaleSchema.parse(body);
 
     const supabase = getServerSupabase();
-    const userId = await getUserId(req);
+    const userId = await getUserId(c.req.header('authorization'));
 
-    // Cache key: recipe + exact target serving count (deterministic, 30-day TTL)
     const cacheKey = recipeId ? `scale:${recipeId}:${currentServings}:${targetServings}` : null;
     if (cacheKey) {
       const cached = await getCached<ScaledIngredient[]>(supabase, cacheKey);
-      if (cached) return res.status(200).json({ ingredients: cached, cached: true });
+      if (cached) return c.json({ ingredients: cached, cached: true });
     }
 
     const settings = await getSettings(supabase);
     const apiKey = resolveApiKey(settings);
-    if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY is not configured.' });
+    if (!apiKey) return c.json({ error: 'GEMINI_API_KEY is not configured.' }, 500);
 
     const ingredientText = ingredients
       .map((i) => `${i.amount ? i.amount + ' ' : ''}${i.name}${i.details ? ', ' + i.details : ''}`.trim())
@@ -67,14 +62,12 @@ Rules:
 
     if (cacheKey) setCached(supabase, cacheKey, 'scale', scaled, 24 * 30);
 
-    return res.status(200).json({ ingredients: scaled, cached: false });
+    return c.json({ ingredients: scaled, cached: false });
   } catch (err: unknown) {
-    if (err instanceof ZodError) {
-      return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
-    }
+    if (err instanceof ZodError) return c.json({ error: err.errors[0]?.message ?? 'Invalid request' }, 400);
     captureException(err);
     const message = err instanceof Error ? err.message : 'Failed to scale recipe';
     console.error('Scale error:', err);
-    return res.status(500).json({ error: message });
+    return c.json({ error: message }, 500);
   }
 }
