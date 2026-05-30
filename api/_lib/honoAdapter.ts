@@ -7,6 +7,7 @@ export function adaptHandler(handler: (req: VercelRequest, res: VercelResponse) 
     let statusCode = 200;
     let responseData: any = null;
     let isEnded = false;
+    const responseHeaders: Record<string, string> = {};
 
     // Parse body based on request content type
     let body: any = {};
@@ -24,11 +25,17 @@ export function adaptHandler(handler: (req: VercelRequest, res: VercelResponse) 
       headers[key.toLowerCase()] = val;
     }
 
+    // Parse query string from URL
+    const url = new URL(c.req.url);
+    const query: Record<string, string> = {};
+    url.searchParams.forEach((val, key) => { query[key] = val; });
+
     // Mock VercelRequest
     const req = {
       method: c.req.method,
       headers,
       body,
+      query,
     } as unknown as VercelRequest;
 
     // Mock VercelResponse
@@ -44,16 +51,24 @@ export function adaptHandler(handler: (req: VercelRequest, res: VercelResponse) 
       end() {
         isEnded = true;
         return this;
-      }
+      },
+      setHeader(name: string, value: string) {
+        responseHeaders[name] = value;
+        return this;
+      },
     } as unknown as VercelResponse;
 
     try {
       await handler(req, res);
 
-      if (isEnded) {
-        return c.body(null, statusCode as any);
+      const honoRes = isEnded
+        ? c.body(null, statusCode as any)
+        : c.json(responseData, statusCode as any);
+
+      for (const [name, value] of Object.entries(responseHeaders)) {
+        c.header(name, value);
       }
-      return c.json(responseData, statusCode as any);
+      return honoRes;
     } catch (err: any) {
       console.error('API adapter uncaught error:', err);
       return c.json({ error: err?.message || 'Internal Server Error' }, 500);
