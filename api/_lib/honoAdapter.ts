@@ -47,11 +47,16 @@ export function adaptHandler(handler: (req: VercelRequest, res: VercelResponse) 
       }
     } as unknown as VercelResponse;
 
-    await handler(req, res);
+    try {
+      await handler(req, res);
 
-    if (isEnded) {
-      return c.body(null, statusCode as any);
+      if (isEnded) {
+        return c.body(null, statusCode as any);
+      }
+      return c.json(responseData, statusCode as any);
+    } catch (err: any) {
+      console.error('API adapter uncaught error:', err);
+      return c.json({ error: err?.message || 'Internal Server Error' }, 500);
     }
-    return c.json(responseData, statusCode as any);
   };
 }

@@ -9,8 +9,13 @@ async function assertAdmin(req: VercelRequest, res: VercelResponse): Promise<str
   const userId = await getUserId(req);
   if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return null; }
   const supabase = getServerSupabase();
-  const { data: { user } } = await supabase.auth.admin.getUserById(userId);
-  if (!user || user.email !== ADMIN_EMAIL) { res.status(403).json({ error: 'Forbidden' }); return null; }
+  const { data, error } = await supabase.auth.admin.getUserById(userId);
+  if (error || !data?.user) {
+    res.status(403).json({ error: error?.message || 'Forbidden' });
+    return null;
+  }
+  const user = data.user;
+  if (user.email !== ADMIN_EMAIL) { res.status(403).json({ error: 'Forbidden' }); return null; }
   return userId;
 }
 
@@ -35,7 +40,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!adminId) return;
 
       const supabase = getServerSupabase();
-      const { data: { users: authUsers } } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+      const { data: listData, error: listError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+      if (listError || !listData?.users) {
+        return res.status(500).json({ error: listError?.message || 'Failed to list users' });
+      }
+      const authUsers = listData.users;
 
       const { data: recipeCounts } = await supabase.from('recipes').select('user_id').not('user_id', 'is', null);
       const recipeCountMap: Record<string, number> = {};
