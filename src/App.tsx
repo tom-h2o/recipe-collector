@@ -28,6 +28,7 @@ import { AdminPanel } from '@/components/AdminPanel';
 import { supabase } from '@/lib/supabase';
 import { useTranslationCache } from '@/hooks/useTranslationCache';
 import type { ActiveView, Recipe } from '@/types';
+import type { SortOption } from '@/lib/constants';
 
 const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL ?? '';
 
@@ -55,6 +56,7 @@ export default function App() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>('newest');
 
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -68,7 +70,7 @@ export default function App() {
         });
       }
     } else {
-      fetchRecipes('');
+      fetchRecipes('', activeFilter, activeCollectionId, memberships, sortBy);
       fetchMealPlans();
       fetchShoppingList();
       fetchPantryItems();
@@ -77,16 +79,16 @@ export default function App() {
       fetchContacts();
       fetchCollections();
     }
-  }, [fetchRecipes, fetchMealPlans, fetchShoppingList, fetchPantryItems, fetchSettings, fetchInbox, fetchContacts, fetchCollections]);
+  }, [fetchRecipes, activeFilter, activeCollectionId, memberships, sortBy, fetchMealPlans, fetchShoppingList, fetchPantryItems, fetchSettings, fetchInbox, fetchContacts, fetchCollections]);
 
   // Debounce search query changes (300ms) before fetching from server
   useEffect(() => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
-      fetchRecipes(searchQuery);
+      fetchRecipes(searchQuery, activeFilter, activeCollectionId, memberships, sortBy);
     }, 300);
     return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
-  }, [searchQuery, fetchRecipes]);
+  }, [searchQuery, activeFilter, activeCollectionId, memberships, sortBy, fetchRecipes]);
 
   function openForm(recipe?: Recipe) {
     setEditingRecipe(recipe ?? null);
@@ -168,6 +170,8 @@ export default function App() {
               collections={collections}
               memberships={memberships}
               activeCollectionId={activeCollectionId}
+              sortBy={sortBy}
+              onSortChange={setSortBy}
               onSearchChange={setSearchQuery}
               onFilterChange={setActiveFilter}
               onCollectionChange={setActiveCollectionId}

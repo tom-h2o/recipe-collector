@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Search, X, ArrowUpDown, FolderOpen, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RecipeCard } from './RecipeCard';
@@ -26,17 +26,19 @@ interface Props {
   onLoadMore: () => void;
   onOpenRecipe: (r: Recipe) => void;
   onToggleFavourite: (r: Recipe, e: React.MouseEvent) => void;
+  sortBy: SortOption;
+  onSortChange: (sort: SortOption) => void;
 }
 
 export function RecipeVault({
   recipes, loading, processingIds, searchQuery, activeFilter, hasMore,
   recipeLanguages, translationsCache, translationsLoading,
   collections, memberships, activeCollectionId,
+  sortBy, onSortChange,
   onSearchChange, onFilterChange, onCollectionChange, onCreateCollection, onDeleteCollection,
   onLoadMore, onOpenRecipe, onToggleFavourite,
 }: Props) {
   const searchRef = useRef<HTMLInputElement>(null);
-  const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [newCollectionName, setNewCollectionName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
@@ -52,31 +54,7 @@ export function RecipeVault({
     return () => document.removeEventListener('keydown', handleKey);
   }, []);
 
-  const filteredRecipes = useMemo(() => {
-    let result = recipes;
-
-    if (activeCollectionId) {
-      const ids = new Set(memberships.filter((m) => m.collection_id === activeCollectionId).map((m) => m.recipe_id));
-      result = result.filter((r) => ids.has(r.id));
-    }
-
-    if (activeFilter === FILTERS[0]) {
-      result = result.filter((r) => r.is_favourite);
-    } else if (activeFilter) {
-      result = result.filter((r) => r.tags?.includes(activeFilter));
-    }
-
-    result = [...result];
-    switch (sortBy) {
-      case 'oldest': result.sort((a, b) => a.created_at.localeCompare(b.created_at)); break;
-      case 'a-z': result.sort((a, b) => a.title.localeCompare(b.title)); break;
-      case 'z-a': result.sort((a, b) => b.title.localeCompare(a.title)); break;
-      case 'rating': result.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)); break;
-      case 'favourites': result.sort((a, b) => Number(b.is_favourite) - Number(a.is_favourite)); break;
-    }
-
-    return result;
-  }, [recipes, activeFilter, sortBy, activeCollectionId, memberships]);
+  const filteredRecipes = recipes;
 
   return (
     <>
@@ -108,7 +86,7 @@ export function RecipeVault({
             <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-sk-outline dark:text-muted-foreground pointer-events-none" />
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              onChange={(e) => onSortChange(e.target.value as SortOption)}
               className="pl-8 pr-3 py-2.5 rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface-variant dark:text-muted-foreground text-sm font-sans focus:outline-none focus:ring-2 focus:ring-sk-primary/25 dark:focus:ring-primary/25 transition appearance-none cursor-pointer"
             >
               {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -274,7 +252,7 @@ export function RecipeVault({
                 />
               ))}
             </div>
-            {hasMore && !searchQuery && !activeFilter && !activeCollectionId && (
+            {hasMore && (
               <div className="flex justify-center mt-10">
                 <Button
                   onClick={onLoadMore}

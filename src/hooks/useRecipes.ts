@@ -15,18 +15,53 @@ export function useRecipes(userId?: string | null) {
   const [hasMore, setHasMore] = useState(false);
   const pollingRefs = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
   const currentSearchQuery = useRef<string>('');
+  const currentTagFilter = useRef<string | null>(null);
+  const currentCollectionId = useRef<string | null>(null);
+  const currentMemberships = useRef<any[]>([]);
+  const currentSortBy = useRef<string>('newest');
 
-  const fetchRecipes = useCallback(async (searchQuery: string = '') => {
+  const fetchRecipes = useCallback(async (
+    searchQuery: string = '',
+    tagFilter: string | null = null,
+    collectionId: string | null = null,
+    memberships: any[] = [],
+    sortBy: string = 'newest'
+  ) => {
     setLoading(true);
     setPage(0);
     currentSearchQuery.current = searchQuery;
+    currentTagFilter.current = tagFilter;
+    currentCollectionId.current = collectionId;
+    currentMemberships.current = memberships;
+    currentSortBy.current = sortBy;
 
     let query = supabase.from('recipes').select('*');
 
     if (searchQuery && searchQuery.trim()) {
       query = query.textSearch('search_vector', searchQuery.trim());
-    } else {
-      query = query.order('created_at', { ascending: false });
+    }
+
+    if (tagFilter) {
+      if (tagFilter === '⭐ Favourites') {
+        query = query.eq('is_favourite', true);
+      } else {
+        query = query.contains('tags', [tagFilter]);
+      }
+    }
+
+    if (collectionId) {
+      const ids = memberships.filter((m) => m.collection_id === collectionId).map((m) => m.recipe_id);
+      query = query.in('id', ids);
+    }
+
+    // Apply sorting
+    switch (sortBy) {
+      case 'oldest': query = query.order('created_at', { ascending: true }); break;
+      case 'a-z': query = query.order('title', { ascending: true }); break;
+      case 'z-a': query = query.order('title', { ascending: false }); break;
+      case 'rating': query = query.order('rating', { ascending: false, nullsFirst: false }); break;
+      case 'favourites': query = query.order('is_favourite', { ascending: false }).order('created_at', { ascending: false }); break;
+      default: query = query.order('created_at', { ascending: false }); break;
     }
 
     const { data } = await query.range(0, PAGE_SIZE - 1);
@@ -43,8 +78,27 @@ export function useRecipes(userId?: string | null) {
 
     if (currentSearchQuery.current) {
       query = query.textSearch('search_vector', currentSearchQuery.current);
-    } else {
-      query = query.order('created_at', { ascending: false });
+    }
+    if (currentTagFilter.current) {
+      if (currentTagFilter.current === '⭐ Favourites') {
+        query = query.eq('is_favourite', true);
+      } else {
+        query = query.contains('tags', [currentTagFilter.current]);
+      }
+    }
+    if (currentCollectionId.current) {
+      const ids = currentMemberships.current.filter((m) => m.collection_id === currentCollectionId.current).map((m) => m.recipe_id);
+      query = query.in('id', ids);
+    }
+
+    // Apply sorting
+    switch (currentSortBy.current) {
+      case 'oldest': query = query.order('created_at', { ascending: true }); break;
+      case 'a-z': query = query.order('title', { ascending: true }); break;
+      case 'z-a': query = query.order('title', { ascending: false }); break;
+      case 'rating': query = query.order('rating', { ascending: false, nullsFirst: false }); break;
+      case 'favourites': query = query.order('is_favourite', { ascending: false }).order('created_at', { ascending: false }); break;
+      default: query = query.order('created_at', { ascending: false }); break;
     }
 
     const { data } = await query.range(nextPage * PAGE_SIZE, (nextPage + 1) * PAGE_SIZE - 1);
