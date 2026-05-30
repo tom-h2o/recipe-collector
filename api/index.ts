@@ -1,8 +1,7 @@
 import { Hono } from 'hono';
 import { handle } from 'hono/vercel';
-import { adaptHandler } from './_lib/honoAdapter.js';
+import { cors } from 'hono/cors';
 
-// Import handlers from the private endpoints folder
 import account from './_endpoints/account.js';
 import extract from './_endpoints/extract.js';
 import findImage from './_endpoints/find-image.js';
@@ -16,17 +15,22 @@ import translate from './_endpoints/translate.js';
 
 const app = new Hono().basePath('/api');
 
-// Map all routes to their adapted handlers (supporting both POST and OPTIONS)
-app.all('/account', adaptHandler(account));
-app.all('/extract', adaptHandler(extract));
-app.all('/find-image', adaptHandler(findImage));
-app.all('/nutrition', adaptHandler(nutrition));
-app.all('/scale', adaptHandler(scale));
-app.all('/share', adaptHandler(share));
-app.all('/shopping', adaptHandler(shopping));
-app.all('/suggest', adaptHandler(suggest));
-app.all('/tag', adaptHandler(tag));
-app.all('/translate', adaptHandler(translate));
+app.use('*', cors({
+  origin: process.env.ALLOWED_ORIGIN || '*',
+  credentials: true,
+  allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+}));
 
-// Export Vercel handler
+app.on(['GET', 'DELETE'], '/account', account);
+app.post('/extract', extract);
+app.post('/find-image', findImage);
+app.post('/nutrition', nutrition);
+app.post('/scale', scale);
+app.post('/share', share);
+app.post('/shopping', shopping);
+app.post('/suggest', suggest);
+app.post('/tag', tag);
+app.post('/translate', translate);
+
 export default handle(app);

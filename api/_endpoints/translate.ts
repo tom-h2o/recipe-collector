@@ -1,9 +1,9 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Context } from 'hono';
 import { ZodError } from 'zod';
-import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
+import { checkRateLimit, rateLimitResponse } from './_lib/rateLimit.js';
 import { translateSchema } from './_lib/schemas.js';
 import { TRANSLATE_TEMPLATE } from './_lib/prompts.js';
 
@@ -22,7 +22,6 @@ interface TranslationResult {
   instructions: unknown;
   ingredients: unknown;
 }
-
 
 function buildTranslatePrompt(template: string, targetName: string, title: string, description: string, instructions: string, ingredientText: string): string {
   return `${template} Translate the following recipe into ${targetName}.
@@ -45,19 +44,15 @@ Return this exact JSON structure:
 }`;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
+export default async function handler(c: Context) {
   try {
+    const body = await c.req.json().catch(() => ({}));
     const { recipeId, targetLanguage, title, description, instructions, ingredients } =
-      translateSchema.parse(req.body);
+      translateSchema.parse(body);
 
     const supabase = getServerSupabase();
-    const userId = await getUserId(req);
+    const userId = await getUserId(c.req.header('authorization'));
 
-    // Check DB cache first — translations are permanent once generated
     const { data: existing } = await supabase
       .from('recipe_translations')
       .select('*')
@@ -65,13 +60,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .eq('language_code', targetLanguage)
       .single();
 
-    if (existing) {
-      return res.status(200).json({ ...existing, cached: true });
-    }
+    if (existing) return c.json({ ...existing, cached: true });
 
-    const settings = await getSettings(supabase);
+    if (userId) { const rl = await checkRateLimit(supabase, userId); if (!rl.allowed) return rateLimitResponse(c, rl); }
+    const settings = await getSettings(supabase, userId);
     const apiKey = resolveApiKey(settings);
-    if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY is not configured.' });
+    if (!apiKey) return c.json({ error: 'GEMINI_API_KEY is not configured.' }, 500);
 
     const targetName = LANGUAGE_NAMES[targetLanguage] ?? targetLanguage;
 
@@ -92,8 +86,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       { supabase, endpoint: 'translate', recipeId, userId },
     );
 
-    // Coerce Gemini response to expected types — Gemini may return instructions
-    // as an array of strings, or wrap values in objects for certain languages.
     const safeTitle = typeof result.title === 'string' ? result.title : String(result.title ?? title);
     const safeDescription = typeof result.description === 'string'
       ? result.description
@@ -109,7 +101,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }))
       : ingredients.map((i) => ({ amount: i.amount, name: i.name, details: i.details ?? '' }));
 
-    // Save to DB so this language is never re-translated
     const row = {
       recipe_id: recipeId,
       language_code: targetLanguage,
@@ -121,24 +112,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     await supabase.from('recipe_translations').upsert(row, { onConflict: 'recipe_id,language_code' });
 
-    // Also save detected source language back to the recipe (fire-and-forget)
     const detectedLang = typeof result.detectedSourceLanguage === 'string' ? result.detectedSourceLanguage : undefined;
     if (detectedLang) {
-      supabase
-        .from('recipes')
-        .update({ original_language: detectedLang })
-        .eq('id', recipeId)
-        .then(() => {}, () => {});
+      supabase.from('recipes').update({ original_language: detectedLang }).eq('id', recipeId).then(() => {}, () => {});
     }
 
-    return res.status(200).json({ ...row, detectedSourceLanguage: detectedLang, cached: false });
+    return c.json({ ...row, detectedSourceLanguage: detectedLang, cached: false });
   } catch (err: unknown) {
-    if (err instanceof ZodError) {
-      return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
-    }
+    if (err instanceof ZodError) return c.json({ error: err.errors[0]?.message ?? 'Invalid request' }, 400);
     captureException(err);
     const message = err instanceof Error ? err.message : 'Failed to translate recipe';
     console.error('Translate error:', err);
-    return res.status(500).json({ error: message });
+    return c.json({ error: message }, 500);
   }
 }

@@ -1,26 +1,18 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Context } from 'hono';
 import { ZodError } from 'zod';
-import { setCorsHeaders } from './_lib/cors.js';
 import { captureException } from './_lib/sentry.js';
 import { findImageSchema } from './_lib/schemas.js';
 
 const UNSPLASH_API = 'https://api.unsplash.com';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
+export default async function handler(c: Context) {
   try {
-    const { title, description } = findImageSchema.parse(req.body);
+    const body = await c.req.json().catch(() => ({}));
+    const { title, description } = findImageSchema.parse(body);
 
     const accessKey = process.env.UNSPLASH_ACCESS_KEY;
-    if (!accessKey) {
-      // Graceful degradation — image search is optional
-      return res.status(200).json({ imageUrl: '' });
-    }
+    if (!accessKey) return c.json({ imageUrl: '' });
 
-    // Build a focused food-photography search query
     const queryTerms = [title, description ? description.split(' ').slice(0, 4).join(' ') : '', 'food recipe']
       .filter(Boolean)
       .join(' ');
@@ -38,20 +30,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!response.ok) {
       console.warn('Unsplash request failed:', response.status, response.statusText);
-      return res.status(200).json({ imageUrl: '' });
+      return c.json({ imageUrl: '' });
     }
 
     const data = await response.json() as { results?: { urls?: { regular?: string } }[] };
     const imageUrl = data.results?.[0]?.urls?.regular ?? '';
 
-    return res.status(200).json({ imageUrl });
+    return c.json({ imageUrl });
   } catch (err: unknown) {
-    if (err instanceof ZodError) {
-      return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
-    }
+    if (err instanceof ZodError) return c.json({ error: err.errors[0]?.message ?? 'Invalid request' }, 400);
     captureException(err);
     console.error('Find image error:', err);
-    // Never fail a recipe save because of image search
-    return res.status(200).json({ imageUrl: '' });
+    return c.json({ imageUrl: '' });
   }
 }

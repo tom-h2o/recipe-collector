@@ -1,40 +1,34 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Context } from 'hono';
 import { ZodError } from 'zod';
-import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase } from './_lib/supabase.js';
 import { captureException } from './_lib/sentry.js';
 import { shareSchema } from './_lib/schemas.js';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
+export default async function handler(c: Context) {
   try {
-    const body = shareSchema.parse(req.body);
+    const body = await c.req.json().catch(() => ({}));
+    const parsed = shareSchema.parse(body);
     const supabase = getServerSupabase();
 
     // ── SEND ──────────────────────────────────────────────────────────────────
-    if (body.action === 'send') {
-      const { recipeId, recipientEmail, senderUserId, senderEmail } = body;
+    if (parsed.action === 'send') {
+      const { recipeId, recipientEmail, senderUserId, senderEmail } = parsed;
 
       if (senderEmail.toLowerCase() === recipientEmail.toLowerCase()) {
-        return res.status(400).json({ error: 'You cannot send a recipe to yourself.' });
+        return c.json({ error: 'You cannot send a recipe to yourself.' }, 400);
       }
 
-      // Fetch the recipe to get snapshot fields and verify sender owns it
       const { data: recipe, error: recipeErr } = await supabase
         .from('recipes')
         .select('id, title, description, image_url, user_id')
         .eq('id', recipeId)
         .single();
 
-      if (recipeErr || !recipe) return res.status(404).json({ error: 'Recipe not found.' });
+      if (recipeErr || !recipe) return c.json({ error: 'Recipe not found.' }, 404);
       if (recipe.user_id && recipe.user_id !== senderUserId) {
-        return res.status(403).json({ error: 'You do not own this recipe.' });
+        return c.json({ error: 'You do not own this recipe.' }, 403);
       }
 
-      // Check if a pending share already exists to this recipient for this recipe
       const { data: existing } = await supabase
         .from('recipe_shares')
         .select('id')
@@ -44,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .maybeSingle();
 
       if (existing) {
-        return res.status(409).json({ error: 'You already sent this recipe to that address — it is still pending.' });
+        return c.json({ error: 'You already sent this recipe to that address — it is still pending.' }, 409);
       }
 
       const { error: insertErr } = await supabase.from('recipe_shares').insert({
@@ -59,20 +53,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (insertErr) throw insertErr;
 
-      // Upsert sender's contact list
       await supabase.from('contacts').upsert(
         { user_id: senderUserId, contact_email: recipientEmail.toLowerCase() },
         { onConflict: 'user_id,contact_email' },
       );
 
-      return res.status(200).json({ ok: true });
+      return c.json({ ok: true });
     }
 
     // ── ACCEPT ─────────────────────────────────────────────────────────────────
-    if (body.action === 'accept') {
-      const { shareId, recipientUserId, recipientEmail } = body;
+    if (parsed.action === 'accept') {
+      const { shareId, recipientUserId, recipientEmail } = parsed;
 
-      // Fetch the share and verify it belongs to this recipient
       const { data: share, error: shareErr } = await supabase
         .from('recipe_shares')
         .select('*')
@@ -81,9 +73,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('status', 'pending')
         .single();
 
-      if (shareErr || !share) return res.status(404).json({ error: 'Share not found or already processed.' });
+      if (shareErr || !share) return c.json({ error: 'Share not found or already processed.' }, 404);
 
-      // Fetch the original recipe (service key bypasses RLS)
       const { data: original, error: origErr } = await supabase
         .from('recipes')
         .select('*')
@@ -91,12 +82,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .single();
 
       if (origErr || !original) {
-        // Recipe was deleted — still mark as accepted but note it
         await supabase.from('recipe_shares').update({ status: 'accepted' }).eq('id', shareId);
-        return res.status(404).json({ error: 'The original recipe no longer exists.' });
+        return c.json({ error: 'The original recipe no longer exists.' }, 404);
       }
 
-      // Insert a copy of the recipe for the recipient
       const { data: newRecipe, error: copyErr } = await supabase
         .from('recipes')
         .insert({
@@ -121,7 +110,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (copyErr || !newRecipe) throw copyErr ?? new Error('Failed to copy recipe.');
 
-      // Copy all translations
       const { data: translations } = await supabase
         .from('recipe_translations')
         .select('*')
@@ -140,21 +128,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         );
       }
 
-      // Mark share accepted
       await supabase.from('recipe_shares').update({ status: 'accepted' }).eq('id', shareId);
-
-      // Add sender to recipient's contacts
       await supabase.from('contacts').upsert(
         { user_id: recipientUserId, contact_email: share.sender_email },
         { onConflict: 'user_id,contact_email' },
       );
 
-      return res.status(200).json({ ok: true, newRecipeId: newRecipe.id });
+      return c.json({ ok: true, newRecipeId: newRecipe.id });
     }
 
     // ── REJECT ─────────────────────────────────────────────────────────────────
-    if (body.action === 'reject') {
-      const { shareId, recipientEmail } = body;
+    if (parsed.action === 'reject') {
+      const { shareId, recipientEmail } = parsed;
 
       const { error: rejectErr } = await supabase
         .from('recipe_shares')
@@ -164,15 +149,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('status', 'pending');
 
       if (rejectErr) throw rejectErr;
-      return res.status(200).json({ ok: true });
+      return c.json({ ok: true });
     }
 
   } catch (err: unknown) {
-    if (err instanceof ZodError) {
-      return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
-    }
+    if (err instanceof ZodError) return c.json({ error: err.errors[0]?.message ?? 'Invalid request' }, 400);
     captureException(err);
     console.error('Share error:', err);
-    return res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to process share request' });
+    return c.json({ error: err instanceof Error ? err.message : 'Failed to process share request' }, 500);
   }
 }

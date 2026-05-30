@@ -1,5 +1,4 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import type { VercelRequest } from '@vercel/node';
 
 export interface Settings {
   gemini_model: string;
@@ -20,7 +19,22 @@ export function getServerSupabase(): SupabaseClient {
   return createClient(url, key);
 }
 
-export async function getSettings(supabase: SupabaseClient): Promise<Settings> {
+const SETTINGS_SELECT = 'gemini_model, gemini_prompt, gemini_prompt_tag, gemini_prompt_nutrition, gemini_prompt_translate, gemini_prompt_suggest, gemini_prompt_shopping, temperature_unit';
+
+function rowToSettings(data: Record<string, unknown>, defaults: Settings): Settings {
+  return {
+    gemini_model: (data.gemini_model as string) || defaults.gemini_model,
+    gemini_prompt: (data.gemini_prompt as string) || defaults.gemini_prompt,
+    gemini_prompt_tag: (data.gemini_prompt_tag as string) || defaults.gemini_prompt_tag,
+    gemini_prompt_nutrition: (data.gemini_prompt_nutrition as string) || defaults.gemini_prompt_nutrition,
+    gemini_prompt_translate: (data.gemini_prompt_translate as string) || defaults.gemini_prompt_translate,
+    gemini_prompt_suggest: (data.gemini_prompt_suggest as string) || defaults.gemini_prompt_suggest,
+    gemini_prompt_shopping: (data.gemini_prompt_shopping as string) || defaults.gemini_prompt_shopping,
+    temperature_unit: ((data.temperature_unit as string) as 'C' | 'F') || defaults.temperature_unit,
+  };
+}
+
+export async function getSettings(supabase: SupabaseClient, userId?: string | null): Promise<Settings> {
   const defaults: Settings = {
     gemini_model: DEFAULT_MODEL,
     gemini_prompt: '',
@@ -32,33 +46,22 @@ export async function getSettings(supabase: SupabaseClient): Promise<Settings> {
     temperature_unit: 'C',
   };
   try {
-    const { data } = await supabase
-      .from('settings')
-      .select('gemini_model, gemini_prompt, gemini_prompt_tag, gemini_prompt_nutrition, gemini_prompt_translate, gemini_prompt_suggest, gemini_prompt_shopping, temperature_unit')
-      .eq('id', 1)
-      .single();
+    // Prefer the user's own settings row; fall back to the global id=1 row
+    if (userId) {
+      const { data } = await supabase.from('settings').select(SETTINGS_SELECT).eq('user_id', userId).single();
+      if (data) return rowToSettings(data, defaults);
+    }
+    const { data } = await supabase.from('settings').select(SETTINGS_SELECT).eq('id', 1).single();
     if (!data) return defaults;
-    return {
-      gemini_model: data.gemini_model || defaults.gemini_model,
-      gemini_prompt: data.gemini_prompt || defaults.gemini_prompt,
-      gemini_prompt_tag: data.gemini_prompt_tag || defaults.gemini_prompt_tag,
-      gemini_prompt_nutrition: data.gemini_prompt_nutrition || defaults.gemini_prompt_nutrition,
-      gemini_prompt_translate: data.gemini_prompt_translate || defaults.gemini_prompt_translate,
-      gemini_prompt_suggest: data.gemini_prompt_suggest || defaults.gemini_prompt_suggest,
-      gemini_prompt_shopping: data.gemini_prompt_shopping || defaults.gemini_prompt_shopping,
-      temperature_unit: (data.temperature_unit as 'C' | 'F') || defaults.temperature_unit,
-    };
+    return rowToSettings(data, defaults);
   } catch {
     return defaults;
   }
 }
 
-export async function getUserId(req: VercelRequest): Promise<string | null> {
-  const auth = req.headers.authorization;
-  if (!auth?.startsWith('Bearer ')) return null;
-  const token = auth.slice(7);
-  // Validate JWT structure (3 parts separated by dots) to prevent local atob() crashes
-  if (token.split('.').length !== 3) return null;
+export async function getUserId(authHeader: string | undefined): Promise<string | null> {
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  const token = authHeader.slice(7);
   try {
     const { data: { user } } = await getServerSupabase().auth.getUser(token);
     return user?.id ?? null;
