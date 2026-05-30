@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback } from 'react';
 import { useRecipeStore } from '@/store/recipeStore';
 import type { Recipe } from '@/types';
@@ -6,7 +7,10 @@ import type { RecipePayload } from '@/store/recipeStore';
 export type { RecipePayload };
 
 export function useRecipes(userId?: string | null) {
-  const store = useRecipeStore();
+  const recipes = useRecipeStore((state) => state.recipes);
+  const loading = useRecipeStore((state) => state.loading);
+  const processingIds = useRecipeStore((state) => state.processingIds);
+  const hasMore = useRecipeStore((state) => state.hasMore);
 
   const fetchRecipes = useCallback(
     async (
@@ -16,48 +20,48 @@ export function useRecipes(userId?: string | null) {
       memberships: any[] = [],
       sortBy: string = 'newest'
     ) => {
-      await store.fetchRecipes(searchQuery, tagFilter, collectionId, memberships, sortBy);
+      await useRecipeStore.getState().fetchRecipes(searchQuery, tagFilter, collectionId, memberships, sortBy);
     },
-    [store.fetchRecipes]
+    []
   );
 
   const loadMore = useCallback(async () => {
-    await store.loadMore();
-  }, [store.loadMore]);
+    await useRecipeStore.getState().loadMore();
+  }, []);
 
   const saveRecipe = useCallback(
     async (payload: RecipePayload, editingId?: string) => {
-      await store.saveRecipe(payload, userId ?? null, editingId);
+      await useRecipeStore.getState().saveRecipe(payload, userId ?? null, editingId);
     },
-    [store.saveRecipe, userId]
+    [userId]
   );
 
   const deleteRecipe = useCallback(
     async (id: string) => {
-      await store.deleteRecipe(id);
+      await useRecipeStore.getState().deleteRecipe(id);
     },
-    [store.deleteRecipe]
+    []
   );
 
   const toggleFavourite = useCallback(
     async (recipe: Recipe) => {
-      await store.toggleFavourite(recipe);
+      await useRecipeStore.getState().toggleFavourite(recipe);
     },
-    [store.toggleFavourite]
+    []
   );
 
   const updateRecipe = useCallback(
     async (id: string, changes: Partial<Recipe>) => {
-      await store.updateRecipe(id, changes);
+      await useRecipeStore.getState().updateRecipe(id, changes);
     },
-    [store.updateRecipe]
+    []
   );
 
   return {
-    recipes: store.recipes,
-    loading: store.loading,
-    processingIds: store.processingIds,
-    hasMore: store.hasMore,
+    recipes,
+    loading,
+    processingIds,
+    hasMore,
     fetchRecipes,
     loadMore,
     saveRecipe,

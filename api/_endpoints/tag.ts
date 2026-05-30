@@ -69,7 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.warn('Embedding generation failed (cached path):', embedErr);
       }
 
-      const updatePayload: any = { tags: cachedTags };
+      const updatePayload: Record<string, unknown> = { tags: cachedTags };
       if (embedding) {
         updatePayload.embedding = embedding;
       }
@@ -97,7 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.warn('Embedding generation failed:', embedErr);
     }
 
-    const updatePayload: any = { tags: validTags };
+    const updatePayload: Record<string, unknown> = { tags: validTags };
     if (embedding) {
       updatePayload.embedding = embedding;
     }

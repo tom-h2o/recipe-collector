@@ -91,7 +91,11 @@ export function AdminPanel() {
   function toggleUser(email: string) {
     setExpandedUsers((prev) => {
       const next = new Set(prev);
-      next.has(email) ? next.delete(email) : next.add(email);
+      if (next.has(email)) {
+        next.delete(email);
+      } else {
+        next.add(email);
+      }
       return next;
     });
   }

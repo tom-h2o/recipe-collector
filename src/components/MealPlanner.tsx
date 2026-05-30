@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { ChefHat, Users, X, Plus, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Recipe, MealPlan, RecipeTranslation } from '@/types';
@@ -15,13 +15,13 @@ interface Props {
 }
 
 export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPlan, onRemoveMealPlan, onRefreshMealPlans, onOpenRecipe }: Props) {
-  function getTitle(r: Recipe): string {
+  const getTitle = useCallback((r: Recipe): string => {
     if (r.preferred_language) {
       const t = translationsCache?.[`${r.id}:${r.preferred_language}`];
       if (t?.title) return t.title;
     }
     return r.title;
-  }
+  }, [translationsCache]);
   const [weekOffset, setWeekOffset] = useState(0);
   // Track exactly which cell is being dragged over — CSS :hover is suppressed during drag
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
@@ -47,7 +47,7 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
     if (!mobileSearch.trim()) return recipes;
     const q = mobileSearch.toLowerCase();
     return recipes.filter((r) => getTitle(r).toLowerCase().includes(q));
-  }, [recipes, mobileSearch]);
+  }, [recipes, mobileSearch, getTitle]);
 
   async function handleMobilePick(recipeId: string) {
     if (!mobilePicker) return;

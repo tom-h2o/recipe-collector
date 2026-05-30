@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Context } from 'hono';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
@@ -13,7 +14,7 @@ export function adaptHandler(handler: (req: VercelRequest, res: VercelResponse) 
       if (c.req.header('content-type')?.includes('application/json')) {
         body = await c.req.json();
       }
-    } catch (e) {
+    } catch {
       // Body might be empty or invalid, fallback to empty object
     }
 

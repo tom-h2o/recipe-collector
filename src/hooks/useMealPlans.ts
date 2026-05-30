@@ -2,28 +2,28 @@ import { useCallback } from 'react';
 import { useRecipeStore } from '@/store/recipeStore';
 
 export function useMealPlans(userId?: string | null) {
-  const store = useRecipeStore();
+  const mealPlans = useRecipeStore((state) => state.mealPlans);
 
   const fetchMealPlans = useCallback(async () => {
-    await store.fetchMealPlans();
-  }, [store.fetchMealPlans]);
+    await useRecipeStore.getState().fetchMealPlans();
+  }, []);
 
   const addMealPlan = useCallback(
     async (date: string, mealType: string, recipeId: string) => {
-      await store.addMealPlan(date, mealType, recipeId, userId ?? null);
+      await useRecipeStore.getState().addMealPlan(date, mealType, recipeId, userId ?? null);
     },
-    [store.addMealPlan, userId]
+    [userId]
   );
 
   const removeMealPlan = useCallback(
     async (id: string) => {
-      await store.removeMealPlan(id);
+      await useRecipeStore.getState().removeMealPlan(id);
     },
-    [store.removeMealPlan]
+    []
   );
 
   return {
-    mealPlans: store.mealPlans,
+    mealPlans,
     fetchMealPlans,
     addMealPlan,
     removeMealPlan,

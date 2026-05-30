@@ -61,6 +61,7 @@ export async function getUserId(req: VercelRequest): Promise<string | null> {
   return user?.id ?? null;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function resolveApiKey(_settings: Settings): string {
   return process.env.GEMINI_API_KEY_1 || process.env.GEMINI_API_KEY || '';
 }

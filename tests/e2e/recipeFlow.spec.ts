@@ -13,12 +13,12 @@ try {
       supabaseUrl = urlLine.split('=')[1].trim();
     }
   }
-} catch (e) {
+} catch {
   // ignore
 }
 
 let projectId = 'placeholder';
-const match = supabaseUrl.match(/https:\/\/([^\.]+)\.supabase/);
+const match = supabaseUrl.match(/https:\/\/([^.]+)\.supabase/);
 if (match && match[1]) {
   projectId = match[1];
 }
