@@ -58,11 +58,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const client = getGeminiClient(apiKey);
         const embeddingText = `Title: ${title}\nDescription: ${description || ''}\nIngredients: ${ingredientText}\nInstructions: ${instructions || ''}`;
         const embedResponse = await client.models.embedContent({
-          model: 'text-embedding-004',
+          model: 'gemini-embedding-2',
           contents: embeddingText,
+          config: { outputDimensionality: 768 },
         });
-        if (embedResponse.embedding?.values) {
-          embedding = embedResponse.embedding.values;
+        if (embedResponse.embeddings?.[0]?.values) {
+          embedding = embedResponse.embeddings[0].values;
         }
       } catch (embedErr) {
         console.warn('Embedding generation failed (cached path):', embedErr);
@@ -85,11 +86,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const embeddingText = `Title: ${title}\nDescription: ${description || ''}\nIngredients: ${ingredientText}\nInstructions: ${instructions || ''}`;
       const embedResponse = await client.models.embedContent({
-        model: 'text-embedding-004',
+        model: 'gemini-embedding-2',
         contents: embeddingText,
+        config: { outputDimensionality: 768 },
       });
-      if (embedResponse.embedding?.values) {
-        embedding = embedResponse.embedding.values;
+      if (embedResponse.embeddings?.[0]?.values) {
+        embedding = embedResponse.embeddings[0].values;
       }
     } catch (embedErr) {
       console.warn('Embedding generation failed:', embedErr);

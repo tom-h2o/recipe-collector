@@ -37,11 +37,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const client = getGeminiClient(apiKey);
       const embedResponse = await client.models.embedContent({
-        model: 'text-embedding-004',
+        model: 'gemini-embedding-2',
         contents: `Available ingredients: ${userIngredients.join(', ')}`,
+        config: { outputDimensionality: 768 },
       });
-      if (embedResponse.embedding?.values) {
-        queryEmbedding = embedResponse.embedding.values;
+      if (embedResponse.embeddings?.[0]?.values) {
+        queryEmbedding = embedResponse.embeddings[0].values;
       }
 
       if (queryEmbedding && userId) {
