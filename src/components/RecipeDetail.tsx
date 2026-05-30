@@ -261,7 +261,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
         {/* Fixed close button — always visible, never scrolls away */}
         <button
           onClick={handleClose}
-          className="absolute top-3 right-3 z-20 p-1.5 rounded-full bg-sk-on-surface/30 hover:bg-sk-on-surface/50 backdrop-blur-sm text-white transition-colors shadow-md ring-1 ring-white/20 print:hidden"
+          className="absolute top-3 right-3 z-20 p-2.5 rounded-full bg-sk-on-surface/30 hover:bg-sk-on-surface/50 backdrop-blur-sm text-white transition-colors shadow-md ring-1 ring-white/20 print:hidden"
           title="Close"
         >
           <X className="w-4 h-4" />
@@ -284,69 +284,69 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
               <DialogTitle className="font-serif text-2xl sm:text-3xl md:text-[2.25rem] font-bold tracking-tight text-sk-on-surface dark:text-foreground leading-tight">
                 {translation ? String(translation.title ?? recipe.title) : recipe.title}
               </DialogTitle>
-              <div className="flex items-center gap-1 flex-wrap pt-1 print:hidden">
+              <div className="flex items-center gap-0.5 flex-wrap pt-1 print:hidden">
                 {recipe.source_url && (
                   <a
                     href={recipe.source_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2 rounded-full text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15 transition-colors"
+                    className="p-2.5 rounded-full text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15 transition-colors"
                     title={`View original: ${recipe.source_name || recipe.source_url}`}
                   ><Globe className="w-4 h-4" /></a>
                 )}
                 {!recipe.source_url && recipe.image_url && (
                   <button
                     onClick={() => setShowPhotoLightbox(true)}
-                    className="p-2 rounded-full text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15 transition-colors"
+                    className="p-2.5 rounded-full text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15 transition-colors"
                     title="View original photo"
                   ><ImageIcon className="w-4 h-4" /></button>
                 )}
                 {onSend && (
                   <button
                     onClick={() => onSend(recipe)}
-                    className="p-2 rounded-full text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15 transition-colors"
+                    className="p-2.5 rounded-full text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15 transition-colors"
                     title="Send recipe to someone"
                   ><Send className="w-4 h-4" /></button>
                 )}
                 {onAddMealPlan && (
                   <button
                     onClick={() => setShowAddPlan((v) => !v)}
-                    className={`p-2 rounded-full transition-colors ${showAddPlan ? 'text-sk-primary bg-sk-primary-fixed/40 dark:bg-primary/20' : 'text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15'}`}
+                    className={`p-2.5 rounded-full transition-colors ${showAddPlan ? 'text-sk-primary bg-sk-primary-fixed/40 dark:bg-primary/20' : 'text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15'}`}
                     title="Add to meal plan"
                   ><CalendarPlus className="w-4 h-4" /></button>
                 )}
                 <div className="w-px h-5 bg-sk-outline-variant/30 dark:bg-border mx-0.5" />
                 <button
                   onClick={() => setShowLangPicker((v) => !v)}
-                  className={`p-2 rounded-full transition-colors ${showLangPicker ? 'text-sk-primary bg-sk-primary-fixed/40 dark:bg-primary/20' : 'text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15'}`}
+                  className={`p-2.5 rounded-full transition-colors ${showLangPicker ? 'text-sk-primary bg-sk-primary-fixed/40 dark:bg-primary/20' : 'text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15'}`}
                   title="Translate recipe"
                 ><Languages className="w-4 h-4" /></button>
                 <div className="w-px h-5 bg-sk-outline-variant/30 dark:bg-border mx-0.5" />
                 <button
                   onClick={() => setIsCookMode(true)}
-                  className="p-2 rounded-full text-sk-outline hover:text-sk-secondary dark:hover:text-secondary-foreground hover:bg-sk-secondary-container/30 dark:hover:bg-secondary/20 transition-colors"
+                  className="p-2.5 rounded-full text-sk-outline hover:text-sk-secondary dark:hover:text-secondary-foreground hover:bg-sk-secondary-container/30 dark:hover:bg-secondary/20 transition-colors"
                   title="Cook Mode"
                 ><Flame className="w-4 h-4" /></button>
                 <button
                   onClick={() => { onClose(); onEdit(recipe); }}
-                  className="p-2 rounded-full text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15 transition-colors"
+                  className="p-2.5 rounded-full text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15 transition-colors"
                   title="Edit recipe"
                 ><Pencil className="w-4 h-4" /></button>
                 <button
                   onClick={() => onDelete(recipe)}
-                  className="p-2 rounded-full text-sk-outline hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  className="p-2.5 rounded-full text-sk-outline hover:text-destructive hover:bg-destructive/10 transition-colors"
                   title="Delete recipe"
                 ><Trash2 className="w-4 h-4" /></button>
                 <button
                   onClick={() => window.print()}
-                  className="p-2 rounded-full text-sk-outline hover:text-sk-on-surface-variant hover:bg-sk-surface-low dark:hover:bg-muted transition-colors print:hidden"
+                  className="p-2.5 rounded-full text-sk-outline hover:text-sk-on-surface-variant hover:bg-sk-surface-low dark:hover:bg-muted transition-colors print:hidden"
                   title="Print recipe"
                 ><Printer className="w-4 h-4" /></button>
                 <div className="w-px h-5 bg-sk-outline-variant/30 dark:bg-border mx-0.5" />
                 <div className="relative">
                   <button
                     onClick={() => setShowMoreOptions((v) => !v)}
-                    className={`p-2 rounded-full transition-colors ${showMoreOptions ? 'text-sk-on-surface-variant bg-sk-surface-low dark:bg-muted' : 'text-sk-outline hover:text-sk-on-surface-variant hover:bg-sk-surface-low dark:hover:bg-muted'}`}
+                    className={`p-2.5 rounded-full transition-colors ${showMoreOptions ? 'text-sk-on-surface-variant bg-sk-surface-low dark:bg-muted' : 'text-sk-outline hover:text-sk-on-surface-variant hover:bg-sk-surface-low dark:hover:bg-muted'}`}
                     title="More options"
                   ><MoreHorizontal className="w-4 h-4" /></button>
                   {showMoreOptions && (
@@ -431,12 +431,12 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                     <Users className="w-4 h-4 text-sk-primary dark:text-primary" />
                     <button
                       onClick={() => changeServings(Math.max(1, scaledServings - 1))}
-                      className="w-6 h-6 rounded-full bg-sk-primary-fixed/60 dark:bg-primary/25 text-sk-primary dark:text-primary hover:bg-sk-primary-fixed flex items-center justify-center font-bold transition-colors"
+                      className="w-8 h-8 rounded-full bg-sk-primary-fixed/60 dark:bg-primary/25 text-sk-primary dark:text-primary hover:bg-sk-primary-fixed flex items-center justify-center font-bold transition-colors"
                     ><Minus className="w-3 h-3" /></button>
                     <span className="text-sm font-semibold font-sans text-sk-primary dark:text-primary min-w-[1.5rem] text-center">{scaledServings}</span>
                     <button
                       onClick={() => changeServings(scaledServings + 1)}
-                      className="w-6 h-6 rounded-full bg-sk-primary-fixed/60 dark:bg-primary/25 text-sk-primary dark:text-primary hover:bg-sk-primary-fixed flex items-center justify-center font-bold transition-colors"
+                      className="w-8 h-8 rounded-full bg-sk-primary-fixed/60 dark:bg-primary/25 text-sk-primary dark:text-primary hover:bg-sk-primary-fixed flex items-center justify-center font-bold transition-colors"
                     ><Plus className="w-3 h-3" /></button>
                     <span className="text-xs font-sans font-semibold text-sk-primary dark:text-primary ml-1">
                       {scaledServings === baseServings ? 'servings' : `servings (original: ${baseServings})`}

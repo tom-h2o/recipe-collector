@@ -105,7 +105,7 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
                   <List className="w-4 h-4" />
                   <span className="hidden sm:inline">Ingredients</span>
                 </button>
-                <span className="text-sm font-semibold text-white/50">Step {cookStep + 1} of {steps.length}</span>
+                <span className="text-sm font-semibold text-white/50">{cookStep + 1}/{steps.length}</span>
                 <button onClick={handleClose} className="p-2 rounded-full hover:bg-white/10 transition-colors">
                   <X className="w-5 h-5" />
                 </button>
@@ -125,13 +125,15 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
             </div>
 
             {/* Step dots — never scrolls */}
-            <div className="shrink-0 flex justify-center gap-1.5 py-3">
+            <div className="shrink-0 flex justify-center gap-0.5 py-3">
               {steps.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => setCookStep(i)}
-                  className={`rounded-full transition-all ${i === cookStep ? 'w-6 h-2.5 bg-sk-primary-fixed' : 'w-2.5 h-2.5 bg-white/20 hover:bg-white/40'}`}
-                />
+                  className="p-2 flex items-center justify-center"
+                >
+                  <span className={`rounded-full transition-all ${i === cookStep ? 'w-6 h-2.5 bg-sk-primary-fixed' : 'w-2.5 h-2.5 bg-white/20 hover:bg-white/40'}`} />
+                </button>
               ))}
             </div>
 

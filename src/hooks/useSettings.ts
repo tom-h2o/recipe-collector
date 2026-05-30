@@ -13,7 +13,6 @@ export function useSettings(userId?: string | null) {
     gemini_prompt_translate: '',
     gemini_prompt_suggest: '',
     gemini_prompt_shopping: '',
-    active_api_key: 1,
     temperature_unit: 'C',
   });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
@@ -23,7 +22,7 @@ export function useSettings(userId?: string | null) {
 
     const { data } = await supabase
       .from('settings')
-      .select('gemini_model, gemini_prompt, gemini_prompt_tag, gemini_prompt_nutrition, gemini_prompt_translate, gemini_prompt_suggest, gemini_prompt_shopping, active_api_key, temperature_unit')
+      .select('gemini_model, gemini_prompt, gemini_prompt_tag, gemini_prompt_nutrition, gemini_prompt_translate, gemini_prompt_suggest, gemini_prompt_shopping, temperature_unit')
       .eq('user_id', userId)
       .single();
 
@@ -36,7 +35,6 @@ export function useSettings(userId?: string | null) {
         gemini_prompt_translate: data.gemini_prompt_translate || '',
         gemini_prompt_suggest: data.gemini_prompt_suggest || '',
         gemini_prompt_shopping: data.gemini_prompt_shopping || '',
-        active_api_key: (data.active_api_key as 1 | 2) || 1,
         temperature_unit: (data.temperature_unit as 'C' | 'F') || 'C',
       });
     }
@@ -61,7 +59,6 @@ export function useSettings(userId?: string | null) {
         gemini_prompt_translate: updated.gemini_prompt_translate,
         gemini_prompt_suggest: updated.gemini_prompt_suggest,
         gemini_prompt_shopping: updated.gemini_prompt_shopping,
-        active_api_key: updated.active_api_key,
         temperature_unit: updated.temperature_unit,
       };
 

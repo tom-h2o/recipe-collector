@@ -50,7 +50,7 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, translation, tr
         {/* Favourite button */}
         <button
           onClick={(e) => onToggleFavourite(recipe, e)}
-          className="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-white/85 dark:bg-card/85 backdrop-blur-sm shadow-sm transition-transform hover:scale-110"
+          className="absolute top-2 right-2 p-2 rounded-full bg-white/85 dark:bg-card/85 backdrop-blur-sm shadow-sm transition-transform hover:scale-110"
           title={recipe.is_favourite ? 'Unfavourite' : 'Favourite'}
         >
           <Star className={`w-4 h-4 ${recipe.is_favourite ? 'fill-sk-primary text-sk-primary dark:fill-primary dark:text-primary' : 'text-sk-outline dark:text-muted-foreground'}`} />
@@ -85,13 +85,13 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, translation, tr
             {parsed.slice(0, 5).map((ing, i) => (
               <span
                 key={i}
-                className="px-2.5 py-0.5 bg-sk-surface-low dark:bg-muted text-xs font-sans font-medium rounded-full text-sk-on-surface-variant dark:text-muted-foreground max-w-[140px] truncate"
+                className="px-2.5 py-1 bg-sk-surface-low dark:bg-muted text-xs font-sans font-medium rounded-full text-sk-on-surface-variant dark:text-muted-foreground max-w-[140px] truncate"
               >
                 {ing.name}
               </span>
             ))}
             {parsed.length > 5 && (
-              <span className="px-2.5 py-0.5 bg-sk-primary-fixed/50 dark:bg-primary/15 text-xs font-sans font-medium rounded-full text-sk-primary dark:text-primary">
+              <span className="px-2.5 py-1 bg-sk-primary-fixed/50 dark:bg-primary/15 text-xs font-sans font-medium rounded-full text-sk-primary dark:text-primary">
                 +{parsed.length - 5} more
               </span>
             )}
@@ -105,7 +105,7 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, translation, tr
               <span
                 key={tag}
                 onClick={(e) => { e.stopPropagation(); onFilterChange(tag); }}
-                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold font-sans cursor-pointer transition-all ${
+                className={`px-2.5 py-1 rounded-full text-[10px] font-bold font-sans cursor-pointer transition-all ${
                   activeFilter === tag
                     ? 'bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground'
                     : 'bg-sk-primary-fixed/40 dark:bg-primary/15 text-sk-primary dark:text-primary hover:bg-sk-primary-fixed/70'

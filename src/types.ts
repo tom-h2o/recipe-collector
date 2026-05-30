@@ -78,7 +78,6 @@ export interface AppSettings {
   gemini_prompt_translate: string;
   gemini_prompt_suggest: string;
   gemini_prompt_shopping: string;
-  active_api_key: 1 | 2;
   temperature_unit: 'C' | 'F';
 }
 

@@ -9,7 +9,6 @@ export interface Settings {
   gemini_prompt_translate: string;
   gemini_prompt_suggest: string;
   gemini_prompt_shopping: string;
-  active_api_key: number;
   temperature_unit: 'C' | 'F';
 }
 
@@ -30,13 +29,12 @@ export async function getSettings(supabase: SupabaseClient): Promise<Settings> {
     gemini_prompt_translate: '',
     gemini_prompt_suggest: '',
     gemini_prompt_shopping: '',
-    active_api_key: 1,
     temperature_unit: 'C',
   };
   try {
     const { data } = await supabase
       .from('settings')
-      .select('gemini_model, gemini_prompt, gemini_prompt_tag, gemini_prompt_nutrition, gemini_prompt_translate, gemini_prompt_suggest, gemini_prompt_shopping, active_api_key, temperature_unit')
+      .select('gemini_model, gemini_prompt, gemini_prompt_tag, gemini_prompt_nutrition, gemini_prompt_translate, gemini_prompt_suggest, gemini_prompt_shopping, temperature_unit')
       .eq('id', 1)
       .single();
     if (!data) return defaults;
@@ -48,7 +46,6 @@ export async function getSettings(supabase: SupabaseClient): Promise<Settings> {
       gemini_prompt_translate: data.gemini_prompt_translate || defaults.gemini_prompt_translate,
       gemini_prompt_suggest: data.gemini_prompt_suggest || defaults.gemini_prompt_suggest,
       gemini_prompt_shopping: data.gemini_prompt_shopping || defaults.gemini_prompt_shopping,
-      active_api_key: data.active_api_key ?? defaults.active_api_key,
       temperature_unit: (data.temperature_unit as 'C' | 'F') || defaults.temperature_unit,
     };
   } catch {
@@ -64,9 +61,6 @@ export async function getUserId(req: VercelRequest): Promise<string | null> {
   return user?.id ?? null;
 }
 
-export function resolveApiKey(settings: Settings): string {
-  if (settings.active_api_key === 2) {
-    return process.env.GEMINI_API_KEY_2 || process.env.GEMINI_API_KEY_1 || process.env.GEMINI_API_KEY || '';
-  }
+export function resolveApiKey(_settings: Settings): string {
   return process.env.GEMINI_API_KEY_1 || process.env.GEMINI_API_KEY || '';
 }

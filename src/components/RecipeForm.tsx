@@ -256,7 +256,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-3 right-3 z-20 p-1.5 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white transition-colors shadow-md ring-1 ring-white/20"
+          className="absolute top-3 right-3 z-20 p-2.5 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white transition-colors shadow-md ring-1 ring-white/20"
           title="Close"
         ><X className="w-4 h-4" /></button>
 
@@ -486,7 +486,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
             <Label htmlFor="title" className="font-semibold text-zinc-700 dark:text-zinc-300">Title</Label>
             <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Spaghetti Bolognese" required />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-2">
               <Label htmlFor="servings" className="font-semibold text-zinc-700 dark:text-zinc-300">Servings</Label>
               <Input id="servings" type="number" min="1" value={servings} onChange={(e) => setServings(e.target.value)} placeholder="e.g. 4" />
@@ -628,7 +628,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
             <Label className="font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
               <Link className="w-4 h-4 text-zinc-400" /> Source <span className="text-xs font-normal text-zinc-400">optional</span>
             </Label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="source-name" className="text-xs text-zinc-500 dark:text-zinc-400">Display name</Label>
                 <Input id="source-name" value={sourceName} onChange={(e) => setSourceName(e.target.value)} placeholder="e.g. NYT Cooking, Grandma's book" />
