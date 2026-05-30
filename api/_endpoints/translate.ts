@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
+import { checkRateLimit, rateLimitResponse } from './_lib/rateLimit.js';
 import { translateSchema } from './_lib/schemas.js';
 import { TRANSLATE_TEMPLATE } from './_lib/prompts.js';
 
@@ -51,6 +52,7 @@ export default async function handler(c: Context) {
 
     const supabase = getServerSupabase();
     const userId = await getUserId(c.req.header('authorization'));
+    if (userId) { const rl = await checkRateLimit(supabase, userId); if (!rl.allowed) return rateLimitResponse(c, rl); }
 
     const { data: existing } = await supabase
       .from('recipe_translations')

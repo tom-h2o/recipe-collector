@@ -260,6 +260,7 @@ export default function App() {
           isSaving={isSavingSettings}
           onClose={() => setIsSettingsOpen(false)}
           onSave={saveSettings}
+          userId={user?.id}
         />
 
         <SuggestModal

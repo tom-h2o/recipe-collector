@@ -5,6 +5,7 @@ import { ZodError } from 'zod';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
+import { checkRateLimit, rateLimitResponse } from './_lib/rateLimit.js';
 import { extractSchema, extractPhotoSchema, extractPdfSchema } from './_lib/schemas.js';
 import { EXTRACT_TEMPLATE } from './_lib/prompts.js';
 
@@ -79,6 +80,7 @@ Rules:
 export default async function handler(c: Context) {
   const supabase = getServerSupabase();
   const userId = await getUserId(c.req.header('authorization'));
+  if (userId) { const rl = await checkRateLimit(supabase, userId); if (!rl.allowed) return rateLimitResponse(c, rl); }
   const settings = await getSettings(supabase, userId);
   const apiKey = resolveApiKey(settings);
   if (!apiKey) return c.json({ error: 'GEMINI_API_KEY is not configured.' }, 500);

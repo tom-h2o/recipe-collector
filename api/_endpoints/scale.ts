@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
+import { checkRateLimit, rateLimitResponse } from './_lib/rateLimit.js';
 import { scaleSchema } from './_lib/schemas.js';
 import { getCached, setCached } from './_lib/cache.js';
 
@@ -15,6 +16,7 @@ export default async function handler(c: Context) {
 
     const supabase = getServerSupabase();
     const userId = await getUserId(c.req.header('authorization'));
+    if (userId) { const rl = await checkRateLimit(supabase, userId); if (!rl.allowed) return rateLimitResponse(c, rl); }
 
     const cacheKey = recipeId ? `scale:${recipeId}:${currentServings}:${targetServings}` : null;
     if (cacheKey) {

@@ -1,4 +1,5 @@
-import { Settings, BarChart2, Zap, RotateCcw } from 'lucide-react';
+import { Settings, BarChart2, Zap, RotateCcw, RefreshCw } from 'lucide-react';
+import { useUsage } from '@/hooks/useUsage';
 import {
   EXTRACT_TEMPLATE,
   TAG_TEMPLATE,
@@ -25,12 +26,14 @@ interface Props {
   isSaving: boolean;
   onClose: () => void;
   onSave: (settings: AppSettings) => void;
+  userId?: string | null;
 }
 
-export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: Props) {
+export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, userId }: Props) {
   const [local, setLocal] = useState<AppSettings>(settings);
   const [tab, setTab] = useState<Tab>('settings');
   const [promptTab, setPromptTab] = useState<'extract' | 'tag' | 'nutrition' | 'translate' | 'suggest' | 'shopping'>('extract');
+  const { usage, loadingUsage, fetchUsage } = useUsage(userId);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setLocal(settings); }, [settings, isOpen]);
@@ -38,6 +41,8 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
   // Reset tab when closed
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (!isOpen) setTab('settings'); }, [isOpen]);
+
+  useEffect(() => { if (tab === 'logs') fetchUsage(); }, [tab, fetchUsage]);
 
   const hasChanges = JSON.stringify(local) !== JSON.stringify(settings);
 
@@ -231,7 +236,55 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave }: P
             })()}
 
             {tab === 'logs' && (
-              <div className="py-2">
+              <div className="py-2 space-y-5">
+                {/* Daily usage meter */}
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">Today's AI usage</h3>
+                    <button onClick={fetchUsage} disabled={loadingUsage} className="text-zinc-400 hover:text-sk-primary transition-colors disabled:opacity-50">
+                      <RefreshCw className={`w-3.5 h-3.5 ${loadingUsage ? 'animate-spin' : ''}`} />
+                    </button>
+                  </div>
+                  {usage ? (
+                    <>
+                      <div className="flex items-end gap-1.5">
+                        <span className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">{usage.used}</span>
+                        <span className="text-sm text-zinc-400 dark:text-zinc-500 mb-1">/ {usage.limit} calls</span>
+                        <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full mb-1 ${
+                          usage.remaining === 0 ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                          : usage.remaining < 20 ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400'
+                          : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+                        }`}>
+                          {usage.remaining} remaining
+                        </span>
+                      </div>
+                      <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            usage.used / usage.limit > 0.9 ? 'bg-red-500'
+                            : usage.used / usage.limit > 0.7 ? 'bg-amber-400'
+                            : 'bg-sk-primary dark:bg-primary'
+                          }`}
+                          style={{ width: `${Math.min(100, (usage.used / usage.limit) * 100)}%` }}
+                        />
+                      </div>
+                      {usage.byEndpoint.length > 0 && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 pt-1">
+                          {usage.byEndpoint.map(({ endpoint, count }) => (
+                            <div key={endpoint} className="flex justify-between text-xs">
+                              <span className="text-zinc-500 dark:text-zinc-400 font-mono">{endpoint}</span>
+                              <span className="font-semibold text-zinc-700 dark:text-zinc-300">{count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-[11px] text-zinc-400 dark:text-zinc-500">Resets daily at midnight UTC.</p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-zinc-400">{loadingUsage ? 'Loading…' : 'No usage data yet.'}</p>
+                  )}
+                </div>
+
                 <GeminiLogs />
               </div>
             )}
