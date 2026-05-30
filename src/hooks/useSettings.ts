@@ -50,7 +50,6 @@ export function useSettings(userId?: string | null) {
         return;
       }
       const payload = {
-        id: 1,
         user_id: userId,
         gemini_model: updated.gemini_model,
         gemini_prompt: updated.gemini_prompt,
@@ -62,7 +61,7 @@ export function useSettings(userId?: string | null) {
         temperature_unit: updated.temperature_unit,
       };
 
-      const { error } = await supabase.from('settings').upsert(payload);
+      const { error } = await supabase.from('settings').upsert(payload, { onConflict: 'user_id' });
       if (!error) {
         setSettings(updated);
         toast.success('Settings saved!');

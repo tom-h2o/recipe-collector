@@ -22,7 +22,7 @@ export default async function handler(c: Context) {
       if (cached) return c.json({ ingredients: cached, cached: true });
     }
 
-    const settings = await getSettings(supabase);
+    const settings = await getSettings(supabase, userId);
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return c.json({ error: 'GEMINI_API_KEY is not configured.' }, 500);
 

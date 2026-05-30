@@ -79,7 +79,7 @@ Rules:
 export default async function handler(c: Context) {
   const supabase = getServerSupabase();
   const userId = await getUserId(c.req.header('authorization'));
-  const settings = await getSettings(supabase);
+  const settings = await getSettings(supabase, userId);
   const apiKey = resolveApiKey(settings);
   if (!apiKey) return c.json({ error: 'GEMINI_API_KEY is not configured.' }, 500);
 
