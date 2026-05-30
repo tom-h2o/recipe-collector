@@ -41,7 +41,11 @@ export function AdminPanel() {
     setLoading(true);
     try {
       const res = await apiFetch('/api/account');
-      if (!res.ok) throw new Error((await res.json()).error);
+      if (!res.ok) {
+        let message = `Request failed (${res.status})`;
+        try { message = (await res.json()).error ?? message; } catch { /* non-JSON error body */ }
+        throw new Error(message);
+      }
       setData(await res.json());
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to load admin data');
