@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, BookOpen, Sparkles, Trash2, RefreshCw, Calendar, TrendingUp, Star } from 'lucide-react';
+import { Users, BookOpen, Sparkles, Trash2, RefreshCw, Calendar, TrendingUp, Star, ChevronDown, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -35,7 +35,7 @@ export function AdminPanel() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<AdminUser | null>(null);
   const [recipeSearch, setRecipeSearch] = useState('');
-  const [recipeUserFilter, setRecipeUserFilter] = useState('');
+  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -88,11 +88,21 @@ export function AdminPanel() {
 
   const { stats, users, logs, recipes } = data;
 
-  const filteredRecipes = recipes.filter((r) => {
-    const matchesSearch = !recipeSearch || r.title.toLowerCase().includes(recipeSearch.toLowerCase());
-    const matchesUser = !recipeUserFilter || r.user_email === recipeUserFilter;
-    return matchesSearch && matchesUser;
-  });
+  function toggleUser(email: string) {
+    setExpandedUsers((prev) => {
+      const next = new Set(prev);
+      next.has(email) ? next.delete(email) : next.add(email);
+      return next;
+    });
+  }
+
+  // Group recipes by user, filtered by search
+  const recipesByUser = recipes.reduce<Record<string, AdminRecipe[]>>((acc, r) => {
+    if (recipeSearch && !r.title.toLowerCase().includes(recipeSearch.toLowerCase())) return acc;
+    const key = r.user_email ?? '(no user)';
+    (acc[key] ??= []).push(r);
+    return acc;
+  }, {});
 
   const TABS: { id: Tab; label: string; count?: number }[] = [
     { id: 'overview', label: 'Overview' },
@@ -188,7 +198,7 @@ export function AdminPanel() {
                     <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{formatDate(u.created_at)}</td>
                     <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{formatDate(u.last_sign_in_at)}</td>
                     <td className="px-4 py-3 text-right text-zinc-700 dark:text-zinc-300">
-                      <button onClick={() => { setRecipeUserFilter(u.email); setTab('recipes'); }} className="hover:text-sk-primary hover:underline">{u.recipe_count}</button>
+                      <button onClick={() => { setExpandedUsers(new Set([u.email])); setTab('recipes'); }} className="hover:text-sk-primary hover:underline">{u.recipe_count}</button>
                     </td>
                     <td className="px-4 py-3 text-right text-zinc-700 dark:text-zinc-300">{u.ai_call_count}</td>
                     <td className="px-4 py-3">
@@ -215,54 +225,63 @@ export function AdminPanel() {
               placeholder="Search recipes…"
               className="flex-1 h-9 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-sk-primary/30"
             />
-            <select
-              value={recipeUserFilter}
-              onChange={(e) => setRecipeUserFilter(e.target.value)}
-              className="h-9 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-sk-primary/30"
-            >
-              <option value="">All users</option>
-              {users.map((u) => <option key={u.id} value={u.email}>{u.email}</option>)}
-            </select>
-            {(recipeSearch || recipeUserFilter) && (
-              <Button variant="outline" size="sm" onClick={() => { setRecipeSearch(''); setRecipeUserFilter(''); }}>Clear</Button>
+            {recipeSearch && (
+              <Button variant="outline" size="sm" onClick={() => setRecipeSearch('')}>Clear</Button>
             )}
+            <Button variant="outline" size="sm" onClick={() => setExpandedUsers(new Set(Object.keys(recipesByUser)))}>Expand all</Button>
+            <Button variant="outline" size="sm" onClick={() => setExpandedUsers(new Set())}>Collapse all</Button>
           </div>
 
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
-            <div className="px-6 py-3 border-b border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400">
-              {filteredRecipes.length} recipe{filteredRecipes.length !== 1 ? 's' : ''}
-            </div>
-            <div className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
-              {filteredRecipes.map((r) => (
-                <div key={r.id} className="flex items-center gap-4 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
-                  {r.image_url ? (
-                    <img src={r.image_url} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
-                  ) : (
-                    <div className="w-12 h-12 rounded-lg bg-sk-surface-low dark:bg-muted flex items-center justify-center shrink-0 text-lg font-serif text-sk-primary/30">
-                      {r.title[0]?.toUpperCase()}
+          <div className="space-y-3">
+            {Object.entries(recipesByUser).map(([email, userRecipes]) => {
+              const isExpanded = expandedUsers.has(email);
+              return (
+                <div key={email} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
+                  <button
+                    onClick={() => toggleUser(email)}
+                    className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors text-left"
+                  >
+                    {isExpanded
+                      ? <ChevronDown className="w-4 h-4 text-zinc-400 shrink-0" />
+                      : <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" />}
+                    <span className="font-semibold text-sm text-zinc-900 dark:text-zinc-100 flex-1">{email}</span>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-sk-surface-low dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground">
+                      {userRecipes.length} recipe{userRecipes.length !== 1 ? 's' : ''}
+                    </span>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="divide-y divide-zinc-50 dark:divide-zinc-800/60 border-t border-zinc-100 dark:border-zinc-800">
+                      {userRecipes.map((r) => (
+                        <div key={r.id} className="flex items-center gap-4 px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
+                          {r.image_url ? (
+                            <img src={r.image_url} alt="" className="w-11 h-11 rounded-lg object-cover shrink-0" />
+                          ) : (
+                            <div className="w-11 h-11 rounded-lg bg-sk-surface-low dark:bg-muted flex items-center justify-center shrink-0 text-base font-serif text-sk-primary/30">
+                              {r.title[0]?.toUpperCase()}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-semibold text-sm text-zinc-900 dark:text-zinc-100 truncate">{r.title}</p>
+                              {r.is_favourite && <Star className="w-3 h-3 text-amber-400 shrink-0 fill-current" />}
+                            </div>
+                            {r.tags && r.tags.length > 0 && (
+                              <div className="flex gap-1 mt-1 flex-wrap">
+                                {r.tags.slice(0, 4).map((tag) => (
+                                  <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-full bg-sk-surface-low dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground">{tag}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-xs text-zinc-400 dark:text-zinc-500 shrink-0">{formatDate(r.created_at)}</p>
+                        </div>
+                      ))}
                     </div>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-sm text-zinc-900 dark:text-zinc-100 truncate">{r.title}</p>
-                      {r.is_favourite && <Star className="w-3.5 h-3.5 text-amber-400 shrink-0 fill-current" />}
-                    </div>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{r.description ?? ''}</p>
-                    {r.tags && r.tags.length > 0 && (
-                      <div className="flex gap-1 mt-1 flex-wrap">
-                        {r.tags.slice(0, 4).map((tag) => (
-                          <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-full bg-sk-surface-low dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground">{tag}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-right shrink-0 space-y-0.5">
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">{r.user_email ?? '—'}</p>
-                    <p className="text-xs text-zinc-400 dark:text-zinc-500">{formatDate(r.created_at)}</p>
-                  </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         </div>
       )}
