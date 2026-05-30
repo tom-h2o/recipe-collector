@@ -20,10 +20,7 @@ Captured during development. Items marked ✅ have been implemented.
 
 ## Quick Wins
 
-### Meal planner week navigation
-The planner only shows the current 7 days. No way to plan ahead or review past weeks.
-- Add prev/next week buttons to `MealPlanner`
-- Offset the date range by ±7 days per click; persist the offset in state
+- ✅ **Meal planner week navigation** — prev/next week buttons with `weekOffset` state; shows weekly calorie total
 
 ### Cook mode timer
 Step-by-step cook mode has no timer despite most steps mentioning durations.
@@ -36,8 +33,7 @@ Currently only visible after opening Settings → Usage Logs. A lightweight indi
 ### Plain-text recipe import
 Currently recipes come in via URL, photo, or PDF. Add a text area mode where users can paste a recipe as plain text and Gemini structures it — useful for recipes copied from apps, books, or chat.
 
-### Embedding backfill
-Recipes created before the `tag.ts` embedding generation was added have no `embedding` value and therefore can't be found via vector similarity in `suggest.ts`. A one-off backfill script (or a background job triggered from the admin panel) would fix this.
+- ✅ **Embedding backfill** — `backfill_embeddings.js` utility script exists (gitignored)
 
 ---
 
