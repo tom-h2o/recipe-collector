@@ -1,32 +1,40 @@
-import type { Context } from 'hono';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
+import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
-import { checkRateLimit, rateLimitResponse } from './_lib/rateLimit.js';
 import { scaleSchema } from './_lib/schemas.js';
 import { getCached, setCached } from './_lib/cache.js';
+import { checkRateLimit } from './_lib/rateLimit.js';
 
 type ScaledIngredient = { amount: string; name: string; details: string };
 
-export default async function handler(c: Context) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  setCorsHeaders(res);
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
   try {
-    const body = await c.req.json().catch(() => ({}));
-    const { recipeId, ingredients, currentServings, targetServings } = scaleSchema.parse(body);
+    const { recipeId, ingredients, currentServings, targetServings } = scaleSchema.parse(req.body);
 
     const supabase = getServerSupabase();
-    const userId = await getUserId(c.req.header('authorization'));
+    const userId = await getUserId(req.headers.authorization as string | undefined);
 
     const cacheKey = recipeId ? `scale:${recipeId}:${currentServings}:${targetServings}` : null;
     if (cacheKey) {
       const cached = await getCached<ScaledIngredient[]>(supabase, cacheKey);
-      if (cached) return c.json({ ingredients: cached, cached: true });
+      if (cached) return res.status(200).json({ ingredients: cached, cached: true });
     }
-    if (userId) { const rl = await checkRateLimit(supabase, userId); if (!rl.allowed) return rateLimitResponse(c, rl); }
+
+    if (userId) {
+      const rl = await checkRateLimit(supabase, userId);
+      if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
+    }
 
     const settings = await getSettings(supabase, userId);
     const apiKey = resolveApiKey(settings);
-    if (!apiKey) return c.json({ error: 'GEMINI_API_KEY is not configured.' }, 500);
+    if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY is not configured.' });
 
     const ingredientText = ingredients
       .map((i) => `${i.amount ? i.amount + ' ' : ''}${i.name}${i.details ? ', ' + i.details : ''}`.trim())
@@ -39,7 +47,7 @@ Adjust each ingredient "amount" field intelligently:
 - Small measurements: use practical fractions — 0.33 tsp → ¼ tsp, 0.67 tsp → ½ tsp, 1.33 cups → 1¼ cups
 - Weights (grams, kg, oz, lbs): round to the nearest 5g or 10g for cleanliness (e.g. 267g → 270g)
 - Very tiny scaled-down amounts (less than ⅛ tsp): replace with "a pinch" or "to taste"
-- Do NOT scale temperatures in "details" (e.g. "roasted at 200°C" stays as-is — oven temperature does not scale with serving count)
+- Do NOT scale temperatures in "details" (e.g. "roasted at 200°C" stays as-is)
 
 Current ingredients (${currentServings} servings):
 ${ingredientText}
@@ -55,21 +63,15 @@ Rules:
 - Keep the array in the same order as the input.`;
 
     const client = getGeminiClient(apiKey);
-    const scaled = await generateJson<ScaledIngredient[]>(
-      client,
-      settings.gemini_model,
-      prompt,
-      { supabase, endpoint: 'scale', userId },
-    );
+    const scaled = await generateJson<ScaledIngredient[]>(client, settings.gemini_model, prompt, { supabase, endpoint: 'scale', userId });
 
     if (cacheKey) setCached(supabase, cacheKey, 'scale', scaled, 24 * 30);
 
-    return c.json({ ingredients: scaled, cached: false });
+    return res.status(200).json({ ingredients: scaled, cached: false });
   } catch (err: unknown) {
-    if (err instanceof ZodError) return c.json({ error: err.errors[0]?.message ?? 'Invalid request' }, 400);
+    if (err instanceof ZodError) return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
     captureException(err);
-    const message = err instanceof Error ? err.message : 'Failed to scale recipe';
     console.error('Scale error:', err);
-    return c.json({ error: message }, 500);
+    return res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to scale recipe' });
   }
 }
