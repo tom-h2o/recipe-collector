@@ -57,8 +57,14 @@ export async function getUserId(req: VercelRequest): Promise<string | null> {
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) return null;
   const token = auth.slice(7);
-  const { data: { user } } = await getServerSupabase().auth.getUser(token);
-  return user?.id ?? null;
+  // Validate JWT structure (3 parts separated by dots) to prevent local atob() crashes
+  if (token.split('.').length !== 3) return null;
+  try {
+    const { data: { user } } = await getServerSupabase().auth.getUser(token);
+    return user?.id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
