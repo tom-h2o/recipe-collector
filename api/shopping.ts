@@ -19,6 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const supabase = getServerSupabase();
     const userId = await getUserId(req.headers.authorization as string | undefined);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     const settings = await getSettings(supabase, userId);
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
@@ -30,10 +31,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const cachedList = await getCached(supabase, cacheKey);
     if (cachedList) return res.status(200).json({ list: cachedList });
 
-    if (userId) {
-      const rl = await checkRateLimit(supabase, userId);
-      if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
-    }
+    const rl = await checkRateLimit(supabase, userId);
+    if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
 
     const client = getGeminiClient(apiKey);
     const list = await generateJson(client, settings.gemini_model, prompt, { supabase, endpoint: 'shopping', userId });

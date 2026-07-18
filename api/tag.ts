@@ -8,7 +8,7 @@ import { captureException } from './_lib/sentry.js';
 import { tagSchema } from './_lib/schemas.js';
 import { makeCacheKey, getCached, setCached } from './_lib/cache.js';
 import { TAG_TEMPLATE, AVAILABLE_TAGS } from './_lib/prompts.js';
-import { checkRateLimit, rateLimitResponse } from './_lib/rateLimit.js';
+import { checkRateLimit } from './_lib/rateLimit.js';
 
 function buildTagPrompt(template: string, title: string, description: string, ingredientText: string, instructionPreview: string): string {
   return `${template}
@@ -30,6 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const supabase = getServerSupabase();
     const userId = await getUserId(req.headers.authorization as string | undefined);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     const settings = await getSettings(supabase, userId);
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY is not configured.' });
@@ -69,10 +70,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ tags: cachedTags });
     }
 
-    if (userId) {
-      const rl = await checkRateLimit(supabase, userId);
-      if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
-    }
+    const rl = await checkRateLimit(supabase, userId);
+    if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
 
     const client = getGeminiClient(apiKey);
     const tags = await generateJson<string[]>(client, settings.gemini_model, prompt, { supabase, endpoint: 'tag', recipeId, userId });

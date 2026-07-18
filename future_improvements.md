@@ -15,6 +15,7 @@ Captured during development. Items marked ✅ have been implemented.
 - ✅ **Usage meter** — progress bar + per-endpoint breakdown shown to each user in Settings
 - ✅ **Recipe sharing** — send/accept/reject with full translation copy
 - ✅ **Recipe collections** — users can organise recipes into named collections
+- ✅ **Auth required on all AI endpoints** — every `api/*.ts` endpoint that calls Gemini now returns 401 if `getUserId()` is null, instead of silently skipping the rate-limit check for unauthenticated requests
 
 ---
 
@@ -61,9 +62,6 @@ The `useCollections` hook and DB schema exist but the collections feature has li
 ---
 
 ## Bigger Changes
-
-### Rate limiting for unauthenticated requests
-The current rate limit only applies to authenticated users (identified by `user_id`). Unauthenticated or anonymous requests to AI endpoints are not rate-limited at all. Add IP-based limiting as a secondary layer.
 
 ### Offline recipe browsing
 The PWA service worker precaches static assets but not recipe data. IndexedDB caching of the loaded recipe list would allow browsing offline.

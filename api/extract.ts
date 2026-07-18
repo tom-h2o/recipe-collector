@@ -83,6 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const supabase = getServerSupabase();
   const userId = await getUserId(req.headers.authorization as string | undefined);
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
   const settings = await getSettings(supabase, userId);
   const apiKey = resolveApiKey(settings);
   if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY is not configured.' });
@@ -92,10 +93,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // ── Photo extraction ───────────────────────────────────────────────────────
     if (body.imageBase64 !== undefined) {
-      if (userId) {
-        const rl = await checkRateLimit(supabase, userId);
-        if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
-      }
+      const rl = await checkRateLimit(supabase, userId);
+      if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
       const { imageBase64, mimeType } = extractPhotoSchema.parse(body);
       const client = getGeminiClient(apiKey);
       const startTime = Date.now();
@@ -104,21 +103,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const text = response.text;
         if (!text) throw new Error('Gemini returned an empty response.');
         const recipeData = JSON.parse(text);
-        supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: settings.gemini_model, status: 'success', latency_ms: Date.now() - startTime, input_preview: `[image ${mimeType}]`, output_preview: text.substring(0, 300), user_id: userId ?? null }).then(() => {}, () => {});
+        supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: settings.gemini_model, status: 'success', latency_ms: Date.now() - startTime, input_preview: `[image ${mimeType}]`, output_preview: text.substring(0, 300), user_id: userId }).then(() => {}, () => {});
         return res.status(200).json(recipeData);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
-        supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: settings.gemini_model, status: 'error', latency_ms: Date.now() - startTime, input_preview: `[image ${mimeType}]`, error_message: errorMessage, user_id: userId ?? null }).then(() => {}, () => {});
+        supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: settings.gemini_model, status: 'error', latency_ms: Date.now() - startTime, input_preview: `[image ${mimeType}]`, error_message: errorMessage, user_id: userId }).then(() => {}, () => {});
         throw err;
       }
     }
 
     // ── PDF extraction ─────────────────────────────────────────────────────────
     if (body.pdfBase64 !== undefined) {
-      if (userId) {
-        const rl = await checkRateLimit(supabase, userId);
-        if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
-      }
+      const rl = await checkRateLimit(supabase, userId);
+      if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
       const { pdfBase64 } = extractPdfSchema.parse(body);
       const client = getGeminiClient(apiKey);
       const startTime = Date.now();
@@ -127,11 +124,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const text = response.text;
         if (!text) throw new Error('Gemini returned an empty response.');
         const recipeData = JSON.parse(text);
-        supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: settings.gemini_model, status: 'success', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', output_preview: text.substring(0, 300), user_id: userId ?? null }).then(() => {}, () => {});
+        supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: settings.gemini_model, status: 'success', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', output_preview: text.substring(0, 300), user_id: userId }).then(() => {}, () => {});
         return res.status(200).json(recipeData);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
-        supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: settings.gemini_model, status: 'error', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', error_message: errorMessage, user_id: userId ?? null }).then(() => {}, () => {});
+        supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: settings.gemini_model, status: 'error', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', error_message: errorMessage, user_id: userId }).then(() => {}, () => {});
         throw err;
       }
     }
@@ -148,10 +145,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (ageMs < CACHE_TTL_DAYS * 24 * 60 * 60 * 1000) return res.status(200).json(cached.extracted_data);
     }
 
-    if (userId) {
-      const rl = await checkRateLimit(supabase, userId);
-      if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
-    }
+    const rl = await checkRateLimit(supabase, userId);
+    if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
 
     const fetchRes = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RecipeCollector/1.0)' } });
     if (!fetchRes.ok) throw new Error(`Failed to fetch URL: ${fetchRes.statusText}`);

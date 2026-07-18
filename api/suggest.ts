@@ -19,6 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { ingredients: userIngredients } = suggestSchema.parse(req.body);
     const supabase = getServerSupabase();
     const userId = await getUserId(req.headers.authorization as string | undefined);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     const settings = await getSettings(supabase, userId);
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
@@ -29,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const client = getGeminiClient(apiKey);
       const embedResponse = await client.models.embedContent({ model: 'gemini-embedding-2', contents: `Available ingredients: ${userIngredients.join(', ')}`, config: { outputDimensionality: 768 } });
       if (embedResponse.embeddings?.[0]?.values) queryEmbedding = embedResponse.embeddings[0].values;
-      if (queryEmbedding && userId) {
+      if (queryEmbedding) {
         const { data: matchedVector } = await supabase.rpc('match_recipes', { query_embedding: queryEmbedding, match_threshold: 0.1, match_count: 30, filter_user_id: userId });
         if (matchedVector && matchedVector.length > 0) vectorRecipes = matchedVector;
       }
@@ -69,10 +70,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (cachedIds) {
       validIds = cachedIds;
     } else {
-      if (userId) {
-        const rl = await checkRateLimit(supabase, userId);
-        if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
-      }
+      const rl = await checkRateLimit(supabase, userId);
+      if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
       const client = getGeminiClient(apiKey);
       const suggestedIds = await generateJson<string[]>(client, settings.gemini_model, prompt, { supabase, endpoint: 'suggest', userId });
       validIds = Array.isArray(suggestedIds) ? suggestedIds : [];
