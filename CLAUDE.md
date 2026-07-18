@@ -67,7 +67,7 @@ To run a single test file: `npx vitest run src/lib/recipeUtils.test.ts`
 - `RecipeInbox` — displays pending received recipes with Accept / Decline actions
 - `UserMenu` — profile dropdown: signed-in provider, change password, sign out
 - `GeminiLogs` — recent AI call history (endpoint, model, status, latency, expandable input/output)
-- `AdminPanel` — admin-only dashboard: user list, global stats, AI call breakdown, recent recipes
+- `AdminPanel` — admin-only dashboard: global stats, and server-side-paginated Users/Recipes/AI Logs tabs (25 rows/page, fetched from `GET /api/account?tab=...`)
 
 ### API (`/api/`)
 
@@ -93,7 +93,7 @@ Each handler is a standard Vercel serverless function: `export default async fun
 - `translate.ts` — translate recipe to another language (cached in `recipe_translations` table)
 - `find-image.ts` — find a suitable image URL via Unsplash
 - `share.ts` — recipe sharing: `send` / `accept` / `reject` actions
-- `account.ts` — GET: admin dashboard; DELETE: delete own or (admin) any user account
+- `account.ts` — GET: admin dashboard, paginated per tab (`?tab=overview|users|recipes|logs&page=&pageSize=`, max page size 100); DELETE: delete own or (admin) any user account
 
 ## Environment Variables
 
@@ -118,6 +118,7 @@ GitHub Actions secret needed for DB migrations: `SUPABASE_DB_URL` (Postgres conn
 - **Recipe sharing RLS:** `recipe_shares` uses `auth.email() = recipient_email` so recipients can see their inbox. Service key copies the recipe server-side on accept.
 - **Password recovery flow:** `useAuth` intentionally does not clear `isPasswordRecovery` on `SIGNED_IN` — only on `USER_UPDATED`/`SIGNED_OUT`/etc. — so `AuthGate` can show the set-password form.
 - **Gemini logging:** every `generateJson()` call inserts a row into `gemini_logs`. Visible in `GeminiLogs` component and admin dashboard.
+- **Admin dashboard pagination:** `api/account.ts` never fetches an unbounded table. Users/Recipes/Logs tabs each query only their requested page; per-user `recipe_count`/`ai_call_count` on the Users tab are `head: true` counts scoped to just that page's user ids (not a full-table scan). Emails for Recipes/Logs rows are resolved per-row via `auth.admin.getUserById()`, bounded by page size. The one remaining unbounded query is `getStats()`'s model-usage breakdown, which still does `select('model')` over all of `gemini_logs` (no DB-side `GROUP BY` without an RPC — see `future_improvements.md`).
 - **Known dead code:** `recipeToIngredientText()` in `recipeUtils.ts` (no app callers, kept for its test).
 - **Vercel function limit:** Hobby plan allows 12 serverless functions. Currently 10 are in use. Do not add new `api/*.ts` files beyond 12 without upgrading the plan or merging endpoints.
 - **PWA:** `vite-plugin-pwa` + Workbox precaching is configured in `vite.config.ts`.
