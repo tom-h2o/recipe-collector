@@ -51,6 +51,7 @@ export function AdminPanel() {
 
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [usersTotal, setUsersTotal] = useState(0);
@@ -74,13 +75,16 @@ export function AdminPanel() {
 
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
+    setStatsError(null);
     try {
       const res = await apiFetch('/api/account?tab=overview');
       if (!res.ok) throw new Error(await readError(res));
       const json = await res.json();
       setStats(json.stats);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to load admin stats');
+      const message = err instanceof Error ? err.message : 'Failed to load admin stats';
+      setStatsError(message);
+      toast.error(message);
     } finally {
       setStatsLoading(false);
     }
@@ -196,7 +200,19 @@ export function AdminPanel() {
     );
   }
 
-  if (!stats) return null;
+  if (!stats) {
+    return (
+      <div className="space-y-4 py-16 text-center">
+        <h2 className="text-lg font-semibold text-red-600 dark:text-red-400">Admin data unavailable</h2>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto">
+          {statsError ?? 'The dashboard could not be loaded.'}
+        </p>
+        <Button variant="outline" size="sm" onClick={loadStats} className="gap-1.5">
+          <RefreshCw className="w-3.5 h-3.5" /> Retry
+        </Button>
+      </div>
+    );
+  }
 
   const TABS: { id: Tab; label: string; count?: number }[] = [
     { id: 'overview', label: 'Overview' },
