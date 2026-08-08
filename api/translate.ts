@@ -77,7 +77,7 @@ Return this exact JSON structure:
 
     return res.status(200).json({ ...row, detectedSourceLanguage: detectedLang, cached: false });
   } catch (err: unknown) {
-    if (err instanceof ZodError) return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
+    if (err instanceof ZodError) return res.status(400).json({ error: err.issues[0]?.message ?? 'Invalid request' });
     captureException(err);
     console.error('Translate error:', err);
     return res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to translate recipe' });

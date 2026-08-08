@@ -29,21 +29,6 @@ export default defineConfig({
               },
             },
           },
-          {
-            // Cache our serverless API endpoints (like scaling, tags, suggest) with a NetworkFirst strategy.
-            urlPattern: /^\/api\/.*$/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'recipe-vault-api-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24, // 1 day
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
         ],
       },
       manifest: {

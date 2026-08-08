@@ -27,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const data = await response.json() as { results?: { urls?: { regular?: string } }[] };
     return res.status(200).json({ imageUrl: data.results?.[0]?.urls?.regular ?? '' });
   } catch (err: unknown) {
-    if (err instanceof ZodError) return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
+    if (err instanceof ZodError) return res.status(400).json({ error: err.issues[0]?.message ?? 'Invalid request' });
     captureException(err);
     console.error('Find image error:', err);
     return res.status(200).json({ imageUrl: '' });

@@ -81,7 +81,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: matchedRecipes } = await supabase.from('recipes').select('*').in('id', validIds);
     return res.status(200).json({ suggestions: matchedRecipes ?? [] });
   } catch (err: unknown) {
-    if (err instanceof ZodError) return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
+    if (err instanceof ZodError) return res.status(400).json({ error: err.issues[0]?.message ?? 'Invalid request' });
     captureException(err);
     console.error('Suggest error:', err);
     return res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to suggest recipes' });

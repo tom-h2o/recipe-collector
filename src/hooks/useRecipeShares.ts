@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import type { RecipeShare, Contact, Recipe } from '@/types';
 
 export function useRecipeShares(userId?: string | null, userEmail?: string | null) {
@@ -28,18 +29,16 @@ export function useRecipeShares(userId?: string | null, userEmail?: string | nul
     if (data) setContacts(data as Contact[]);
   }, [userId]);
 
-  const sendShare = useCallback(async (recipe: Recipe, recipientEmail: string, senderEmail: string): Promise<boolean> => {
+  const sendShare = useCallback(async (recipe: Recipe, recipientEmail: string): Promise<boolean> => {
     if (!userId) return false;
     try {
-      const res = await fetch('/api/share', {
+      const res = await apiFetch('/api/share', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'send',
           recipeId: recipe.id,
           recipientEmail,
-          senderUserId: userId,
-          senderEmail,
         }),
       });
       const data = await res.json();
@@ -54,17 +53,15 @@ export function useRecipeShares(userId?: string | null, userEmail?: string | nul
     }
   }, [userId, fetchContacts]);
 
-  const acceptShare = useCallback(async (share: RecipeShare, recipientEmail: string): Promise<string | null> => {
+  const acceptShare = useCallback(async (share: RecipeShare): Promise<string | null> => {
     if (!userId) return null;
     try {
-      const res = await fetch('/api/share', {
+      const res = await apiFetch('/api/share', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'accept',
           shareId: share.id,
-          recipientUserId: userId,
-          recipientEmail,
         }),
       });
       const data = await res.json();
@@ -78,15 +75,14 @@ export function useRecipeShares(userId?: string | null, userEmail?: string | nul
     }
   }, [userId]);
 
-  const rejectShare = useCallback(async (share: RecipeShare, recipientEmail: string): Promise<void> => {
+  const rejectShare = useCallback(async (share: RecipeShare): Promise<void> => {
     try {
-      const res = await fetch('/api/share', {
+      const res = await apiFetch('/api/share', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'reject',
           shareId: share.id,
-          recipientEmail,
         }),
       });
       if (!res.ok) { toast.error('Failed to reject recipe.'); return; }

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
@@ -47,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const instructionPreview = (instructions || '').substring(0, 1000);
     const template = settings.gemini_prompt_tag?.trim() ? settings.gemini_prompt_tag : TAG_TEMPLATE;
-    const prompt = buildTagPrompt(template, title, description, ingredientText, instructionPreview);
+    const prompt = buildTagPrompt(template, title, description ?? '', ingredientText, instructionPreview);
 
     const cacheKey = makeCacheKey('tag', { title, description: description ?? '', ingredientText, instructions: instructionPreview });
     const cachedTags = await getCached<string[]>(supabase, cacheKey);
@@ -96,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({ tags: validTags });
   } catch (err: unknown) {
-    if (err instanceof ZodError) return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
+    if (err instanceof ZodError) return res.status(400).json({ error: err.issues[0]?.message ?? 'Invalid request' });
     captureException(err);
     console.error('Tagging error:', err);
     return res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to tag recipe' });

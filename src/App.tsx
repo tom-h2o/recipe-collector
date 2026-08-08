@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import { Toaster } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
@@ -12,18 +12,7 @@ import { useCollections } from '@/hooks/useCollections';
 
 import { AuthGate } from '@/components/AuthGate';
 import { Layout } from '@/components/Layout';
-import { RecipeVault } from '@/components/RecipeVault';
-import { RecipeDetail } from '@/components/RecipeDetail';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { RecipeForm } from '@/components/RecipeForm';
-import { MealPlanner } from '@/components/MealPlanner';
-import { ShoppingList } from '@/components/ShoppingList';
-import { SettingsPanel } from '@/components/SettingsPanel';
-import { SuggestModal } from '@/components/SuggestModal';
-import { PublicRecipe } from '@/components/PublicRecipe';
-import { SendRecipeModal } from '@/components/SendRecipeModal';
-import { RecipeInbox } from '@/components/RecipeInbox';
-import { AdminPanel } from '@/components/AdminPanel';
 
 import { supabase } from '@/lib/supabase';
 import { useTranslationCache } from '@/hooks/useTranslationCache';
@@ -31,6 +20,22 @@ import type { ActiveView, Recipe } from '@/types';
 import type { SortOption } from '@/lib/constants';
 
 const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL ?? '';
+
+const RecipeVault = lazy(() => import('@/components/RecipeVault').then((m) => ({ default: m.RecipeVault })));
+const RecipeDetail = lazy(() => import('@/components/RecipeDetail').then((m) => ({ default: m.RecipeDetail })));
+const RecipeForm = lazy(() => import('@/components/RecipeForm').then((m) => ({ default: m.RecipeForm })));
+const MealPlanner = lazy(() => import('@/components/MealPlanner').then((m) => ({ default: m.MealPlanner })));
+const ShoppingList = lazy(() => import('@/components/ShoppingList').then((m) => ({ default: m.ShoppingList })));
+const SettingsPanel = lazy(() => import('@/components/SettingsPanel').then((m) => ({ default: m.SettingsPanel })));
+const SuggestModal = lazy(() => import('@/components/SuggestModal').then((m) => ({ default: m.SuggestModal })));
+const PublicRecipe = lazy(() => import('@/components/PublicRecipe').then((m) => ({ default: m.PublicRecipe })));
+const SendRecipeModal = lazy(() => import('@/components/SendRecipeModal').then((m) => ({ default: m.SendRecipeModal })));
+const RecipeInbox = lazy(() => import('@/components/RecipeInbox').then((m) => ({ default: m.RecipeInbox })));
+const AdminPanel = lazy(() => import('@/components/AdminPanel').then((m) => ({ default: m.AdminPanel })));
+
+function ViewFallback() {
+  return <div className="p-6 text-sm text-zinc-500 dark:text-zinc-400">Loading...</div>;
+}
 
 export default function App() {
   const { user, signOut } = useAuth();
@@ -127,7 +132,7 @@ export default function App() {
   }
 
   async function handleAcceptShare(share: Parameters<typeof acceptShare>[0]) {
-    const newRecipeId = await acceptShare(share, user?.email ?? '');
+    const newRecipeId = await acceptShare(share);
     if (newRecipeId) {
       // Refresh vault so the new recipe appears
       fetchRecipes('');
@@ -137,7 +142,9 @@ export default function App() {
   if (activeView === 'public_recipe' && publicRecipe) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-6 sm:p-10 font-sans print:p-0 print:bg-white text-zinc-900 dark:text-zinc-50">
-        <PublicRecipe recipe={publicRecipe} />
+        <Suspense fallback={<ViewFallback />}>
+          <PublicRecipe recipe={publicRecipe} />
+        </Suspense>
       </div>
     );
   }
@@ -159,6 +166,7 @@ export default function App() {
           onAddRecipe={() => openForm()}
           onSignOut={signOut}
         >
+          <Suspense fallback={<ViewFallback />}>
           {activeView === 'vault' && (
             <RecipeVault
               recipes={recipes}
@@ -220,58 +228,68 @@ export default function App() {
             <RecipeInbox
               shares={inboxShares}
               onAccept={handleAcceptShare}
-              onReject={(share) => rejectShare(share, user?.email ?? '')}
+              onReject={rejectShare}
               onBack={() => setActiveView('vault')}
             />
           )}
 
           {activeView === 'admin' && <AdminPanel />}
+          </Suspense>
         </Layout>
 
-        <ErrorBoundary key={selectedRecipe?.id ?? 'none'}>
-        <RecipeDetail
-          key={selectedRecipe?.id ?? 'none'}
-          recipe={selectedRecipe}
-          preferredLanguage={selectedRecipe?.preferred_language ?? null}
-          temperatureUnit={settings.temperature_unit}
-          translationsCache={translationsCache}
-          onLanguageChange={(lang) => { if (selectedRecipe) handleUpdateRecipe(selectedRecipe.id, { preferred_language: lang }); }}
-          onTranslationCached={cacheTranslation}
-          onClose={() => setSelectedRecipe(null)}
-          onEdit={(r) => openForm(r)}
-          onDelete={setDeleteTarget}
-          onSend={(r) => { setSelectedRecipe(null); setSendTarget(r); }}
-          onUpdateRecipe={handleUpdateRecipe}
-          onAddMealPlan={addMealPlan}
-          onSaveScaled={saveRecipe}
-          collections={collections}
-          recipeCollectionIds={memberships.filter((m) => m.recipe_id === selectedRecipe?.id).map((m) => m.collection_id)}
-          onAddToCollection={(colId) => selectedRecipe ? addToCollection(colId, selectedRecipe.id) : Promise.resolve()}
-          onRemoveFromCollection={(colId) => selectedRecipe ? removeFromCollection(colId, selectedRecipe.id) : Promise.resolve()}
-        />
-        </ErrorBoundary>
+        <Suspense fallback={null}>
+        {selectedRecipe && (
+          <ErrorBoundary key={selectedRecipe.id}>
+          <RecipeDetail
+            key={selectedRecipe.id}
+            recipe={selectedRecipe}
+            preferredLanguage={selectedRecipe.preferred_language ?? null}
+            temperatureUnit={settings.temperature_unit}
+            translationsCache={translationsCache}
+            onLanguageChange={(lang) => { handleUpdateRecipe(selectedRecipe.id, { preferred_language: lang }); }}
+            onTranslationCached={cacheTranslation}
+            onClose={() => setSelectedRecipe(null)}
+            onEdit={(r) => openForm(r)}
+            onDelete={setDeleteTarget}
+            onSend={(r) => { setSelectedRecipe(null); setSendTarget(r); }}
+            onUpdateRecipe={handleUpdateRecipe}
+            onAddMealPlan={addMealPlan}
+            onSaveScaled={saveRecipe}
+            collections={collections}
+            recipeCollectionIds={memberships.filter((m) => m.recipe_id === selectedRecipe.id).map((m) => m.collection_id)}
+            onAddToCollection={(colId) => addToCollection(colId, selectedRecipe.id)}
+            onRemoveFromCollection={(colId) => removeFromCollection(colId, selectedRecipe.id)}
+          />
+          </ErrorBoundary>
+        )}
 
-        <RecipeForm
-          isOpen={isFormOpen}
-          editingRecipe={editingRecipe}
-          onClose={() => { setIsFormOpen(false); setEditingRecipe(null); }}
-          onSave={saveRecipe}
-        />
+        {isFormOpen && (
+          <RecipeForm
+            isOpen={isFormOpen}
+            editingRecipe={editingRecipe}
+            onClose={() => { setIsFormOpen(false); setEditingRecipe(null); }}
+            onSave={saveRecipe}
+          />
+        )}
 
-        <SettingsPanel
-          isOpen={isSettingsOpen}
-          settings={settings}
-          isSaving={isSavingSettings}
-          onClose={() => setIsSettingsOpen(false)}
-          onSave={saveSettings}
-          userId={user?.id}
-        />
+        {isSettingsOpen && (
+          <SettingsPanel
+            isOpen={isSettingsOpen}
+            settings={settings}
+            isSaving={isSavingSettings}
+            onClose={() => setIsSettingsOpen(false)}
+            onSave={saveSettings}
+            userId={user?.id}
+          />
+        )}
 
-        <SuggestModal
-          isOpen={isSuggestOpen}
-          onClose={() => setIsSuggestOpen(false)}
-          onSelectRecipe={setSelectedRecipe}
-        />
+        {isSuggestOpen && (
+          <SuggestModal
+            isOpen={isSuggestOpen}
+            onClose={() => setIsSuggestOpen(false)}
+            onSelectRecipe={setSelectedRecipe}
+          />
+        )}
 
         {sendTarget && (
           <SendRecipeModal
@@ -279,7 +297,7 @@ export default function App() {
             contacts={contacts}
             isOpen={true}
             onClose={() => setSendTarget(null)}
-            onSend={(recipe, email) => sendShare(recipe, email, user?.email ?? '')}
+            onSend={sendShare}
           />
         )}
 
@@ -297,6 +315,7 @@ export default function App() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        </Suspense>
       </div>
     </AuthGate>
   );

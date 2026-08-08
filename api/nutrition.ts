@@ -53,7 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : String(ingredients);
 
     const template = settings.gemini_prompt_nutrition?.trim() ? settings.gemini_prompt_nutrition : NUTRITION_TEMPLATE;
-    const prompt = buildNutritionPrompt(template, title, ingredientText, servings);
+    const prompt = buildNutritionPrompt(template, title ?? '', ingredientText, servings ?? null);
 
     const cacheKey = makeCacheKey('nutrition', { ingredientText, servings: servings ?? null });
     const cachedNutrition = await getCached(supabase, cacheKey);
@@ -73,7 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({ nutrition });
   } catch (err: unknown) {
-    if (err instanceof ZodError) return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
+    if (err instanceof ZodError) return res.status(400).json({ error: err.issues[0]?.message ?? 'Invalid request' });
     captureException(err);
     console.error('Nutrition error:', err);
     return res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to estimate nutrition' });

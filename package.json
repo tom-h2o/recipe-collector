@@ -5,14 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && npm run typecheck:api && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "db:migrate": "supabase db push",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "typecheck:api": "tsc -p tsconfig.api.json"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",

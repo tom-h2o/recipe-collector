@@ -60,11 +60,16 @@ export async function getSettings(supabase: SupabaseClient, userId?: string | nu
 }
 
 export async function getUserId(authHeader: string | undefined): Promise<string | null> {
+  const user = await getAuthenticatedUser(authHeader);
+  return user?.id ?? null;
+}
+
+export async function getAuthenticatedUser(authHeader: string | undefined): Promise<{ id: string; email: string | null } | null> {
   if (!authHeader?.startsWith('Bearer ')) return null;
   const token = authHeader.slice(7);
   try {
     const { data: { user } } = await getServerSupabase().auth.getUser(token);
-    return user?.id ?? null;
+    return user ? { id: user.id, email: user.email ?? null } : null;
   } catch {
     return null;
   }

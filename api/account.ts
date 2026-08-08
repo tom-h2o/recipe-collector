@@ -8,7 +8,12 @@ const ADMIN_EMAIL = process.env.VITE_ADMIN_EMAIL ?? '';
 const MAX_PAGE_SIZE = 100;
 
 class HttpError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
 }
 
 async function assertAdmin(authHeader: string | undefined): Promise<void> {

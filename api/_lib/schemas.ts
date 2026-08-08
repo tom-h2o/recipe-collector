@@ -59,19 +59,14 @@ export const shareSchema = z.discriminatedUnion('action', [
     action: z.literal('send'),
     recipeId: z.string().uuid(),
     recipientEmail: z.string().email(),
-    senderUserId: z.string().uuid(),
-    senderEmail: z.string().email(),
   }),
   z.object({
     action: z.literal('accept'),
     shareId: z.string().uuid(),
-    recipientUserId: z.string().uuid(),
-    recipientEmail: z.string().email(),
   }),
   z.object({
     action: z.literal('reject'),
     shareId: z.string().uuid(),
-    recipientEmail: z.string().email(),
   }),
 ]);
 
