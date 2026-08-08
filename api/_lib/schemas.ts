@@ -36,6 +36,30 @@ export const extractPdfSchema = z.object({
   pdfBase64: z.string().min(1, 'pdfBase64 is required'),
 });
 
+const nullableInteger = z.preprocess(
+  (value) => value === undefined || value === '' ? null : value,
+  z.number().int().nonnegative().nullable(),
+);
+
+export const extractedRecipeSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().default(''),
+  original_language: z.string().length(2).default('en'),
+  servings: nullableInteger,
+  prep_time_mins: nullableInteger,
+  cook_time_mins: nullableInteger,
+  ingredients: z.array(
+    z.object({
+      amount: z.string().default(''),
+      name: z.string().min(1),
+      details: z.string().default(''),
+    }),
+  ).min(1),
+  instructions: z.string().min(1),
+  image_url: z.string().default(''),
+  source_name: z.string().default(''),
+});
+
 export const scaleSchema = z.object({
   recipeId: z.string().uuid().optional(),
   ingredients: z.array(

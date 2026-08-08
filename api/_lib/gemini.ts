@@ -13,6 +13,26 @@ export function getGeminiClient(apiKey: string): GoogleGenAI {
   return new GoogleGenAI({ apiKey });
 }
 
+function extractJsonCandidate(text: string): string {
+  const trimmed = text.trim();
+  const fenceMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if (fenceMatch?.[1]) return fenceMatch[1].trim();
+
+  const firstObject = trimmed.indexOf('{');
+  const firstArray = trimmed.indexOf('[');
+  const startsAt = firstObject === -1 ? firstArray : firstArray === -1 ? firstObject : Math.min(firstObject, firstArray);
+  if (startsAt === -1) return trimmed;
+
+  const opening = trimmed[startsAt];
+  const closing = opening === '{' ? '}' : ']';
+  const endsAt = trimmed.lastIndexOf(closing);
+  return endsAt > startsAt ? trimmed.slice(startsAt, endsAt + 1) : trimmed;
+}
+
+function parseJson<T>(text: string): T {
+  return JSON.parse(extractJsonCandidate(text)) as T;
+}
+
 export async function generateJson<T = unknown>(
   client: GoogleGenAI,
   model: string,
@@ -33,7 +53,19 @@ export async function generateJson<T = unknown>(
     const text = response.text;
     if (!text) throw new Error('Gemini returned an empty response.');
     outputPreview = text;
-    return JSON.parse(text) as T;
+    try {
+      return parseJson<T>(text);
+    } catch (parseErr) {
+      const repairResponse = await client.models.generateContent({
+        model,
+        contents: `Repair the following invalid JSON and return only valid JSON. Do not change the data unless needed to make it syntactically valid.\n\nParse error: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}\n\nInvalid JSON:\n${text}`,
+        config: { responseMimeType: 'application/json', temperature: 0 },
+      });
+      const repairedText = repairResponse.text;
+      if (!repairedText) throw parseErr;
+      outputPreview = repairedText;
+      return parseJson<T>(repairedText);
+    }
   } catch (err) {
     status = 'error';
     errorMessage = err instanceof Error ? err.message : String(err);

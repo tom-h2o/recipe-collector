@@ -197,7 +197,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
       setImageUrl(data.image_url || '');
       setInstructions(data.instructions || '');
       setSourceUrl(extractUrl);
-      setSourceName((prev) => prev || domainFrom(extractUrl));
+      setSourceName((prev) => prev || data.source_name || domainFrom(extractUrl));
       setOriginalLanguage(data.original_language && data.original_language.length === 2 ? data.original_language : null);
       if (Array.isArray(data.ingredients)) {
         setIngredients(parseIngredients(data.ingredients));
