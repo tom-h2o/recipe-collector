@@ -41,6 +41,11 @@ const nullableInteger = z.preprocess(
   z.number().int().nonnegative().nullable(),
 );
 
+const stringFromUnknown = z.preprocess(
+  (value) => Array.isArray(value) ? value.join('\n') : value == null ? '' : String(value),
+  z.string(),
+);
+
 export const extractedRecipeSchema = z.object({
   title: z.string().min(1),
   description: z.string().default(''),
@@ -106,5 +111,28 @@ export const translateSchema = z.object({
       name: z.string(),
       details: z.string().optional().default(''),
     }),
+  ).min(1),
+});
+
+export const translationResultSchema = z.object({
+  detectedSourceLanguage: z.preprocess(
+    (value) => value == null ? undefined : String(value).slice(0, 2).toLowerCase(),
+    z.string().length(2).optional(),
+  ),
+  title: stringFromUnknown.pipe(z.string().min(1)),
+  description: stringFromUnknown,
+  instructions: stringFromUnknown.pipe(z.string().min(1)),
+  ingredients: z.array(
+    z.preprocess(
+      (value) => {
+        if (typeof value === 'string') return { amount: '', name: value, details: '' };
+        return value;
+      },
+      z.object({
+        amount: stringFromUnknown,
+        name: stringFromUnknown.pipe(z.string().min(1)),
+        details: stringFromUnknown,
+      }),
+    ),
   ).min(1),
 });

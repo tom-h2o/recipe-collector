@@ -4,19 +4,11 @@ import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
-import { translateSchema } from './_lib/schemas.js';
+import { translationResultSchema, translateSchema } from './_lib/schemas.js';
 import { TRANSLATE_TEMPLATE } from './_lib/prompts.js';
 import { checkRateLimit } from './_lib/rateLimit.js';
 
 const LANGUAGE_NAMES: Record<string, string> = { en: 'English', de: 'German', fr: 'French', es: 'Spanish', pl: 'Polish' };
-
-interface TranslationResult {
-  detectedSourceLanguage?: unknown;
-  title: unknown;
-  description: unknown;
-  instructions: unknown;
-  ingredients: unknown;
-}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
@@ -62,17 +54,15 @@ Return this exact JSON structure:
 }`;
 
     const client = getGeminiClient(apiKey);
-    const result = await generateJson<TranslationResult>(client, settings.gemini_model, prompt, { supabase, endpoint: 'translate', recipeId, userId });
+    const result = translationResultSchema.parse(
+      await generateJson(client, settings.gemini_model, prompt, { supabase, endpoint: 'translate', recipeId, userId }),
+    );
 
-    const safeTitle = typeof result.title === 'string' ? result.title : String(result.title ?? title);
-    const safeDescription = typeof result.description === 'string' ? result.description : Array.isArray(result.description) ? result.description.join(' ') : String(result.description ?? '');
-    const safeInstructions = typeof result.instructions === 'string' ? result.instructions : Array.isArray(result.instructions) ? result.instructions.join('\n') : String(result.instructions ?? instructions);
-    const safeIngredients = Array.isArray(result.ingredients) ? result.ingredients.map((i: Record<string, unknown>) => ({ amount: String(i?.amount ?? ''), name: String(i?.name ?? ''), details: String(i?.details ?? '') })) : ingredients.map((i) => ({ amount: i.amount, name: i.name, details: i.details ?? '' }));
+    const row = { recipe_id: recipeId, language_code: targetLanguage, title: result.title, description: result.description, instructions: result.instructions, ingredients: result.ingredients };
+    const { error: upsertError } = await supabase.from('recipe_translations').upsert(row, { onConflict: 'recipe_id,language_code' });
+    if (upsertError) throw upsertError;
 
-    const row = { recipe_id: recipeId, language_code: targetLanguage, title: safeTitle, description: safeDescription, instructions: safeInstructions, ingredients: safeIngredients };
-    await supabase.from('recipe_translations').upsert(row, { onConflict: 'recipe_id,language_code' });
-
-    const detectedLang = typeof result.detectedSourceLanguage === 'string' ? result.detectedSourceLanguage : undefined;
+    const detectedLang = result.detectedSourceLanguage;
     if (detectedLang) supabase.from('recipes').update({ original_language: detectedLang }).eq('id', recipeId).then(() => {}, () => {});
 
     return res.status(200).json({ ...row, detectedSourceLanguage: detectedLang, cached: false });
