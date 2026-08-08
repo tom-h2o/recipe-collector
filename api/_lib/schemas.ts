@@ -65,6 +65,33 @@ export const extractedRecipeSchema = z.object({
   source_name: z.string().default(''),
 });
 
+export const tagResultSchema = z.array(z.string()).min(1);
+
+export const nutritionResultSchema = z.object({
+  calories: z.coerce.number().int().nonnegative(),
+  protein_g: z.coerce.number().int().nonnegative(),
+  carbs_g: z.coerce.number().int().nonnegative(),
+  fat_g: z.coerce.number().int().nonnegative(),
+  fiber_g: z.coerce.number().int().nonnegative(),
+});
+
+export const shoppingResultSchema = z.array(
+  z.object({
+    category: z.string().min(1),
+    items: z.array(z.string().min(1)).min(1),
+  }),
+);
+
+export const scaledIngredientsResultSchema = z.array(
+  z.object({
+    amount: z.string().default(''),
+    name: z.string().min(1),
+    details: z.string().default(''),
+  }),
+).min(1);
+
+export const suggestResultSchema = z.array(z.string().uuid());
+
 export const scaleSchema = z.object({
   recipeId: z.string().uuid().optional(),
   ingredients: z.array(

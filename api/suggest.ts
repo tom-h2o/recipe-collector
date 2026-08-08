@@ -5,10 +5,16 @@ import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
-import { suggestSchema } from './_lib/schemas.js';
+import { suggestResultSchema, suggestSchema } from './_lib/schemas.js';
 import { makeCacheKey, getCached, setCached } from './_lib/cache.js';
 import { SUGGEST_TEMPLATE } from './_lib/prompts.js';
 import { checkRateLimit } from './_lib/rateLimit.js';
+
+function parseSuggestResult(value: unknown): string[] {
+  const parsed = suggestResultSchema.safeParse(value);
+  if (!parsed.success) throw new Error(`Invalid Gemini suggest output: ${parsed.error.issues[0]?.message ?? 'Invalid response'}`);
+  return parsed.data;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
@@ -68,13 +74,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let validIds: string[];
     if (cachedIds) {
-      validIds = cachedIds;
+      validIds = parseSuggestResult(cachedIds);
     } else {
       const rl = await checkRateLimit(supabase, userId);
       if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
       const client = getGeminiClient(apiKey);
-      const suggestedIds = await generateJson<string[]>(client, settings.gemini_model, prompt, { supabase, endpoint: 'suggest', userId });
-      validIds = Array.isArray(suggestedIds) ? suggestedIds : [];
+      const suggestedIds = parseSuggestResult(await generateJson(client, settings.gemini_model, prompt, { supabase, endpoint: 'suggest', userId }));
+      const candidateIds = new Set(topCandidates.map((c) => String(c.recipe.id)));
+      validIds = suggestedIds.filter((id) => candidateIds.has(id));
       setCached(supabase, cacheKey, 'suggest', validIds, 1);
     }
 

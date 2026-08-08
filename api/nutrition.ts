@@ -4,10 +4,16 @@ import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
-import { nutritionSchema } from './_lib/schemas.js';
+import { nutritionResultSchema, nutritionSchema } from './_lib/schemas.js';
 import { makeCacheKey, getCached, setCached } from './_lib/cache.js';
 import { NUTRITION_TEMPLATE } from './_lib/prompts.js';
 import { checkRateLimit } from './_lib/rateLimit.js';
+
+function parseNutritionResult(value: unknown) {
+  const parsed = nutritionResultSchema.safeParse(value);
+  if (!parsed.success) throw new Error(`Invalid Gemini nutrition output: ${parsed.error.issues[0]?.message ?? 'Invalid response'}`);
+  return parsed.data;
+}
 
 function buildNutritionPrompt(template: string, title: string, ingredientText: string, servings: number | null): string {
   return `${template}
@@ -58,17 +64,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const cacheKey = makeCacheKey('nutrition', { ingredientText, servings: servings ?? null });
     const cachedNutrition = await getCached(supabase, cacheKey);
     if (cachedNutrition) {
-      await supabase.from('recipes').update({ nutrition: cachedNutrition }).eq('id', recipeId);
-      return res.status(200).json({ nutrition: cachedNutrition });
+      const nutrition = parseNutritionResult(cachedNutrition);
+      const { error: updateError } = await supabase.from('recipes').update({ nutrition }).eq('id', recipeId);
+      if (updateError) throw updateError;
+      return res.status(200).json({ nutrition });
     }
 
     const rl = await checkRateLimit(supabase, userId);
     if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
 
     const client = getGeminiClient(apiKey);
-    const nutrition = await generateJson(client, settings.gemini_model, prompt, { supabase, endpoint: 'nutrition', recipeId, userId });
+    const nutrition = parseNutritionResult(await generateJson(client, settings.gemini_model, prompt, { supabase, endpoint: 'nutrition', recipeId, userId }));
 
-    await supabase.from('recipes').update({ nutrition }).eq('id', recipeId);
+    const { error: updateError } = await supabase.from('recipes').update({ nutrition }).eq('id', recipeId);
+    if (updateError) throw updateError;
     setCached(supabase, cacheKey, 'nutrition', nutrition, 24 * 30);
 
     return res.status(200).json({ nutrition });

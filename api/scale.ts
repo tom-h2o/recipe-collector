@@ -4,11 +4,17 @@ import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
-import { scaleSchema } from './_lib/schemas.js';
+import { scaledIngredientsResultSchema, scaleSchema } from './_lib/schemas.js';
 import { getCached, setCached } from './_lib/cache.js';
 import { checkRateLimit } from './_lib/rateLimit.js';
 
 type ScaledIngredient = { amount: string; name: string; details: string };
+
+function parseScaledIngredientsResult(value: unknown): ScaledIngredient[] {
+  const parsed = scaledIngredientsResultSchema.safeParse(value);
+  if (!parsed.success) throw new Error(`Invalid Gemini scale output: ${parsed.error.issues[0]?.message ?? 'Invalid response'}`);
+  return parsed.data;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
@@ -25,7 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const cacheKey = recipeId ? `scale:${recipeId}:${currentServings}:${targetServings}` : null;
     if (cacheKey) {
       const cached = await getCached<ScaledIngredient[]>(supabase, cacheKey);
-      if (cached) return res.status(200).json({ ingredients: cached, cached: true });
+      if (cached) return res.status(200).json({ ingredients: parseScaledIngredientsResult(cached), cached: true });
     }
 
     const rl = await checkRateLimit(supabase, userId);
@@ -62,7 +68,7 @@ Rules:
 - Keep the array in the same order as the input.`;
 
     const client = getGeminiClient(apiKey);
-    const scaled = await generateJson<ScaledIngredient[]>(client, settings.gemini_model, prompt, { supabase, endpoint: 'scale', userId });
+    const scaled = parseScaledIngredientsResult(await generateJson(client, settings.gemini_model, prompt, { supabase, endpoint: 'scale', userId }));
 
     if (cacheKey) setCached(supabase, cacheKey, 'scale', scaled, 24 * 30);
 

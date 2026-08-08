@@ -14,9 +14,9 @@ function createResponse() {
   return res as unknown as VercelResponse & typeof res;
 }
 
-async function loadHandler(rateAllowed = true) {
+async function loadHandler(rateAllowed = true, generated: unknown = [{ category: 'Produce', items: ['2 onions'] }]) {
   vi.resetModules();
-  const generateJson = vi.fn().mockResolvedValue([{ category: 'Produce', items: ['2 onions'] }]);
+  const generateJson = vi.fn().mockResolvedValue(generated);
   vi.doMock('./_lib/supabase.js', () => ({
     getServerSupabase: () => ({}),
     getSettings: vi.fn().mockResolvedValue({
@@ -71,5 +71,15 @@ describe('/api/shopping', () => {
 
     expect(res.statusCode).toBe(429);
     expect(generateJson).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid Gemini shopping list output', async () => {
+    const { handler } = await loadHandler(true, [{ category: '', items: [] }]);
+    const res = createResponse();
+
+    await handler({ method: 'POST', headers: {}, body: { ingredients: ['2 onions'] } } as VercelRequest, res);
+
+    expect(res.statusCode).toBe(500);
+    expect((res.body as { error: string }).error).toContain('Too small');
   });
 });
