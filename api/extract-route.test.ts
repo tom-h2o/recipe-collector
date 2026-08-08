@@ -88,6 +88,7 @@ async function loadHandler(overrides: {
   vi.doMock('./_lib/rateLimit.js', () => ({ checkRateLimit }));
   vi.doMock('./_lib/publicUrl.js', () => ({
     assertPublicHttpUrl: vi.fn((url: string) => Promise.resolve(new URL(url))),
+    fetchPublicUrl: vi.fn((url: string, init?: RequestInit) => fetch(new URL(url), init)),
   }));
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
     ok: true,
