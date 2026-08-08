@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId, userOwnsRecipe } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { translationResultSchema, translateSchema } from './_lib/schemas.js';
@@ -20,6 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const supabase = getServerSupabase();
     const userId = await getUserId(req.headers.authorization as string | undefined);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!await userOwnsRecipe(supabase, recipeId, userId)) return res.status(403).json({ error: 'Forbidden' });
 
     const { data: existing } = await supabase.from('recipe_translations').select('*').eq('recipe_id', recipeId).eq('language_code', targetLanguage).single();
     if (existing) return res.status(200).json({ ...existing, cached: true });
@@ -63,7 +64,7 @@ Return this exact JSON structure:
     if (upsertError) throw upsertError;
 
     const detectedLang = result.detectedSourceLanguage;
-    if (detectedLang) supabase.from('recipes').update({ original_language: detectedLang }).eq('id', recipeId).then(() => {}, () => {});
+    if (detectedLang) supabase.from('recipes').update({ original_language: detectedLang }).eq('id', recipeId).eq('user_id', userId).then(() => {}, () => {});
 
     return res.status(200).json({ ...row, detectedSourceLanguage: detectedLang, cached: false });
   } catch (err: unknown) {

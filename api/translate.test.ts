@@ -26,7 +26,10 @@ const requestBody = {
 async function loadHandler(options: { upsertError?: Error } = {}) {
   vi.resetModules();
   const upsert = vi.fn().mockResolvedValue({ error: options.upsertError ?? null });
-  const update = vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) }));
+  const updateSecondEq = vi.fn().mockResolvedValue({ error: null });
+  const updateFirstEq = vi.fn(() => ({ eq: updateSecondEq }));
+  const update = vi.fn(() => ({ eq: updateFirstEq }));
+  const userOwnsRecipe = vi.fn().mockResolvedValue(true);
   const supabase = {
     from: vi.fn((table: string) => {
       if (table === 'recipe_translations') {
@@ -68,6 +71,7 @@ async function loadHandler(options: { upsertError?: Error } = {}) {
     }),
     resolveApiKey: () => 'key',
     getUserId: vi.fn().mockResolvedValue('user-1'),
+    userOwnsRecipe,
   }));
   vi.doMock('./_lib/rateLimit.js', () => ({
     checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, used: 0, limit: 100, remaining: 100 }),
@@ -78,7 +82,7 @@ async function loadHandler(options: { upsertError?: Error } = {}) {
   }));
 
   const mod = await import('./translate');
-  return { handler: mod.default, upsert };
+  return { handler: mod.default, upsert, userOwnsRecipe };
 }
 
 describe('/api/translate', () => {
@@ -104,6 +108,17 @@ describe('/api/translate', () => {
       { amount: '', name: '200g Frischkaese', details: '' },
     ]);
     expect(upsert).toHaveBeenCalledWith(expect.objectContaining({ title: 'Kuchen' }), { onConflict: 'recipe_id,language_code' });
+  });
+
+  it('rejects recipes not owned by the user', async () => {
+    const { handler, userOwnsRecipe } = await loadHandler();
+    userOwnsRecipe.mockResolvedValue(false);
+    const res = createResponse();
+
+    await handler({ method: 'POST', headers: {}, body: requestBody } as VercelRequest, res);
+
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toEqual({ error: 'Forbidden' });
   });
 
   it('fails when the translation cannot be persisted', async () => {

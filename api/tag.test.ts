@@ -16,7 +16,10 @@ function createResponse() {
 
 async function loadHandler(generated: unknown) {
   vi.resetModules();
-  const update = vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) }));
+  const secondEq = vi.fn().mockResolvedValue({ error: null });
+  const firstEq = vi.fn(() => ({ eq: secondEq }));
+  const update = vi.fn(() => ({ eq: firstEq }));
+  const userOwnsRecipe = vi.fn().mockResolvedValue(true);
   vi.doMock('./_lib/supabase.js', () => ({
     getServerSupabase: () => ({ from: () => ({ update }) }),
     getSettings: vi.fn().mockResolvedValue({
@@ -31,6 +34,7 @@ async function loadHandler(generated: unknown) {
     }),
     resolveApiKey: () => 'key',
     getUserId: vi.fn().mockResolvedValue('user-1'),
+    userOwnsRecipe,
   }));
   vi.doMock('./_lib/cache.js', () => ({
     getCached: vi.fn().mockResolvedValue(null),
@@ -45,7 +49,7 @@ async function loadHandler(generated: unknown) {
     generateJson: vi.fn().mockResolvedValue(generated),
   }));
   const mod = await import('./tag');
-  return { handler: mod.default };
+  return { handler: mod.default, firstEq, secondEq, userOwnsRecipe };
 }
 
 describe('/api/tag', () => {
@@ -59,6 +63,17 @@ describe('/api/tag', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual({ tags: ['Dessert'] });
+  });
+
+  it('rejects recipes not owned by the user', async () => {
+    const { handler, userOwnsRecipe } = await loadHandler(['Dessert']);
+    userOwnsRecipe.mockResolvedValue(false);
+    const res = createResponse();
+
+    await handler({ method: 'POST', headers: {}, body: { recipeId: '550e8400-e29b-41d4-a716-446655440000', title: 'Cake', ingredients: ['cream'] } } as VercelRequest, res);
+
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toEqual({ error: 'Forbidden' });
   });
 
   it('rejects Gemini output with no supported tags', async () => {

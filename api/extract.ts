@@ -10,6 +10,7 @@ import { extractedRecipeSchema, extractSchema, extractPhotoSchema, extractPdfSch
 import { EXTRACT_TEMPLATE } from './_lib/prompts.js';
 import { checkRateLimit } from './_lib/rateLimit.js';
 import { getCached, makeCacheKey, setCached } from './_lib/cache.js';
+import { assertPublicHttpUrl } from './_lib/publicUrl.js';
 
 export interface ExtractedIngredient {
   amount: string;
@@ -319,10 +320,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ── URL extraction ─────────────────────────────────────────────────────────
     const { url } = extractSchema.parse(body);
+    const publicUrl = await assertPublicHttpUrl(url);
     const tempNote = `\n- Express all temperatures in °${settings.temperature_unit} (${settings.temperature_unit === 'C' ? 'Celsius' : 'Fahrenheit'}). Convert any other unit found.`;
     const promptTemplate = (settings.gemini_prompt?.trim() ? settings.gemini_prompt : EXTRACT_TEMPLATE) + tempNote;
 
-    const fetchRes = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RecipeCollector/1.0)' } });
+    const fetchRes = await fetch(publicUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RecipeCollector/1.0)' } });
     if (!fetchRes.ok) throw new Error(`Failed to fetch URL: ${fetchRes.statusText}`);
     const html = await fetchRes.text();
     const $ = cheerio.load(html);

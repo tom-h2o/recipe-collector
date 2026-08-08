@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId, userOwnsRecipe } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { tagResultSchema, tagSchema } from './_lib/schemas.js';
@@ -36,6 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const supabase = getServerSupabase();
     const userId = await getUserId(req.headers.authorization as string | undefined);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!await userOwnsRecipe(supabase, recipeId, userId)) return res.status(403).json({ error: 'Forbidden' });
     const settings = await getSettings(supabase, userId);
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY is not configured.' });
@@ -73,7 +74,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       const updatePayload: Record<string, unknown> = { tags: validCachedTags };
       if (embedding) updatePayload.embedding = embedding;
-      const { error: updateError } = await supabase.from('recipes').update(updatePayload).eq('id', recipeId);
+      const { error: updateError } = await supabase.from('recipes').update(updatePayload).eq('id', recipeId).eq('user_id', userId);
       if (updateError) throw updateError;
       return res.status(200).json({ tags: validCachedTags });
     }
@@ -100,7 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const updatePayload: Record<string, unknown> = { tags: validTags };
     if (embedding) updatePayload.embedding = embedding;
-    const { error: updateError } = await supabase.from('recipes').update(updatePayload).eq('id', recipeId);
+    const { error: updateError } = await supabase.from('recipes').update(updatePayload).eq('id', recipeId).eq('user_id', userId);
     if (updateError) throw updateError;
     setCached(supabase, cacheKey, 'tag', validTags, 24 * 30);
 

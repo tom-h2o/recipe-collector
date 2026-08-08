@@ -75,6 +75,18 @@ export async function getAuthenticatedUser(authHeader: string | undefined): Prom
   }
 }
 
+export async function userOwnsRecipe(supabase: SupabaseClient, recipeId: string, userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('recipes')
+    .select('id')
+    .eq('id', recipeId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return !!data;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function resolveApiKey(_settings: Settings): string {
   return process.env.GEMINI_API_KEY_1 || process.env.GEMINI_API_KEY || '';

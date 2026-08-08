@@ -19,6 +19,13 @@ const otherId = '550e8400-e29b-41d4-a716-446655440001';
 
 async function loadHandler(generated: unknown) {
   vi.resetModules();
+  const finalIn = vi.fn().mockResolvedValue({ data: [{ id: recipeId, title: 'Cake' }] });
+  const finalEq = vi.fn(() => ({ in: finalIn }));
+  const fallbackLimit = vi.fn().mockResolvedValue({
+    data: [{ id: recipeId, title: 'Cake', ingredients: [{ name: 'cream' }] }],
+  });
+  const fallbackOrder = vi.fn(() => ({ limit: fallbackLimit }));
+  const fallbackEq = vi.fn(() => ({ order: fallbackOrder }));
   const supabase = {
     rpc: vi.fn().mockResolvedValue({ data: [] }),
     from: vi.fn((table: string) => {
@@ -27,15 +34,11 @@ async function loadHandler(generated: unknown) {
         select: vi.fn((columns?: string) => {
           if (columns === '*') {
             return {
-              in: vi.fn().mockResolvedValue({ data: [{ id: recipeId, title: 'Cake' }] }),
+              eq: finalEq,
             };
           }
           return {
-            order: vi.fn(() => ({
-              limit: vi.fn().mockResolvedValue({
-                data: [{ id: recipeId, title: 'Cake', ingredients: [{ name: 'cream' }] }],
-              }),
-            })),
+            eq: fallbackEq,
           };
         }),
       };
@@ -69,20 +72,22 @@ async function loadHandler(generated: unknown) {
     generateJson: vi.fn().mockResolvedValue(generated),
   }));
   const mod = await import('./suggest');
-  return { handler: mod.default };
+  return { handler: mod.default, fallbackEq, finalEq };
 }
 
 describe('/api/suggest', () => {
   beforeEach(() => vi.restoreAllMocks());
 
   it('validates and filters suggested ids to current candidates', async () => {
-    const { handler } = await loadHandler([recipeId, otherId]);
+    const { handler, fallbackEq, finalEq } = await loadHandler([recipeId, otherId]);
     const res = createResponse();
 
     await handler({ method: 'POST', headers: {}, body: { ingredients: ['cream'] } } as VercelRequest, res);
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual({ suggestions: [{ id: recipeId, title: 'Cake' }] });
+    expect(fallbackEq).toHaveBeenCalledWith('user_id', 'user-1');
+    expect(finalEq).toHaveBeenCalledWith('user_id', 'user-1');
   });
 
   it('rejects non-uuid suggested ids', async () => {

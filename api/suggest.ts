@@ -48,7 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (vectorRecipes.length > 0) {
       topCandidates = vectorRecipes.map((r) => ({ recipe: r, ingredientsText: Array.isArray(r.ingredients) ? r.ingredients.map((i: any) => (typeof i === 'object' && i !== null && 'name' in i ? (i as { name: string }).name : String(i))).join(', ') : String(r.ingredients ?? '') }));
     } else {
-      const { data: recipes } = await supabase.from('recipes').select('id, title, ingredients').order('created_at', { ascending: false }).limit(200);
+      const { data: recipes } = await supabase.from('recipes').select('id, title, ingredients').eq('user_id', userId).order('created_at', { ascending: false }).limit(200);
       if (!recipes || recipes.length === 0) return res.status(200).json({ suggestions: [] });
       const scored = recipes.map((r) => {
         const ingList = Array.isArray(r.ingredients) ? r.ingredients.map((i: unknown) => (typeof i === 'object' && i !== null && 'name' in i ? (i as { name: string }).name : String(i))) : [];
@@ -85,7 +85,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       setCached(supabase, cacheKey, 'suggest', validIds, 1);
     }
 
-    const { data: matchedRecipes } = await supabase.from('recipes').select('*').in('id', validIds);
+    if (validIds.length === 0) return res.status(200).json({ suggestions: [] });
+
+    const { data: matchedRecipes } = await supabase.from('recipes').select('*').eq('user_id', userId).in('id', validIds);
     return res.status(200).json({ suggestions: matchedRecipes ?? [] });
   } catch (err: unknown) {
     if (err instanceof ZodError) return res.status(400).json({ error: err.issues[0]?.message ?? 'Invalid request' });
