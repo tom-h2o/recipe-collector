@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, BookOpen, Sparkles, Trash2, RefreshCw, Calendar, TrendingUp, Star, ChevronDown, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Users, BookOpen, Sparkles, Trash2, RefreshCw, Calendar, TrendingUp, Star, ChevronDown, ChevronRight, ChevronLeft, X, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import type { AdminUser, AdminStats, AdminLog, AdminRecipe } from '@/types';
+import { PublicRecipe } from '@/components/PublicRecipe';
+import { RecipeForm } from '@/components/RecipeForm';
+import type { AdminUser, AdminStats, AdminLog, AdminRecipe, Recipe } from '@/types';
 
 type Tab = 'overview' | 'users' | 'recipes' | 'logs';
 
@@ -38,6 +40,12 @@ export function AdminPanel() {
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   const [usersPage, setUsersPage] = useState(0);
   const [logsPage, setLogsPage] = useState(0);
+  // `recipe` stays null while the full row is being fetched
+  const [viewingRecipe, setViewingRecipe] = useState<
+    { id: string; title: string; ownerEmail: string | null; recipe: Recipe | null } | null
+  >(null);
+  const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
+  const [rerunning, setRerunning] = useState<'tag' | 'nutrition' | null>(null);
   const PAGE_SIZE = 25;
 
   const load = useCallback(async () => {
@@ -71,6 +79,84 @@ export function AdminPanel() {
     } finally {
       setDeletingId(null);
       setConfirmDelete(null);
+    }
+  }
+
+  /** Writes a refreshed recipe into both the viewer and the dashboard list. */
+  function applyRecipeUpdate(updated: Recipe) {
+    setViewingRecipe((prev) => (prev && prev.id === updated.id ? { ...prev, recipe: updated } : prev));
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            recipes: prev.recipes.map((r) =>
+              r.id === updated.id
+                ? { ...r, title: updated.title, description: updated.description, image_url: updated.image_url, tags: updated.tags, servings: updated.servings, prep_time_mins: updated.prep_time_mins, cook_time_mins: updated.cook_time_mins }
+                : r,
+            ),
+          }
+        : prev,
+    );
+  }
+
+  async function handleAdminSave(payload: Partial<Recipe>, recipeId?: string) {
+    if (!recipeId) return;
+    const res = await apiFetch(`/api/account?recipeId=${recipeId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || 'Failed to save recipe');
+    applyRecipeUpdate(body.recipe);
+    setEditingRecipe(null);
+  }
+
+  /** Re-runs the tag or nutrition endpoint; both write straight to the recipe row. */
+  async function rerun(kind: 'tag' | 'nutrition') {
+    const recipe = viewingRecipe?.recipe;
+    if (!recipe) return;
+    setRerunning(kind);
+    const id = toast.loading(kind === 'tag' ? 'Re-tagging recipe…' : 'Re-analysing nutrition…');
+    try {
+      const payload =
+        kind === 'tag'
+          ? { recipeId: recipe.id, title: recipe.title, description: recipe.description ?? '', ingredients: recipe.ingredients, instructions: recipe.instructions }
+          : { recipeId: recipe.id, title: recipe.title, ingredients: recipe.ingredients, servings: recipe.servings ?? undefined };
+
+      const res = await apiFetch(`/api/${kind}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || `Failed to re-run ${kind}`);
+
+      applyRecipeUpdate(
+        kind === 'tag' ? { ...recipe, tags: body.tags } : { ...recipe, nutrition: body.nutrition },
+      );
+      toast.success(kind === 'tag' ? 'Tags regenerated' : 'Nutrition regenerated', { id });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : `Failed to re-run ${kind}`, { id });
+    } finally {
+      setRerunning(null);
+    }
+  }
+
+  async function openRecipe(r: AdminRecipe) {
+    setViewingRecipe({ id: r.id, title: r.title, ownerEmail: r.user_email, recipe: null });
+    try {
+      const res = await apiFetch(`/api/account?recipeId=${r.id}`);
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Failed to load recipe');
+      setViewingRecipe((prev) =>
+        prev && prev.id === r.id
+          ? { ...prev, recipe: body.recipe, ownerEmail: body.user_email ?? prev.ownerEmail }
+          : prev,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load recipe');
+      setViewingRecipe(null);
     }
   }
 
@@ -279,7 +365,12 @@ export function AdminPanel() {
                   {isExpanded && (
                     <div className="divide-y divide-zinc-50 dark:divide-zinc-800/60 border-t border-zinc-100 dark:border-zinc-800">
                       {userRecipes.map((r) => (
-                        <div key={r.id} className="flex items-center gap-4 px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => openRecipe(r)}
+                          title={`Open "${r.title}"`}
+                          className="w-full text-left flex items-center gap-4 px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
                           {r.image_url ? (
                             <img src={r.image_url} alt="" className="w-11 h-11 rounded-lg object-cover shrink-0" />
                           ) : (
@@ -301,7 +392,8 @@ export function AdminPanel() {
                             )}
                           </div>
                           <p className="text-xs text-zinc-400 dark:text-zinc-500 shrink-0">{formatDate(r.created_at)}</p>
-                        </div>
+                          <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600 shrink-0" />
+                        </button>
                       ))}
                     </div>
                   )}
@@ -364,6 +456,106 @@ export function AdminPanel() {
           </div>
         );
       })()}
+
+      {/* Recipe viewer — read-only, admin can inspect any user's recipe */}
+      {viewingRecipe && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 overflow-y-auto p-4 sm:p-8"
+          onClick={() => setViewingRecipe(null)}
+        >
+          <div className="max-w-3xl mx-auto" onClick={(e) => e.stopPropagation()}>
+            {/* Own surface so the header stays legible over any page behind it */}
+            <div className="flex items-center gap-3 mb-3 text-white bg-zinc-900/90 rounded-xl px-4 py-2.5">
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold truncate">{viewingRecipe.title}</p>
+                <p className="text-xs text-white/80 truncate">{viewingRecipe.ownerEmail ?? '(no user)'}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingRecipe(null)}
+                aria-label="Close recipe"
+                className="shrink-0 p-2 rounded-full bg-white/15 hover:bg-white/25 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {viewingRecipe.recipe && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditingRecipe(viewingRecipe.recipe)}
+                  className="gap-1.5 bg-white dark:bg-zinc-900"
+                >
+                  <Pencil className="w-3.5 h-3.5" /> Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={rerunning !== null}
+                  onClick={() => rerun('tag')}
+                  className="gap-1.5 bg-white dark:bg-zinc-900"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${rerunning === 'tag' ? 'animate-spin' : ''}`} /> Re-tag
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={rerunning !== null}
+                  onClick={() => rerun('nutrition')}
+                  className="gap-1.5 bg-white dark:bg-zinc-900"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${rerunning === 'nutrition' ? 'animate-spin' : ''}`} /> Re-analyse nutrition
+                </Button>
+                {viewingRecipe.recipe.tags && viewingRecipe.recipe.tags.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1 ml-auto">
+                    {viewingRecipe.recipe.tags.map((t) => (
+                      <span key={t} className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/15 text-white">{t}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {/* PublicRecipe omits nutrition, so surface it here for the re-run */}
+            {viewingRecipe.recipe?.nutrition && (
+              <div className="mb-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-4 py-3">
+                <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2">Nutrition (per serving)</p>
+                <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                  {([
+                    ['Calories', viewingRecipe.recipe.nutrition.calories, 'kcal'],
+                    ['Protein', viewingRecipe.recipe.nutrition.protein_g, 'g'],
+                    ['Carbs', viewingRecipe.recipe.nutrition.carbs_g, 'g'],
+                    ['Fat', viewingRecipe.recipe.nutrition.fat_g, 'g'],
+                    ['Fibre', viewingRecipe.recipe.nutrition.fiber_g, 'g'],
+                  ] as const).map(([label, value, unit]) => (
+                    <span key={label} className="text-zinc-600 dark:text-zinc-300">
+                      {label}{' '}
+                      <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                        {value ?? '—'}{value != null ? unit : ''}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {viewingRecipe.recipe ? (
+              <PublicRecipe recipe={viewingRecipe.recipe} />
+            ) : (
+              <div className="flex items-center justify-center py-24 bg-white dark:bg-zinc-950 rounded-3xl border border-zinc-200 dark:border-zinc-800 text-sk-on-surface-variant dark:text-muted-foreground">
+                <RefreshCw className="w-5 h-5 animate-spin mr-2" /> Loading recipe…
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Admin recipe editor — saves via the service key, bypassing owner RLS */}
+      <RecipeForm
+        isOpen={editingRecipe !== null}
+        editingRecipe={editingRecipe}
+        onClose={() => setEditingRecipe(null)}
+        onSave={handleAdminSave}
+      />
 
       {/* Delete user confirmation */}
       {confirmDelete && (
