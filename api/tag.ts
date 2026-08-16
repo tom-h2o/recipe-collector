@@ -45,8 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : String(ingredients ?? '');
 
     const instructionPreview = (instructions || '').substring(0, 1000);
-    const template = settings.gemini_prompt_tag?.trim() ? settings.gemini_prompt_tag : TAG_TEMPLATE;
-    const prompt = buildTagPrompt(template, title, description, ingredientText, instructionPreview);
+    const prompt = buildTagPrompt(TAG_TEMPLATE, title, description, ingredientText, instructionPreview);
 
     const cacheKey = makeCacheKey('tag', { title, description: description ?? '', ingredientText, instructions: instructionPreview });
     const cachedTags = await getCached<string[]>(supabase, cacheKey);

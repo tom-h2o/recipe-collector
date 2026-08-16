@@ -23,8 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
 
-    const template = settings.gemini_prompt_shopping?.trim() ? settings.gemini_prompt_shopping : SHOPPING_TEMPLATE;
-    const prompt = `${template}\n\nIngredients to process:\n${ingredients.join('\n')}`;
+    const prompt = `${SHOPPING_TEMPLATE}\n\nIngredients to process:\n${ingredients.join('\n')}`;
 
     const cacheKey = makeCacheKey('shopping', ingredients);
     const cachedList = await getCached(supabase, cacheKey);

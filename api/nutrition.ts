@@ -51,8 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }).join('\n')
       : String(ingredients);
 
-    const template = settings.gemini_prompt_nutrition?.trim() ? settings.gemini_prompt_nutrition : NUTRITION_TEMPLATE;
-    const prompt = buildNutritionPrompt(template, title, ingredientText, servings);
+    const prompt = buildNutritionPrompt(NUTRITION_TEMPLATE, title, ingredientText, servings);
 
     const cacheKey = makeCacheKey('nutrition', { ingredientText, servings: servings ?? null });
     const cachedNutrition = await getCached(supabase, cacheKey);

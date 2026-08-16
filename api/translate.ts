@@ -42,8 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const targetName = LANGUAGE_NAMES[targetLanguage] ?? targetLanguage;
     const ingredientText = JSON.stringify(ingredients.map((i) => ({ amount: i.amount, name: i.name, details: i.details ?? '' })));
-    const template = settings.gemini_prompt_translate?.trim() ? settings.gemini_prompt_translate : TRANSLATE_TEMPLATE;
-    const prompt = `${template} Translate the following recipe into ${targetName}.
+    const prompt = `${TRANSLATE_TEMPLATE} Translate the following recipe into ${targetName}.
 
 Input recipe:
 {

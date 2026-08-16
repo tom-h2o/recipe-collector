@@ -1,13 +1,12 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
+/**
+ * Prompts are NOT part of settings — every endpoint uses the templates in
+ * prompts.ts. They used to be per-user overrides, which silently pinned users to
+ * whatever prompt text was current when they last saved.
+ */
 export interface Settings {
   gemini_model: string;
-  gemini_prompt: string;
-  gemini_prompt_tag: string;
-  gemini_prompt_nutrition: string;
-  gemini_prompt_translate: string;
-  gemini_prompt_suggest: string;
-  gemini_prompt_shopping: string;
   temperature_unit: 'C' | 'F';
 }
 
@@ -19,17 +18,11 @@ export function getServerSupabase(): SupabaseClient {
   return createClient(url, key);
 }
 
-const SETTINGS_SELECT = 'gemini_model, gemini_prompt, gemini_prompt_tag, gemini_prompt_nutrition, gemini_prompt_translate, gemini_prompt_suggest, gemini_prompt_shopping, temperature_unit';
+const SETTINGS_SELECT = 'gemini_model, temperature_unit';
 
 function rowToSettings(data: Record<string, unknown>, defaults: Settings): Settings {
   return {
     gemini_model: (data.gemini_model as string) || defaults.gemini_model,
-    gemini_prompt: (data.gemini_prompt as string) || defaults.gemini_prompt,
-    gemini_prompt_tag: (data.gemini_prompt_tag as string) || defaults.gemini_prompt_tag,
-    gemini_prompt_nutrition: (data.gemini_prompt_nutrition as string) || defaults.gemini_prompt_nutrition,
-    gemini_prompt_translate: (data.gemini_prompt_translate as string) || defaults.gemini_prompt_translate,
-    gemini_prompt_suggest: (data.gemini_prompt_suggest as string) || defaults.gemini_prompt_suggest,
-    gemini_prompt_shopping: (data.gemini_prompt_shopping as string) || defaults.gemini_prompt_shopping,
     temperature_unit: ((data.temperature_unit as string) as 'C' | 'F') || defaults.temperature_unit,
   };
 }
@@ -37,12 +30,6 @@ function rowToSettings(data: Record<string, unknown>, defaults: Settings): Setti
 export async function getSettings(supabase: SupabaseClient, userId?: string | null): Promise<Settings> {
   const defaults: Settings = {
     gemini_model: DEFAULT_MODEL,
-    gemini_prompt: '',
-    gemini_prompt_tag: '',
-    gemini_prompt_nutrition: '',
-    gemini_prompt_translate: '',
-    gemini_prompt_suggest: '',
-    gemini_prompt_shopping: '',
     temperature_unit: 'C',
   };
   try {
