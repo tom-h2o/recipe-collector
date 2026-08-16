@@ -261,7 +261,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
         {/* Fixed close button — always visible, never scrolls away */}
         <button
           onClick={handleClose}
-          className="absolute top-3 right-3 z-20 p-2.5 rounded-full bg-sk-on-surface/30 hover:bg-sk-on-surface/50 backdrop-blur-sm text-white transition-colors shadow-md ring-1 ring-white/20 print:hidden"
+          className="absolute top-3 right-3 z-20 p-2.5 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white transition-colors shadow-md ring-1 ring-white/20 print:hidden"
           title="Close"
         >
           <X className="w-4 h-4" />
@@ -463,7 +463,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                   <button
                     onClick={handleSaveScaled}
                     disabled={isSavingScaled}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 disabled:opacity-50 text-white text-xs font-bold font-sans rounded-full transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 disabled:opacity-50 text-white dark:text-primary-foreground text-xs font-bold font-sans rounded-full transition-colors"
                     title="Save as a new recipe with these AI-rounded quantities"
                   >
                     <Copy className="w-3.5 h-3.5" />
@@ -526,7 +526,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                     <button
                       onClick={handleAddToPlan}
                       disabled={isAddingToPlan}
-                      className="px-4 py-2 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white text-sm font-semibold font-sans rounded-full transition-colors disabled:opacity-50"
+                      className="px-4 py-2 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground text-sm font-semibold font-sans rounded-full transition-colors disabled:opacity-50"
                     >
                       {isAddingToPlan ? 'Adding…' : 'Add'}
                     </button>

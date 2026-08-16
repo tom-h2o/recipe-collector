@@ -7,89 +7,113 @@
 @layer base {
   :root {
     /* Speisekammer — "The Curated Atelier" design system */
+    /* NOTE: colour tokens are bare oklch *components* (no oklch() wrapper).
+       tailwind.config.js wraps them as `oklch(var(--x) / <alpha-value>)` so that
+       opacity modifiers (bg-primary/90, ring-destructive/40, …) work. */
     /* Parchment surface */
-    --background: oklch(0.985 0.006 90);
-    --foreground: oklch(0.17 0.006 162);
+    --background: 0.985 0.006 90;
+    --foreground: 0.17 0.006 162;
     /* Cards: white on parchment canvas */
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.17 0.006 162);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.17 0.006 162);
+    --card: 1 0 0;
+    --card-foreground: 0.17 0.006 162;
+    --popover: 1 0 0;
+    --popover-foreground: 0.17 0.006 162;
     /* Herb-inspired emerald green primary */
-    --primary: oklch(0.39 0.094 145);
-    --primary-foreground: oklch(1 0 0);
+    --primary: 0.39 0.094 145;
+    --primary-foreground: 1 0 0;
     /* Warm-wood secondary (secondary-container) */
-    --secondary: oklch(0.84 0.11 57);
-    --secondary-foreground: oklch(0.44 0.086 55);
+    --secondary: 0.84 0.11 57;
+    --secondary-foreground: 0.44 0.086 55;
     /* Surface-container-low for muted areas */
-    --muted: oklch(0.965 0.004 90);
-    --muted-foreground: oklch(0.33 0.022 144);
+    --muted: 0.965 0.004 90;
+    --muted-foreground: 0.33 0.022 144;
     /* Surface-container for accents */
-    --accent: oklch(0.94 0.004 90);
-    --accent-foreground: oklch(0.17 0.006 162);
-    --destructive: oklch(0.508 0.175 25);
-    /* Ghost border — outline-variant at very low opacity */
-    --border: oklch(0.81 0.027 147 / 30%);
+    --accent: 0.94 0.004 90;
+    --accent-foreground: 0.17 0.006 162;
+    --destructive: 0.508 0.175 25;
+    --destructive-foreground: 1 0 0;
+    /* Ghost border — outline-variant flattened onto the parchment surface */
+    --border: 0.933 0.012 107;
     /* Surface-container-highest for inputs */
-    --input: oklch(0.91 0.004 90);
-    --ring: oklch(0.39 0.094 145);
+    --input: 0.91 0.004 90;
+    --ring: 0.39 0.094 145;
     /* xl roundness per design system */
     --radius: 0.75rem;
-    --sidebar: oklch(0.965 0.004 90);
-    --sidebar-foreground: oklch(0.17 0.006 162);
-    --sidebar-primary: oklch(0.39 0.094 145);
-    --sidebar-primary-foreground: oklch(1 0 0);
-    --sidebar-accent: oklch(0.94 0.004 90);
-    --sidebar-accent-foreground: oklch(0.17 0.006 162);
-    --sidebar-border: oklch(0.81 0.027 147 / 20%);
-    --sidebar-ring: oklch(0.39 0.094 145);
-    /* Speisekammer extended tokens */
-    --sk-primary: #315f3b;
-    --sk-primary-container: #497851;
-    --sk-primary-fixed: #bcefc0;
-    --sk-on-primary-fixed: #00210a;
-    --sk-secondary: #805533;
-    --sk-secondary-container: #fdc39a;
-    --sk-tertiary: #455d00;
-    --sk-surface: #faf9f5;
-    --sk-surface-low: #f4f4f0;
-    --sk-surface-container: #efeeea;
-    --sk-surface-high: #e9e8e4;
-    --sk-surface-highest: #e3e2df;
-    --sk-on-surface: #1b1c1a;
-    --sk-on-surface-variant: #40493d;
-    --sk-outline: #707a6c;
-    --sk-outline-variant: #bfcaba;
+    --sidebar: 0.965 0.004 90;
+    --sidebar-foreground: 0.17 0.006 162;
+    --sidebar-primary: 0.39 0.094 145;
+    --sidebar-primary-foreground: 1 0 0;
+    --sidebar-accent: 0.94 0.004 90;
+    --sidebar-accent-foreground: 0.17 0.006 162;
+    --sidebar-border: 0.95 0.01 101;
+    --sidebar-ring: 0.39 0.094 145;
+    /* Speisekammer extended tokens — bare RGB channels, see note above */
+    --sk-primary: 49 95 59;
+    --sk-primary-container: 73 120 81;
+    --sk-primary-fixed: 188 239 192;
+    --sk-on-primary-fixed: 0 33 10;
+    --sk-secondary: 128 85 51;
+    --sk-secondary-container: 253 195 154;
+    --sk-tertiary: 69 93 0;
+    --sk-surface: 250 249 245;
+    --sk-surface-low: 244 244 240;
+    --sk-surface-container: 239 238 234;
+    --sk-surface-high: 233 232 228;
+    --sk-surface-highest: 227 226 223;
+    --sk-on-surface: 27 28 26;
+    --sk-on-surface-variant: 64 73 61;
+    --sk-outline: 95 106 91;
+    --sk-outline-variant: 191 202 186;
   }
 
   .dark {
     /* Dark mode — inverse surface tones */
-    --background: oklch(0.215 0.012 162);
-    --foreground: oklch(0.945 0.004 90);
-    --card: oklch(0.26 0.012 162);
-    --card-foreground: oklch(0.945 0.004 90);
-    --popover: oklch(0.26 0.012 162);
-    --popover-foreground: oklch(0.945 0.004 90);
-    --primary: oklch(0.83 0.078 147);
-    --primary-foreground: oklch(0.17 0.062 147);
-    --secondary: oklch(0.36 0.072 55);
-    --secondary-foreground: oklch(0.84 0.11 57);
-    --muted: oklch(0.28 0.012 162);
-    --muted-foreground: oklch(0.65 0.02 144);
-    --accent: oklch(0.30 0.012 162);
-    --accent-foreground: oklch(0.945 0.004 90);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 12%);
-    --ring: oklch(0.83 0.078 147);
-    --sidebar: oklch(0.26 0.012 162);
-    --sidebar-foreground: oklch(0.945 0.004 90);
-    --sidebar-primary: oklch(0.83 0.078 147);
-    --sidebar-primary-foreground: oklch(0.17 0.062 147);
-    --sidebar-accent: oklch(0.30 0.012 162);
-    --sidebar-accent-foreground: oklch(0.945 0.004 90);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.83 0.078 147);
+    --background: 0.215 0.012 162;
+    --foreground: 0.945 0.004 90;
+    --card: 0.26 0.012 162;
+    --card-foreground: 0.945 0.004 90;
+    --popover: 0.26 0.012 162;
+    --popover-foreground: 0.945 0.004 90;
+    --primary: 0.83 0.078 147;
+    --primary-foreground: 0.17 0.062 147;
+    --secondary: 0.36 0.072 55;
+    --secondary-foreground: 0.84 0.11 57;
+    --muted: 0.28 0.012 162;
+    --muted-foreground: 0.72 0.02 144;
+    --accent: 0.3 0.012 162;
+    --accent-foreground: 0.945 0.004 90;
+    --destructive: 0.704 0.191 22.216;
+    --destructive-foreground: 0.17 0.02 25;
+    /* Flattened from white @ 10%/12% over the dark background */
+    --border: 0.294 0.011 162;
+    --input: 0.309 0.011 162;
+    --ring: 0.83 0.078 147;
+    --sidebar: 0.26 0.012 162;
+    --sidebar-foreground: 0.945 0.004 90;
+    --sidebar-primary: 0.83 0.078 147;
+    --sidebar-primary-foreground: 0.17 0.062 147;
+    --sidebar-accent: 0.3 0.012 162;
+    --sidebar-accent-foreground: 0.945 0.004 90;
+    --sidebar-border: 0.294 0.011 162;
+    --sidebar-ring: 0.83 0.078 147;
+    /* Speisekammer extended tokens — dark surfaces, lightened on-surface tones.
+       Roles are inverted so `sk-*` utilities stay legible without `dark:` variants. */
+    --sk-primary: 165 214 167;
+    --sk-primary-container: 185 227 186;
+    --sk-primary-fixed: 42 74 48;
+    --sk-on-primary-fixed: 188 239 192;
+    --sk-secondary: 232 185 143;
+    --sk-secondary-container: 92 61 34;
+    --sk-tertiary: 182 204 106;
+    --sk-surface: 27 28 26;
+    --sk-surface-low: 35 36 33;
+    --sk-surface-container: 42 43 40;
+    --sk-surface-high: 50 51 47;
+    --sk-surface-highest: 58 59 55;
+    --sk-on-surface: 227 226 223;
+    --sk-on-surface-variant: 194 204 189;
+    --sk-outline: 139 150 134;
+    --sk-outline-variant: 65 75 62;
   }
 
   * {
@@ -122,7 +146,7 @@
   }
   /* Category label style: uppercase, spaced, primary color */
   .label-category {
-    @apply text-xs font-semibold uppercase tracking-widest text-[#315f3b];
+    @apply text-xs font-semibold uppercase tracking-widest text-sk-primary;
   }
   /* Ambient shadow for floating elements */
   .shadow-ambient {

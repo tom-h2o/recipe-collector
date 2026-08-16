@@ -120,7 +120,7 @@ export function UserMenu({ user, onSignOut }: Props) {
   const avatar = avatarUrl ? (
     <img src={avatarUrl} alt={displayName || email} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
   ) : (
-    <span className="w-full h-full bg-sk-primary text-white text-sm font-bold flex items-center justify-center">
+    <span className="w-full h-full bg-sk-primary text-white dark:text-primary-foreground text-sm font-bold flex items-center justify-center">
       {initials}
     </span>
   );
@@ -242,7 +242,7 @@ export function UserMenu({ user, onSignOut }: Props) {
                 <Button type="button" variant="outline" onClick={() => setShowChangePassword(false)} className="flex-1">
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting} className="flex-1 bg-sk-primary hover:bg-sk-primary-container text-white border-0">
+                <Button type="submit" disabled={isSubmitting} className="flex-1 bg-sk-primary hover:bg-sk-primary-container text-white dark:text-primary-foreground border-0">
                   {isSubmitting ? 'Saving…' : 'Save password'}
                 </Button>
               </div>

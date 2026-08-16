@@ -79,7 +79,7 @@ export function RecipeInbox({ shares, onAccept, onReject, onBack }: Props) {
             <div className="flex gap-2">
               <button
                 onClick={() => onAccept(share)}
-                className="flex items-center gap-1.5 px-4 py-2 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white text-sm font-semibold rounded-full transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground text-sm font-semibold rounded-full transition-colors"
               >
                 <Check className="w-4 h-4" /> Add to vault
               </button>

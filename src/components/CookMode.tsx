@@ -100,7 +100,7 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
               <div className="flex items-center gap-3 shrink-0">
                 <button
                   onClick={() => setShowIngredients((v) => !v)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${showIngredients ? 'bg-sk-primary/20 text-sk-primary-fixed' : 'hover:bg-white/10 text-white/50 hover:text-white/80'}`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${showIngredients ? 'bg-sk-primary/20 text-sk-primary-fixed' : 'hover:bg-white/10 text-white/50 hover:text-white dark:text-primary-foreground/80'}`}
                 >
                   <List className="w-4 h-4" />
                   <span className="hidden sm:inline">Ingredients</span>
@@ -115,7 +115,7 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
             {/* Step text — scrollable, fills available space */}
             <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 md:px-16">
               <div className="flex flex-col items-center justify-center min-h-full py-6 sm:py-10 gap-6 sm:gap-8">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 shrink-0 rounded-full bg-sk-primary text-white flex items-center justify-center text-2xl sm:text-3xl font-black shadow-lg shadow-sk-primary/20">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 shrink-0 rounded-full bg-sk-primary text-white dark:text-primary-foreground flex items-center justify-center text-2xl sm:text-3xl font-black shadow-lg shadow-sk-primary/20">
                   {cookStep + 1}
                 </div>
                 <p className="max-w-2xl w-full text-center text-lg sm:text-2xl md:text-3xl font-semibold leading-relaxed text-white">

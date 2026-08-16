@@ -96,7 +96,7 @@ export function ShoppingList({
           <ShoppingCart className="w-4 h-4" />
           To Buy
           {shoppingList.length > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 bg-sk-primary text-white text-[10px] font-bold rounded-full">{shoppingList.length}</span>
+            <span className="ml-1 px-1.5 py-0.5 bg-sk-primary text-white dark:text-primary-foreground text-[10px] font-bold rounded-full">{shoppingList.length}</span>
           )}
         </button>
         <button

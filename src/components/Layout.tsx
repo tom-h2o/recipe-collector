@@ -90,7 +90,7 @@ export function Layout({ activeView, user, isAdmin, recipeCount, inboxCount, onS
                   </span>
                 )}
                 {view === 'inbox' && inboxCount > 0 && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sk-primary text-white">
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sk-primary text-white dark:text-primary-foreground">
                     {inboxCount}
                   </span>
                 )}
@@ -137,7 +137,7 @@ export function Layout({ activeView, user, isAdmin, recipeCount, inboxCount, onS
           </button>
           <button
             onClick={onAddRecipe}
-            className="inline-flex items-center justify-center gap-2 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/80 text-white font-semibold rounded-full shadow-ambient transition-all duration-200 hover:scale-[1.02] h-9 sm:h-10 text-sm w-9 sm:w-auto sm:px-6"
+            className="inline-flex items-center justify-center gap-2 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/80 text-white dark:text-primary-foreground font-semibold rounded-full shadow-ambient transition-all duration-200 hover:scale-[1.02] h-9 sm:h-10 text-sm w-9 sm:w-auto sm:px-6"
           >
             <Plus className="w-4 h-4 shrink-0" />
             <span className="hidden sm:inline">Add Recipe</span>
@@ -180,7 +180,7 @@ export function Layout({ activeView, user, isAdmin, recipeCount, inboxCount, onS
                 <Icon className="w-5 h-5" />
                 <span className="text-[10px] font-semibold font-sans">{label}</span>
                 {view === 'inbox' && inboxCount > 0 && (
-                  <span className="absolute top-1.5 left-1/2 ml-1.5 w-4 h-4 bg-sk-primary text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                  <span className="absolute top-1.5 left-1/2 ml-1.5 w-4 h-4 bg-sk-primary text-white dark:text-primary-foreground text-[9px] font-bold rounded-full flex items-center justify-center">
                     {inboxCount}
                   </span>
                 )}
