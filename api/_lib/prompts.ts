@@ -6,8 +6,10 @@
  * appended at call time via the corresponding build*Prompt() helper
  * in each endpoint file.
  *
- * Users can override any template via Settings → Prompts in the UI.
- * The stored value replaces the template; dynamic data is still injected.
+ * These are the single source of truth — prompts are NOT user-configurable.
+ * They used to be overridable per user via Settings → Prompts, which pinned
+ * each user to whatever text was current when they last saved, so prompt fixes
+ * never reached them. Edit here and deploy; every user gets it immediately.
  */
 
 // ─── Extract ─────────────────────────────────────────────────────────────────
@@ -15,7 +17,11 @@
 export const EXTRACT_TEMPLATE = `You are a culinary assistant that extracts recipes from raw extracted webpage text.
 Your task is to find the recipe within the text below and return it strictly formatted as a JSON object.
 
-IMPORTANT: Detect the language of the recipe content. Return the entire response IN THE DETECTED LANGUAGE.
+CRITICAL — LANGUAGE:
+First detect the language of the recipe content. Then write the ENTIRE response IN THAT LANGUAGE.
+"title", "description", "instructions", and every ingredient "name" and "details" MUST be written in the detected source language — do NOT translate them into English.
+For example, if the source is in Polish, those fields must be Polish. If it is in German, they must be German.
+The English words in the JSON example below illustrate the STRUCTURE ONLY — never copy their language.
 
 The JSON MUST match this EXACT structure, nothing else:
 {
@@ -37,6 +43,7 @@ The JSON MUST match this EXACT structure, nothing else:
 
 CRITICAL RULES:
 - "original_language" MUST ALWAYS be a 2-letter ISO 639-1 language code detected from the recipe content (e.g. "en", "de", "fr", "es", "pl", "it"). Analyze the recipe title, description, and instructions. If recipe is in English, use "en". If German, use "de". This field MUST be present in every response.
+- Write "title", "description", "instructions", and all ingredient "name"/"details" values in the detected source language, matching "original_language". Never translate the recipe into English unless the source itself is English.
 - "ingredients" MUST be an array of objects with "amount", "name", and "details" keys.
 - Extract descriptors like "finely chopped", "room temperature", "roasted at 200°C" into "details". Keep "name" as the pure ingredient base name.
 - If an ingredient has no measurable amount, set "amount" to an empty string.

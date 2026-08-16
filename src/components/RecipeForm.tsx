@@ -11,6 +11,7 @@ import { parseIngredients } from '@/lib/recipeUtils';
 import { supabase } from '@/lib/supabase';
 import { apiFetch } from '@/lib/api';
 import { LANGUAGES } from '@/lib/constants';
+import { MAX_EXTRACT_PHOTOS, encodePhotosForExtraction } from '@/lib/imageUtils';
 import type { Recipe, Ingredient } from '@/types';
 
 type RecipePayload = Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>;
@@ -33,9 +34,9 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
   const [isExtracting, setIsExtracting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Photo import state
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  // Photo import state — a recipe may span several pages, so this is a list
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [isExtractingPhoto, setIsExtractingPhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -81,29 +82,64 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
       setPrepTime(''); setCookTime('');
       setExtractUrl(''); setSourceUrl(''); setSourceName('');
       setOriginalLanguage(null);
-      setPhotoFile(null); setPhotoPreview(null);
+      setPhotoFiles([]);
+      setPhotoPreviews((prev) => { prev.forEach(URL.revokeObjectURL); return []; });
       setPdfFile(null);
       setImageFile(null); setImagePreview(null);
     }
   }, [editingRecipe, isOpen]);
 
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
+    const selected = Array.from(e.target.files ?? []);
+    // Allow re-picking the same file after a removal
+    e.target.value = '';
+    if (!selected.length) return;
+
+    const room = MAX_EXTRACT_PHOTOS - photoFiles.length;
+    if (room <= 0) {
+      toast.error(`You can add at most ${MAX_EXTRACT_PHOTOS} photos.`);
+      return;
+    }
+    const accepted = selected.slice(0, room);
+    if (accepted.length < selected.length) {
+      toast.error(`Only the first ${accepted.length} of ${selected.length} photos were added (max ${MAX_EXTRACT_PHOTOS}).`);
+    }
+    setPhotoFiles((prev) => [...prev, ...accepted]);
+    setPhotoPreviews((prev) => [...prev, ...accepted.map((f) => URL.createObjectURL(f))]);
+  }
+
+  function removePhoto(index: number) {
+    URL.revokeObjectURL(photoPreviews[index]);
+    setPhotoFiles((prev) => prev.filter((_, i) => i !== index));
+    setPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function movePhoto(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= photoFiles.length) return;
+    const swap = <T,>(arr: T[]) => {
+      const next = [...arr];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    };
+    setPhotoFiles(swap);
+    setPhotoPreviews(swap);
   }
 
   async function handlePhotoExtract() {
-    if (!photoFile) return;
+    if (!photoFiles.length) return;
     setIsExtractingPhoto(true);
-    const id = toast.loading('Analysing photo with Gemini AI...');
+    const id = toast.loading(
+      photoFiles.length === 1
+        ? 'Analysing photo with Gemini AI...'
+        : `Analysing ${photoFiles.length} photos with Gemini AI...`,
+    );
     try {
-      const base64 = await fileToBase64(photoFile);
+      const images = await encodePhotosForExtraction(photoFiles);
       const res = await apiFetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64: base64, mimeType: photoFile.type }),
+        body: JSON.stringify({ images }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to extract recipe');
@@ -117,10 +153,15 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
       if (Array.isArray(data.ingredients)) {
         setIngredients(parseIngredients(data.ingredients));
       }
-      // Use the photo itself as the recipe image
-      setImagePreview(photoPreview);
-      setImageFile(photoFile);
-      toast.success('Recipe extracted from photo!', { id });
+      // Use the first photo as the recipe image
+      setImagePreview(photoPreviews[0] ?? null);
+      setImageFile(photoFiles[0] ?? null);
+      toast.success(
+        photoFiles.length === 1
+          ? 'Recipe extracted from photo!'
+          : `Recipe extracted from ${photoFiles.length} photos!`,
+        { id },
+      );
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Couldn't extract recipe.", { id });
     } finally {
@@ -228,7 +269,10 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
         description,
         ingredients: ingredientsList,
         instructions,
-        image_url: finalImageUrl || 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?q=80&w=600&auto=format&fit=crop',
+        // Save empty rather than a stock photo: every render site handles a
+        // missing image, and an empty value lets the create path in
+        // recipeStore auto-search a title-matched cover via /api/find-image.
+        image_url: finalImageUrl,
         servings: servings ? parseInt(servings) : null,
         prep_time_mins: prepTime ? parseInt(prepTime) : null,
         cook_time_mins: cookTime ? parseInt(cookTime) : null,
@@ -338,10 +382,10 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
               {/* Text */}
               <div className="space-y-1">
                 <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                  {isExtractingPhoto ? 'Reading your photo...' : isExtractingPdf ? 'Reading your PDF...' : 'Casting spell...'}
+                  {isExtractingPhoto ? (photoFiles.length > 1 ? 'Reading your photos...' : 'Reading your photo...') : isExtractingPdf ? 'Reading your PDF...' : 'Casting spell...'}
                 </p>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  {isExtractingPhoto ? 'Gemini is analysing the image' : isExtractingPdf ? 'Gemini is reading the document' : 'Gemini is extracting the recipe'}
+                  {isExtractingPhoto ? (photoFiles.length > 1 ? `Gemini is combining ${photoFiles.length} pages into one recipe` : 'Gemini is analysing the image') : isExtractingPdf ? 'Gemini is reading the document' : 'Gemini is extracting the recipe'}
                 </p>
               </div>
             </div>
@@ -405,29 +449,77 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
 
               {importTab === 'photo' && (
                 <div className="space-y-2">
-                  <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoSelect} />
-                  {!photoPreview ? (
+                  <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={handlePhotoSelect} />
+                  {!photoPreviews.length ? (
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       className="w-full h-28 border-2 border-dashed border-sk-outline-variant dark:border-border rounded-xl flex flex-col items-center justify-center gap-2 text-sk-outline hover:border-sk-primary hover:text-sk-primary transition-colors"
                     >
                       <Camera className="w-7 h-7" />
-                      <span className="text-xs font-semibold">Tap to upload a photo or recipe card</span>
+                      <span className="text-xs font-semibold">Tap to upload photos or recipe cards</span>
+                      <span className="text-[11px]">Add up to {MAX_EXTRACT_PHOTOS} pages of the same recipe</span>
                     </button>
                   ) : (
-                    <div className="relative">
-                      <img src={photoPreview} alt="Recipe photo" className="w-full h-40 object-cover rounded-xl" />
-                      <button
-                        type="button"
-                        onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
-                        className="absolute top-2 right-2 p-1 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                    <>
+                      <div className="grid grid-cols-3 gap-2">
+                        {photoPreviews.map((preview, i) => (
+                          <div key={preview} className="relative group/photo aspect-[4/3]">
+                            <img src={preview} alt={`Recipe page ${i + 1}`} className="w-full h-full object-cover rounded-lg" />
+                            <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-bold leading-none">
+                              {i + 1}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removePhoto(i)}
+                              aria-label={`Remove page ${i + 1}`}
+                              className="absolute top-1 right-1 p-1 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                            {photoPreviews.length > 1 && (
+                              <div className="absolute bottom-1 right-1 flex gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => movePhoto(i, -1)}
+                                  disabled={i === 0}
+                                  aria-label={`Move page ${i + 1} earlier`}
+                                  className="p-1 rounded-full bg-black/50 text-white hover:bg-black/70 disabled:opacity-30 transition-colors"
+                                >
+                                  <ChevronUp className="w-3 h-3 -rotate-90" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => movePhoto(i, 1)}
+                                  disabled={i === photoPreviews.length - 1}
+                                  aria-label={`Move page ${i + 1} later`}
+                                  className="p-1 rounded-full bg-black/50 text-white hover:bg-black/70 disabled:opacity-30 transition-colors"
+                                >
+                                  <ChevronDown className="w-3 h-3 -rotate-90" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        {photoPreviews.length < MAX_EXTRACT_PHOTOS && (
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="aspect-[4/3] border-2 border-dashed border-sk-outline-variant dark:border-border rounded-lg flex flex-col items-center justify-center gap-1 text-sk-outline hover:border-sk-primary hover:text-sk-primary transition-colors"
+                          >
+                            <Plus className="w-5 h-5" />
+                            <span className="text-[11px] font-semibold">Add page</span>
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-sk-outline">
+                        {photoPreviews.length === 1
+                          ? 'Add more pages if this recipe continues on another page.'
+                          : `${photoPreviews.length} pages will be read together as one recipe, in this order.`}
+                      </p>
+                    </>
                   )}
-                  {photoFile && (
+                  {photoFiles.length > 0 && (
                     <Button
                       type="button"
                       onClick={handlePhotoExtract}
@@ -435,7 +527,11 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
                       variant="default"
                       className="w-full font-medium bg-sk-primary hover:bg-sk-primary-container shadow-ambient border-0"
                     >
-                      {isExtractingPhoto ? 'Analysing photo...' : 'Extract Recipe from Photo'}
+                      {isExtractingPhoto
+                        ? 'Analysing photos...'
+                        : photoFiles.length === 1
+                          ? 'Extract Recipe from Photo'
+                          : `Extract Recipe from ${photoFiles.length} Photos`}
                     </Button>
                   )}
                 </div>
@@ -645,7 +741,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
 
         {/* Sticky save footer */}
         <div className="shrink-0 border-t border-zinc-200 dark:border-zinc-800 px-6 py-4">
-          <Button type="submit" disabled={isSaving || isUploadingImage} className="w-full bg-sk-primary hover:bg-sk-primary-container rounded-full text-white font-semibold text-base h-11 border-0">
+          <Button type="submit" disabled={isSaving || isUploadingImage} className="w-full bg-sk-primary hover:bg-sk-primary-container rounded-full text-white dark:text-primary-foreground font-semibold text-base h-11 border-0">
             {savingLabel}
           </Button>
         </div>

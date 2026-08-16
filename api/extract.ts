@@ -6,15 +6,38 @@ import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
-import { extractSchema, extractPhotoSchema, extractPdfSchema } from './_lib/schemas.js';
+import { extractSchema, extractPhotoSchema, extractPdfSchema, normaliseExtractPhotoBody } from './_lib/schemas.js';
 import { EXTRACT_TEMPLATE } from './_lib/prompts.js';
 import { checkRateLimit } from './_lib/rateLimit.js';
 
 const CACHE_TTL_DAYS = 7;
 
-function photoPrompt(unit: 'C' | 'F') {
-  return `You are a culinary assistant that extracts recipes from food photos or handwritten recipe cards.
-Look at the image carefully and extract any recipe information visible.
+/**
+ * Without this, Gemini reports the source language correctly in
+ * "original_language" but still writes the recipe itself in English.
+ * The JSON skeletons below use English sample values, which biases it further,
+ * so the rule has to be stated explicitly and repeated in the rule list.
+ */
+const LANGUAGE_DIRECTIVE = `CRITICAL — LANGUAGE:
+First detect the language of the text in the source. Then write the ENTIRE response IN THAT LANGUAGE.
+"title", "description", "instructions", and every ingredient "name" and "details" MUST be written in the detected source language — do NOT translate them into English.
+For example, if the source is in Polish, "title", "description", "instructions" and all ingredient names must be Polish. If it is in German, they must be German.
+The English words in the JSON example below illustrate the STRUCTURE ONLY — never copy their language.`;
+
+const LANGUAGE_RULE = `- Write "title", "description", "instructions", and all ingredient "name"/"details" values in the detected source language, matching "original_language". Never translate the recipe into English unless the source itself is English.`;
+
+function photoPrompt(unit: 'C' | 'F', imageCount: number) {
+  const multi = imageCount > 1;
+  const intro = multi
+    ? `You are a culinary assistant that extracts recipes from food photos or handwritten recipe cards.
+You are given ${imageCount} images that are pages or photos of ONE SINGLE recipe, provided in reading order.
+Read all ${imageCount} images together and combine them into one complete recipe.`
+    : `You are a culinary assistant that extracts recipes from food photos or handwritten recipe cards.
+Look at the image carefully and extract any recipe information visible.`;
+
+  return `${intro}
+
+${LANGUAGE_DIRECTIVE}
 
 Return ONLY a JSON object with this exact structure:
 {
@@ -35,8 +58,13 @@ Return ONLY a JSON object with this exact structure:
 }
 
 Rules:
-- "original_language" MUST ALWAYS be a 2-letter ISO 639-1 language code detected from the recipe content.
-- If this is a photo of a finished dish (not a recipe card), infer a likely recipe.
+- "original_language" MUST ALWAYS be a 2-letter ISO 639-1 language code detected from the text visible in the image${multi ? 's' : ''}.
+${LANGUAGE_RULE}
+- If this is a photo of a finished dish with no readable text, infer a likely recipe and write it in the language of any text visible in the image; if there is none, use English and set "original_language" to "en".${multi ? `
+- Treat the ${imageCount} images as ONE recipe, not ${imageCount} separate recipes. Return a single recipe object.
+- Merge content across images in the order given: ingredients from every image belong to the same list, and instructions continue from one image to the next.
+- If a list or a step is cut off at the edge of one image and continues on the next, join it into a single entry rather than repeating it.
+- Do not output the same ingredient or step twice when it appears on more than one image (e.g. a repeated header or an overlapping photo).` : ''}
 - "ingredients" MUST be an array of objects with "amount", "name", and "details".
 - "servings", "prep_time_mins", "cook_time_mins" must be integers or null if unknown.
 - Express all temperatures in °${unit} (${unit === 'C' ? 'Celsius' : 'Fahrenheit'}). Convert any other unit found.
@@ -48,6 +76,8 @@ function pdfPrompt(unit: 'C' | 'F') {
   return `You are a culinary assistant that extracts recipes from PDF documents.
 Read the document carefully and extract any recipe information present.
 
+${LANGUAGE_DIRECTIVE}
+
 Return ONLY a JSON object with this exact structure:
 {
   "title": "Recipe Title",
@@ -68,6 +98,7 @@ Return ONLY a JSON object with this exact structure:
 
 Rules:
 - "original_language" MUST ALWAYS be a 2-letter ISO 639-1 language code detected from the recipe content.
+${LANGUAGE_RULE}
 - If the PDF contains multiple recipes, extract the first or most prominent one.
 - "ingredients" MUST be an array of objects with "amount", "name", and "details".
 - "servings", "prep_time_mins", "cook_time_mins" must be integers or null if unknown.
@@ -91,24 +122,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // ── Photo extraction ───────────────────────────────────────────────────────
-    if (body.imageBase64 !== undefined) {
+    if (body.imageBase64 !== undefined || body.images !== undefined) {
       if (userId) {
         const rl = await checkRateLimit(supabase, userId);
         if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
       }
-      const { imageBase64, mimeType } = extractPhotoSchema.parse(body);
+      const { images } = extractPhotoSchema.parse(normaliseExtractPhotoBody(body));
       const client = getGeminiClient(apiKey);
       const startTime = Date.now();
+      // All pages go into a single request so Gemini sees the whole recipe at once.
+      const parts = [
+        ...images.map((img) => ({ inlineData: { mimeType: img.mimeType, data: img.data } })),
+        { text: photoPrompt(settings.temperature_unit, images.length) },
+      ];
+      const inputPreview = `[${images.length} image${images.length === 1 ? '' : 's'}: ${images.map((i) => i.mimeType).join(', ')}]`;
       try {
-        const response = await client.models.generateContent({ model: settings.gemini_model, contents: [{ role: 'user', parts: [{ inlineData: { mimeType, data: imageBase64 } }, { text: photoPrompt(settings.temperature_unit) }] }], config: { responseMimeType: 'application/json', temperature: 0.1 } });
+        const response = await client.models.generateContent({ model: settings.gemini_model, contents: [{ role: 'user', parts }], config: { responseMimeType: 'application/json', temperature: 0.1 } });
         const text = response.text;
         if (!text) throw new Error('Gemini returned an empty response.');
         const recipeData = JSON.parse(text);
-        supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: settings.gemini_model, status: 'success', latency_ms: Date.now() - startTime, input_preview: `[image ${mimeType}]`, output_preview: text.substring(0, 300), user_id: userId ?? null }).then(() => {}, () => {});
+        supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: settings.gemini_model, status: 'success', latency_ms: Date.now() - startTime, input_preview: inputPreview, output_preview: text.substring(0, 300), user_id: userId ?? null }).then(() => {}, () => {});
         return res.status(200).json(recipeData);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
-        supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: settings.gemini_model, status: 'error', latency_ms: Date.now() - startTime, input_preview: `[image ${mimeType}]`, error_message: errorMessage, user_id: userId ?? null }).then(() => {}, () => {});
+        supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: settings.gemini_model, status: 'error', latency_ms: Date.now() - startTime, input_preview: inputPreview, error_message: errorMessage, user_id: userId ?? null }).then(() => {}, () => {});
         throw err;
       }
     }
@@ -139,7 +176,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ── URL extraction ─────────────────────────────────────────────────────────
     const { url } = extractSchema.parse(body);
     const tempNote = `\n- Express all temperatures in °${settings.temperature_unit} (${settings.temperature_unit === 'C' ? 'Celsius' : 'Fahrenheit'}). Convert any other unit found.`;
-    const promptTemplate = (settings.gemini_prompt?.trim() ? settings.gemini_prompt : EXTRACT_TEMPLATE) + tempNote;
+    const promptTemplate = EXTRACT_TEMPLATE + tempNote;
 
     const urlHash = createHash('sha256').update(url).digest('hex');
     const { data: cached } = await supabase.from('url_cache').select('extracted_data, created_at').eq('url_hash', urlHash).single();
