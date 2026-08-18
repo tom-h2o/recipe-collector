@@ -79,7 +79,11 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
         ingredients: parseIngredients(recipe.ingredients),
       }),
     })
-      .then((res) => res.ok ? res.json() : Promise.reject())
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error ?? 'Translation failed.');
+        return data;
+      })
       .then((data: RecipeTranslation & { cached: boolean; detectedSourceLanguage?: string }) => {
         if (cancelled) return;
         setTranslation(data);
@@ -89,7 +93,9 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
           onUpdateRecipe(recipe.id, { original_language: data.detectedSourceLanguage });
         }
       })
-      .catch(() => { if (!cancelled) toast.error('Translation failed.'); })
+      .catch((err: unknown) => {
+        if (!cancelled) toast.error(err instanceof Error ? err.message : 'Translation failed.');
+      })
       .finally(() => { if (!cancelled) setIsTranslating(false); });
 
     return () => { cancelled = true; };

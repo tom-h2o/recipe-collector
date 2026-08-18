@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
+import { getServerSupabase, getUserId } from './_lib/supabase.js';
+import { checkRateLimit } from './_lib/rateLimit.js';
 import { captureException } from './_lib/sentry.js';
 import { findImageSchema } from './_lib/schemas.js';
 
@@ -13,6 +15,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const { title, description } = findImageSchema.parse(req.body);
+    const supabase = getServerSupabase();
+    const userId = await getUserId(req.headers.authorization as string | undefined);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const rl = await checkRateLimit(supabase, userId);
+    if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
+
     const accessKey = process.env.UNSPLASH_ACCESS_KEY;
     if (!accessKey) return res.status(200).json({ imageUrl: '' });
 
@@ -27,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const data = await response.json() as { results?: { urls?: { regular?: string } }[] };
     return res.status(200).json({ imageUrl: data.results?.[0]?.urls?.regular ?? '' });
   } catch (err: unknown) {
-    if (err instanceof ZodError) return res.status(400).json({ error: err.errors[0]?.message ?? 'Invalid request' });
+    if (err instanceof ZodError) return res.status(400).json({ error: err.issues[0]?.message ?? 'Invalid request' });
     captureException(err);
     console.error('Find image error:', err);
     return res.status(200).json({ imageUrl: '' });

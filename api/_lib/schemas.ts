@@ -57,6 +57,62 @@ export const extractPdfSchema = z.object({
   pdfBase64: z.string().min(1, 'pdfBase64 is required'),
 });
 
+const nullableInteger = z.preprocess(
+  (value) => value === undefined || value === '' ? null : value,
+  z.number().int().nonnegative().nullable(),
+);
+
+const stringFromUnknown = z.preprocess(
+  (value) => Array.isArray(value) ? value.join('\n') : value == null ? '' : String(value),
+  z.string(),
+);
+
+export const extractedRecipeSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().default(''),
+  original_language: z.string().length(2).default('en'),
+  servings: nullableInteger,
+  prep_time_mins: nullableInteger,
+  cook_time_mins: nullableInteger,
+  ingredients: z.array(
+    z.object({
+      amount: z.string().default(''),
+      name: z.string().min(1),
+      details: z.string().default(''),
+    }),
+  ).min(1),
+  instructions: z.string().min(1),
+  image_url: z.string().default(''),
+  source_name: z.string().default(''),
+});
+
+export const tagResultSchema = z.array(z.string()).min(1);
+
+export const nutritionResultSchema = z.object({
+  calories: z.coerce.number().int().nonnegative(),
+  protein_g: z.coerce.number().int().nonnegative(),
+  carbs_g: z.coerce.number().int().nonnegative(),
+  fat_g: z.coerce.number().int().nonnegative(),
+  fiber_g: z.coerce.number().int().nonnegative(),
+});
+
+export const shoppingResultSchema = z.array(
+  z.object({
+    category: z.string().min(1),
+    items: z.array(z.string().min(1)).min(1),
+  }),
+);
+
+export const scaledIngredientsResultSchema = z.array(
+  z.object({
+    amount: z.string().default(''),
+    name: z.string().min(1),
+    details: z.string().default(''),
+  }),
+).min(1);
+
+export const suggestResultSchema = z.array(z.string().uuid());
+
 export const scaleSchema = z.object({
   recipeId: z.string().uuid().optional(),
   ingredients: z.array(
@@ -80,19 +136,14 @@ export const shareSchema = z.discriminatedUnion('action', [
     action: z.literal('send'),
     recipeId: z.string().uuid(),
     recipientEmail: z.string().email(),
-    senderUserId: z.string().uuid(),
-    senderEmail: z.string().email(),
   }),
   z.object({
     action: z.literal('accept'),
     shareId: z.string().uuid(),
-    recipientUserId: z.string().uuid(),
-    recipientEmail: z.string().email(),
   }),
   z.object({
     action: z.literal('reject'),
     shareId: z.string().uuid(),
-    recipientEmail: z.string().email(),
   }),
 ]);
 
@@ -108,5 +159,28 @@ export const translateSchema = z.object({
       name: z.string(),
       details: z.string().optional().default(''),
     }),
+  ).min(1),
+});
+
+export const translationResultSchema = z.object({
+  detectedSourceLanguage: z.preprocess(
+    (value) => value == null ? undefined : String(value).slice(0, 2).toLowerCase(),
+    z.string().length(2).optional(),
+  ),
+  title: stringFromUnknown.pipe(z.string().min(1)),
+  description: stringFromUnknown,
+  instructions: stringFromUnknown.pipe(z.string().min(1)),
+  ingredients: z.array(
+    z.preprocess(
+      (value) => {
+        if (typeof value === 'string') return { amount: '', name: value, details: '' };
+        return value;
+      },
+      z.object({
+        amount: stringFromUnknown,
+        name: stringFromUnknown.pipe(z.string().min(1)),
+        details: stringFromUnknown,
+      }),
+    ),
   ).min(1),
 });

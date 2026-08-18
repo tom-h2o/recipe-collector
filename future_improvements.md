@@ -15,6 +15,8 @@ Captured during development. Items marked ✅ have been implemented.
 - ✅ **Usage meter** — progress bar + per-endpoint breakdown shown to each user in Settings
 - ✅ **Recipe sharing** — send/accept/reject with full translation copy
 - ✅ **Recipe collections** — users can organise recipes into named collections
+- ✅ **Auth required on all AI endpoints** — every `api/*.ts` endpoint that calls Gemini now returns 401 if `getUserId()` is null, instead of silently skipping the rate-limit check for unauthenticated requests
+- ✅ **Admin panel server-side pagination** — `GET /api/account?tab=users|recipes|logs&page=&pageSize=` now queries only the requested page (via `.range()` / GoTrue's `listUsers({ page, perPage })`) instead of always fetching 1000 users / 200 recipes / 100 logs. Per-user recipe/AI-call counts are bounded head-only counts scoped to the users on the current page, not a full-table scan. The Recipes tab changed from a per-user accordion to a flat searchable table (with an optional owner filter, reachable by clicking a user's recipe count in the Users tab) since accordion grouping doesn't compose with server-side pagination.
 
 ---
 
@@ -39,9 +41,6 @@ Currently recipes come in via URL, photo, or PDF. Add a text area mode where use
 
 ## Medium Effort
 
-### Admin panel pagination
-The `GET /api/account` handler fetches up to 1000 users, 200 recipes, and 100 logs in a single request. This will become slow as usage grows. Add cursor-based pagination for the users and recipes tabs, and limit the logs query to the last 24 hours by default.
-
 ### Nutritional goals and daily tracking
 Nutrition data is shown per recipe but not aggregated or compared against targets.
 - Let users set daily targets (calories, protein, carbs, fat) in Settings
@@ -62,8 +61,8 @@ The `useCollections` hook and DB schema exist but the collections feature has li
 
 ## Bigger Changes
 
-### Rate limiting for unauthenticated requests
-The current rate limit only applies to authenticated users (identified by `user_id`). Unauthenticated or anonymous requests to AI endpoints are not rate-limited at all. Add IP-based limiting as a secondary layer.
+### Model usage breakdown still scans all `gemini_logs` rows
+`getStats()` in `api/account.ts` (Overview tab's "Model usage" chart) still does `select('model')` over the entire `gemini_logs` table to build the per-model counts — the one query the admin pagination pass didn't bound, since PostgREST can't do `GROUP BY` aggregation without a DB-side RPC/view. Fixing it properly needs a migration (e.g. a `gemini_logs_by_model` view or an RPC function); low priority until `gemini_logs` gets large enough for this single-column fetch to matter.
 
 ### Offline recipe browsing
 The PWA service worker precaches static assets but not recipe data. IndexedDB caching of the loaded recipe list would allow browsing offline.

@@ -14,30 +14,19 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            // Cache Supabase API requests (including recipes and collections) with a NetworkFirst strategy.
-            // This allows offline browsing of cached recipes while ensuring fresh data when online.
-            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/.*$/,
+            // Cache read-only Supabase REST requests for offline browsing.
+            // Mutations must never be served from or written into the service worker cache.
+            urlPattern: ({ url, request }) =>
+              request.method === 'GET' &&
+              url.protocol === 'https:' &&
+              url.hostname.endsWith('.supabase.co') &&
+              url.pathname.startsWith('/rest/v1/'),
             handler: 'NetworkFirst',
             options: {
               cacheName: 'supabase-api-cache',
               expiration: {
                 maxEntries: 100,
                 maxAgeSeconds: 60 * 60 * 24 * 7, // 1 week
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-          {
-            // Cache our serverless API endpoints (like scaling, tags, suggest) with a NetworkFirst strategy.
-            urlPattern: /^\/api\/.*$/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'recipe-vault-api-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24, // 1 day
               },
               cacheableResponse: {
                 statuses: [0, 200],
@@ -78,6 +67,6 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx}', 'api/**/*.test.ts'],
   },
 })

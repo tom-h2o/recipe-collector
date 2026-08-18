@@ -246,15 +246,12 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
     } else {
       const withOriginal = { ...payload, original_servings: payload.original_servings ?? payload.servings };
       const insertPayload = userId ? { ...withOriginal, user_id: userId } : withOriginal;
-      const { error } = await supabase.from('recipes').insert([insertPayload]);
-      if (error) throw error;
-
-      const { data: newRow } = await supabase
+      const { data: newRow, error } = await supabase
         .from('recipes')
+        .insert([insertPayload])
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1)
         .single();
+      if (error) throw error;
 
       if (newRow?.id) {
         set({
@@ -419,10 +416,11 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      await supabase
+      const { error: deleteError } = await supabase
         .from('shopping_list')
         .delete()
         .eq('user_id', userId);
+      if (deleteError) throw deleteError;
 
       const inserts = (data.list as { category: string; items: string[] }[]).flatMap((group) =>
         group.items.map((item) => ({
@@ -432,7 +430,10 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
           ...(userId ? { user_id: userId } : {}),
         })),
       );
-      if (inserts.length > 0) await supabase.from('shopping_list').insert(inserts);
+      if (inserts.length > 0) {
+        const { error: insertError } = await supabase.from('shopping_list').insert(inserts);
+        if (insertError) throw insertError;
+      }
 
       await get().fetchShoppingList(userId);
       toast.success('Shopping list generated!', { id: toastId });
@@ -445,14 +446,22 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
   },
 
   toggleShoppingItem: async (id, checked) => {
-    await supabase.from('shopping_list').update({ is_checked: checked }).eq('id', id);
+    const { error } = await supabase.from('shopping_list').update({ is_checked: checked }).eq('id', id);
+    if (error) {
+      toast.error('Failed to update shopping item.');
+      throw error;
+    }
     set({
       shoppingList: get().shoppingList.map((i) => (i.id === id ? { ...i, is_checked: checked } : i))
     });
   },
 
   deleteShoppingItem: async (id) => {
-    await supabase.from('shopping_list').delete().eq('id', id);
+    const { error } = await supabase.from('shopping_list').delete().eq('id', id);
+    if (error) {
+      toast.error('Failed to delete shopping item.');
+      throw error;
+    }
     set({
       shoppingList: get().shoppingList.filter((i) => i.id !== id)
     });
@@ -460,23 +469,33 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
 
   clearShoppingList: async (userId) => {
     if (!userId) return;
-    await supabase.from('shopping_list').delete().eq('user_id', userId);
+    const { error } = await supabase.from('shopping_list').delete().eq('user_id', userId);
+    if (error) {
+      toast.error('Failed to clear shopping list.');
+      throw error;
+    }
     set({ shoppingList: [] });
   },
 
   moveItemToPantry: async (item, userId) => {
     if (!userId) return;
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('pantry_items')
-      .insert({ user_id: userId, item: item.item, category: item.category });
+      .insert({ user_id: userId, item: item.item, category: item.category })
+      .select()
+      .single();
     if (error) {
       toast.error('Failed to add to pantry.');
       return;
     }
-    await supabase.from('shopping_list').delete().eq('id', item.id);
+    const { error: deleteError } = await supabase.from('shopping_list').delete().eq('id', item.id);
+    if (deleteError) {
+      toast.error('Added to pantry, but failed to remove from shopping list.');
+      return;
+    }
     set({
       shoppingList: get().shoppingList.filter((i) => i.id !== item.id),
-      pantryItems: [...get().pantryItems, { id: crypto.randomUUID(), item: item.item, category: item.category, created_at: new Date().toISOString() }]
+      pantryItems: data ? [...get().pantryItems, data as PantryItem] : get().pantryItems
     });
   },
 
@@ -491,7 +510,11 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       toast.error('Failed to move to shopping list.');
       return;
     }
-    await supabase.from('pantry_items').delete().eq('id', item.id);
+    const { error: deleteError } = await supabase.from('pantry_items').delete().eq('id', item.id);
+    if (deleteError) {
+      toast.error('Added to shopping list, but failed to remove from pantry.');
+      return;
+    }
     set({
       pantryItems: get().pantryItems.filter((i) => i.id !== item.id)
     });
@@ -503,7 +526,11 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
   },
 
   deletePantryItem: async (id) => {
-    await supabase.from('pantry_items').delete().eq('id', id);
+    const { error } = await supabase.from('pantry_items').delete().eq('id', id);
+    if (error) {
+      toast.error('Failed to delete pantry item.');
+      throw error;
+    }
     set({
       pantryItems: get().pantryItems.filter((i) => i.id !== id)
     });

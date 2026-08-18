@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, BookOpen, Sparkles, Trash2, RefreshCw, Calendar, TrendingUp, Star, ChevronDown, ChevronRight, ChevronLeft, X, Pencil } from 'lucide-react';
+import { Users, BookOpen, Sparkles, Trash2, RefreshCw, Calendar, TrendingUp, Star, ChevronLeft, ChevronRight, X, Loader2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -9,11 +9,15 @@ import type { AdminUser, AdminStats, AdminLog, AdminRecipe, Recipe } from '@/typ
 
 type Tab = 'overview' | 'users' | 'recipes' | 'logs';
 
-interface AdminData {
-  stats: AdminStats;
-  users: AdminUser[];
-  logs: AdminLog[];
-  recipes: AdminRecipe[];
+const PAGE_SIZE = 25;
+
+async function readError(res: Response): Promise<string> {
+  try {
+    const body = await res.json();
+    return body.error ?? `Request failed (${res.status})`;
+  } catch {
+    return `Request failed (${res.status})`;
+  }
 }
 
 function StatCard({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: number | string }) {
@@ -30,50 +34,156 @@ function StatCard({ icon: Icon, label, value }: { icon: React.ElementType; label
   );
 }
 
+function Pager({ page, setPage, pageSize, total }: { page: number; setPage: (fn: (p: number) => number) => void; pageSize: number; total: number }) {
+  const totalPages = Math.ceil(total / pageSize);
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
+      <span>{page * pageSize + 1}–{Math.min((page + 1) * pageSize, total)} of {total}</span>
+      <div className="flex gap-1">
+        <button onClick={() => setPage((p) => p - 1)} disabled={page === 0} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
+        <button onClick={() => setPage((p) => p + 1)} disabled={page >= totalPages - 1} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors"><ChevronRight className="w-4 h-4" /></button>
+      </div>
+    </div>
+  );
+}
+
 export function AdminPanel() {
-  const [data, setData] = useState<AdminData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('overview');
+
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
+
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [usersTotal, setUsersTotal] = useState(0);
+  const [usersPage, setUsersPage] = useState(0);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<AdminUser | null>(null);
+
+  const [recipes, setRecipes] = useState<AdminRecipe[]>([]);
+  const [recipesTotal, setRecipesTotal] = useState(0);
+  const [recipesPage, setRecipesPage] = useState(0);
+  const [recipesLoading, setRecipesLoading] = useState(false);
   const [recipeSearch, setRecipeSearch] = useState('');
-  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
-  const [usersPage, setUsersPage] = useState(0);
+  const [recipeSearchDebounced, setRecipeSearchDebounced] = useState('');
+  const [ownerFilter, setOwnerFilter] = useState<{ id: string; email: string } | null>(null);
+
+  const [logs, setLogs] = useState<AdminLog[]>([]);
+  const [logsTotal, setLogsTotal] = useState(0);
   const [logsPage, setLogsPage] = useState(0);
-  // `recipe` stays null while the full row is being fetched
+  const [logsLoading, setLogsLoading] = useState(false);
+
+  // Recipe viewer/editor — `recipe` stays null while the full row is fetched
   const [viewingRecipe, setViewingRecipe] = useState<
     { id: string; title: string; ownerEmail: string | null; recipe: Recipe | null } | null
   >(null);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [rerunning, setRerunning] = useState<'tag' | 'nutrition' | null>(null);
-  const PAGE_SIZE = 25;
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const loadStats = useCallback(async () => {
+    setStatsLoading(true);
+    setStatsError(null);
     try {
-      const res = await apiFetch('/api/account');
-      if (!res.ok) {
-        let message = `Request failed (${res.status})`;
-        try { message = (await res.json()).error ?? message; } catch { /* non-JSON error body */ }
-        throw new Error(message);
-      }
-      setData(await res.json());
+      const res = await apiFetch('/api/account?tab=overview');
+      if (!res.ok) throw new Error(await readError(res));
+      const json = await res.json();
+      setStats(json.stats);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to load admin data');
+      const message = err instanceof Error ? err.message : 'Failed to load admin stats';
+      setStatsError(message);
+      toast.error(message);
     } finally {
-      setLoading(false);
+      setStatsLoading(false);
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadStats(); }, [loadStats]);
+
+  const loadUsers = useCallback(async (page: number) => {
+    setUsersLoading(true);
+    try {
+      const res = await apiFetch(`/api/account?tab=users&page=${page}&pageSize=${PAGE_SIZE}`);
+      if (!res.ok) throw new Error(await readError(res));
+      const json = await res.json();
+      setUsers(json.users);
+      setUsersTotal(json.total);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load users');
+    } finally {
+      setUsersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { if (tab === 'users') loadUsers(usersPage); }, [tab, usersPage, loadUsers]);
+
+  const loadRecipes = useCallback(async (page: number, search: string, owner: string | null) => {
+    setRecipesLoading(true);
+    try {
+      const params = new URLSearchParams({ tab: 'recipes', page: String(page), pageSize: String(PAGE_SIZE) });
+      if (search) params.set('search', search);
+      if (owner) params.set('userId', owner);
+      const res = await apiFetch(`/api/account?${params.toString()}`);
+      if (!res.ok) throw new Error(await readError(res));
+      const json = await res.json();
+      setRecipes(json.recipes);
+      setRecipesTotal(json.total);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load recipes');
+    } finally {
+      setRecipesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => setRecipeSearchDebounced(recipeSearch), 300);
+    return () => clearTimeout(t);
+  }, [recipeSearch]);
+
+  useEffect(() => { setRecipesPage(0); }, [recipeSearchDebounced, ownerFilter]);
+
+  useEffect(() => {
+    if (tab === 'recipes') loadRecipes(recipesPage, recipeSearchDebounced, ownerFilter?.id ?? null);
+  }, [tab, recipesPage, recipeSearchDebounced, ownerFilter, loadRecipes]);
+
+  const loadLogs = useCallback(async (page: number) => {
+    setLogsLoading(true);
+    try {
+      const res = await apiFetch(`/api/account?tab=logs&page=${page}&pageSize=${PAGE_SIZE}`);
+      if (!res.ok) throw new Error(await readError(res));
+      const json = await res.json();
+      setLogs(json.logs);
+      setLogsTotal(json.total);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load logs');
+    } finally {
+      setLogsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { if (tab === 'logs') loadLogs(logsPage); }, [tab, logsPage, loadLogs]);
+
+  function refresh() {
+    loadStats();
+    if (tab === 'users') loadUsers(usersPage);
+    if (tab === 'recipes') loadRecipes(recipesPage, recipeSearchDebounced, ownerFilter?.id ?? null);
+    if (tab === 'logs') loadLogs(logsPage);
+  }
+
+  function viewUserRecipes(user: AdminUser) {
+    setOwnerFilter({ id: user.id, email: user.email });
+    setTab('recipes');
+  }
 
   async function handleDeleteUser(user: AdminUser) {
     setDeletingId(user.id);
     try {
       const res = await apiFetch(`/api/account?userId=${user.id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error((await res.json()).error);
+      if (!res.ok) throw new Error(await readError(res));
       toast.success(`Deleted ${user.email}`);
-      setData((prev) => prev ? { ...prev, users: prev.users.filter((u) => u.id !== user.id) } : prev);
+      setUsers((prev) => prev.filter((u) => u.id !== user.id));
+      setUsersTotal((prev) => Math.max(0, prev - 1));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete user');
     } finally {
@@ -82,21 +192,33 @@ export function AdminPanel() {
     }
   }
 
-  /** Writes a refreshed recipe into both the viewer and the dashboard list. */
+  /** Writes a refreshed recipe into both the viewer and the paginated list. */
   function applyRecipeUpdate(updated: Recipe) {
     setViewingRecipe((prev) => (prev && prev.id === updated.id ? { ...prev, recipe: updated } : prev));
-    setData((prev) =>
-      prev
-        ? {
-            ...prev,
-            recipes: prev.recipes.map((r) =>
-              r.id === updated.id
-                ? { ...r, title: updated.title, description: updated.description, image_url: updated.image_url, tags: updated.tags, servings: updated.servings, prep_time_mins: updated.prep_time_mins, cook_time_mins: updated.cook_time_mins }
-                : r,
-            ),
-          }
-        : prev,
+    setRecipes((prev) =>
+      prev.map((r) =>
+        r.id === updated.id
+          ? { ...r, title: updated.title, description: updated.description, image_url: updated.image_url, tags: updated.tags, servings: updated.servings, prep_time_mins: updated.prep_time_mins, cook_time_mins: updated.cook_time_mins }
+          : r,
+      ),
     );
+  }
+
+  async function openRecipe(r: AdminRecipe) {
+    setViewingRecipe({ id: r.id, title: r.title, ownerEmail: r.user_email, recipe: null });
+    try {
+      const res = await apiFetch(`/api/account?recipeId=${r.id}`);
+      if (!res.ok) throw new Error(await readError(res));
+      const body = await res.json();
+      setViewingRecipe((prev) =>
+        prev && prev.id === r.id
+          ? { ...prev, recipe: body.recipe, ownerEmail: body.user_email ?? prev.ownerEmail }
+          : prev,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load recipe');
+      setViewingRecipe(null);
+    }
   }
 
   async function handleAdminSave(payload: Partial<Recipe>, recipeId?: string) {
@@ -106,8 +228,8 @@ export function AdminPanel() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    if (!res.ok) throw new Error(await readError(res));
     const body = await res.json();
-    if (!res.ok) throw new Error(body.error || 'Failed to save recipe');
     applyRecipeUpdate(body.recipe);
     setEditingRecipe(null);
   }
@@ -129,8 +251,8 @@ export function AdminPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+      if (!res.ok) throw new Error(await readError(res));
       const body = await res.json();
-      if (!res.ok) throw new Error(body.error || `Failed to re-run ${kind}`);
 
       applyRecipeUpdate(
         kind === 'tag' ? { ...recipe, tags: body.tags } : { ...recipe, nutrition: body.nutrition },
@@ -143,23 +265,6 @@ export function AdminPanel() {
     }
   }
 
-  async function openRecipe(r: AdminRecipe) {
-    setViewingRecipe({ id: r.id, title: r.title, ownerEmail: r.user_email, recipe: null });
-    try {
-      const res = await apiFetch(`/api/account?recipeId=${r.id}`);
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error || 'Failed to load recipe');
-      setViewingRecipe((prev) =>
-        prev && prev.id === r.id
-          ? { ...prev, recipe: body.recipe, ownerEmail: body.user_email ?? prev.ownerEmail }
-          : prev,
-      );
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to load recipe');
-      setViewingRecipe(null);
-    }
-  }
-
   function formatDate(iso: string | null) {
     if (!iso) return '—';
     return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -169,7 +274,7 @@ export function AdminPanel() {
     return new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   }
 
-  if (loading) {
+  if (statsLoading) {
     return (
       <div className="flex items-center justify-center py-32 text-sk-on-surface-variant dark:text-muted-foreground">
         <RefreshCw className="w-5 h-5 animate-spin mr-2" /> Loading admin data…
@@ -177,35 +282,25 @@ export function AdminPanel() {
     );
   }
 
-  if (!data) return null;
-
-  const { stats, users, logs, recipes } = data;
-
-  function toggleUser(email: string) {
-    setExpandedUsers((prev) => {
-      const next = new Set(prev);
-      if (next.has(email)) {
-        next.delete(email);
-      } else {
-        next.add(email);
-      }
-      return next;
-    });
+  if (!stats) {
+    return (
+      <div className="space-y-4 py-16 text-center">
+        <h2 className="text-lg font-semibold text-red-600 dark:text-red-400">Admin data unavailable</h2>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto">
+          {statsError ?? 'The dashboard could not be loaded.'}
+        </p>
+        <Button variant="outline" size="sm" onClick={loadStats} className="gap-1.5">
+          <RefreshCw className="w-3.5 h-3.5" /> Retry
+        </Button>
+      </div>
+    );
   }
-
-  // Group recipes by user, filtered by search
-  const recipesByUser = recipes.reduce<Record<string, AdminRecipe[]>>((acc, r) => {
-    if (recipeSearch && !r.title.toLowerCase().includes(recipeSearch.toLowerCase())) return acc;
-    const key = r.user_email ?? '(no user)';
-    (acc[key] ??= []).push(r);
-    return acc;
-  }, {});
 
   const TABS: { id: Tab; label: string; count?: number }[] = [
     { id: 'overview', label: 'Overview' },
-    { id: 'users', label: 'Users', count: users.length },
-    { id: 'recipes', label: 'Recipes', count: recipes.length },
-    { id: 'logs', label: 'AI Logs', count: logs.length },
+    { id: 'users', label: 'Users', count: stats.total_users },
+    { id: 'recipes', label: 'Recipes', count: stats.total_recipes },
+    { id: 'logs', label: 'AI Logs', count: stats.total_ai_calls },
   ];
 
   return (
@@ -213,7 +308,7 @@ export function AdminPanel() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-serif font-normal text-zinc-900 dark:text-zinc-50">Admin Dashboard</h2>
-        <Button variant="outline" size="sm" onClick={load} className="gap-1.5">
+        <Button variant="outline" size="sm" onClick={refresh} className="gap-1.5">
           <RefreshCw className="w-3.5 h-3.5" /> Refresh
         </Button>
       </div>
@@ -274,188 +369,175 @@ export function AdminPanel() {
       )}
 
       {/* Users tab */}
-      {tab === 'users' && (() => {
-        const pageUsers = users.slice(usersPage * PAGE_SIZE, (usersPage + 1) * PAGE_SIZE);
-        const totalPages = Math.ceil(users.length / PAGE_SIZE);
-        return (
-          <div className="space-y-3">
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                      <th className="text-left px-6 py-3 font-semibold">Email</th>
-                      <th className="text-left px-4 py-3 font-semibold">Joined</th>
-                      <th className="text-left px-4 py-3 font-semibold">Last seen</th>
-                      <th className="text-right px-4 py-3 font-semibold">Recipes</th>
-                      <th className="text-right px-4 py-3 font-semibold">AI calls</th>
-                      <th className="px-4 py-3" />
+      {tab === 'users' && (
+        <div className="space-y-3">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                    <th className="text-left px-6 py-3 font-semibold">Email</th>
+                    <th className="text-left px-4 py-3 font-semibold">Joined</th>
+                    <th className="text-left px-4 py-3 font-semibold">Last seen</th>
+                    <th className="text-right px-4 py-3 font-semibold">Recipes</th>
+                    <th className="text-right px-4 py-3 font-semibold">AI calls</th>
+                    <th className="px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
+                  {usersLoading ? (
+                    <tr><td colSpan={6} className="px-6 py-10 text-center text-zinc-400"><Loader2 className="w-4 h-4 animate-spin inline mr-2" />Loading…</td></tr>
+                  ) : users.map((u) => (
+                    <tr key={u.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
+                      <td className="px-6 py-3 font-medium text-zinc-900 dark:text-zinc-100">{u.email}</td>
+                      <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{formatDate(u.created_at)}</td>
+                      <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{formatDate(u.last_sign_in_at)}</td>
+                      <td className="px-4 py-3 text-right text-zinc-700 dark:text-zinc-300">
+                        <button onClick={() => viewUserRecipes(u)} className="hover:text-sk-primary hover:underline">{u.recipe_count}</button>
+                      </td>
+                      <td className="px-4 py-3 text-right text-zinc-700 dark:text-zinc-300">{u.ai_call_count}</td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => setConfirmDelete(u)} disabled={deletingId === u.id} className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Delete user">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
-                    {pageUsers.map((u) => (
-                      <tr key={u.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
-                        <td className="px-6 py-3 font-medium text-zinc-900 dark:text-zinc-100">{u.email}</td>
-                        <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{formatDate(u.created_at)}</td>
-                        <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{formatDate(u.last_sign_in_at)}</td>
-                        <td className="px-4 py-3 text-right text-zinc-700 dark:text-zinc-300">
-                          <button onClick={() => { setExpandedUsers(new Set([u.email])); setTab('recipes'); }} className="hover:text-sk-primary hover:underline">{u.recipe_count}</button>
-                        </td>
-                        <td className="px-4 py-3 text-right text-zinc-700 dark:text-zinc-300">{u.ai_call_count}</td>
-                        <td className="px-4 py-3">
-                          <button onClick={() => setConfirmDelete(u)} disabled={deletingId === u.id} className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Delete user">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
-                <span>{usersPage * PAGE_SIZE + 1}–{Math.min((usersPage + 1) * PAGE_SIZE, users.length)} of {users.length}</span>
-                <div className="flex gap-1">
-                  <button onClick={() => setUsersPage((p) => p - 1)} disabled={usersPage === 0} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
-                  <button onClick={() => setUsersPage((p) => p + 1)} disabled={usersPage >= totalPages - 1} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors"><ChevronRight className="w-4 h-4" /></button>
-                </div>
-              </div>
-            )}
           </div>
-        );
-      })()}
+          <Pager page={usersPage} setPage={setUsersPage} pageSize={PAGE_SIZE} total={usersTotal} />
+        </div>
+      )}
 
       {/* Recipes tab */}
       {tab === 'recipes' && (
         <div className="space-y-4">
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center flex-wrap">
             <input
               type="text"
               value={recipeSearch}
               onChange={(e) => setRecipeSearch(e.target.value)}
               placeholder="Search recipes…"
-              className="flex-1 h-9 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-sk-primary/30"
+              className="flex-1 min-w-[160px] h-9 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-sk-primary/30"
             />
             {recipeSearch && (
               <Button variant="outline" size="sm" onClick={() => setRecipeSearch('')}>Clear</Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => setExpandedUsers(new Set(Object.keys(recipesByUser)))}>Expand all</Button>
-            <Button variant="outline" size="sm" onClick={() => setExpandedUsers(new Set())}>Collapse all</Button>
+            {ownerFilter && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-full bg-sk-surface-low dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground">
+                Owner: {ownerFilter.email}
+                <button onClick={() => setOwnerFilter(null)} className="hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
+              </span>
+            )}
           </div>
 
-          <div className="space-y-3">
-            {Object.entries(recipesByUser).map(([email, userRecipes]) => {
-              const isExpanded = expandedUsers.has(email);
-              return (
-                <div key={email} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
-                  <button
-                    onClick={() => toggleUser(email)}
-                    className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors text-left"
-                  >
-                    {isExpanded
-                      ? <ChevronDown className="w-4 h-4 text-zinc-400 shrink-0" />
-                      : <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" />}
-                    <span className="font-semibold text-sm text-zinc-900 dark:text-zinc-100 flex-1">{email}</span>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-sk-surface-low dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground">
-                      {userRecipes.length} recipe{userRecipes.length !== 1 ? 's' : ''}
-                    </span>
-                  </button>
-
-                  {isExpanded && (
-                    <div className="divide-y divide-zinc-50 dark:divide-zinc-800/60 border-t border-zinc-100 dark:border-zinc-800">
-                      {userRecipes.map((r) => (
-                        <button
-                          key={r.id}
-                          type="button"
-                          onClick={() => openRecipe(r)}
-                          title={`Open "${r.title}"`}
-                          className="w-full text-left flex items-center gap-4 px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                    <th className="text-left px-6 py-3 font-semibold">Recipe</th>
+                    <th className="text-left px-4 py-3 font-semibold">Owner</th>
+                    <th className="text-right px-4 py-3 font-semibold">Created</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
+                  {recipesLoading ? (
+                    <tr><td colSpan={3} className="px-6 py-10 text-center text-zinc-400"><Loader2 className="w-4 h-4 animate-spin inline mr-2" />Loading…</td></tr>
+                  ) : recipes.length === 0 ? (
+                    <tr><td colSpan={3} className="px-6 py-10 text-center text-zinc-400">No recipes found.</td></tr>
+                  ) : recipes.map((r) => (
+                    <tr
+                      key={r.id}
+                      onClick={() => openRecipe(r)}
+                      title={`Open "${r.title}"`}
+                      className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors cursor-pointer"
+                    >
+                      <td className="px-6 py-3">
+                        <div className="flex items-center gap-3">
                           {r.image_url ? (
-                            <img src={r.image_url} alt="" className="w-11 h-11 rounded-lg object-cover shrink-0" />
+                            <img src={r.image_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
                           ) : (
-                            <div className="w-11 h-11 rounded-lg bg-sk-surface-low dark:bg-muted flex items-center justify-center shrink-0 text-base font-serif text-sk-primary/30">
+                            <div className="w-9 h-9 rounded-lg bg-sk-surface-low dark:bg-muted flex items-center justify-center shrink-0 text-sm font-serif text-sk-primary/30">
                               {r.title[0]?.toUpperCase()}
                             </div>
                           )}
-                          <div className="flex-1 min-w-0">
+                          <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <p className="font-semibold text-sm text-zinc-900 dark:text-zinc-100 truncate">{r.title}</p>
+                              <p className="font-semibold text-zinc-900 dark:text-zinc-100 truncate">{r.title}</p>
                               {r.is_favourite && <Star className="w-3 h-3 text-amber-400 shrink-0 fill-current" />}
                             </div>
                             {r.tags && r.tags.length > 0 && (
-                              <div className="flex gap-1 mt-1 flex-wrap">
+                              <div className="flex gap-1 mt-0.5 flex-wrap">
                                 {r.tags.slice(0, 4).map((tag) => (
                                   <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-full bg-sk-surface-low dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground">{tag}</span>
                                 ))}
                               </div>
                             )}
                           </div>
-                          <p className="text-xs text-zinc-400 dark:text-zinc-500 shrink-0">{formatDate(r.created_at)}</p>
-                          <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600 shrink-0" />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 max-w-[200px] truncate">{r.user_email ?? '—'}</td>
+                      <td className="px-4 py-3 text-right text-zinc-400 dark:text-zinc-500 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5">
+                          {formatDate(r.created_at)}
+                          <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600" />
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
+          <Pager page={recipesPage} setPage={setRecipesPage} pageSize={PAGE_SIZE} total={recipesTotal} />
         </div>
       )}
 
       {/* Logs tab */}
-      {tab === 'logs' && (() => {
-        const pageLogs = logs.slice(logsPage * PAGE_SIZE, (logsPage + 1) * PAGE_SIZE);
-        const totalPages = Math.ceil(logs.length / PAGE_SIZE);
-        return (
-          <div className="space-y-3">
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                      <th className="text-left px-6 py-3 font-semibold">Time</th>
-                      <th className="text-left px-4 py-3 font-semibold">User</th>
-                      <th className="text-left px-4 py-3 font-semibold">Endpoint</th>
-                      <th className="text-left px-4 py-3 font-semibold">Model</th>
-                      <th className="text-left px-4 py-3 font-semibold">Status</th>
-                      <th className="text-right px-4 py-3 font-semibold">Latency</th>
+      {tab === 'logs' && (
+        <div className="space-y-3">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                    <th className="text-left px-6 py-3 font-semibold">Time</th>
+                    <th className="text-left px-4 py-3 font-semibold">User</th>
+                    <th className="text-left px-4 py-3 font-semibold">Endpoint</th>
+                    <th className="text-left px-4 py-3 font-semibold">Model</th>
+                    <th className="text-left px-4 py-3 font-semibold">Status</th>
+                    <th className="text-right px-4 py-3 font-semibold">Latency</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
+                  {logsLoading ? (
+                    <tr><td colSpan={6} className="px-6 py-10 text-center text-zinc-400"><Loader2 className="w-4 h-4 animate-spin inline mr-2" />Loading…</td></tr>
+                  ) : logs.map((l) => (
+                    <tr key={l.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
+                      <td className="px-6 py-2.5 text-zinc-500 dark:text-zinc-400 whitespace-nowrap text-xs">{formatTime(l.created_at)}</td>
+                      <td className="px-4 py-2.5 text-zinc-500 dark:text-zinc-400 text-xs max-w-[160px] truncate">{l.user_email ?? '—'}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs text-zinc-700 dark:text-zinc-300">{l.endpoint}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs text-zinc-500 dark:text-zinc-400">{l.model ?? '—'}</td>
+                      <td className="px-4 py-2.5">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${l.status === 'success' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>
+                          {l.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-xs text-zinc-500 dark:text-zinc-400">
+                        {l.latency_ms != null ? `${l.latency_ms}ms` : '—'}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
-                    {pageLogs.map((l) => (
-                      <tr key={l.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
-                        <td className="px-6 py-2.5 text-zinc-500 dark:text-zinc-400 whitespace-nowrap text-xs">{formatTime(l.created_at)}</td>
-                        <td className="px-4 py-2.5 text-zinc-500 dark:text-zinc-400 text-xs max-w-[160px] truncate">{l.user_email ?? '—'}</td>
-                        <td className="px-4 py-2.5 font-mono text-xs text-zinc-700 dark:text-zinc-300">{l.endpoint}</td>
-                        <td className="px-4 py-2.5 font-mono text-xs text-zinc-500 dark:text-zinc-400">{l.model ?? '—'}</td>
-                        <td className="px-4 py-2.5">
-                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${l.status === 'success' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>
-                            {l.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-right text-xs text-zinc-500 dark:text-zinc-400">
-                          {l.latency_ms != null ? `${l.latency_ms}ms` : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
-                <span>{logsPage * PAGE_SIZE + 1}–{Math.min((logsPage + 1) * PAGE_SIZE, logs.length)} of {logs.length}</span>
-                <div className="flex gap-1">
-                  <button onClick={() => setLogsPage((p) => p - 1)} disabled={logsPage === 0} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
-                  <button onClick={() => setLogsPage((p) => p + 1)} disabled={logsPage >= totalPages - 1} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors"><ChevronRight className="w-4 h-4" /></button>
-                </div>
-              </div>
-            )}
           </div>
-        );
-      })()}
+          <Pager page={logsPage} setPage={setLogsPage} pageSize={PAGE_SIZE} total={logsTotal} />
+        </div>
+      )}
 
       {/* Recipe viewer — read-only, admin can inspect any user's recipe */}
       {viewingRecipe && (
@@ -479,32 +561,16 @@ export function AdminPanel() {
                 <X className="w-4 h-4" />
               </button>
             </div>
+
             {viewingRecipe.recipe && (
               <div className="flex flex-wrap gap-2 mb-3">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setEditingRecipe(viewingRecipe.recipe)}
-                  className="gap-1.5 bg-white dark:bg-zinc-900"
-                >
+                <Button size="sm" variant="outline" onClick={() => setEditingRecipe(viewingRecipe.recipe)} className="gap-1.5 bg-white dark:bg-zinc-900">
                   <Pencil className="w-3.5 h-3.5" /> Edit
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={rerunning !== null}
-                  onClick={() => rerun('tag')}
-                  className="gap-1.5 bg-white dark:bg-zinc-900"
-                >
+                <Button size="sm" variant="outline" disabled={rerunning !== null} onClick={() => rerun('tag')} className="gap-1.5 bg-white dark:bg-zinc-900">
                   <RefreshCw className={`w-3.5 h-3.5 ${rerunning === 'tag' ? 'animate-spin' : ''}`} /> Re-tag
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={rerunning !== null}
-                  onClick={() => rerun('nutrition')}
-                  className="gap-1.5 bg-white dark:bg-zinc-900"
-                >
+                <Button size="sm" variant="outline" disabled={rerunning !== null} onClick={() => rerun('nutrition')} className="gap-1.5 bg-white dark:bg-zinc-900">
                   <RefreshCw className={`w-3.5 h-3.5 ${rerunning === 'nutrition' ? 'animate-spin' : ''}`} /> Re-analyse nutrition
                 </Button>
                 {viewingRecipe.recipe.tags && viewingRecipe.recipe.tags.length > 0 && (
@@ -516,6 +582,7 @@ export function AdminPanel() {
                 )}
               </div>
             )}
+
             {/* PublicRecipe omits nutrition, so surface it here for the re-run */}
             {viewingRecipe.recipe?.nutrition && (
               <div className="mb-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-4 py-3">
@@ -538,6 +605,7 @@ export function AdminPanel() {
                 </div>
               </div>
             )}
+
             {viewingRecipe.recipe ? (
               <PublicRecipe recipe={viewingRecipe.recipe} />
             ) : (

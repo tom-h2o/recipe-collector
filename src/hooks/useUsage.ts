@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { DAILY_LIMIT } from '../../api/_lib/rateLimit';
+import { DAILY_LIMIT } from '../../shared/usage';
 
 export interface UsageStats {
   used: number;

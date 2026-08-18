@@ -47,14 +47,49 @@ export async function getSettings(supabase: SupabaseClient, userId?: string | nu
 }
 
 export async function getUserId(authHeader: string | undefined): Promise<string | null> {
+  const user = await getAuthenticatedUser(authHeader);
+  return user?.id ?? null;
+}
+
+export async function getAuthenticatedUser(authHeader: string | undefined): Promise<{ id: string; email: string | null } | null> {
   if (!authHeader?.startsWith('Bearer ')) return null;
   const token = authHeader.slice(7);
   try {
     const { data: { user } } = await getServerSupabase().auth.getUser(token);
-    return user?.id ?? null;
+    return user ? { id: user.id, email: user.email ?? null } : null;
   } catch {
     return null;
   }
+}
+
+export async function userOwnsRecipe(supabase: SupabaseClient, recipeId: string, userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('recipes')
+    .select('id')
+    .eq('id', recipeId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return !!data;
+}
+
+/**
+ * The admin may act on recipes they do not own (view, edit, re-run tagging or
+ * nutrition from the admin panel), so ownership checks accept an admin as well.
+ */
+export async function isAdminUser(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  const adminEmail = process.env.VITE_ADMIN_EMAIL ?? '';
+  if (!adminEmail) return false;
+  const { data, error } = await supabase.auth.admin.getUserById(userId);
+  if (error || !data?.user) return false;
+  return data.user.email === adminEmail;
+}
+
+/** True when the user owns the recipe, or is the admin acting on someone else's. */
+export async function canEditRecipe(supabase: SupabaseClient, recipeId: string, userId: string): Promise<boolean> {
+  if (await userOwnsRecipe(supabase, recipeId, userId)) return true;
+  return isAdminUser(supabase, userId);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
