@@ -29,3 +29,6 @@ test-results/
 
 # Utility scripts
 backfill_embeddings.js
+
+# Local agent settings — machine-specific, not shared
+.claude/settings.local.json

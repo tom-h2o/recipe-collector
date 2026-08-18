@@ -6,11 +6,8 @@ import { initSentry } from './lib/sentry'
 
 initSentry()
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
-  });
-}
+// The service worker is registered by vite-plugin-pwa (injectRegister: 'inline').
+// Registering it again here raced with that one.
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

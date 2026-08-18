@@ -11,6 +11,10 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: 'inline',
       workbox: {
+        // Without clientsClaim the new worker activates but does not take over
+        // pages that are already open, so the first load after a deploy still
+        // comes from the old precache and users keep seeing the previous build.
+        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
