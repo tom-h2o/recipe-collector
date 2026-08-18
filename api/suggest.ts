@@ -66,8 +66,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (topCandidates.length === 0) return res.status(200).json({ suggestions: [] });
 
     const recipeList = topCandidates.map((c) => `ID: ${c.recipe.id} | Title: ${c.recipe.title} | Ingredients: ${c.ingredientsText}`).join('\n');
-    const template = settings.gemini_prompt_suggest?.trim() ? settings.gemini_prompt_suggest : SUGGEST_TEMPLATE;
-    const prompt = `${template}\n\nThe user currently has these ingredients: ${userIngredients.join(', ')}\n\nHere are the recipes in their collection:\n${recipeList}`;
+    const prompt = `${SUGGEST_TEMPLATE}\n\nThe user currently has these ingredients: ${userIngredients.join(', ')}\n\nHere are the recipes in their collection:\n${recipeList}`;
 
     const cacheKey = makeCacheKey('suggest', userIngredients);
     const cachedIds = await getCached<string[]>(supabase, cacheKey);

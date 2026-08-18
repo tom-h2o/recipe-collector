@@ -1,18 +1,12 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import { DEFAULT_MODEL, DEFAULT_PROMPT } from '@/lib/constants';
+import { DEFAULT_MODEL } from '@/lib/constants';
 import type { AppSettings } from '@/types';
 
 export function useSettings(userId?: string | null) {
   const [settings, setSettings] = useState<AppSettings>({
     gemini_model: DEFAULT_MODEL,
-    gemini_prompt: DEFAULT_PROMPT,
-    gemini_prompt_tag: '',
-    gemini_prompt_nutrition: '',
-    gemini_prompt_translate: '',
-    gemini_prompt_suggest: '',
-    gemini_prompt_shopping: '',
     temperature_unit: 'C',
   });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
@@ -22,19 +16,13 @@ export function useSettings(userId?: string | null) {
 
     const { data } = await supabase
       .from('settings')
-      .select('gemini_model, gemini_prompt, gemini_prompt_tag, gemini_prompt_nutrition, gemini_prompt_translate, gemini_prompt_suggest, gemini_prompt_shopping, temperature_unit')
+      .select('gemini_model, temperature_unit')
       .eq('user_id', userId)
       .single();
 
     if (data) {
       setSettings({
         gemini_model: data.gemini_model || DEFAULT_MODEL,
-        gemini_prompt: data.gemini_prompt || DEFAULT_PROMPT,
-        gemini_prompt_tag: data.gemini_prompt_tag || '',
-        gemini_prompt_nutrition: data.gemini_prompt_nutrition || '',
-        gemini_prompt_translate: data.gemini_prompt_translate || '',
-        gemini_prompt_suggest: data.gemini_prompt_suggest || '',
-        gemini_prompt_shopping: data.gemini_prompt_shopping || '',
         temperature_unit: (data.temperature_unit as 'C' | 'F') || 'C',
       });
     }
@@ -52,12 +40,6 @@ export function useSettings(userId?: string | null) {
       const payload = {
         user_id: userId,
         gemini_model: updated.gemini_model,
-        gemini_prompt: updated.gemini_prompt,
-        gemini_prompt_tag: updated.gemini_prompt_tag,
-        gemini_prompt_nutrition: updated.gemini_prompt_nutrition,
-        gemini_prompt_translate: updated.gemini_prompt_translate,
-        gemini_prompt_suggest: updated.gemini_prompt_suggest,
-        gemini_prompt_shopping: updated.gemini_prompt_shopping,
         temperature_unit: updated.temperature_unit,
       };
 

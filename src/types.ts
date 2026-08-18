@@ -72,12 +72,6 @@ export interface PantryItem {
 
 export interface AppSettings {
   gemini_model: string;
-  gemini_prompt: string;
-  gemini_prompt_tag: string;
-  gemini_prompt_nutrition: string;
-  gemini_prompt_translate: string;
-  gemini_prompt_suggest: string;
-  gemini_prompt_shopping: string;
   temperature_unit: 'C' | 'F';
 }
 

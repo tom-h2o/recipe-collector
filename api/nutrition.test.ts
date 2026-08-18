@@ -19,22 +19,16 @@ async function loadHandler(generated: unknown) {
   const secondEq = vi.fn().mockResolvedValue({ error: null });
   const firstEq = vi.fn(() => ({ eq: secondEq }));
   const update = vi.fn(() => ({ eq: firstEq }));
-  const userOwnsRecipe = vi.fn().mockResolvedValue(true);
+  const canEditRecipe = vi.fn().mockResolvedValue(true);
   vi.doMock('./_lib/supabase.js', () => ({
     getServerSupabase: () => ({ from: () => ({ update }) }),
     getSettings: vi.fn().mockResolvedValue({
       gemini_model: 'gemini-test',
-      gemini_prompt: '',
-      gemini_prompt_tag: '',
-      gemini_prompt_nutrition: '',
-      gemini_prompt_translate: '',
-      gemini_prompt_suggest: '',
-      gemini_prompt_shopping: '',
       temperature_unit: 'C',
     }),
     resolveApiKey: () => 'key',
     getUserId: vi.fn().mockResolvedValue('user-1'),
-    userOwnsRecipe,
+    canEditRecipe,
   }));
   vi.doMock('./_lib/cache.js', () => ({
     getCached: vi.fn().mockResolvedValue(null),
@@ -49,7 +43,7 @@ async function loadHandler(generated: unknown) {
     generateJson: vi.fn().mockResolvedValue(generated),
   }));
   const mod = await import('./nutrition');
-  return { handler: mod.default, firstEq, secondEq, userOwnsRecipe };
+  return { handler: mod.default, firstEq, secondEq, canEditRecipe };
 }
 
 describe('/api/nutrition', () => {
@@ -65,9 +59,9 @@ describe('/api/nutrition', () => {
     expect(res.body).toEqual({ nutrition: { calories: 450, protein_g: 12, carbs_g: 40, fat_g: 18, fiber_g: 3 } });
   });
 
-  it('rejects recipes not owned by the user', async () => {
-    const { handler, userOwnsRecipe } = await loadHandler({ calories: 450, protein_g: 12, carbs_g: 40, fat_g: 18, fiber_g: 3 });
-    userOwnsRecipe.mockResolvedValue(false);
+  it('rejects recipes the user may not edit', async () => {
+    const { handler, canEditRecipe } = await loadHandler({ calories: 450, protein_g: 12, carbs_g: 40, fat_g: 18, fiber_g: 3 });
+    canEditRecipe.mockResolvedValue(false);
     const res = createResponse();
 
     await handler({ method: 'POST', headers: {}, body: { recipeId: '550e8400-e29b-41d4-a716-446655440000', title: 'Cake', ingredients: ['cream'], servings: 4 } } as VercelRequest, res);

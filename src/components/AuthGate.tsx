@@ -25,13 +25,14 @@ function SpeisekammerLogo({ size = 48 }: { size?: number }) {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
+      className="text-sk-primary"
     >
-      <circle cx="11" cy="11" r="7" stroke="#315f3b" strokeWidth="2.5" fill="none"/>
-      <circle cx="11" cy="11" r="3" fill="#315f3b"/>
-      <line x1="16.5" y1="14.5" x2="30" y2="28" stroke="#315f3b" strokeWidth="2.5" strokeLinecap="round"/>
-      <line x1="23" y1="21.5" x2="26" y2="24.5" stroke="#315f3b" strokeWidth="2" strokeLinecap="round"/>
-      <line x1="26" y1="24.5" x2="29" y2="21.5" stroke="#315f3b" strokeWidth="2" strokeLinecap="round"/>
-      <path d="M7 4 Q11 1 15 5 Q11 8 7 4Z" fill="#bcefc0" opacity="0.8"/>
+      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2.5" fill="none"/>
+      <circle cx="11" cy="11" r="3" fill="currentColor"/>
+      <line x1="16.5" y1="14.5" x2="30" y2="28" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+      <line x1="23" y1="21.5" x2="26" y2="24.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="26" y1="24.5" x2="29" y2="21.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      <path d="M7 4 Q11 1 15 5 Q11 8 7 4Z" fill="currentColor" opacity="0.45"/>
     </svg>
   );
 }
@@ -233,7 +234,7 @@ export function AuthGate({ children }: Props) {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full h-11 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white font-semibold rounded-full border-0"
+              className="w-full h-11 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold rounded-full border-0"
             >
               {isSubmitting ? 'Saving…' : 'Set new password'}
             </Button>
@@ -271,12 +272,12 @@ export function AuthGate({ children }: Props) {
           </div>
 
           {/* Mode toggle */}
-          <div className="flex bg-sk-surface-low dark:bg-muted rounded-full p-1 gap-1 mb-8">
+          <div className="flex bg-sk-surface-low rounded-full p-1 gap-1 mb-8">
             <button
               onClick={() => { setMode('password'); setPasswordStep('signin'); setUnconfirmedEmail(null); }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-sm font-semibold transition-all ${
                 mode === 'password'
-                  ? 'bg-white dark:bg-card shadow-ambient text-sk-primary dark:text-primary'
+                  ? 'bg-white dark:bg-sk-surface-highest shadow-ambient text-sk-primary dark:text-primary'
                   : 'text-sk-on-surface-variant hover:text-sk-primary dark:hover:text-primary'
               }`}
             >
@@ -286,7 +287,7 @@ export function AuthGate({ children }: Props) {
               onClick={() => { setMode('magic'); setMagicSent(false); setUnconfirmedEmail(null); setMagicError(null); }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-sm font-semibold transition-all ${
                 mode === 'magic'
-                  ? 'bg-white dark:bg-card shadow-ambient text-sk-primary dark:text-primary'
+                  ? 'bg-white dark:bg-sk-surface-highest shadow-ambient text-sk-primary dark:text-primary'
                   : 'text-sk-on-surface-variant hover:text-sk-primary dark:hover:text-primary'
               }`}
             >
@@ -359,7 +360,7 @@ export function AuthGate({ children }: Props) {
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full h-11 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white font-semibold rounded-full border-0"
+                  className="w-full h-11 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold rounded-full border-0"
                 >
                   {isSubmitting ? 'Please wait…' : isSignUp ? 'Create account' : 'Sign in'}
                 </Button>
@@ -428,7 +429,7 @@ export function AuthGate({ children }: Props) {
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full h-11 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white font-semibold rounded-full border-0"
+                  className="w-full h-11 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold rounded-full border-0"
                 >
                   {isSubmitting ? 'Sending…' : 'Send reset link'}
                 </Button>
@@ -481,7 +482,7 @@ export function AuthGate({ children }: Props) {
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full h-11 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white font-semibold rounded-full border-0"
+                  className="w-full h-11 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold rounded-full border-0"
                 >
                   <Mail className="w-4 h-4 mr-2" />
                   {isSubmitting ? 'Sending…' : 'Send Magic Link'}
@@ -531,7 +532,7 @@ export function AuthGate({ children }: Props) {
             <Button
               onClick={claimExistingRecipes}
               disabled={isClaiming}
-              className="w-full h-12 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white font-semibold rounded-full border-0"
+              className="w-full h-12 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold rounded-full border-0"
             >
               {isClaiming ? 'Claiming...' : 'Claim all existing recipes'}
             </Button>

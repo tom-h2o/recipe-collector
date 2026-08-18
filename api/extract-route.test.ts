@@ -65,12 +65,6 @@ async function loadHandler(overrides: {
     getServerSupabase: () => ({}),
     getSettings: vi.fn().mockResolvedValue({
       gemini_model: 'gemini-test',
-      gemini_prompt: '',
-      gemini_prompt_tag: '',
-      gemini_prompt_nutrition: '',
-      gemini_prompt_translate: '',
-      gemini_prompt_suggest: '',
-      gemini_prompt_shopping: '',
       temperature_unit: 'C',
     }),
     resolveApiKey: () => 'key',

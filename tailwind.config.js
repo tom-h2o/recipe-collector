@@ -1,3 +1,6 @@
+const ok = (v) => `oklch(var(${v}) / <alpha-value>)`
+const rgb = (v) => `rgb(var(${v}) / <alpha-value>)`
+
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: ["class"],
@@ -5,57 +8,60 @@ export default {
   theme: {
     extend: {
       colors: {
-        border: "oklch(var(--border))",
-        input: "oklch(var(--input))",
-        ring: "oklch(var(--ring))",
-        background: "oklch(var(--background))",
-        foreground: "oklch(var(--foreground))",
+        /* Tokens are defined in src/index.css as bare channel values so that the
+           `/ <alpha-value>` placeholder below makes opacity modifiers work
+           (bg-primary/90, bg-sk-primary-fixed/30, …). */
+        border: ok("--border"),
+        input: ok("--input"),
+        ring: ok("--ring"),
+        background: ok("--background"),
+        foreground: ok("--foreground"),
         primary: {
-          DEFAULT: "oklch(var(--primary))",
-          foreground: "oklch(var(--primary-foreground))",
+          DEFAULT: ok("--primary"),
+          foreground: ok("--primary-foreground"),
         },
         secondary: {
-          DEFAULT: "oklch(var(--secondary))",
-          foreground: "oklch(var(--secondary-foreground))",
+          DEFAULT: ok("--secondary"),
+          foreground: ok("--secondary-foreground"),
         },
         destructive: {
-          DEFAULT: "oklch(var(--destructive))",
-          foreground: "oklch(var(--destructive-foreground))",
+          DEFAULT: ok("--destructive"),
+          foreground: ok("--destructive-foreground"),
         },
         muted: {
-          DEFAULT: "oklch(var(--muted))",
-          foreground: "oklch(var(--muted-foreground))",
+          DEFAULT: ok("--muted"),
+          foreground: ok("--muted-foreground"),
         },
         accent: {
-          DEFAULT: "oklch(var(--accent))",
-          foreground: "oklch(var(--accent-foreground))",
+          DEFAULT: ok("--accent"),
+          foreground: ok("--accent-foreground"),
         },
         popover: {
-          DEFAULT: "oklch(var(--popover))",
-          foreground: "oklch(var(--popover-foreground))",
+          DEFAULT: ok("--popover"),
+          foreground: ok("--popover-foreground"),
         },
         card: {
-          DEFAULT: "oklch(var(--card))",
-          foreground: "oklch(var(--card-foreground))",
+          DEFAULT: ok("--card"),
+          foreground: ok("--card-foreground"),
         },
-        /* Speisekammer design tokens */
+        /* Speisekammer design tokens — theme-aware via the same CSS vars */
         sk: {
-          primary: "#315f3b",
-          "primary-container": "#497851",
-          "primary-fixed": "#bcefc0",
-          "on-primary-fixed": "#00210a",
-          secondary: "#805533",
-          "secondary-container": "#fdc39a",
-          tertiary: "#455d00",
-          surface: "#faf9f5",
-          "surface-low": "#f4f4f0",
-          "surface-container": "#efeeea",
-          "surface-high": "#e9e8e4",
-          "surface-highest": "#e3e2df",
-          "on-surface": "#1b1c1a",
-          "on-surface-variant": "#40493d",
-          outline: "#707a6c",
-          "outline-variant": "#bfcaba",
+          primary: rgb("--sk-primary"),
+          "primary-container": rgb("--sk-primary-container"),
+          "primary-fixed": rgb("--sk-primary-fixed"),
+          "on-primary-fixed": rgb("--sk-on-primary-fixed"),
+          secondary: rgb("--sk-secondary"),
+          "secondary-container": rgb("--sk-secondary-container"),
+          tertiary: rgb("--sk-tertiary"),
+          surface: rgb("--sk-surface"),
+          "surface-low": rgb("--sk-surface-low"),
+          "surface-container": rgb("--sk-surface-container"),
+          "surface-high": rgb("--sk-surface-high"),
+          "surface-highest": rgb("--sk-surface-highest"),
+          "on-surface": rgb("--sk-on-surface"),
+          "on-surface-variant": rgb("--sk-on-surface-variant"),
+          outline: rgb("--sk-outline"),
+          "outline-variant": rgb("--sk-outline-variant"),
         },
       },
       fontFamily: {

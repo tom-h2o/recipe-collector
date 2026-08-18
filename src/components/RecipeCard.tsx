@@ -42,7 +42,7 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, translation, tr
           </div>
         )}
         {/* Hover overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-sk-on-surface/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-4">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-4">
           <span className="font-sans text-white text-sm font-semibold px-4 py-1.5 rounded-full border border-white/30 bg-white/15 backdrop-blur-sm">
             View Recipe
           </span>
@@ -57,7 +57,7 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, translation, tr
         </button>
         {/* Processing badge */}
         {(isProcessing || translationLoading) && (
-          <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 bg-sk-on-surface/70 backdrop-blur-sm text-white text-[10px] font-semibold px-2.5 py-1 rounded-full font-sans">
+          <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 bg-black/70 backdrop-blur-sm text-white text-[10px] font-semibold px-2.5 py-1 rounded-full font-sans">
             <Loader2 className="w-3 h-3 animate-spin" />
             {isProcessing ? 'Processing…' : 'Translating…'}
           </div>

@@ -31,7 +31,7 @@ To run a single test file: `npx vitest run src/lib/recipeUtils.test.ts`
 - `App.tsx` — root component: initialises all hooks, wires up views, handles routing for the `/recipe/:id` public share URL
 - `types.ts` — all shared TypeScript interfaces (`Recipe`, `Ingredient`, `Nutrition`, `MealPlan`, `ShoppingItem`, `PantryItem`, `AppSettings`, `RecipeTranslation`, `RecipeShare`, `Contact`, `Collection`, `RecipeCollection`)
 - `components/ui/` — shadcn/ui primitives (built on `@base-ui/react`); add new primitives here via the shadcn CLI, don't hand-author
-- `lib/constants.ts` — `MODELS`, `FILTERS`, `AVAILABLE_TAGS`, `MEAL_TYPES`, `LANGUAGES`, `SORT_OPTIONS`, `PAGE_SIZE` (24), `DEFAULT_PROMPT`
+- `lib/constants.ts` — `MODELS`, `FILTERS`, `AVAILABLE_TAGS`, `MEAL_TYPES`, `LANGUAGES`, `SORT_OPTIONS`, `PAGE_SIZE` (24)
 - `lib/recipeUtils.ts` — `parseIngredients()` (defensive: handles both `Ingredient[]` and legacy `string[]`, though the DB now enforces `Ingredient[]` via a check constraint), `scaleAmount()`, `recipeToIngredientText()`
 - `lib/temperatureUtils.ts` — parses °C/°F (and written-out "degrees") in recipe text and converts to the user's preferred unit at display time
 - `lib/supabase.ts` — singleton Supabase browser client

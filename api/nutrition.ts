@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey, getUserId, userOwnsRecipe } from './_lib/supabase.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId, canEditRecipe } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { nutritionResultSchema, nutritionSchema } from './_lib/schemas.js';
@@ -44,7 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const supabase = getServerSupabase();
     const userId = await getUserId(req.headers.authorization as string | undefined);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-    if (!await userOwnsRecipe(supabase, recipeId, userId)) return res.status(403).json({ error: 'Forbidden' });
+    if (!await canEditRecipe(supabase, recipeId, userId)) return res.status(403).json({ error: 'Forbidden' });
     const settings = await getSettings(supabase, userId);
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
@@ -59,8 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }).join('\n')
       : String(ingredients);
 
-    const template = settings.gemini_prompt_nutrition?.trim() ? settings.gemini_prompt_nutrition : NUTRITION_TEMPLATE;
-    const prompt = buildNutritionPrompt(template, title ?? '', ingredientText, servings ?? null);
+    const prompt = buildNutritionPrompt(NUTRITION_TEMPLATE, title ?? '', ingredientText, servings ?? null);
 
     const cacheKey = makeCacheKey('nutrition', { ingredientText, servings: servings ?? null });
     const cachedNutrition = await getCached(supabase, cacheKey);

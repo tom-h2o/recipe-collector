@@ -153,6 +153,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const auth = req.headers.authorization as string | undefined;
 
   try {
+    // ── GET /api/account?recipeId=… — admin: open one user's full recipe ──────
+    // The paginated dashboard only carries card-level fields; this returns the
+    // full row (ingredients, instructions, nutrition) for the viewer.
+    const viewRecipeId = queryParam(req, 'recipeId');
+    if (req.method === 'GET' && viewRecipeId) {
+      await assertAdmin(auth);
+
+      const supabase = getServerSupabase();
+      const { data: recipe, error } = await supabase
+        .from('recipes')
+        .select('*')
+        .eq('id', viewRecipeId)
+        .single();
+
+      if (error || !recipe) return res.status(404).json({ error: 'Recipe not found' });
+
+      let user_email: string | null = null;
+      if (recipe.user_id) {
+        const { data: owner } = await supabase.auth.admin.getUserById(recipe.user_id);
+        user_email = owner?.user?.email ?? null;
+      }
+
+      return res.status(200).json({ recipe, user_email });
+    }
+
     // ── GET /api/account — admin dashboard, paginated per tab ─────────────────
     if (req.method === 'GET') {
       await assertAdmin(auth);
@@ -185,6 +210,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       return res.status(400).json({ error: 'Invalid tab' });
+    }
+
+    // ── PATCH /api/account?recipeId=… — admin: edit any user's recipe ─────────
+    // RLS (recipes_update) restricts the browser client to the owner's own rows,
+    // so admin edits have to go through the service key here.
+    if (req.method === 'PATCH' && viewRecipeId) {
+      await assertAdmin(auth);
+
+      const body = (req.body ?? {}) as Record<string, unknown>;
+
+      // Whitelist — never let a request rewrite user_id, id, or created_at
+      const EDITABLE = [
+        'title', 'description', 'ingredients', 'instructions', 'image_url',
+        'servings', 'prep_time_mins', 'cook_time_mins',
+        'source_url', 'source_name', 'original_language',
+      ] as const;
+
+      const updates: Record<string, unknown> = {};
+      for (const field of EDITABLE) {
+        if (body[field] !== undefined) updates[field] = body[field];
+      }
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: 'No editable fields supplied' });
+      }
+
+      const supabase = getServerSupabase();
+      const { data: recipe, error } = await supabase
+        .from('recipes')
+        .update(updates)
+        .eq('id', viewRecipeId)
+        .select('*')
+        .single();
+
+      if (error) return res.status(500).json({ error: error.message });
+      if (!recipe) return res.status(404).json({ error: 'Recipe not found' });
+
+      return res.status(200).json({ recipe });
     }
 
     // ── DELETE /api/account — delete own account or (admin) any user ──────────

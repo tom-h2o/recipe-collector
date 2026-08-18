@@ -27,10 +27,31 @@ export const shoppingSchema = z.object({
   ingredients: z.array(z.string()).min(1, 'At least one ingredient is required'),
 });
 
+/** A single recipe can span several photos (e.g. a two-page cookbook spread). */
+export const MAX_EXTRACT_PHOTOS = 8;
+
 export const extractPhotoSchema = z.object({
-  imageBase64: z.string().min(1, 'imageBase64 is required'),
-  mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
+  images: z
+    .array(
+      z.object({
+        data: z.string().min(1, 'image data is required'),
+        mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
+      }),
+    )
+    .min(1, 'At least one image is required')
+    .max(MAX_EXTRACT_PHOTOS, `At most ${MAX_EXTRACT_PHOTOS} images can be extracted at once`),
 });
+
+/**
+ * Older clients send a single `imageBase64` + `mimeType`. Normalise both shapes
+ * to the `images` array before validation.
+ */
+export function normaliseExtractPhotoBody(body: Record<string, unknown>) {
+  if (body.images === undefined && body.imageBase64 !== undefined) {
+    return { images: [{ data: body.imageBase64, mimeType: body.mimeType }] };
+  }
+  return body;
+}
 
 export const extractPdfSchema = z.object({
   pdfBase64: z.string().min(1, 'pdfBase64 is required'),
