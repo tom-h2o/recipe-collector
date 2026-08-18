@@ -2,19 +2,25 @@ import { test, expect } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
 
-// Parse .env.local to find VITE_SUPABASE_URL and extract Supabase Project ID
+// The Supabase project ID decides the auth storage key the app reads, so it has
+// to match whatever VITE_SUPABASE_URL the app was started with. Prefer the
+// environment (CI has no .env.local) and fall back to the local env file.
 let supabaseUrl = 'https://placeholder.supabase.co';
-try {
-  const envPath = path.resolve(process.cwd(), '.env.local');
-  if (fs.existsSync(envPath)) {
-    const lines = fs.readFileSync(envPath, 'utf8').split('\n');
-    const urlLine = lines.find(line => line.startsWith('VITE_SUPABASE_URL='));
-    if (urlLine) {
-      supabaseUrl = urlLine.split('=')[1].trim();
+if (process.env.VITE_SUPABASE_URL) {
+  supabaseUrl = process.env.VITE_SUPABASE_URL;
+} else {
+  try {
+    const envPath = path.resolve(process.cwd(), '.env.local');
+    if (fs.existsSync(envPath)) {
+      const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+      const urlLine = lines.find(line => line.startsWith('VITE_SUPABASE_URL='));
+      if (urlLine) {
+        supabaseUrl = urlLine.split('=')[1].trim();
+      }
     }
+  } catch {
+    // ignore
   }
-} catch {
-  // ignore
 }
 
 let projectId = 'placeholder';
