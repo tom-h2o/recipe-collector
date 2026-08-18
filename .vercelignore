@@ -1,0 +1,5 @@
+# Vercel turns every file under api/ into a serverless function. The API test
+# files are not endpoints, and on the Hobby plan (12-function limit) they push
+# the count from 10 to 20. They are not needed to build: tsconfig.app.json only
+# includes src/, and typecheck:api excludes api/**/*.test.ts.
+api/**/*.test.ts
