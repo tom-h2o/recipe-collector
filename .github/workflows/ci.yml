@@ -11,7 +11,7 @@ env:
 
 jobs:
   validate:
-    name: Validation (Staging) Environment
+    name: Validation
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -49,43 +49,9 @@ jobs:
         VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpLXRlc3QiLCJyb2xlIjoiYW5vbiJ9.ci-signature
       run: npm run test:e2e
 
-    # Apply Staging/Validation database migrations on develop/staging branches or PRs
-    - name: Link Staging Database
-      if: (github.ref != 'refs/heads/master' && github.ref != 'refs/heads/main') && github.event_name == 'push'
-      env:
-        SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        PROJECT_REF: ${{ secrets.SUPABASE_STAGING_PROJECT_ID }}
-      run: |
-        if [ -z "$PROJECT_REF" ]; then
-          echo "::error::SUPABASE_STAGING_PROJECT_ID is not set. Add it under Settings → Secrets and variables → Actions."
-          exit 1
-        fi
-        npx supabase link --project-ref "$PROJECT_REF"
 
-    - name: Apply Staging/Validation Migrations
-      if: (github.ref != 'refs/heads/master' && github.ref != 'refs/heads/main') && github.event_name == 'push'
-      env:
-        SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      run: npx supabase db push
-
-    # Optional Vercel Staging Deployment (Runs if secrets are configured)
-    - name: Deploy Staging to Vercel
-      if: (github.ref != 'refs/heads/master' && github.ref != 'refs/heads/main') && github.event_name == 'push'
-      env:
-        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      run: |
-        if [ -z "$VERCEL_TOKEN" ]; then
-          echo "::error::VERCEL_TOKEN is not set, so nothing would be deployed. Add it under Settings → Secrets and variables → Actions."
-          exit 1
-        fi
-        npx vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
-        npx vercel build --token="$VERCEL_TOKEN"
-        npx vercel deploy --prebuilt --token="$VERCEL_TOKEN"
-
-  deploy-production:
-    name: Production Environment Deployment
+  migrate-production:
+    name: Production Database Migration
     needs: validate
     runs-on: ubuntu-latest
     if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') && github.event_name == 'push'
@@ -101,14 +67,14 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    # Apply Production database migrations before deploying
+    # Vercel's Git integration deploys the app itself; CI only owns migrations.
     - name: Link Production Database
       env:
         SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        PROJECT_REF: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
+        PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_ID }}
       run: |
         if [ -z "$PROJECT_REF" ]; then
-          echo "::error::SUPABASE_PRODUCTION_PROJECT_ID is not set. Add it under Settings → Secrets and variables → Actions."
+          echo "::error::SUPABASE_PROJECT_ID is not set. Add it under Settings → Secrets and variables → Actions."
           exit 1
         fi
         npx supabase link --project-ref "$PROJECT_REF"
@@ -117,18 +83,3 @@ jobs:
       env:
         SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       run: npx supabase db push
-
-    # Production Deployment on Vercel
-    - name: Deploy Production to Vercel
-      env:
-        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      run: |
-        if [ -z "$VERCEL_TOKEN" ]; then
-          echo "::error::VERCEL_TOKEN is not set, so nothing would be deployed. Add it under Settings → Secrets and variables → Actions."
-          exit 1
-        fi
-        npx vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-        npx vercel build --prod --token="$VERCEL_TOKEN"
-        npx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
