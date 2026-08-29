@@ -1,4 +1,12 @@
-export const DEFAULT_MODEL = 'gemini-2.5-flash';
+/**
+ * Newest stable Flash. Extraction quality — especially multi-page photo OCR —
+ * is what this app lives on, and at the 100 calls/day cap the difference
+ * against a lite model is roughly $1.40/month, so capability wins over cost.
+ *
+ * Must stay equal to DEFAULT_MODEL in api/_lib/supabase.ts; constants.test.ts
+ * asserts that.
+ */
+export const DEFAULT_MODEL = 'gemini-3.7-flash';
 
 /**
  * Verified against the live ListModels endpoint (v1beta) — every ID here is one
