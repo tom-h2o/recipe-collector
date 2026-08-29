@@ -1,3 +1,5 @@
+const plugin = require("tailwindcss/plugin")
+
 const ok = (v) => `oklch(var(${v}) / <alpha-value>)`
 const rgb = (v) => `rgb(var(${v}) / <alpha-value>)`
 
@@ -68,6 +70,15 @@ export default {
         serif: ["Newsreader", "Georgia", "serif"],
         sans: ["Manrope", "system-ui", "sans-serif"],
       },
+      /* The shadcn/base-ui components were authored against Tailwind v4, which
+         has these built in. On v3 they silently compiled to nothing: focus rings
+         had no width, and dialog overlays had no blur. */
+      ringWidth: {
+        3: "3px",
+      },
+      backdropBlur: {
+        xs: "4px",
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
@@ -78,5 +89,16 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    /* base-ui marks open/closed state with bare data-open / data-closed
+       attributes. Tailwind v4 supports `data-open:` directly; v3 does not, so
+       all 26 usages produced no CSS and every dialog, alert and select opened
+       and closed with no animation at all. */
+    plugin(({ addVariant }) => {
+      addVariant("data-open", "&[data-open]")
+      addVariant("data-closed", "&[data-closed]")
+      addVariant("supports-backdrop-filter", "@supports (backdrop-filter: blur(0)) { & }")
+    }),
+  ],
 }
