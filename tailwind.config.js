@@ -67,8 +67,8 @@ export default {
         },
       },
       fontFamily: {
-        serif: ["Newsreader", "Georgia", "serif"],
-        sans: ["Manrope", "system-ui", "sans-serif"],
+        serif: ["Newsreader Variable", "Newsreader", "Georgia", "serif"],
+        sans: ["Manrope Variable", "Manrope", "system-ui", "sans-serif"],
       },
       /* The shadcn/base-ui components were authored against Tailwind v4, which
          has these built in. On v3 they silently compiled to nothing: focus rings
