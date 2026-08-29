@@ -16,6 +16,11 @@ export default defineConfig({
         // comes from the old precache and users keep seeing the previous build.
         clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // The app ships en/de/fr/es/pl — all Latin script. The font packages
+        // also emit Cyrillic, Greek and Vietnamese subsets; unicode-range means
+        // a browser never requests them, but the precache would still download
+        // them on first load. They stay served, just not pre-fetched.
+        globIgnores: ['**/*-{cyrillic,greek,vietnamese}-*.woff2'],
         runtimeCaching: [
           {
             // Cache read-only Supabase REST requests for offline browsing.
