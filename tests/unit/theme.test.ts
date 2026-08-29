@@ -114,6 +114,16 @@ describe('compiled utilities', () => {
     expect(compiled).toContain('bg-sk-primary-fixed\\/30');
   });
 
+  it('emits CSS for the variants the UI components rely on', () => {
+    // These components were authored for Tailwind v4. On v3 the variants below
+    // compiled to nothing at all: every dialog and select opened with no
+    // animation, overlays had no blur, and focus rings had no width. Silent
+    // no-ops, invisible to the type checker and to every other test.
+    for (const marker of ['data-open', 'data-closed', 'animate-in', 'animate-out', 'ring-3', 'backdrop-blur-xs']) {
+      expect(compiled, `"${marker}" is used in src but compiles to no CSS`).toContain(marker);
+    }
+  });
+
   it('emits a dark-mode override for the core surface tokens', () => {
     expect(compiled).toMatch(/\.dark\s*\{[^}]*--background/);
   });
