@@ -8,6 +8,9 @@ import { findImageSchema } from './_lib/schemas.js';
 
 const UNSPLASH_API = 'https://api.unsplash.com';
 
+/** Separate from the Gemini allowance — this endpoint costs no AI quota. */
+const FIND_IMAGE_DAILY_LIMIT = 200;
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -19,13 +22,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const userId = await getUserId(req.headers.authorization as string | undefined);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-    const rl = await checkRateLimit(supabase, userId);
-    if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
+    // Unsplash, not Gemini. This used to consume the shared AI allowance, so a
+    // cover lookup could be the reason an extraction was refused. It now has its
+    // own generous budget, counted from its own log rows.
+    const rl = await checkRateLimit(supabase, userId, { endpoint: 'find-image', limit: FIND_IMAGE_DAILY_LIMIT });
+    if (!rl.allowed) return res.status(429).json({ error: `Daily image lookup limit reached (${rl.limit}/day). Resets at midnight UTC.` });
 
     const accessKey = process.env.UNSPLASH_ACCESS_KEY;
     if (!accessKey) return res.status(200).json({ imageUrl: '' });
 
     const queryTerms = [title, description ? description.split(' ').slice(0, 4).join(' ') : '', 'food recipe'].filter(Boolean).join(' ');
+    const startTime = Date.now();
     const response = await fetch(`${UNSPLASH_API}/search/photos?query=${encodeURIComponent(queryTerms)}&per_page=1&orientation=landscape&content_filter=high`, { headers: { Authorization: `Client-ID ${accessKey}`, 'Accept-Version': 'v1' } });
 
     if (!response.ok) {
@@ -34,7 +41,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const data = await response.json() as { results?: { urls?: { regular?: string } }[] };
-    return res.status(200).json({ imageUrl: data.results?.[0]?.urls?.regular ?? '' });
+    const imageUrl = data.results?.[0]?.urls?.regular ?? '';
+
+    // Logged so the lookup is visible in usage and its own limit can be counted.
+    // model is 'unsplash' rather than a Gemini id, so AI spend stays separable.
+    // Housekeeping must never cost the caller a result it already has, so this
+    // swallows both a rejected insert and a client that cannot build one.
+    try {
+      supabase.from('gemini_logs').insert({
+        endpoint: 'find-image',
+        model: 'unsplash',
+        status: 'success',
+        latency_ms: Date.now() - startTime,
+        input_preview: queryTerms.substring(0, 300),
+        output_preview: imageUrl.substring(0, 300),
+        user_id: userId,
+      }).then(() => {}, () => {});
+    } catch {
+      // logging is best-effort
+    }
+
+    return res.status(200).json({ imageUrl });
   } catch (err: unknown) {
     if (err instanceof ZodError) return res.status(400).json({ error: err.issues[0]?.message ?? 'Invalid request' });
     captureException(err);

@@ -198,10 +198,13 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
                     >
                       <div className="flex items-center justify-between mb-1.5 sm:mb-2">
                         <div className="font-bold text-[10px] sm:text-xs uppercase tracking-wider text-zinc-600 dark:text-zinc-400">{meal}</div>
-                        {/* Mobile tap-to-add — opens searchable picker modal */}
+                        {/* Tap-to-add, at every size. Dragging a recipe card still
+                            works, but it was the only way to fill a slot on desktop
+                            and there is no keyboard equivalent for a drag. */}
                         <button
                           onClick={() => { setMobilePicker({ date, meal }); setMobileSearch(''); }}
-                          className="lg:hidden p-0.5 rounded text-sk-outline-variant dark:text-muted-foreground/50 hover:text-sk-primary dark:hover:text-primary transition-colors"
+                          className="p-0.5 rounded text-sk-outline-variant dark:text-muted-foreground/50 hover:text-sk-primary dark:hover:text-primary transition-colors"
+                          aria-label={`Add a recipe to ${meal} on ${new Date(date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}`}
                           title="Add recipe"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -243,8 +246,19 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
 
     {/* Mobile recipe picker modal — bottom sheet */}
     {mobilePicker && (
-      <div className="fixed inset-0 z-50 lg:hidden flex flex-col justify-end bg-black/50" onClick={() => { setMobilePicker(null); setMobileSearch(''); }}>
-        <div className="bg-white dark:bg-zinc-900 rounded-t-3xl p-5 space-y-4 max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="fixed inset-0 z-50 flex flex-col justify-end lg:justify-center lg:items-center bg-black/50"
+        onClick={() => { setMobilePicker(null); setMobileSearch(''); }}
+        onKeyDown={(e) => { if (e.key === 'Escape') { setMobilePicker(null); setMobileSearch(''); } }}
+        role="presentation"
+      >
+        <div
+          className="bg-white dark:bg-zinc-900 rounded-t-3xl lg:rounded-3xl p-5 space-y-4 max-h-[80vh] lg:max-h-[70vh] lg:w-full lg:max-w-md flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Add a recipe to ${mobilePicker.meal}`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="font-serif text-base font-bold text-sk-on-surface dark:text-foreground">

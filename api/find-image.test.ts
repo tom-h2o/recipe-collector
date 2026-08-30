@@ -75,7 +75,7 @@ describe('/api/find-image', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual({ imageUrl: 'https://images.example/recipe.jpg' });
-    expect(checkRateLimit).toHaveBeenCalledWith({}, 'user-1');
+    expect(checkRateLimit).toHaveBeenCalledWith({}, 'user-1', { endpoint: 'find-image', limit: 200 });
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 });

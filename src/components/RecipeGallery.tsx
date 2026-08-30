@@ -87,7 +87,7 @@ export function RecipeGallery({ images, coverUrl, busy, onAdd, onDelete, onSetCo
                   aria-label={`View photo ${i + 1} of ${images.length}`}
                   className="w-full h-full"
                 >
-                  <img src={img.url} alt="" className="w-full h-full object-cover rounded-lg" />
+                  <img src={img.url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover rounded-lg" />
                 </button>
 
                 {isCover && (

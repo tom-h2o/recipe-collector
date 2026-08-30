@@ -156,3 +156,28 @@ test('every interactive control on the vault is reachable by keyboard', async ({
   );
   expect(stranded, 'these controls are visible but not keyboard reachable').toEqual([]);
 });
+
+test('meal planner can be filled in without a mouse', async ({ page }) => {
+  // Slots were fillable only by dragging a recipe card, and the tap-to-add
+  // button that would have offered an alternative was hidden above the mobile
+  // breakpoint — leaving keyboard users with no way to plan a meal at all.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installMockBackend(page);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Meal Planner', exact: false }).filter({ visible: true }).first().click();
+  await expect(page.getByText('Breakfast').first()).toBeVisible();
+
+  const addButtons = page.getByRole('button', { name: /^Add a recipe to / });
+  expect(await addButtons.count()).toBeGreaterThan(0);
+
+  await addButtons.first().focus();
+  await page.keyboard.press('Enter');
+
+  const picker = page.getByRole('dialog', { name: /Add a recipe to / });
+  await expect(picker).toBeVisible();
+  await expect(picker.getByPlaceholder('Search recipes…')).toBeVisible();
+  await expect(picker.getByText('Classic Margherita Pizza')).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(picker).toBeHidden();
+});
