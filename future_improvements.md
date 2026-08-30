@@ -9,7 +9,7 @@ Captured during development. Items marked ✅ have been implemented.
 - ✅ **pgvector similarity search** — `suggest.ts` uses `gemini-embedding-2` embeddings and cosine similarity via the `match_recipes` pgvector function, with a string-matching fallback
 - ✅ **Server-side search and pagination** — full-text search via `tsvector` column and `textSearch()`; tag/sort/filter all run at the DB level
 - ✅ **PWA / service worker** — `vite-plugin-pwa` with Workbox precaching installed
-- ✅ **Per-user settings** — settings table is per-user; model, prompts, temperature unit are individual
+- ✅ **Per-user settings** — settings table is per-user; model and temperature unit are individual. Per-user *prompts* were removed: they silently pinned each user to whatever prompt text was current when they last saved, so prompt fixes never reached them. Prompts now live only in `api/_lib/prompts.ts`
 - ✅ **Rate limiting** — 100 AI calls/day per user, enforced server-side, visible in Settings → Usage Logs
 - ✅ **Admin dashboard** — user list, global stats, AI call breakdown by endpoint, recent recipes
 - ✅ **Usage meter** — progress bar + per-endpoint breakdown shown to each user in Settings
@@ -17,6 +17,22 @@ Captured during development. Items marked ✅ have been implemented.
 - ✅ **Recipe collections** — users can organise recipes into named collections
 - ✅ **Auth required on all AI endpoints** — every `api/*.ts` endpoint that calls Gemini now returns 401 if `getUserId()` is null, instead of silently skipping the rate-limit check for unauthenticated requests
 - ✅ **Admin panel server-side pagination** — `GET /api/account?tab=users|recipes|logs&page=&pageSize=` now queries only the requested page (via `.range()` / GoTrue's `listUsers({ page, perPage })`) instead of always fetching 1000 users / 200 recipes / 100 logs. Per-user recipe/AI-call counts are bounded head-only counts scoped to the users on the current page, not a full-table scan. The Recipes tab changed from a per-user accordion to a flat searchable table (with an optional owner filter, reachable by clicking a user's recipe count in the Users tab) since accordion grouping doesn't compose with server-side pagination.
+
+### Shipped later (PRs #7–#19)
+
+- ✅ **Dark mode** — `tailwind.config.js` wrapped tokens as `oklch(var(--x))` while `index.css` already included the wrapper, so every theme utility compiled to invalid CSS and resolved to transparent. Guarded by `tests/unit/theme.test.ts`, which compiles the real stylesheet
+- ✅ **Multi-photo extraction** — a recipe can span up to 8 photos, sent to Gemini in one request and merged; photos are downscaled client-side to stay inside Vercel's 4.5 MB body limit
+- ✅ **Recipes extracted in their own language** — the photo and PDF prompts reported the source language but never instructed Gemini to *write* in it, so Polish recipes came back in English
+- ✅ **Recipe image gallery** — every uploaded photo is kept, with source badges (uploaded / website / stock), a lightbox, set-as-cover and explicit delete. Previously all but the first photo were discarded after extraction
+- ✅ **Admin recipe tools** — view, edit and re-run tagging/nutrition on any user's recipe
+- ✅ **Service worker took deploys too late** — `skipWaiting` without `clientsClaim` meant a new build only reached users after an extra page load, which is why fixes appeared not to ship
+- ✅ **CI actually gates releases** — E2E ran *after* the production deploy; missing secrets passed silently. Production migrations had never once run from CI
+- ✅ **Accessibility** — axe over 7 screens in both themes plus keyboard tests; fixed focus trapping, focus return, unlabelled controls and contrast. `focus-visible:ring-3` had been compiling to nothing, leaving no visible focus ring
+- ✅ **Meal planner without a mouse** — slots were fillable only by dragging; the existing picker was hidden above the mobile breakpoint
+- ✅ **Query indexes** — the schema had six indexes and none matched how the app queries; the rate-limit check ran before every AI call against an index covering only half its filter
+- ✅ **Gemini model list** — cut from nine ids to three tiers with guidance and prices. `gemini-2.5-flash-lite` was offered but retired upstream, returning 404 on every call
+- ✅ **`find-image` no longer spends AI budget** — an Unsplash lookup was consuming the Gemini daily allowance
+- ✅ **Collections in the vault UI** — `RecipeVault` renders collection filter chips and `RecipeDetail` has add/remove handlers; both halves of the old entry are done
 
 ---
 
@@ -90,9 +106,6 @@ When a recipe is edited, the previous version is permanently overwritten with no
 ### Batch import queue
 Currently importing multiple recipes requires opening each one individually. A queue-based approach would let users paste several URLs at once and have them processed in the background.
 
-### Collections in the vault UI
-The `useCollections` hook and DB schema exist but the collections feature has limited surface area in the UI. A dedicated collection filter in `RecipeVault` and a collection picker in `RecipeDetail` would make it more useful.
-
 ---
 
 ## Bigger Changes
@@ -100,10 +113,24 @@ The `useCollections` hook and DB schema exist but the collections feature has li
 ### Model usage breakdown still scans all `gemini_logs` rows
 `getStats()` in `api/account.ts` (Overview tab's "Model usage" chart) still does `select('model')` over the entire `gemini_logs` table to build the per-model counts — the one query the admin pagination pass didn't bound, since PostgREST can't do `GROUP BY` aggregation without a DB-side RPC/view. Fixing it properly needs a migration (e.g. a `gemini_logs_by_model` view or an RPC function); low priority until `gemini_logs` gets large enough for this single-column fetch to matter.
 
-### Offline recipe browsing
-The PWA service worker precaches static assets but not recipe data. IndexedDB caching of the loaded recipe list would allow browsing offline.
+### Offline recipe browsing — partly done
+Read-only browsing already survives a bad connection: a `NetworkFirst` runtime
+cache covers Supabase REST GETs, and a `CacheFirst` cache covers recipe images
+under `/storage/v1/object/public` (200 entries, 30 days) so cook mode keeps its
+pictures. What remains is *writing* offline.
 - Use Workbox's `BackgroundSync` plugin to queue edits made offline
-- Requires conflict resolution strategy for concurrent edits
+- Requires a conflict resolution strategy for concurrent edits
+
+### Gallery photo ordering
+`recipe_images.sort_order` is upload order and there is no way to change it. With
+two or three photos this does not matter; with eight pages of a scanned recipe it
+might. Deliberately deferred until the need is real.
+
+### `gemini_logs` cleanup is sampled, not scheduled
+The 30-day purge used to run on every insert; it now runs on roughly one insert
+in a hundred. That is fine at any real volume but is still a trigger doing
+housekeeping. If `pg_cron` is ever enabled, move it to a nightly job and drop the
+trigger entirely.
 
 ### Cook mode voice control
 Hands-free step navigation via the Web Speech API (`SpeechRecognition`) — say "next" or "back" to navigate steps without touching the screen.
@@ -115,5 +142,5 @@ The `/recipe/:id` public share route is print-optimised via Tailwind `print:` ut
 
 ## Known Dead Code
 
-- `recipeToIngredientText()` in `src/lib/recipeUtils.ts` — no app callers; kept because it has a test in `recipeUtils.test.ts`
-- `useLanguagePreference` in `src/hooks/` — localStorage approach superseded by the `recipes.preferred_language` DB column
+- `recipeToIngredientText()` in `src/lib/recipeUtils.ts` — still no app callers; kept because it has a test in `recipeUtils.test.ts`
+- ~~`useLanguagePreference`~~ — the file no longer exists; entry kept only to note it was already removed
