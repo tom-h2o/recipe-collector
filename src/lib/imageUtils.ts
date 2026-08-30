@@ -45,6 +45,38 @@ export function formatBytes(bytes: number): string {
     : `${Math.round(bytes / 1024)} KB`;
 }
 
+/**
+ * Longest edge for images kept in the gallery.
+ *
+ * Extraction downscales to 1600px purely to fit the request budget; that copy is
+ * throwaway. What the user keeps should stay close to the original, so it is
+ * re-encoded larger and at higher quality. A 2560px photo lands around 1-2 MB,
+ * inside the bucket's 5 MB cap, and re-encoding also brings outsized phone
+ * originals under the limit rather than having the upload rejected.
+ */
+const GALLERY_MAX_EDGE = 2560;
+const GALLERY_QUALITY = 0.9;
+
+/** Re-encodes a photo for storage, preserving as much detail as the cap allows. */
+export async function encodeForGallery(file: File): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const { width, height } = fitWithin(bitmap.width, bitmap.height, GALLERY_MAX_EDGE);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Could not process the image.');
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close();
+
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, 'image/jpeg', GALLERY_QUALITY),
+  );
+  if (!blob) throw new Error('Could not encode the image.');
+  return blob;
+}
+
 export interface ExtractImage {
   data: string;
   mimeType: 'image/jpeg';

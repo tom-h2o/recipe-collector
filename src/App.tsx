@@ -243,6 +243,7 @@ export default function App() {
           <RecipeDetail
             key={selectedRecipe.id}
             recipe={selectedRecipe}
+            userId={user?.id}
             preferredLanguage={selectedRecipe.preferred_language ?? null}
             temperatureUnit={settings.temperature_unit}
             translationsCache={translationsCache}
@@ -269,6 +270,7 @@ export default function App() {
             editingRecipe={editingRecipe}
             onClose={() => { setIsFormOpen(false); setEditingRecipe(null); }}
             onSave={saveRecipe}
+            userId={user?.id}
           />
         )}
 

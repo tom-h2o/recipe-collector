@@ -221,8 +221,8 @@ export function AdminPanel() {
     }
   }
 
-  async function handleAdminSave(payload: Partial<Recipe>, recipeId?: string) {
-    if (!recipeId) return;
+  async function handleAdminSave(payload: Partial<Recipe>, recipeId?: string): Promise<string | undefined> {
+    if (!recipeId) return undefined;
     const res = await apiFetch(`/api/account?recipeId=${recipeId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -232,6 +232,7 @@ export function AdminPanel() {
     const body = await res.json();
     applyRecipeUpdate(body.recipe);
     setEditingRecipe(null);
+    return recipeId;
   }
 
   /** Re-runs the tag or nutrition endpoint; both write straight to the recipe row. */
@@ -623,6 +624,8 @@ export function AdminPanel() {
         editingRecipe={editingRecipe}
         onClose={() => setEditingRecipe(null)}
         onSave={handleAdminSave}
+        // attach to the recipe's owner, not the admin doing the editing
+        userId={editingRecipe?.user_id ?? null}
       />
 
       {/* Delete user confirmation */}

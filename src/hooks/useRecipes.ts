@@ -31,7 +31,7 @@ export function useRecipes(userId?: string | null) {
 
   const saveRecipe = useCallback(
     async (payload: RecipePayload, editingId?: string) => {
-      await useRecipeStore.getState().saveRecipe(payload, userId ?? null, editingId);
+      return useRecipeStore.getState().saveRecipe(payload, userId ?? null, editingId);
     },
     [userId]
   );

@@ -8,6 +8,8 @@ import { convertTemperaturesInText } from '@/lib/temperatureUtils';
 import { MEAL_TYPES, DEFAULT_MEAL_TYPE, LANGUAGES, AVAILABLE_TAGS } from '@/lib/constants';
 import type { Recipe, RecipeTranslation, Collection } from '@/types';
 import { CookMode } from '@/components/CookMode';
+import { RecipeGallery } from '@/components/RecipeGallery';
+import { useRecipeImages } from '@/hooks/useRecipeImages';
 
 interface Props {
   recipe: Recipe | null;
@@ -21,22 +23,32 @@ interface Props {
   onDelete: (r: Recipe) => void;
   onSend?: (r: Recipe) => void;
   onUpdateRecipe: (id: string, changes: Partial<Recipe>) => void;
+  userId?: string | null;
   onAddMealPlan?: (date: string, mealType: string, recipeId: string) => Promise<void>;
-  onSaveScaled?: (payload: Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>) => Promise<void>;
+  onSaveScaled?: (payload: Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>) => Promise<unknown>;
   collections?: Collection[];
   recipeCollectionIds?: string[];
   onAddToCollection?: (collectionId: string) => Promise<void>;
   onRemoveFromCollection?: (collectionId: string) => Promise<void>;
 }
 
-export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', translationsCache, onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onSend, onUpdateRecipe, onAddMealPlan, onSaveScaled, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection }: Props) {
+export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', translationsCache, onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onSend, onUpdateRecipe, userId, onAddMealPlan, onSaveScaled, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection }: Props) {
   const baseServings0 = recipe?.original_servings || recipe?.servings || 1;
   const [scaledServings, setScaledServings] = useState(baseServings0);
   const [aiIngredients, setAiIngredients] = useState<{ amount: string; name: string; details: string }[] | null>(null);
   const [isAiScaling, setIsAiScaling] = useState(false);
   const [isSavingScaled, setIsSavingScaled] = useState(false);
   const [isCookMode, setIsCookMode] = useState(false);
-  const [showPhotoLightbox, setShowPhotoLightbox] = useState(false);
+  const { images, busy: galleryBusy, fetchImages, addImages, deleteImage } = useRecipeImages(recipe?.id ?? null, userId ?? null);
+
+  useEffect(() => { fetchImages(); }, [fetchImages]);
+
+  /** Points the recipe at a different picture. The previous one stays in the gallery. */
+  function setCoverImage(image: { url: string }) {
+    if (!recipe) return;
+    onUpdateRecipe(recipe.id, { image_url: image.url });
+    toast.success('Recipe image updated');
+  }
   const [showLangPicker, setShowLangPicker] = useState(false);
   const cachedTranslation = recipe && preferredLanguage
     ? translationsCache?.[`${recipe.id}:${preferredLanguage}`] ?? null
@@ -302,7 +314,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                 )}
                 {!recipe.source_url && recipe.image_url && (
                   <button
-                    onClick={() => setShowPhotoLightbox(true)}
+                    onClick={() => document.getElementById('recipe-gallery')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                     className="p-2.5 rounded-full text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15 transition-colors"
                     title="View original photo"
                   ><ImageIcon className="w-4 h-4" /></button>
@@ -667,6 +679,19 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
               )}
             </div>
 
+            {/* Photos */}
+            <div id="recipe-gallery" className="pt-6">
+              <div className="h-px bg-gradient-to-r from-transparent via-sk-outline-variant/20 to-transparent mb-6 -mt-2" />
+              <RecipeGallery
+                images={images}
+                coverUrl={recipe.image_url || null}
+                busy={galleryBusy}
+                onAdd={addImages}
+                onDelete={deleteImage}
+                onSetCover={setCoverImage}
+              />
+            </div>
+
             {/* Rating & Notes */}
             <div className="pt-6 space-y-4">
               <div className="h-px bg-gradient-to-r from-transparent via-sk-outline-variant/20 to-transparent mb-6 -mt-2" />
@@ -706,36 +731,6 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
         </div>{/* end overflow-y-auto */}
       </DialogContent>
 
-      {/* Photo lightbox — full-screen overlay for photo-extracted recipes */}
-      {showPhotoLightbox && recipe.image_url && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
-          onClick={() => setShowPhotoLightbox(false)}
-        >
-          <button
-            onClick={() => setShowPhotoLightbox(false)}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-            title="Close"
-          >
-            <X className="w-6 h-6" />
-          </button>
-          <img
-            src={recipe.image_url}
-            alt={recipe.title}
-            className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          />
-          <a
-            href={recipe.image_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="absolute bottom-4 right-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold rounded-full transition-colors"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <ExternalLink className="w-3.5 h-3.5" /> Open full size
-          </a>
-        </div>
-      )}
     </Dialog>
 
     <CookMode
