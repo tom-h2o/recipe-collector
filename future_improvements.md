@@ -42,9 +42,45 @@ Currently recipes come in via URL, photo, or PDF. Add a text area mode where use
 ## Medium Effort
 
 ### Nutritional goals and daily tracking
-Nutrition data is shown per recipe but not aggregated or compared against targets.
-- Let users set daily targets (calories, protein, carbs, fat) in Settings
-- Show a nutrition summary on the meal planner, populated from the planned recipes
+Nutrition data is shown per recipe but never aggregated or compared against a target.
+The goal: set a personal daily aim — calories and protein above all — and have
+everything count against it, with a short assistant to work the numbers out
+rather than asking the user to invent them.
+
+**Setup assistant.** Ask sex, age, height, weight, activity level, and goal
+(lose / maintain / gain, with a rate). Compute maintenance with Mifflin-St Jeor
+× an activity factor, then apply the goal. Protein from body weight, roughly
+1.6–2.2 g/kg when building and lower when maintaining. Present the result as
+*editable fields* rather than a verdict, store the inputs so it can be re-run
+when weight changes, and label it plainly as an estimate, not medical advice.
+Default to a sensible rate rather than optimising for fastest loss.
+
+**Three decisions to make before building** (discussed, not yet settled):
+
+1. *Planned or eaten?* The meal planner is a plan. Counting it directly needs no
+   extra input, but then tomorrow's dinner counts today and skipped meals still
+   count. The alternative is a tick-when-eaten action — one tap, and honest.
+2. *Portions.* `meal_plan` records that a recipe was planned, not how much of it.
+   Nutrition is stored **per serving**, so eating two portions of a four-serving
+   stew is off by 2×. Needs a `servings` column on `meal_plan`, default 1,
+   whichever way decision 1 goes.
+3. *Food that isn't a recipe.* A banana, a coffee, a restaurant lunch. If only
+   recipes count the total is systematically low, which makes the number
+   untrustworthy. Either accept it means "recipe calories only", or add quick
+   manual entries (name + calories + protein).
+
+**Coverage caveat.** At the time of writing, 9 of 29 recipes had no nutrition and
+5 had no `servings`. A tracker that silently skips a third of the food is worse
+than none, because the number still looks authoritative. Whatever is built should
+surface "2 of 4 meals have no nutrition data" and offer to generate it — the
+`/api/nutrition` endpoint already does the work.
+
+**Rough shape.** Targets and profile on the per-user `settings` row; a `servings`
+column on `meal_plan`; an `intake_log` table only if ticking-off or manual
+entries are wanted. Display as per-day totals on the planner plus a prominent
+"today" summary of calories and protein against target. Carbs, fat and fibre are
+already stored, so showing them costs little — but targets for five numbers make
+for a busier UI than targets for two.
 
 ### Recipe version history
 When a recipe is edited, the previous version is permanently overwritten with no way to undo.
