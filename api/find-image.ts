@@ -45,15 +45,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Logged so the lookup is visible in usage and its own limit can be counted.
     // model is 'unsplash' rather than a Gemini id, so AI spend stays separable.
-    supabase.from('gemini_logs').insert({
-      endpoint: 'find-image',
-      model: 'unsplash',
-      status: 'success',
-      latency_ms: Date.now() - startTime,
-      input_preview: queryTerms.substring(0, 300),
-      output_preview: imageUrl.substring(0, 300),
-      user_id: userId,
-    }).then(() => {}, () => {});
+    // Housekeeping must never cost the caller a result it already has, so this
+    // swallows both a rejected insert and a client that cannot build one.
+    try {
+      supabase.from('gemini_logs').insert({
+        endpoint: 'find-image',
+        model: 'unsplash',
+        status: 'success',
+        latency_ms: Date.now() - startTime,
+        input_preview: queryTerms.substring(0, 300),
+        output_preview: imageUrl.substring(0, 300),
+        user_id: userId,
+      }).then(() => {}, () => {});
+    } catch {
+      // logging is best-effort
+    }
 
     return res.status(200).json({ imageUrl });
   } catch (err: unknown) {
