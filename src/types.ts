@@ -33,6 +33,8 @@ export interface Recipe {
   original_servings?: number | null;
   original_language?: string | null;
   preferred_language?: string | null;
+  /** Set when this recipe was adopted from a linked account's copy. */
+  copied_from_recipe_id?: string | null;
   user_id?: string | null;
 }
 
@@ -83,6 +85,39 @@ export interface RecipeImage {
   source: RecipeImageSource;
   sort_order: number;
   created_at: string;
+}
+
+/**
+ * A standing, mutual link between two accounts. Either side sees the other's
+ * recipes read-only; writes stay owner-only, enforced by RLS rather than the UI.
+ */
+export interface AccountLink {
+  id: string;
+  requester_id: string;
+  requester_email: string;
+  addressee_email: string;
+  addressee_id: string | null;
+  status: 'pending' | 'accepted';
+  /** What the requester calls the addressee. */
+  requester_label: string | null;
+  /** What the addressee calls the requester. */
+  addressee_label: string | null;
+  created_at: string;
+  accepted_at: string | null;
+}
+
+/** One link seen from the current user's side, with the other party resolved. */
+export interface LinkedPerson {
+  linkId: string;
+  userId: string | null;
+  email: string;
+  /** Nickname if set, otherwise the email. */
+  label: string;
+  status: 'pending' | 'accepted';
+  /** True when the current user received the invitation rather than sending it. */
+  incoming: boolean;
+  /** Which label column on the row belongs to the viewer. */
+  myLabelColumn: 'requester_label' | 'addressee_label';
 }
 
 export interface AppSettings {

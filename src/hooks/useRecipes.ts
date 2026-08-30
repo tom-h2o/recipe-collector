@@ -18,9 +18,10 @@ export function useRecipes(userId?: string | null) {
       tagFilter: string | null = null,
       collectionId: string | null = null,
       memberships: any[] = [],
-      sortBy: string = 'newest'
+      sortBy: string = 'newest',
+      ownerFilter: string | null = null
     ) => {
-      await useRecipeStore.getState().fetchRecipes(searchQuery, tagFilter, collectionId, memberships, sortBy);
+      await useRecipeStore.getState().fetchRecipes(searchQuery, tagFilter, collectionId, memberships, sortBy, ownerFilter);
     },
     []
   );

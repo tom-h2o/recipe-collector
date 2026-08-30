@@ -5,6 +5,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useRecipes } from '@/hooks/useRecipes';
 import { useMealPlans } from '@/hooks/useMealPlans';
 import { useShoppingList } from '@/hooks/useShoppingList';
+import { useAccountLinks } from '@/hooks/useAccountLinks';
 import { useSettings } from '@/hooks/useSettings';
 import { useAuth } from '@/hooks/useAuth';
 import { useRecipeShares } from '@/hooks/useRecipeShares';
@@ -43,11 +44,16 @@ export default function App() {
   const { mealPlans, fetchMealPlans, addMealPlan, removeMealPlan } = useMealPlans(user?.id);
   const { shoppingList, pantryItems, isGeneratingShopping, fetchShoppingList, fetchPantryItems, generateShoppingList, toggleItem, deleteItem, clearAll, moveItemToPantry, moveItemToShopping, deletePantryItem, addToPantry } = useShoppingList(user?.id);
   const { settings, isSavingSettings, fetchSettings, saveSettings } = useSettings(user?.id);
+  const { connected: connectedPeople, fetchLinks } = useAccountLinks(user?.id, user?.email);
   const { inboxShares, inboxCount, contacts, fetchInbox, fetchContacts, sendShare, acceptShare, rejectShare } = useRecipeShares(user?.id, user?.email);
   const { translationsCache, translationsLoading, cacheTranslation } = useTranslationCache(recipes);
   const { collections, memberships, fetchCollections, createCollection, deleteCollection, renameCollection, addToCollection, removeFromCollection } = useCollections(user?.id);
 
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null);
+
+  // Vault owner chip: null shows everyone visible, otherwise one person
+
+  const [activeOwnerId, setActiveOwnerId] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ActiveView>('vault');
   const [publicRecipe, setPublicRecipe] = useState<Recipe | null>(null);
 
@@ -89,11 +95,13 @@ export default function App() {
   // Scroll to top whenever the active view changes
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [activeView]);
 
+  useEffect(() => { fetchLinks(); }, [fetchLinks]);
+
   // Debounce search query changes (300ms) before fetching from server
   useEffect(() => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
-      fetchRecipes(searchQuery, activeFilter, activeCollectionId, memberships, sortBy);
+      fetchRecipes(searchQuery, activeFilter, activeCollectionId, memberships, sortBy, activeOwnerId);
     }, 300);
     return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
   }, [searchQuery, activeFilter, activeCollectionId, memberships, sortBy, fetchRecipes]);
@@ -175,6 +183,10 @@ export default function App() {
               searchQuery={searchQuery}
               activeFilter={activeFilter}
               hasMore={hasMore}
+              linkedPeople={connectedPeople}
+              activeOwnerId={activeOwnerId}
+              currentUserId={user?.id ?? null}
+              onOwnerChange={setActiveOwnerId}
               recipeLanguages={Object.fromEntries(recipes.map((r) => [r.id, r.preferred_language ?? '']))}
               translationsCache={translationsCache}
               translationsLoading={translationsLoading}
@@ -281,6 +293,7 @@ export default function App() {
             isSaving={isSavingSettings}
             onClose={() => setIsSettingsOpen(false)}
             onSave={saveSettings}
+            userEmail={user?.email}
             userId={user?.id}
           />
         )}

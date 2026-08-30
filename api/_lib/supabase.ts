@@ -76,6 +76,37 @@ export async function userOwnsRecipe(supabase: SupabaseClient, recipeId: string,
 }
 
 /**
+ * Every user whose recipes the given user may read: themselves, plus anyone
+ * they have an accepted account link with.
+ *
+ * The API uses the service key, which bypasses RLS entirely, so endpoints that
+ * filter by user_id must widen the set themselves. Missing this does not error —
+ * it quietly returns only the caller's own recipes while the rest of the app
+ * shows both.
+ */
+export async function getVisibleUserIds(supabase: SupabaseClient, userId: string): Promise<string[]> {
+  try {
+    const { data, error } = await supabase
+      .from('account_links')
+      .select('requester_id, addressee_id')
+      .eq('status', 'accepted')
+      .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
+
+    if (error || !data) return [userId];
+
+    const linked = data
+      .map((l) => (l.requester_id === userId ? l.addressee_id : l.requester_id))
+      .filter((id): id is string => !!id);
+
+    return [...new Set([userId, ...linked])];
+  } catch {
+    // Failing closed is the safe direction: the caller sees only their own
+    // recipes rather than risking a wider set from a half-answered query.
+    return [userId];
+  }
+}
+
+/**
  * The admin may act on recipes they do not own (view, edit, re-run tagging or
  * nutrition from the admin panel), so ownership checks accept an admin as well.
  */
