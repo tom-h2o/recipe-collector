@@ -88,6 +88,7 @@ export function RecipeVault({
           <div className="relative">
             <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-sk-outline dark:text-muted-foreground pointer-events-none" />
             <select
+              aria-label="Sort recipes"
               value={sortBy}
               onChange={(e) => onSortChange(e.target.value as SortOption)}
               className="pl-8 pr-3 py-2.5 rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface-variant dark:text-muted-foreground text-sm font-sans focus:outline-none focus:ring-2 focus:ring-sk-primary/25 dark:focus:ring-primary/25 transition appearance-none cursor-pointer"

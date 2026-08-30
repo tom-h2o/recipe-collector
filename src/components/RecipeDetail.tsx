@@ -442,11 +442,13 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                     <Users className="w-4 h-4 text-sk-primary dark:text-primary" />
                     <button
                       onClick={() => changeServings(Math.max(1, scaledServings - 1))}
+                      aria-label="Decrease servings"
                       className="w-8 h-8 rounded-full bg-sk-primary-fixed/60 dark:bg-primary/25 text-sk-primary dark:text-primary hover:bg-sk-primary-fixed flex items-center justify-center font-bold transition-colors"
                     ><Minus className="w-3 h-3" /></button>
                     <span className="text-sm font-semibold font-sans text-sk-primary dark:text-primary min-w-[1.5rem] text-center">{scaledServings}</span>
                     <button
                       onClick={() => changeServings(scaledServings + 1)}
+                      aria-label="Increase servings"
                       className="w-8 h-8 rounded-full bg-sk-primary-fixed/60 dark:bg-primary/25 text-sk-primary dark:text-primary hover:bg-sk-primary-fixed flex items-center justify-center font-bold transition-colors"
                     ><Plus className="w-3 h-3" /></button>
                     <span className="text-xs font-sans font-semibold text-sk-primary dark:text-primary ml-1">
@@ -640,6 +642,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                     {showTagEditor && (
                       <button
                         onClick={() => onUpdateRecipe(recipe.id, { tags: recipe.tags.filter((t) => t !== tag) })}
+                        aria-label={`Remove tag ${tag}`}
                         className="ml-0.5 hover:text-destructive transition-colors"
                       ><X className="w-2.5 h-2.5" /></button>
                     )}
@@ -677,6 +680,8 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                         const newRating = recipe.rating === star ? null : star;
                         onUpdateRecipe(recipe.id, { rating: newRating });
                       }}
+                      aria-label={recipe.rating === star ? `Clear ${star} star rating` : `Rate ${star} star${star === 1 ? '' : 's'}`}
+                      aria-pressed={star <= (recipe.rating || 0)}
                       className="transition-transform hover:scale-125"
                     >
                       <Star className={`w-6 h-6 ${star <= (recipe.rating || 0) ? 'fill-sk-primary text-sk-primary dark:fill-primary dark:text-primary' : 'text-sk-outline-variant dark:text-muted-foreground/40'}`} />

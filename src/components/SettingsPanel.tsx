@@ -56,13 +56,13 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, use
         <div className="shrink-0 flex bg-zinc-100 dark:bg-zinc-800 rounded-xl p-1 gap-1">
           <button
             onClick={() => setTab('settings')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'settings' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'settings' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
           >
             <Settings className="w-4 h-4" /> General
           </button>
           <button
             onClick={() => setTab('logs')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'logs' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'logs' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
           >
             <BarChart2 className="w-4 h-4" /> Usage Logs
           </button>
@@ -95,7 +95,7 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, use
                 <div className="space-y-2">
                   <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Gemini Model</Label>
                   <Select value={local.gemini_model} onValueChange={(v) => { if (v) setLocal((p) => ({ ...p, gemini_model: v })); }}>
-                    <SelectTrigger className="w-full"><SelectValue placeholder="Select model" /></SelectTrigger>
+                    <SelectTrigger aria-label="Gemini model" className="w-full"><SelectValue placeholder="Select model" /></SelectTrigger>
                     <SelectContent>
                       {MODEL_GROUPS.map((group) => (
                         <SelectGroup key={group.label}>
