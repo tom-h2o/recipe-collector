@@ -23,6 +23,28 @@ export default defineConfig({
         globIgnores: ['**/*-{cyrillic,greek,vietnamese}-*.woff2'],
         runtimeCaching: [
           {
+            // Recipe photos live in Supabase storage, not under /rest/v1, so the
+            // rule below never matched them and none were available offline.
+            // Cook mode is a fullscreen kitchen view — losing the pictures on a
+            // weak connection is exactly when it matters.
+            urlPattern: ({ url, request }) =>
+              request.destination === 'image' &&
+              url.protocol === 'https:' &&
+              url.hostname.endsWith('.supabase.co') &&
+              url.pathname.startsWith('/storage/v1/object/public/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'recipe-image-cache',
+              expiration: {
+                // bounded so a large gallery cannot fill the device
+                maxEntries: 200,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+                purgeOnQuotaError: true,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
             // Cache read-only Supabase REST requests for offline browsing.
             // Mutations must never be served from or written into the service worker cache.
             urlPattern: ({ url, request }) =>

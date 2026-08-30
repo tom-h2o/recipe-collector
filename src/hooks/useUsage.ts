@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { DAILY_LIMIT } from '../../shared/usage';
+import { DAILY_LIMIT, NON_AI_ENDPOINTS } from '../../shared/usage';
 
 export interface UsageStats {
   used: number;
@@ -27,7 +27,9 @@ export function useUsage(userId?: string | null) {
         .gte('created_at', todayStart.toISOString());
 
       const rows = data ?? [];
-      const used = rows.length;
+      // The meter tracks the AI allowance, so non-Gemini endpoints logged here
+      // appear in the breakdown but are excluded from the total.
+      const used = rows.filter((r) => !(NON_AI_ENDPOINTS as readonly string[]).includes(r.endpoint)).length;
 
       const counts: Record<string, number> = {};
       for (const r of rows) counts[r.endpoint] = (counts[r.endpoint] ?? 0) + 1;

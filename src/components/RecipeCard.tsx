@@ -30,6 +30,8 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, translation, tr
         {recipe.image_url && !imgError ? (
           <img
             src={recipe.image_url}
+            loading="lazy"
+            decoding="async"
             alt={recipe.title}
             className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500"
             onError={() => setImgError(true)}
