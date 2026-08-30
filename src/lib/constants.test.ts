@@ -1,11 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { MODEL_GROUPS, MODELS, DEFAULT_MODEL } from './constants';
+import { MODEL_OPTIONS, MODELS, DEFAULT_MODEL } from './constants';
 
 describe('Gemini model list', () => {
   it('offers the default model, so the dropdown always has a valid selection', () => {
     // If DEFAULT_MODEL is not in MODELS the Select renders with nothing chosen
     // and the user cannot tell which model is actually in use.
     expect(MODELS).toContain(DEFAULT_MODEL);
+  });
+
+  it('stays short enough to be a real choice', () => {
+    // A dozen ids named gemini-3.x-flash-something is not a decision anyone can
+    // make. Three tiers — cheap, balanced, accurate — cover the useful range.
+    expect(MODEL_OPTIONS.length).toBeGreaterThanOrEqual(3);
+    expect(MODEL_OPTIONS.length).toBeLessThanOrEqual(5);
   });
 
   it('lists every model exactly once', () => {
@@ -29,24 +36,26 @@ describe('Gemini model list', () => {
     expect(wrongModality).toEqual([]);
   });
 
-  it('keeps preview models in a group labelled as preview', () => {
-    for (const group of MODEL_GROUPS) {
-      const previews = group.models.filter((m) => m.includes('preview'));
-      if (previews.length) {
-        expect(group.label.toLowerCase(), `${previews.join(', ')} sit in "${group.label}"`).toContain('preview');
-      }
-    }
-  });
-
   it('excludes models Google has retired', () => {
     // gemini-2.5-flash-lite is still advertised by ListModels but generateContent
     // returns 404 "no longer available to new users" — see migration 0044.
     expect(MODELS).not.toContain('gemini-2.5-flash-lite');
   });
 
-  it('has no empty groups', () => {
-    for (const group of MODEL_GROUPS) {
-      expect(group.models.length, `"${group.label}" is empty`).toBeGreaterThan(0);
+  it('tells the user when to pick each one', () => {
+    for (const m of MODEL_OPTIONS) {
+      expect(m.name, `${m.id} has no display name`).toBeTruthy();
+      expect(m.description.length, `${m.id} has no useful description`).toBeGreaterThan(40);
+      expect(m.price, `${m.id} has no price`).toMatch(/\$/);
+    }
+  });
+
+  it('flags preview models as preview', () => {
+    for (const m of MODEL_OPTIONS.filter((o) => o.id.includes('preview'))) {
+      expect(
+        `${m.badge ?? ''} ${m.description}`.toLowerCase(),
+        `${m.id} is a preview model but nothing says so`,
+      ).toContain('preview');
     }
   });
 });

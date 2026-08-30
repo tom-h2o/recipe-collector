@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { GeminiLogs } from '@/components/GeminiLogs';
-import { MODEL_GROUPS } from '@/lib/constants';
+import { MODEL_OPTIONS } from '@/lib/constants';
 import type { AppSettings } from '@/types';
 
 type Tab = 'settings' | 'logs';
@@ -95,19 +95,32 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, use
                 <div className="space-y-2">
                   <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Gemini Model</Label>
                   <Select value={local.gemini_model} onValueChange={(v) => { if (v) setLocal((p) => ({ ...p, gemini_model: v })); }}>
-                    <SelectTrigger aria-label="Gemini model" className="w-full"><SelectValue placeholder="Select model" /></SelectTrigger>
+                    <SelectTrigger aria-label="Gemini model" className="w-full">
+                      <SelectValue placeholder="Select model" />
+                    </SelectTrigger>
                     <SelectContent>
-                      {MODEL_GROUPS.map((group) => (
-                        <SelectGroup key={group.label}>
-                          <SelectLabel className="text-xs text-zinc-400 font-bold uppercase tracking-wider">{group.label}</SelectLabel>
-                          {group.models.map((m) => (
-                            <SelectItem key={m} value={m}>{m}</SelectItem>
-                          ))}
-                        </SelectGroup>
+                      {MODEL_OPTIONS.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          <div className="flex flex-col gap-0.5 py-0.5 max-w-[26rem]">
+                            <span className="flex items-center gap-2 font-semibold">
+                              {m.name}
+                              {m.badge && (
+                                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-sk-surface-high dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground">
+                                  {m.badge}
+                                </span>
+                              )}
+                              <span className="text-[11px] font-normal text-zinc-600 dark:text-zinc-400">{m.id}</span>
+                            </span>
+                            <span className="text-xs font-normal text-zinc-600 dark:text-zinc-400 whitespace-normal">{m.description}</span>
+                            <span className="text-[11px] font-normal text-zinc-600 dark:text-zinc-400">{m.price}</span>
+                          </div>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Lite is fastest and cheapest; Flash balances speed and quality; Pro is most accurate. Preview models are newer but may change.</p>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                    Changing this affects every AI feature: recipe extraction, tagging, nutrition and translation.
+                  </p>
                 </div>
               </div>
             )}
