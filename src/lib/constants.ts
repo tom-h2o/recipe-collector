@@ -9,41 +9,53 @@
 export const DEFAULT_MODEL = 'gemini-3.7-flash';
 
 /**
- * Verified against the live ListModels endpoint (v1beta) — every ID here is one
- * the API currently serves. Newest first within each group.
+ * The models offered in Settings.
  *
- * Deliberately excluded: the `-latest` aliases (they re-point without warning,
- * so a saved setting would silently change model), image/TTS/live/omni variants
- * (not text generation), and gemini-3.1-flash-lite-preview (superseded by the
- * stable gemini-3.1-flash-lite).
+ * Deliberately short. The full Gemini catalogue has a dozen text models whose
+ * names say nothing about which to pick; three tiers — cheap, balanced,
+ * accurate — cover every real decision here.
  *
- * gemini-2.5-flash-lite was removed: it is still advertised by ListModels but
- * generateContent returns 404 "no longer available to new users", pointing at
- * gemini-3.5-flash-lite instead. Every ID here was smoke-tested with a real
- * generateContent call, not just read off the listing.
+ * Every id was verified with a live generateContent call. ListModels advertises
+ * models that no longer serve requests, which is how a dead one reached this
+ * list before (see migration 0044).
  */
-export const MODEL_GROUPS = [
-  {
-    label: 'Gemini 3 — Stable',
-    models: [
-      'gemini-3.7-flash',
-      'gemini-3.6-flash',
-      'gemini-3.5-flash',
-      'gemini-3.5-flash-lite',
-      'gemini-3.1-flash-lite',
-    ],
-  },
-  {
-    label: 'Gemini 3 — Preview',
-    models: ['gemini-3.1-pro-preview', 'gemini-3-flash-preview'],
-  },
-  {
-    label: 'Gemini 2.5 — Stable',
-    models: ['gemini-2.5-pro', 'gemini-2.5-flash'],
-  },
-] as const;
+export interface ModelOption {
+  id: string;
+  /** Short tier name shown in the trigger. */
+  name: string;
+  /** One-word status shown beside the name. */
+  badge?: string;
+  /** When to pick this one. */
+  description: string;
+  /** Input / output per 1M tokens. */
+  price: string;
+}
 
-export const MODELS = MODEL_GROUPS.flatMap((g) => g.models);
+export const MODEL_OPTIONS: ModelOption[] = [
+  {
+    id: 'gemini-3.5-flash-lite',
+    name: 'Lite',
+    badge: 'Cheapest',
+    description: 'Fastest and lowest cost. Fine for tagging, nutrition and clean recipe pages. Can miss detail in handwriting or multi-page photos.',
+    price: '$0.30 / $2.50 per 1M tokens',
+  },
+  {
+    id: 'gemini-3.7-flash',
+    name: 'Flash',
+    badge: 'Recommended',
+    description: 'Best all-round choice, and the one used by default. Handles photo and multi-page extraction reliably.',
+    price: '$0.75 / $3.75 per 1M tokens',
+  },
+  {
+    id: 'gemini-3.1-pro-preview',
+    name: 'Pro',
+    badge: 'Preview',
+    description: 'Most accurate on messy handwriting and awkward scans. Slower, and roughly three times the cost of Flash. Preview models can change or be withdrawn.',
+    price: '$2.00 / $12.00 per 1M tokens',
+  },
+];
+
+export const MODELS = MODEL_OPTIONS.map((m) => m.id);
 
 export const FILTERS = [
   '⭐ Favourites',
