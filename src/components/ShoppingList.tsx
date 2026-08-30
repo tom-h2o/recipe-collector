@@ -79,7 +79,7 @@ export function ShoppingList({
           <button
             onClick={() => onGenerate(mealPlans)}
             disabled={isGenerating}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold min-h-[40px] px-4 rounded-xl shadow-sm transition-transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold min-h-[40px] px-4 rounded-xl shadow-sm transition-transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Wand2 className="w-4 h-4" />
             {isGenerating ? 'Generating...' : <><span className="hidden sm:inline">Generate from Next 7 Days</span><span className="sm:hidden">Generate</span></>}
@@ -91,7 +91,7 @@ export function ShoppingList({
       <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-xl p-1 gap-1">
         <button
           onClick={() => setTab('shopping')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'shopping' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'shopping' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
         >
           <ShoppingCart className="w-4 h-4" />
           To Buy
@@ -101,12 +101,12 @@ export function ShoppingList({
         </button>
         <button
           onClick={() => setTab('pantry')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'pantry' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'pantry' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
         >
           <Package className="w-4 h-4" />
           Pantry
           {pantryItems.length > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 bg-emerald-500 text-white text-[10px] font-bold rounded-full">{pantryItems.length}</span>
+            <span className="ml-1 px-1.5 py-0.5 bg-emerald-700 text-white text-[10px] font-bold rounded-full">{pantryItems.length}</span>
           )}
         </button>
       </div>
@@ -138,7 +138,7 @@ export function ShoppingList({
           <div className="text-center py-24 bg-white dark:bg-zinc-900/50 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-sm">
             <ShoppingCart className="w-16 h-16 mx-auto text-zinc-300 dark:text-zinc-700 mb-4" />
             <p className="text-xl font-bold text-zinc-500 dark:text-zinc-400">Your shopping list is empty.</p>
-            <p className="text-sm text-zinc-400 mt-2">Generate one from your meal plan, or add items manually.</p>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">Generate one from your meal plan, or add items manually.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -207,7 +207,7 @@ export function ShoppingList({
             />
             <button
               type="submit"
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold rounded-xl transition-colors"
             >
               <Plus className="w-4 h-4" /> Add
             </button>
@@ -217,7 +217,7 @@ export function ShoppingList({
             <div className="text-center py-24 bg-white dark:bg-zinc-900/50 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-sm">
               <Package className="w-16 h-16 mx-auto text-zinc-300 dark:text-zinc-700 mb-4" />
               <p className="text-xl font-bold text-zinc-500 dark:text-zinc-400">Your pantry is empty.</p>
-              <p className="text-sm text-zinc-400 mt-2">Add items you always have at home. They'll show on your shopping list with a green dot when needed.</p>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">Add items you always have at home. They'll show on your shopping list with a green dot when needed.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

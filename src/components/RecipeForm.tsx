@@ -412,21 +412,21 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
                 <button
                   type="button"
                   onClick={() => setImportTab('url')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all ${importTab === 'url' ? 'bg-white dark:bg-zinc-800 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all ${importTab === 'url' ? 'bg-white dark:bg-zinc-800 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
                 >
                   <ChefHat className="w-3.5 h-3.5" /> From URL
                 </button>
                 <button
                   type="button"
                   onClick={() => setImportTab('photo')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all ${importTab === 'photo' ? 'bg-white dark:bg-zinc-800 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all ${importTab === 'photo' ? 'bg-white dark:bg-zinc-800 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
                 >
                   <Camera className="w-3.5 h-3.5" /> From Photo
                 </button>
                 <button
                   type="button"
                   onClick={() => setImportTab('pdf')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all ${importTab === 'pdf' ? 'bg-white dark:bg-zinc-800 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all ${importTab === 'pdf' ? 'bg-white dark:bg-zinc-800 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
                 >
                   <FileText className="w-3.5 h-3.5" /> From PDF
                 </button>
@@ -588,11 +588,11 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
               <Input id="servings" type="number" min="1" value={servings} onChange={(e) => setServings(e.target.value)} placeholder="e.g. 4" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="prep-time" className="font-semibold text-zinc-700 dark:text-zinc-300">Prep <span className="text-xs font-normal text-zinc-400">mins</span></Label>
+              <Label htmlFor="prep-time" className="font-semibold text-zinc-700 dark:text-zinc-300">Prep <span className="text-xs font-normal text-zinc-600 dark:text-zinc-400">mins</span></Label>
               <Input id="prep-time" type="number" min="0" value={prepTime} onChange={(e) => setPrepTime(e.target.value)} placeholder="15" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cook-time" className="font-semibold text-zinc-700 dark:text-zinc-300">Cook <span className="text-xs font-normal text-zinc-400">mins</span></Label>
+              <Label htmlFor="cook-time" className="font-semibold text-zinc-700 dark:text-zinc-300">Cook <span className="text-xs font-normal text-zinc-600 dark:text-zinc-400">mins</span></Label>
               <Input id="cook-time" type="number" min="0" value={cookTime} onChange={(e) => setCookTime(e.target.value)} placeholder="30" />
             </div>
           </div>
@@ -722,7 +722,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
           {/* Source */}
           <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4 space-y-3">
             <Label className="font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
-              <Link className="w-4 h-4 text-zinc-400" /> Source <span className="text-xs font-normal text-zinc-400">optional</span>
+              <Link className="w-4 h-4 text-zinc-400" /> Source <span className="text-xs font-normal text-zinc-600 dark:text-zinc-400">optional</span>
             </Label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">

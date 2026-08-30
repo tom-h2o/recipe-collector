@@ -63,7 +63,7 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
                 <span className="font-bold text-sm text-white/80 uppercase tracking-wider">Ingredients</span>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-white/40">{checkedIngredients.size}/{ingredients.length}</span>
-                  <button onClick={() => setShowIngredients(false)} className="sm:hidden p-1 rounded-full hover:bg-white/10 text-white/50"><X className="w-4 h-4" /></button>
+                  <button onClick={() => setShowIngredients(false)} aria-label="Hide ingredients" className="sm:hidden p-1 rounded-full hover:bg-white/10 text-white/50"><X className="w-4 h-4" /></button>
                 </div>
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-1">
@@ -106,7 +106,7 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
                   <span className="hidden sm:inline">Ingredients</span>
                 </button>
                 <span className="text-sm font-semibold text-white/50">{cookStep + 1}/{steps.length}</span>
-                <button onClick={handleClose} className="p-2 rounded-full hover:bg-white/10 transition-colors">
+                <button onClick={handleClose} aria-label="Exit cook mode" className="p-2 rounded-full hover:bg-white/10 transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -130,6 +130,8 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
                 <button
                   key={i}
                   onClick={() => setCookStep(i)}
+                  aria-label={`Go to step ${i + 1} of ${steps.length}`}
+                  aria-current={i === cookStep ? 'step' : undefined}
                   className="p-2 flex items-center justify-center"
                 >
                   <span className={`rounded-full transition-all ${i === cookStep ? 'w-6 h-2.5 bg-sk-primary-fixed' : 'w-2.5 h-2.5 bg-white/20 hover:bg-white/40'}`} />

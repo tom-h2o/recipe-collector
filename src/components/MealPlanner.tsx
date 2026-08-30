@@ -79,7 +79,7 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
           <div className="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl">
             <ChefHat className="w-12 h-12 text-zinc-300 dark:text-zinc-700 mb-3" />
             <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">No recipes yet</p>
-            <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-1">Add a recipe to start planning</p>
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">Add a recipe to start planning</p>
           </div>
         ) : (
           <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2 pb-4">
@@ -197,7 +197,7 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-                        <div className="font-bold text-[10px] sm:text-xs uppercase tracking-wider text-zinc-400 dark:text-zinc-500">{meal}</div>
+                        <div className="font-bold text-[10px] sm:text-xs uppercase tracking-wider text-zinc-600 dark:text-zinc-400">{meal}</div>
                         {/* Mobile tap-to-add — opens searchable picker modal */}
                         <button
                           onClick={() => { setMobilePicker({ date, meal }); setMobileSearch(''); }}
