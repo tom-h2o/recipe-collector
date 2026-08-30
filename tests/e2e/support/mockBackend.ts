@@ -108,6 +108,26 @@ export async function installMockBackend(page: Page, { verbose = false, theme }:
     });
   });
 
+  // The admin panel and the AI endpoints go through the serverless functions,
+  // which the Vite dev server does not run.
+  await page.route('**/api/**', async (route) => {
+    const url = route.request().url();
+    log('API intercept:', url);
+    let body: unknown = {};
+    if (url.includes('tab=overview')) {
+      body = { stats: { total_users: 1, total_recipes: MOCK_RECIPES.length, total_ai_calls: 3, calls_today: 1, calls_this_week: 3, model_breakdown: [{ model: 'gemini-3.7-flash', count: 3 }] } };
+    } else if (url.includes('tab=users')) {
+      body = { users: [{ id: MOCK_USER.id, email: MOCK_USER.email, created_at: MOCK_USER.created_at, last_sign_in_at: null, recipe_count: 2, ai_call_count: 3 }], total: 1 };
+    } else if (url.includes('tab=recipes')) {
+      body = { recipes: MOCK_RECIPES.map((r) => ({ ...r, user_email: MOCK_USER.email })), total: MOCK_RECIPES.length };
+    } else if (url.includes('tab=logs')) {
+      body = { logs: [], total: 0 };
+    } else if (url.includes('/api/usage')) {
+      body = { used: 3, limit: 100, remaining: 97, byEndpoint: {} };
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  });
+
   await page.addInitScript(
     ({ storageKey, user, themeChoice }) => {
       window.localStorage.setItem(

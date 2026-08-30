@@ -14,7 +14,7 @@ export function RecipeInbox({ shares, onAccept, onReject, onBack }: Props) {
       <div className="max-w-2xl mx-auto text-center py-24 animate-in fade-in duration-500">
         <Inbox className="w-16 h-16 mx-auto text-zinc-300 dark:text-zinc-700 mb-4" />
         <p className="text-xl font-bold text-zinc-500 dark:text-zinc-400">Your inbox is empty</p>
-        <p className="text-sm text-zinc-400 mt-2">When someone sends you a recipe it will appear here.</p>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">When someone sends you a recipe it will appear here.</p>
         <button
           onClick={onBack}
           className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-sk-primary hover:text-sk-primary-container dark:text-primary transition-colors"
@@ -30,7 +30,7 @@ export function RecipeInbox({ shares, onAccept, onReject, onBack }: Props) {
       <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="p-1.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
+          className="p-1.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
           title="Back to Vault"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -69,7 +69,7 @@ export function RecipeInbox({ shares, onAccept, onReject, onBack }: Props) {
               {share.recipe_description && (
                 <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-1 mt-0.5">{share.recipe_description}</p>
               )}
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
                 From <span className="font-semibold text-zinc-600 dark:text-zinc-300">{share.sender_email}</span>
                 {' · '}
                 {new Date(share.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}

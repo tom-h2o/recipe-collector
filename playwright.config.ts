@@ -20,6 +20,8 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run dev',
+    // Matches MOCK_USER.email so the admin panel is reachable in tests.
+    env: { ...process.env, VITE_ADMIN_EMAIL: 'test@example.com' },
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 10000,
