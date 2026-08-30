@@ -19,13 +19,13 @@ const otherId = '550e8400-e29b-41d4-a716-446655440001';
 
 async function loadHandler(generated: unknown) {
   vi.resetModules();
-  const finalIn = vi.fn().mockResolvedValue({ data: [{ id: recipeId, title: 'Cake' }] });
-  const finalEq = vi.fn(() => ({ in: finalIn }));
+  const finalIdIn = vi.fn().mockResolvedValue({ data: [{ id: recipeId, title: 'Cake' }] });
+  const finalUsersIn = vi.fn(() => ({ in: finalIdIn }));
   const fallbackLimit = vi.fn().mockResolvedValue({
     data: [{ id: recipeId, title: 'Cake', ingredients: [{ name: 'cream' }] }],
   });
   const fallbackOrder = vi.fn(() => ({ limit: fallbackLimit }));
-  const fallbackEq = vi.fn(() => ({ order: fallbackOrder }));
+  const fallbackUsersIn = vi.fn(() => ({ order: fallbackOrder }));
   const supabase = {
     rpc: vi.fn().mockResolvedValue({ data: [] }),
     from: vi.fn((table: string) => {
@@ -34,11 +34,11 @@ async function loadHandler(generated: unknown) {
         select: vi.fn((columns?: string) => {
           if (columns === '*') {
             return {
-              eq: finalEq,
+              in: finalUsersIn,
             };
           }
           return {
-            eq: fallbackEq,
+            in: fallbackUsersIn,
           };
         }),
       };
@@ -52,6 +52,8 @@ async function loadHandler(generated: unknown) {
     }),
     resolveApiKey: () => 'key',
     getUserId: vi.fn().mockResolvedValue('user-1'),
+    // Suggestions cover the caller plus anyone they are linked to.
+    getVisibleUserIds: vi.fn().mockResolvedValue(['user-1']),
   }));
   vi.doMock('./_lib/cache.js', () => ({
     getCached: vi.fn().mockResolvedValue(null),
@@ -66,22 +68,23 @@ async function loadHandler(generated: unknown) {
     generateJson: vi.fn().mockResolvedValue(generated),
   }));
   const mod = await import('./suggest');
-  return { handler: mod.default, fallbackEq, finalEq };
+  return { handler: mod.default, fallbackUsersIn, finalUsersIn };
 }
 
 describe('/api/suggest', () => {
   beforeEach(() => vi.restoreAllMocks());
 
   it('validates and filters suggested ids to current candidates', async () => {
-    const { handler, fallbackEq, finalEq } = await loadHandler([recipeId, otherId]);
+    const { handler, fallbackUsersIn, finalUsersIn } = await loadHandler([recipeId, otherId]);
     const res = createResponse();
 
     await handler({ method: 'POST', headers: {}, body: { ingredients: ['cream'] } } as VercelRequest, res);
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual({ suggestions: [{ id: recipeId, title: 'Cake' }] });
-    expect(fallbackEq).toHaveBeenCalledWith('user_id', 'user-1');
-    expect(finalEq).toHaveBeenCalledWith('user_id', 'user-1');
+    // scoped to the visible set — the caller plus any linked accounts
+    expect(fallbackUsersIn).toHaveBeenCalledWith('user_id', ['user-1']);
+    expect(finalUsersIn).toHaveBeenCalledWith('user_id', ['user-1']);
   });
 
   it('rejects non-uuid suggested ids', async () => {

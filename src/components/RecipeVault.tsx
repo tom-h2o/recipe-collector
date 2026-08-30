@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, X, ArrowUpDown, FolderOpen, Plus, Trash2, Pencil, Check } from 'lucide-react';
+import { Search, X, ArrowUpDown, FolderOpen, Plus, Trash2, Pencil, Check, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RecipeCard } from './RecipeCard';
 import { FILTERS, SORT_OPTIONS, type SortOption } from '@/lib/constants';
-import type { Recipe, RecipeTranslation, Collection, RecipeCollection } from '@/types';
+import type { Recipe, RecipeTranslation, Collection, RecipeCollection, LinkedPerson } from '@/types';
 
 interface Props {
   recipes: Recipe[];
@@ -18,6 +18,12 @@ interface Props {
   collections: Collection[];
   memberships: RecipeCollection[];
   activeCollectionId: string | null;
+  /** Accepted connections, used for the owner chips. */
+  linkedPeople?: LinkedPerson[];
+  /** Which person's recipes to show, or null for everyone. */
+  activeOwnerId?: string | null;
+  currentUserId?: string | null;
+  onOwnerChange?: (userId: string | null) => void;
   onSearchChange: (q: string) => void;
   onFilterChange: (tag: string | null) => void;
   onCollectionChange: (id: string | null) => void;
@@ -35,6 +41,7 @@ export function RecipeVault({
   recipes, loading, processingIds, searchQuery, activeFilter, hasMore,
   recipeLanguages, translationsCache, translationsLoading,
   collections, memberships, activeCollectionId,
+  linkedPeople = [], activeOwnerId = null, currentUserId = null, onOwnerChange,
   sortBy, onSortChange,
   onSearchChange, onFilterChange, onCollectionChange, onCreateCollection, onDeleteCollection, onRenameCollection,
   onLoadMore, onOpenRecipe, onToggleFavourite,
@@ -97,6 +104,33 @@ export function RecipeVault({
             </select>
           </div>
         </div>
+
+        {/* Whose recipes — only worth showing once something is connected */}
+        {linkedPeople.length > 0 && onOwnerChange && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <Users className="w-3.5 h-3.5 text-sk-outline dark:text-muted-foreground shrink-0" />
+            {[
+              { id: null, label: 'Everyone' },
+              { id: currentUserId, label: 'Mine' },
+              ...linkedPeople.map((p) => ({ id: p.userId, label: p.label })),
+            ]
+              .filter((c) => c.id !== undefined)
+              .map((chip) => (
+                <button
+                  key={chip.id ?? 'all'}
+                  onClick={() => onOwnerChange(chip.id ?? null)}
+                  aria-pressed={activeOwnerId === (chip.id ?? null)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold font-sans transition-colors ${
+                    activeOwnerId === (chip.id ?? null)
+                      ? 'bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground'
+                      : 'bg-sk-surface-low dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary'
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              ))}
+          </div>
+        )}
 
         {/* Collections */}
         <div className="flex items-center gap-2 flex-wrap">

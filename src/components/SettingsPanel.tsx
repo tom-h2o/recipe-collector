@@ -1,4 +1,4 @@
-import { Settings, BarChart2, RefreshCw } from 'lucide-react';
+import { Settings, BarChart2, RefreshCw, Link2 } from 'lucide-react';
 import { useUsage } from '@/hooks/useUsage';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { GeminiLogs } from '@/components/GeminiLogs';
+import { ConnectionsPanel } from '@/components/ConnectionsPanel';
+import { useAccountLinks } from '@/hooks/useAccountLinks';
 import { MODEL_OPTIONS } from '@/lib/constants';
 import type { AppSettings } from '@/types';
 
-type Tab = 'settings' | 'logs';
+type Tab = 'settings' | 'connections' | 'logs';
 
 interface Props {
   isOpen: boolean;
@@ -18,9 +20,14 @@ interface Props {
   onClose: () => void;
   onSave: (settings: AppSettings) => void;
   userId?: string | null;
+  userEmail?: string | null;
 }
 
-export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, userId }: Props) {
+export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, userId, userEmail }: Props) {
+  const {
+    connected, pendingIncoming, pendingOutgoing, busy: linksBusy,
+    fetchLinks, invite, accept, disconnect, rename,
+  } = useAccountLinks(userId, userEmail);
   const [local, setLocal] = useState<AppSettings>(settings);
   const [tab, setTab] = useState<Tab>('settings');
   const { usage, loadingUsage, fetchUsage } = useUsage(userId);
@@ -33,6 +40,7 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, use
   useEffect(() => { if (!isOpen) setTab('settings'); }, [isOpen]);
 
   useEffect(() => { if (tab === 'logs') fetchUsage(); }, [tab, fetchUsage]);
+  useEffect(() => { if (tab === 'connections') fetchLinks(); }, [tab, fetchLinks]);
 
   const hasChanges = JSON.stringify(local) !== JSON.stringify(settings);
 
@@ -59,6 +67,12 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, use
             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'settings' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
           >
             <Settings className="w-4 h-4" /> General
+          </button>
+          <button
+            onClick={() => setTab('connections')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'connections' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
+          >
+            <Link2 className="w-4 h-4" /> Connections
           </button>
           <button
             onClick={() => setTab('logs')}
@@ -123,6 +137,19 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, use
                   </p>
                 </div>
               </div>
+            )}
+
+            {tab === 'connections' && (
+              <ConnectionsPanel
+                connected={connected}
+                pendingIncoming={pendingIncoming}
+                pendingOutgoing={pendingOutgoing}
+                busy={linksBusy}
+                onInvite={invite}
+                onAccept={accept}
+                onDisconnect={disconnect}
+                onRename={rename}
+              />
             )}
 
             {tab === 'logs' && (

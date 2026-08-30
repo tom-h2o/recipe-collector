@@ -23,6 +23,8 @@ interface RecipeState {
   currentCollectionId: string | null;
   currentMemberships: any[];
   currentSortBy: string;
+  /** Narrows the vault to one linked person, or null for everyone visible. */
+  currentOwnerFilter: string | null;
 
   // Polling intervals tracker (in-memory, outside React lifecycle)
   pollingIntervals: Map<string, ReturnType<typeof setInterval>>;
@@ -33,7 +35,8 @@ interface RecipeState {
     tagFilter?: string | null,
     collectionId?: string | null,
     memberships?: any[],
-    sortBy?: string
+    sortBy?: string,
+    ownerFilter?: string | null
   ) => Promise<void>;
   loadMore: () => Promise<void>;
   /** Resolves to the saved recipe's id, so callers can attach gallery images. */
@@ -66,6 +69,30 @@ interface RecipeState {
   addToPantry: (item: string, userId: string | null, category?: string | null) => Promise<void>;
 }
 
+/**
+ * Recipes the user has adopted from a linked account keep a pointer to the
+ * original. The original is then hidden from their vault so the same dish is not
+ * listed twice — once as theirs, once as the other person's.
+ *
+ * Applied as a query filter rather than after fetching, because the vault
+ * paginates server-side and post-filtering would return short pages.
+ */
+async function getAdoptedOriginalIds(): Promise<string[]> {
+  try {
+    const { data } = await supabase
+      .from('recipes')
+      .select('copied_from_recipe_id')
+      .not('copied_from_recipe_id', 'is', null);
+    return (data ?? [])
+      .map((r) => r.copied_from_recipe_id as string | null)
+      .filter((id): id is string => !!id);
+  } catch {
+    // Failing open only means an original may appear beside its copy, which is
+    // untidy rather than wrong — unlike visibility, where failing closed matters.
+    return [];
+  }
+}
+
 export const useRecipeStore = create<RecipeState>((set, get) => ({
   recipes: [],
   loading: true,
@@ -77,6 +104,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
   currentCollectionId: null,
   currentMemberships: [],
   currentSortBy: 'newest',
+  currentOwnerFilter: null,
   pollingIntervals: new Map(),
 
   // Meal Plans
@@ -92,7 +120,8 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
     tagFilter = null,
     collectionId = null,
     memberships = [],
-    sortBy = 'newest'
+    sortBy = 'newest',
+    ownerFilter = null
   ) => {
     set({
       loading: true,
@@ -102,9 +131,16 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       currentCollectionId: collectionId,
       currentMemberships: memberships,
       currentSortBy: sortBy,
+      currentOwnerFilter: ownerFilter,
     });
 
     let query = supabase.from('recipes').select('*');
+
+    // Linked accounts' recipes arrive via RLS; the chip narrows to one owner.
+    if (ownerFilter) query = query.eq('user_id', ownerFilter);
+
+    const adoptedIds = await getAdoptedOriginalIds();
+    if (adoptedIds.length > 0) query = query.not('id', 'in', `(${adoptedIds.join(',')})`);
 
     if (searchQuery && searchQuery.trim()) {
       query = query.textSearch('search_vector', searchQuery.trim());
@@ -144,9 +180,15 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
   },
 
   loadMore: async () => {
-    const { page, recipes, currentSearchQuery, currentTagFilter, currentCollectionId, currentMemberships, currentSortBy } = get();
+    const { page, recipes, currentSearchQuery, currentTagFilter, currentCollectionId, currentMemberships, currentSortBy, currentOwnerFilter } = get();
     const nextPage = page + 1;
     let query = supabase.from('recipes').select('*');
+
+    // Linked accounts' recipes arrive via RLS; the chip narrows to one owner.
+    if (currentOwnerFilter) query = query.eq("user_id", currentOwnerFilter);
+
+    const adoptedIds = await getAdoptedOriginalIds();
+    if (adoptedIds.length > 0) query = query.not('id', 'in', `(${adoptedIds.join(',')})`);
 
     if (currentSearchQuery) {
       query = query.textSearch('search_vector', currentSearchQuery);

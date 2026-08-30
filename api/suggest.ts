@@ -2,7 +2,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId, getVisibleUserIds } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { suggestResultSchema, suggestSchema } from './_lib/schemas.js';
@@ -26,6 +26,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const supabase = getServerSupabase();
     const userId = await getUserId(req.headers.authorization as string | undefined);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    // Suggestions draw on the caller's recipes plus anyone they are linked to.
+    const visibleUserIds = await getVisibleUserIds(supabase, userId);
     const settings = await getSettings(supabase, userId);
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
@@ -48,7 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (vectorRecipes.length > 0) {
       topCandidates = vectorRecipes.map((r) => ({ recipe: r, ingredientsText: Array.isArray(r.ingredients) ? r.ingredients.map((i: any) => (typeof i === 'object' && i !== null && 'name' in i ? (i as { name: string }).name : String(i))).join(', ') : String(r.ingredients ?? '') }));
     } else {
-      const { data: recipes } = await supabase.from('recipes').select('id, title, ingredients').eq('user_id', userId).order('created_at', { ascending: false }).limit(200);
+      const { data: recipes } = await supabase.from('recipes').select('id, title, ingredients').in('user_id', visibleUserIds).order('created_at', { ascending: false }).limit(200);
       if (!recipes || recipes.length === 0) return res.status(200).json({ suggestions: [] });
       const scored = recipes.map((r) => {
         const ingList = Array.isArray(r.ingredients) ? r.ingredients.map((i: unknown) => (typeof i === 'object' && i !== null && 'name' in i ? (i as { name: string }).name : String(i))) : [];
@@ -86,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (validIds.length === 0) return res.status(200).json({ suggestions: [] });
 
-    const { data: matchedRecipes } = await supabase.from('recipes').select('*').eq('user_id', userId).in('id', validIds);
+    const { data: matchedRecipes } = await supabase.from('recipes').select('*').in('user_id', visibleUserIds).in('id', validIds);
     return res.status(200).json({ suggestions: matchedRecipes ?? [] });
   } catch (err: unknown) {
     if (err instanceof ZodError) return res.status(400).json({ error: err.issues[0]?.message ?? 'Invalid request' });

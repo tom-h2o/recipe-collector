@@ -8,8 +8,10 @@ import { convertTemperaturesInText } from '@/lib/temperatureUtils';
 import { MEAL_TYPES, DEFAULT_MEAL_TYPE, LANGUAGES, AVAILABLE_TAGS } from '@/lib/constants';
 import type { Recipe, RecipeTranslation, Collection } from '@/types';
 import { CookMode } from '@/components/CookMode';
+import { Button } from '@/components/ui/button';
 import { RecipeGallery } from '@/components/RecipeGallery';
 import { useRecipeImages } from '@/hooks/useRecipeImages';
+import { adoptRecipe } from '@/lib/adoptRecipe';
 
 interface Props {
   recipe: Recipe | null;
@@ -42,6 +44,25 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
   const { images, busy: galleryBusy, fetchImages, addImages, deleteImage } = useRecipeImages(recipe?.id ?? null, userId ?? null);
 
   useEffect(() => { fetchImages(); }, [fetchImages]);
+
+  // A recipe from a linked account is read-only: RLS refuses writes, so the
+  // owner-only controls are disabled rather than left to fail on click.
+  const isLinked = !!recipe && !!userId && !!recipe.user_id && recipe.user_id !== userId;
+  const [adopting, setAdopting] = useState(false);
+
+  async function handleAdopt() {
+    if (!recipe || !userId) return;
+    setAdopting(true);
+    try {
+      await adoptRecipe(recipe as unknown as Record<string, unknown>, userId);
+      toast.success('Saved to your recipes');
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not save the recipe.');
+    } finally {
+      setAdopting(false);
+    }
+  }
 
   /** Points the recipe at a different picture. The previous one stays in the gallery. */
   function setCoverImage(image: { url: string }) {
@@ -678,6 +699,22 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                 </div>
               )}
             </div>
+
+            {isLinked && (
+              <div className="mt-4 flex flex-wrap items-center gap-3 px-4 py-3 rounded-xl bg-sk-primary-fixed/30 dark:bg-primary/10">
+                <p className="text-sm font-sans text-sk-on-surface dark:text-foreground flex-1 min-w-0">
+                  This recipe belongs to someone you are connected with. Save a copy to edit it,
+                  rate it or plan it.
+                </p>
+                <Button
+                  onClick={handleAdopt}
+                  disabled={adopting}
+                  className="gap-1.5 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground border-0 shrink-0"
+                >
+                  <Plus className="w-4 h-4" /> {adopting ? 'Saving…' : 'Save to my recipes'}
+                </Button>
+              </div>
+            )}
 
             {/* Photos */}
             <div id="recipe-gallery" className="pt-6">
