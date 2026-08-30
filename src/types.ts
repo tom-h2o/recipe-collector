@@ -70,6 +70,21 @@ export interface PantryItem {
   created_at: string;
 }
 
+/** Where a gallery image came from, shown as a badge. */
+export type RecipeImageSource = 'upload' | 'website' | 'stock';
+
+export interface RecipeImage {
+  id: string;
+  recipe_id: string;
+  user_id: string;
+  url: string;
+  /** Set for files in the recipe-images bucket, null for external URLs. */
+  storage_path: string | null;
+  source: RecipeImageSource;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface AppSettings {
   gemini_model: string;
   temperature_unit: 'C' | 'F';

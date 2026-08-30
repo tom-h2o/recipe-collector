@@ -8,10 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { parseIngredients } from '@/lib/recipeUtils';
-import { supabase } from '@/lib/supabase';
 import { apiFetch } from '@/lib/api';
 import { LANGUAGES } from '@/lib/constants';
 import { MAX_EXTRACT_PHOTOS, encodePhotosForExtraction } from '@/lib/imageUtils';
+import { uploadRecipeImage, attachRecipeImages } from '@/hooks/useRecipeImages';
+import type { RecipeImageSource } from '@/types';
 import type { Recipe, Ingredient } from '@/types';
 
 type RecipePayload = Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>;
@@ -21,14 +22,16 @@ interface Props {
   isOpen: boolean;
   editingRecipe: Recipe | null;
   onClose: () => void;
-  onSave: (payload: RecipePayload, editingId?: string) => Promise<void>;
+  /** Resolves to the saved recipe's id so uploaded photos can be attached to it. */
+  onSave: (payload: RecipePayload, editingId?: string) => Promise<string | undefined>;
+  userId?: string | null;
 }
 
 function domainFrom(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
 }
 
-export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
+export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: Props) {
   const [importTab, setImportTab] = useState<ImportTab>('url');
   const [extractUrl, setExtractUrl] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
@@ -208,14 +211,6 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
     setImageUrl('');
   }
 
-  async function uploadImage(file: File): Promise<string> {
-    const ext = file.name.split('.').pop() ?? 'jpg';
-    const path = `${crypto.randomUUID()}.${ext}`;
-    const { error } = await supabase.storage.from('recipe-images').upload(path, file, { upsert: false });
-    if (error) throw new Error(error.message);
-    const { data } = supabase.storage.from('recipe-images').getPublicUrl(path);
-    return data.publicUrl;
-  }
 
   async function handleExtractUrl(e: React.MouseEvent) {
     e.preventDefault();
@@ -255,12 +250,24 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
     e.preventDefault();
     setIsSaving(true);
     try {
+      // Every photo the user gave us is kept, not just the one used as the cover.
+      // Extraction only ever saw downscaled copies; these are the full-size ones.
+      const gallery: { url: string; storagePath: string | null; source: RecipeImageSource }[] = [];
       let finalImageUrl = imageUrl;
 
-      if (imageFile) {
+      if (photoFiles.length > 0 || imageFile) {
         setIsUploadingImage(true);
-        finalImageUrl = await uploadImage(imageFile);
+        const toUpload = photoFiles.length > 0 ? photoFiles : [imageFile as File];
+        for (const file of toUpload) {
+          const { url, storagePath } = await uploadRecipeImage(file);
+          gallery.push({ url, storagePath, source: 'upload' });
+        }
+        // first uploaded becomes the cover unless one was already set by hand
+        finalImageUrl = imageUrl || gallery[0].url;
         setIsUploadingImage(false);
+      } else if (imageUrl) {
+        // scraped from the source page during URL extraction
+        gallery.push({ url: imageUrl, storagePath: null, source: 'website' });
       }
 
       const ingredientsList = ingredients.filter((i) => i.name.trim());
@@ -280,7 +287,18 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave }: Props) {
         source_name: sourceName.trim() || null,
         original_language: originalLanguage || null,
       };
-      await onSave(payload, editingRecipe?.id);
+      const savedId = await onSave(payload, editingRecipe?.id);
+
+      if (savedId && userId && gallery.length > 0) {
+        try {
+          await attachRecipeImages(savedId, userId, gallery);
+        } catch (err) {
+          // The recipe itself saved; losing the gallery rows should not read as
+          // a failed save, but the user should know the photos did not stick.
+          toast.error(err instanceof Error ? err.message : 'Recipe saved, but the photos could not be attached.');
+        }
+      }
+
       toast.success(editingRecipe ? 'Recipe updated!' : 'Recipe saved!');
       onClose();
     } catch (err: unknown) {

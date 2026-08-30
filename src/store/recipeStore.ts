@@ -36,7 +36,8 @@ interface RecipeState {
     sortBy?: string
   ) => Promise<void>;
   loadMore: () => Promise<void>;
-  saveRecipe: (payload: RecipePayload, userId: string | null, editingId?: string) => Promise<void>;
+  /** Resolves to the saved recipe's id, so callers can attach gallery images. */
+  saveRecipe: (payload: RecipePayload, userId: string | null, editingId?: string) => Promise<string | undefined>;
   deleteRecipe: (id: string) => Promise<void>;
   toggleFavourite: (recipe: Recipe) => Promise<void>;
   updateRecipe: (id: string, changes: Partial<Recipe>) => Promise<void>;
@@ -243,6 +244,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       set({
         recipes: get().recipes.map((r) => (r.id === editingId ? { ...r, ...payload } : r))
       });
+      return editingId;
     } else {
       const withOriginal = { ...payload, original_servings: payload.original_servings ?? payload.servings };
       const insertPayload = userId ? { ...withOriginal, user_id: userId } : withOriginal;
@@ -302,6 +304,8 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
           }),
         }).catch(console.warn);
       }
+
+      return newRow?.id as string | undefined;
     }
   },
 
