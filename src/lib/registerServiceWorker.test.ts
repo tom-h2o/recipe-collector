@@ -29,6 +29,9 @@ const windowListeners: Record<string, Listener[]> = {};
 const reload = vi.fn();
 
 beforeEach(() => {
+  // Registration is guarded on import.meta.env.PROD so it never runs during
+  // `npm run dev`. Tests exercise the production path explicitly.
+  vi.stubEnv('PROD', true);
   for (const k of Object.keys(windowListeners)) delete windowListeners[k];
   reload.mockClear();
   vi.spyOn(window, 'addEventListener').mockImplementation((type: string, fn: EventListenerOrEventListenerObject) => {
@@ -37,7 +40,7 @@ beforeEach(() => {
   Object.defineProperty(window, 'location', { value: { reload }, configurable: true });
 });
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 async function fireLoad() {
   for (const fn of windowListeners['load'] ?? []) fn();
@@ -101,5 +104,18 @@ describe('registerServiceWorker', () => {
 
     listeners['controllerchange'][0]();
     expect(reload).not.toHaveBeenCalled();
+  });
+});
+
+describe('outside production', () => {
+  it('does not register at all', async () => {
+    // A worker in dev caches assets while you are editing them, and it hides the
+    // network from Playwright's page.route(), which silently broke every E2E
+    // test for six merges.
+    vi.stubEnv('PROD', false);
+    const { register } = setupSW({ hasController: false });
+    registerServiceWorker();
+    await fireLoad();
+    expect(register).not.toHaveBeenCalled();
   });
 });

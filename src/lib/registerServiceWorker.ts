@@ -22,6 +22,14 @@ const UPDATE_INTERVAL_MS = 60 * 60 * 1000;
 export function registerServiceWorker(): void {
   if (!('serviceWorker' in navigator)) return;
 
+  // Never in development. vite-plugin-pwa's inline snippet only shipped in built
+  // output, so moving registration into application code silently turned the
+  // worker on for `npm run dev` too. That caches assets while you are editing
+  // them, and it broke the whole E2E suite: Playwright's page.route() does not
+  // intercept requests a service worker makes, so every mocked Supabase call
+  // went to the network instead and no screen had any data.
+  if (!import.meta.env.PROD) return;
+
   // Captured before any update can land. A page that starts with no controller
   // is a first-ever visit: the controllerchange that follows installation is
   // expected and must not trigger a reload, or every new visitor reloads once
