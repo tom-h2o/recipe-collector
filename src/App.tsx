@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState, useEffect, useRef } from 'react';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 import { useRecipes } from '@/hooks/useRecipes';
@@ -130,7 +130,14 @@ export default function App() {
   }, []);
 
   async function handleUpdateRecipe(id: string, changes: Partial<Recipe>) {
-    await updateRecipe(id, changes);
+    try {
+      await updateRecipe(id, changes);
+    } catch (err) {
+      // Surfaced rather than swallowed: the store now rejects a write that RLS
+      // refused, and the open drawer must not keep showing the change either.
+      toast.error(err instanceof Error ? err.message : 'Could not save that change.');
+      return;
+    }
     setSelectedRecipe((prev) => prev?.id === id ? { ...prev, ...changes } : prev);
   }
 
@@ -265,6 +272,7 @@ export default function App() {
             key={selectedRecipe.id}
             recipe={selectedRecipe}
             userId={user?.id}
+            ownerLabel={connectedPeople.find((p) => p.userId === selectedRecipe?.user_id)?.label ?? null}
             preferredLanguage={selectedRecipe.preferred_language ?? null}
             temperatureUnit={settings.temperature_unit}
             translationsCache={translationsCache}

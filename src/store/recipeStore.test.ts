@@ -91,9 +91,38 @@ describe('deleteRecipe', () => {
 describe('updateRecipe', () => {
   it('merges changes into the matching recipe only', async () => {
     useRecipeStore.setState({ recipes: [recipe({ id: 'a', title: 'Old' }), recipe({ id: 'b', title: 'Keep' })] });
-    queueResult(null);
+    queueResult([{ id: 'a' }]); // the row the update actually touched
     await useRecipeStore.getState().updateRecipe('a', { title: 'New' });
     expect(useRecipeStore.getState().recipes.map((r) => r.title)).toEqual(['New', 'Keep']);
+  });
+
+  it('asks the database which rows it changed', () => {
+    // Without .select() the response carries no row count, and an update RLS
+    // refused is indistinguishable from one that succeeded.
+    useRecipeStore.setState({ recipes: [recipe({ id: 'a' })] });
+    queueResult([{ id: 'a' }]);
+    return useRecipeStore.getState().updateRecipe('a', { title: 'New' }).then(() => {
+      expect(calls.some((c) => c.table === 'recipes' && c.op === 'select')).toBe(true);
+    });
+  });
+
+  it('rejects when the write changed nothing, instead of reporting success', async () => {
+    // Rating a linked account's recipe: the policy refuses the update, Postgres
+    // matches zero rows, and PostgREST returns no error. This used to resolve
+    // happily and the optimistic merge below painted a change that was never
+    // written — it looked saved until the next reload.
+    useRecipeStore.setState({ recipes: [recipe({ id: 'a', title: 'Old' })] });
+    queueResult([]);
+    await expect(useRecipeStore.getState().updateRecipe('a', { title: 'New' })).rejects.toThrow(
+      /belongs to someone else/,
+    );
+  });
+
+  it('leaves the cached recipe untouched when the write changed nothing', async () => {
+    useRecipeStore.setState({ recipes: [recipe({ id: 'a', title: 'Old' })] });
+    queueResult([]);
+    await useRecipeStore.getState().updateRecipe('a', { title: 'New' }).catch(() => {});
+    expect(useRecipeStore.getState().recipes[0].title).toBe('Old');
   });
 });
 
