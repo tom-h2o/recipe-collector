@@ -50,6 +50,29 @@ jobs:
       run: npm run test:e2e
 
 
+  rls:
+    name: RLS Policy Tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: supabase/setup-cli@v1
+      with:
+        version: latest
+
+    # Spins up the real Postgres with every migration applied, which is the only
+    # way to exercise row level security. The service key used elsewhere bypasses
+    # RLS entirely and so cannot test it.
+    - name: Start local Supabase
+      run: supabase start
+
+    - name: Run RLS tests
+      run: supabase test db
+
+    - name: Stop local Supabase
+      if: always()
+      run: supabase stop --no-backup
+
   migrate-production:
     name: Production Database Migration
     needs: validate
