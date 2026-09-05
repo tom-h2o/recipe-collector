@@ -6,10 +6,11 @@ import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
 import { apiFetch } from '@/lib/api';
 import { convertTemperaturesInText } from '@/lib/temperatureUtils';
 import { MEAL_TYPES, DEFAULT_MEAL_TYPE, LANGUAGES, AVAILABLE_TAGS } from '@/lib/constants';
-import type { Recipe, RecipeTranslation, Collection } from '@/types';
+import type { Recipe, RecipeTranslation, Collection, LinkedPerson } from '@/types';
 import { CookMode } from '@/components/CookMode';
 import { Button } from '@/components/ui/button';
 import { RecipeGallery } from '@/components/RecipeGallery';
+import { useRecipeRatings } from '@/hooks/useRecipeRatings';
 import { useRecipeImages } from '@/hooks/useRecipeImages';
 import { adoptRecipe } from '@/lib/adoptRecipe';
 
@@ -28,6 +29,8 @@ interface Props {
   userId?: string | null;
   /** Nickname of the linked person who owns this recipe, when it is not the viewer's. */
   ownerLabel?: string | null;
+  /** Connected accounts, used to name whoever else has rated this recipe. */
+  linkedPeople?: LinkedPerson[];
   onAddMealPlan?: (date: string, mealType: string, recipeId: string) => Promise<void>;
   onSaveScaled?: (payload: Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>) => Promise<unknown>;
   collections?: Collection[];
@@ -36,7 +39,7 @@ interface Props {
   onRemoveFromCollection?: (collectionId: string) => Promise<void>;
 }
 
-export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', translationsCache, onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onSend, onUpdateRecipe, userId, ownerLabel, onAddMealPlan, onSaveScaled, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection }: Props) {
+export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', translationsCache, onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onSend, onUpdateRecipe, userId, ownerLabel, linkedPeople = [], onAddMealPlan, onSaveScaled, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection }: Props) {
   const baseServings0 = recipe?.original_servings || recipe?.servings || 1;
   const [scaledServings, setScaledServings] = useState(baseServings0);
   const [aiIngredients, setAiIngredients] = useState<{ amount: string; name: string; details: string }[] | null>(null);
@@ -44,6 +47,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
   const [isSavingScaled, setIsSavingScaled] = useState(false);
   const [isCookMode, setIsCookMode] = useState(false);
   const { images, busy: galleryBusy, fetchImages, addImages, deleteImage } = useRecipeImages(recipe?.id ?? null, userId ?? null);
+  const { myRating, otherRatings, busy: ratingBusy, setRating } = useRecipeRatings(recipe?.id ?? null, userId ?? null);
 
   useEffect(() => { fetchImages(); }, [fetchImages]);
 
@@ -734,39 +738,47 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
             {/* Rating & Notes */}
             <div className="pt-6 space-y-4">
               <div className="h-px bg-gradient-to-r from-transparent via-sk-outline-variant/20 to-transparent mb-6 -mt-2" />
+              {/* Ratings are per person: yours is always editable, including on a
+                  linked account's recipe, because it is stored against your own
+                  user id rather than on the recipe row. */}
               <div className="flex items-center gap-3">
-                <span className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground">
-                  {isLinked ? `${ownerLabel || 'Their'} rating` : 'Your Rating'}
-                </span>
+                <span className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground">Your Rating</span>
                 <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => {
-                    const filled = star <= (recipe.rating || 0);
-                    const icon = (
-                      <Star className={`w-6 h-6 ${filled ? 'fill-sk-primary text-sk-primary dark:fill-primary dark:text-primary' : 'text-sk-outline-variant dark:text-muted-foreground/40'}`} />
-                    );
-                    // A linked recipe is read-only. These used to be live buttons:
-                    // RLS refused the write, PostgREST reported no error, and the
-                    // star stayed lit until the page reloaded.
-                    if (isLinked) return <span key={star}>{icon}</span>;
-                    return (
-                      <button
-                        key={star}
-                        onClick={() => {
-                          const newRating = recipe.rating === star ? null : star;
-                          onUpdateRecipe(recipe.id, { rating: newRating });
-                        }}
-                        aria-label={recipe.rating === star ? `Clear ${star} star rating` : `Rate ${star} star${star === 1 ? '' : 's'}`}
-                        aria-pressed={filled}
-                        className="transition-transform hover:scale-125"
-                      >
-                        {icon}
-                      </button>
-                    );
-                  })}
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      disabled={ratingBusy}
+                      onClick={() => setRating(myRating === star ? null : star)}
+                      aria-label={myRating === star ? `Clear ${star} star rating` : `Rate ${star} star${star === 1 ? '' : 's'}`}
+                      aria-pressed={star <= (myRating || 0)}
+                      className="transition-transform hover:scale-125 disabled:opacity-50"
+                    >
+                      <Star className={`w-6 h-6 ${star <= (myRating || 0) ? 'fill-sk-primary text-sk-primary dark:fill-primary dark:text-primary' : 'text-sk-outline-variant dark:text-muted-foreground/40'}`} />
+                    </button>
+                  ))}
                 </div>
-                {!isLinked && recipe.rating && <span className="text-xs font-sans text-sk-outline dark:text-muted-foreground">Click again to remove</span>}
-                {isLinked && !recipe.rating && <span className="text-xs font-sans text-sk-outline dark:text-muted-foreground">Not rated yet</span>}
+                {myRating ? <span className="text-xs font-sans text-sk-outline dark:text-muted-foreground">Click again to remove</span> : null}
               </div>
+
+              {otherRatings.map((r) => {
+                const who = linkedPeople.find((p) => p.userId === r.user_id)?.label ?? 'Connected account';
+                return (
+                  <div key={r.user_id} className="flex items-center gap-3">
+                    <span className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground">
+                      {who}
+                    </span>
+                    <div className="flex gap-1" role="img" aria-label={`${who} rated this ${r.rating} out of 5`}>
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          className={`w-5 h-5 ${star <= r.rating ? 'fill-sk-primary/70 text-sk-primary/70 dark:fill-primary/70 dark:text-primary/70' : 'text-sk-outline-variant dark:text-muted-foreground/40'}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
               {(!isLinked || recipe.notes) && (
                 <div className="space-y-1.5">
                   <label className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground">
