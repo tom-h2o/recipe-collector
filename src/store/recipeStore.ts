@@ -371,8 +371,16 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
   },
 
   updateRecipe: async (id, changes) => {
-    const { error } = await supabase.from('recipes').update(changes).eq('id', id);
+    // .select() matters: an update the RLS policy forbids matches zero rows and
+    // comes back with no error at all, so without asking for the affected rows
+    // this reported success and the optimistic set() below painted a change that
+    // was never written. Rating a linked account's recipe did exactly that — it
+    // looked saved until the next reload.
+    const { data, error } = await supabase.from('recipes').update(changes).eq('id', id).select('id');
     if (error) throw error;
+    if (!data || data.length === 0) {
+      throw new Error('That recipe belongs to someone else, so the change was not saved.');
+    }
     set({
       recipes: get().recipes.map((r) => (r.id === id ? { ...r, ...changes } : r))
     });

@@ -26,6 +26,8 @@ interface Props {
   onSend?: (r: Recipe) => void;
   onUpdateRecipe: (id: string, changes: Partial<Recipe>) => void;
   userId?: string | null;
+  /** Nickname of the linked person who owns this recipe, when it is not the viewer's. */
+  ownerLabel?: string | null;
   onAddMealPlan?: (date: string, mealType: string, recipeId: string) => Promise<void>;
   onSaveScaled?: (payload: Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>) => Promise<unknown>;
   collections?: Collection[];
@@ -34,7 +36,7 @@ interface Props {
   onRemoveFromCollection?: (collectionId: string) => Promise<void>;
 }
 
-export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', translationsCache, onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onSend, onUpdateRecipe, userId, onAddMealPlan, onSaveScaled, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection }: Props) {
+export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', translationsCache, onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onSend, onUpdateRecipe, userId, ownerLabel, onAddMealPlan, onSaveScaled, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection }: Props) {
   const baseServings0 = recipe?.original_servings || recipe?.servings || 1;
   const [scaledServings, setScaledServings] = useState(baseServings0);
   const [aiIngredients, setAiIngredients] = useState<{ amount: string; name: string; details: string }[] | null>(null);
@@ -733,35 +735,58 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
             <div className="pt-6 space-y-4">
               <div className="h-px bg-gradient-to-r from-transparent via-sk-outline-variant/20 to-transparent mb-6 -mt-2" />
               <div className="flex items-center gap-3">
-                <span className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground">Your Rating</span>
+                <span className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground">
+                  {isLinked ? `${ownerLabel || 'Their'} rating` : 'Your Rating'}
+                </span>
                 <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      onClick={() => {
-                        const newRating = recipe.rating === star ? null : star;
-                        onUpdateRecipe(recipe.id, { rating: newRating });
-                      }}
-                      aria-label={recipe.rating === star ? `Clear ${star} star rating` : `Rate ${star} star${star === 1 ? '' : 's'}`}
-                      aria-pressed={star <= (recipe.rating || 0)}
-                      className="transition-transform hover:scale-125"
-                    >
-                      <Star className={`w-6 h-6 ${star <= (recipe.rating || 0) ? 'fill-sk-primary text-sk-primary dark:fill-primary dark:text-primary' : 'text-sk-outline-variant dark:text-muted-foreground/40'}`} />
-                    </button>
-                  ))}
+                  {[1, 2, 3, 4, 5].map((star) => {
+                    const filled = star <= (recipe.rating || 0);
+                    const icon = (
+                      <Star className={`w-6 h-6 ${filled ? 'fill-sk-primary text-sk-primary dark:fill-primary dark:text-primary' : 'text-sk-outline-variant dark:text-muted-foreground/40'}`} />
+                    );
+                    // A linked recipe is read-only. These used to be live buttons:
+                    // RLS refused the write, PostgREST reported no error, and the
+                    // star stayed lit until the page reloaded.
+                    if (isLinked) return <span key={star}>{icon}</span>;
+                    return (
+                      <button
+                        key={star}
+                        onClick={() => {
+                          const newRating = recipe.rating === star ? null : star;
+                          onUpdateRecipe(recipe.id, { rating: newRating });
+                        }}
+                        aria-label={recipe.rating === star ? `Clear ${star} star rating` : `Rate ${star} star${star === 1 ? '' : 's'}`}
+                        aria-pressed={filled}
+                        className="transition-transform hover:scale-125"
+                      >
+                        {icon}
+                      </button>
+                    );
+                  })}
                 </div>
-                {recipe.rating && <span className="text-xs font-sans text-sk-outline dark:text-muted-foreground">Click again to remove</span>}
+                {!isLinked && recipe.rating && <span className="text-xs font-sans text-sk-outline dark:text-muted-foreground">Click again to remove</span>}
+                {isLinked && !recipe.rating && <span className="text-xs font-sans text-sk-outline dark:text-muted-foreground">Not rated yet</span>}
               </div>
-              <div className="space-y-1.5">
-                <label className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground">Personal Notes</label>
-                <textarea
-                  value={notesValue}
-                  onChange={(e) => setNotesValue(e.target.value)}
-                  onBlur={() => onUpdateRecipe(recipe.id, { notes: notesValue })}
-                  placeholder="e.g. Add more garlic next time, great with crusty bread..."
-                  className="w-full rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface dark:text-foreground font-sans text-sm px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sk-primary/25 min-h-[70px] resize-none placeholder:text-sk-outline dark:placeholder:text-muted-foreground"
-                />
-              </div>
+              {(!isLinked || recipe.notes) && (
+                <div className="space-y-1.5">
+                  <label className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground">
+                    {isLinked ? `${ownerLabel || 'Their'} notes` : 'Personal Notes'}
+                  </label>
+                  {isLinked ? (
+                    <p className="w-full rounded-xl bg-sk-surface-highest dark:bg-input text-sk-on-surface dark:text-foreground font-sans text-sm px-4 py-3 whitespace-pre-wrap">
+                      {recipe.notes}
+                    </p>
+                  ) : (
+                    <textarea
+                      value={notesValue}
+                      onChange={(e) => setNotesValue(e.target.value)}
+                      onBlur={() => onUpdateRecipe(recipe.id, { notes: notesValue })}
+                      placeholder="e.g. Add more garlic next time, great with crusty bread..."
+                      className="w-full rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface dark:text-foreground font-sans text-sm px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sk-primary/25 min-h-[70px] resize-none placeholder:text-sk-outline dark:placeholder:text-muted-foreground"
+                    />
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
