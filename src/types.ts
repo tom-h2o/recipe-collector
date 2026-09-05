@@ -120,8 +120,22 @@ export interface LinkedPerson {
   myLabelColumn: 'requester_label' | 'addressee_label';
 }
 
+/**
+ * The AI jobs the app runs. Each can be pointed at its own model — they differ
+ * enormously in difficulty, so one setting for all of them means either
+ * overpaying for the easy ones or losing quality on the hard ones.
+ */
+export type AiTask = 'extract' | 'tag' | 'nutrition' | 'translate' | 'suggest' | 'scale' | 'shopping';
+
 export interface AppSettings {
+  /** The model used by any task without its own entry in `task_models`. */
   gemini_model: string;
+  /**
+   * Per-task model overrides, keyed by AiTask. Sparse on purpose: a task with no
+   * entry falls back to `gemini_model`, so an existing row keeps working
+   * unchanged and a user who never opens this section sees no behaviour change.
+   */
+  task_models: Partial<Record<AiTask, string>>;
   temperature_unit: 'C' | 'F';
 }
 

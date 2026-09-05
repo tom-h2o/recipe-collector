@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { GeminiLogs } from '@/components/GeminiLogs';
 import { ConnectionsPanel } from '@/components/ConnectionsPanel';
 import { useAccountLinks } from '@/hooks/useAccountLinks';
-import { MODEL_OPTIONS } from '@/lib/constants';
-import type { AppSettings } from '@/types';
+import { MODEL_OPTIONS, AI_TASKS, RECOMMENDED_TASK_MODELS } from '@/lib/constants';
+import type { AppSettings, AiTask } from '@/types';
 
 type Tab = 'settings' | 'connections' | 'logs';
 
@@ -48,6 +48,21 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, use
     await onSave(local);
     onClose();
   };
+
+  const setTaskModel = (task: AiTask, model: string | null) =>
+    setLocal((p) => {
+      const next = { ...(p.task_models ?? {}) };
+      // An empty selection means "follow the main model" — store nothing rather
+      // than a copy of it, so changing the main model still moves this task.
+      if (model) next[task] = model;
+      else delete next[task];
+      return { ...p, task_models: next };
+    });
+
+  const mainModelName = MODEL_OPTIONS.find((m) => m.id === local.gemini_model)?.name ?? local.gemini_model;
+  const overrideCount = Object.keys(local.task_models ?? {}).length;
+  const usingRecommended =
+    JSON.stringify(local.task_models ?? {}) === JSON.stringify(RECOMMENDED_TASK_MODELS);
 
   return (
     <Dialog open={isOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -133,7 +148,68 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, use
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                    Changing this affects every AI feature: recipe extraction, tagging, nutrition and translation.
+                    Used by every task that has no model of its own below.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Model per task</Label>
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
+                        Reading a photographed page is far harder than tagging a recipe you already have.
+                        Put the cheap tasks on Lite and keep extraction on a stronger model.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => setLocal((p) => ({ ...p, task_models: { ...RECOMMENDED_TASK_MODELS } }))}
+                      disabled={usingRecommended}
+                      className="shrink-0 h-8 px-3 text-xs rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border-0 disabled:opacity-40"
+                    >
+                      Use recommended
+                    </Button>
+                  </div>
+
+                  <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800">
+                    {AI_TASKS.map((t) => (
+                      <div key={t.task} className="p-3 flex items-start gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{t.label}</p>
+                          <p className="text-xs text-zinc-600 dark:text-zinc-400">{t.description}</p>
+                        </div>
+                        <Select
+                          value={local.task_models?.[t.task] ?? ''}
+                          onValueChange={(v) => setTaskModel(t.task, v === '' ? null : (v as string))}
+                        >
+                          <SelectTrigger aria-label={`Model for ${t.label}`} className="w-[9.5rem] shrink-0">
+                            <SelectValue placeholder={`Same as main`} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">
+                              <span className="text-sm">Same as main ({mainModelName})</span>
+                            </SelectItem>
+                            {MODEL_OPTIONS.map((m) => (
+                              <SelectItem key={m.id} value={m.id}>
+                                <span className="text-sm">
+                                  {m.name}
+                                  {m.id === t.recommended && (
+                                    <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wider text-sk-on-surface-variant dark:text-muted-foreground">
+                                      suggested
+                                    </span>
+                                  )}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {overrideCount === 0
+                      ? `Every task uses the main model (${mainModelName}).`
+                      : `${overrideCount} of ${AI_TASKS.length} tasks have their own model.`}
                   </p>
                 </div>
               </div>
