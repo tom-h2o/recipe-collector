@@ -19,5 +19,13 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // An error, not a warning. A missing dependency is not a style question:
+      // activeOwnerId was passed to fetchRecipes but left out of this effect's
+      // deps, so the "show only this person's recipes" filter silently never
+      // refetched. The rule reported it correctly for weeks and CI kept passing,
+      // because `npm run lint` exits 0 on warnings.
+      'react-hooks/exhaustive-deps': 'error',
+    },
   },
 ])

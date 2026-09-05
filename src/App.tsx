@@ -100,14 +100,17 @@ export default function App() {
 
   useEffect(() => { fetchLinks(); }, [fetchLinks]);
 
-  // Debounce search query changes (300ms) before fetching from server
+  // Debounce search query changes (300ms) before fetching from server.
+  // Every value read inside must be listed: activeOwnerId was passed to
+  // fetchRecipes but left out of the deps, so picking a person re-rendered the
+  // chips without ever refetching and the vault kept showing everyone.
   useEffect(() => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
       fetchRecipes(searchQuery, activeFilter, activeCollectionId, memberships, sortBy, activeOwnerId);
     }, 300);
     return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
-  }, [searchQuery, activeFilter, activeCollectionId, memberships, sortBy, fetchRecipes]);
+  }, [searchQuery, activeFilter, activeCollectionId, memberships, sortBy, activeOwnerId, fetchRecipes]);
 
   function openForm(recipe?: Recipe) {
     setEditingRecipe(recipe ?? null);

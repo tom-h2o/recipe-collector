@@ -6,12 +6,15 @@ import type { Recipe } from '@/types';
 const results: { data: unknown; error: unknown }[] = [];
 const queueResult = (data: unknown, error: unknown = null) => results.push({ data, error });
 const takeResult = () => results.shift() ?? { data: null, error: null };
-const calls: { table: string; op: string; payload?: unknown }[] = [];
+// `args` keeps every argument; `payload` stays as the first one so the older
+// assertions in this file are unaffected. Without the full list an .eq() records
+// only the column name and drops the value being filtered on.
+const calls: { table: string; op: string; payload?: unknown; args: unknown[] }[] = [];
 
 function makeBuilder(table: string) {
   const builder: Record<string, unknown> = {};
-  const chain = (op: string) => (payload?: unknown) => {
-    calls.push({ table, op, payload });
+  const chain = (op: string) => (...args: unknown[]) => {
+    calls.push({ table, op, payload: args[0], args });
     return builder;
   };
   for (const op of ['select', 'eq', 'is', 'in', 'order', 'range', 'textSearch', 'limit', 'not', 'gte']) {
@@ -146,5 +149,52 @@ describe('stopAllPolling', () => {
     useRecipeStore.getState().stopAllPolling();
     expect(useRecipeStore.getState().pollingIntervals.size).toBe(0);
     expect(useRecipeStore.getState().processingIds.size).toBe(0);
+  });
+});
+
+/**
+ * The person chips in the vault. The store side of this was correct all along —
+ * what broke it was App.tsx passing activeOwnerId to fetchRecipes while leaving
+ * it out of the effect's dependency array, so choosing a person never refetched
+ * and every recipe stayed on screen. That specific mistake is now a lint error;
+ * these cover the query the store is expected to build.
+ */
+describe('filtering the vault by linked person', () => {
+  it('narrows the query to one owner when a person is chosen', async () => {
+    queueResult([recipe({ id: 'r1', user_id: 'partner' })]);
+    await useRecipeStore.getState().fetchRecipes('', null, null, [], 'newest', 'partner');
+
+    const ownerEq = calls.find(
+      (c) => c.table === 'recipes' && c.op === 'eq' && c.args[0] === 'user_id',
+    );
+    expect(ownerEq?.args[1]).toBe('partner');
+  });
+
+  it('does not constrain the owner when no person is chosen', async () => {
+    // "Everyone" must stay unfiltered: linked recipes arrive via RLS, so adding
+    // a user_id filter here would hide the partner's recipes entirely.
+    queueResult([recipe()]);
+    await useRecipeStore.getState().fetchRecipes('', null, null, [], 'newest', null);
+
+    const userIdFilters = calls.filter(
+      (c) => c.table === 'recipes' && c.op === 'eq' && c.args[0] === 'user_id',
+    );
+    expect(userIdFilters).toEqual([]);
+  });
+
+  it('keeps the owner filter when loading the next page', async () => {
+    // loadMore reads the cached filters rather than the arguments, so it is a
+    // separate code path and can drift from fetchRecipes.
+    queueResult([recipe({ user_id: 'partner' })]);
+    await useRecipeStore.getState().fetchRecipes('', null, null, [], 'newest', 'partner');
+    calls.length = 0;
+
+    queueResult([recipe({ id: 'r2', user_id: 'partner' })]);
+    await useRecipeStore.getState().loadMore();
+
+    const ownerEq = calls.find(
+      (c) => c.table === 'recipes' && c.op === 'eq' && c.args[0] === 'user_id',
+    );
+    expect(ownerEq?.args[1]).toBe('partner');
   });
 });
