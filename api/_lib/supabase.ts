@@ -5,9 +5,25 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
  * prompts.ts. They used to be per-user overrides, which silently pinned users to
  * whatever prompt text was current when they last saved.
  */
+export type AiTask = 'extract' | 'tag' | 'nutrition' | 'translate' | 'suggest' | 'scale' | 'shopping';
+
 export interface Settings {
+  /** Model for any task without its own entry in `task_models`. */
   gemini_model: string;
+  /** Sparse per-task overrides; a missing task falls back to `gemini_model`. */
+  task_models: Partial<Record<AiTask, string>>;
   temperature_unit: 'C' | 'F';
+}
+
+/**
+ * The model a given task should run on.
+ *
+ * Falls back to `gemini_model` for any task the user has not assigned, which is
+ * what makes the column safe to add to existing rows: an empty map behaves
+ * exactly like the single-model setup it replaced.
+ */
+export function modelFor(settings: Settings, task: AiTask): string {
+  return settings.task_models?.[task] || settings.gemini_model;
 }
 
 // An alias Google keeps pointed at the current Flash release. Kept equal to
@@ -21,11 +37,17 @@ export function getServerSupabase(): SupabaseClient {
   return createClient(url, key);
 }
 
-const SETTINGS_SELECT = 'gemini_model, temperature_unit';
+const SETTINGS_SELECT = 'gemini_model, task_models, temperature_unit';
 
 function rowToSettings(data: Record<string, unknown>, defaults: Settings): Settings {
   return {
     gemini_model: (data.gemini_model as string) || defaults.gemini_model,
+    // jsonb comes back as an object; guard against null and against a value that
+    // is not an object, since neither should silently become a valid map.
+    task_models:
+      data.task_models && typeof data.task_models === 'object' && !Array.isArray(data.task_models)
+        ? (data.task_models as Partial<Record<AiTask, string>>)
+        : {},
     temperature_unit: ((data.temperature_unit as string) as 'C' | 'F') || defaults.temperature_unit,
   };
 }
@@ -33,6 +55,7 @@ function rowToSettings(data: Record<string, unknown>, defaults: Settings): Setti
 export async function getSettings(supabase: SupabaseClient, userId?: string | null): Promise<Settings> {
   const defaults: Settings = {
     gemini_model: DEFAULT_MODEL,
+    task_models: {},
     temperature_unit: 'C',
   };
   try {

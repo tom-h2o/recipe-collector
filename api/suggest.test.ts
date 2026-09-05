@@ -46,6 +46,10 @@ async function loadHandler(generated: unknown) {
   };
   vi.doMock('./_lib/supabase.js', () => ({
     getServerSupabase: () => supabase,
+    // Mirrors the real modelFor: per-task override, else the single model.
+    // Kept in the mock rather than importOriginal so these stay unit tests.
+    modelFor: (s: { task_models?: Record<string, string>; gemini_model: string }, task: string) =>
+      s.task_models?.[task] || s.gemini_model,
     getSettings: vi.fn().mockResolvedValue({
       gemini_model: 'gemini-test',
       temperature_unit: 'C',

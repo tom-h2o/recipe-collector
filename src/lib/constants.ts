@@ -1,3 +1,5 @@
+import type { AiTask } from '../types';
+
 /**
  * Newest stable Flash, addressed through Google's alias rather than a pinned id.
  *
@@ -63,6 +65,74 @@ export const MODEL_OPTIONS: ModelOption[] = [
     price: '~$2.00 / $12.00 per 1M tokens',
   },
 ];
+
+/**
+ * The AI jobs the app runs, each independently assignable to a model.
+ *
+ * They differ enormously in difficulty: reading a photographed cookbook page is
+ * OCR under bad lighting, while tagging a recipe whose text we already have is
+ * near-trivial. Running both on the same model means either overpaying for the
+ * easy ones or losing extractions on the hard ones, so each picks its own.
+ *
+ * `recommended` is the tier this task is expected to need. It is a starting
+ * point offered by a "use recommended" button, never enforced.
+ */
+export interface AiTaskInfo {
+  task: AiTask;
+  label: string;
+  description: string;
+  recommended: string;
+}
+
+export const AI_TASKS: AiTaskInfo[] = [
+  {
+    task: 'extract',
+    label: 'Recipe extraction',
+    description: 'Reading a recipe off a web page, a PDF or photographed pages. The hardest job in the app and the one where a weaker model visibly loses ingredients.',
+    recommended: 'gemini-flash-latest',
+  },
+  {
+    task: 'translate',
+    label: 'Translation',
+    description: 'Rewriting a recipe in another language. Wrong quantities or mistranslated techniques are hard to notice, so this is worth spending on.',
+    recommended: 'gemini-flash-latest',
+  },
+  {
+    task: 'suggest',
+    label: 'Recipe suggestions',
+    description: 'Picking recipes that match the ingredients you have. Most of the work is done by the embedding search; the model only ranks the shortlist.',
+    recommended: 'gemini-flash-lite-latest',
+  },
+  {
+    task: 'tag',
+    label: 'Tagging',
+    description: 'Assigning tags to a recipe whose text is already available. Short, structured, and forgiving of a cheaper model.',
+    recommended: 'gemini-flash-lite-latest',
+  },
+  {
+    task: 'nutrition',
+    label: 'Nutrition estimates',
+    description: 'Estimating calories and macros from the ingredient list. Already an approximation, so a cheaper model changes little.',
+    recommended: 'gemini-flash-lite-latest',
+  },
+  {
+    task: 'scale',
+    label: 'Recipe scaling',
+    description: 'Adjusting quantities for a different number of servings. Mostly arithmetic with unit conversions.',
+    recommended: 'gemini-flash-lite-latest',
+  },
+  {
+    task: 'shopping',
+    label: 'Shopping list',
+    description: 'Merging the meal plan into one list and grouping it by aisle. Repetitive and well within a cheap model.',
+    recommended: 'gemini-flash-lite-latest',
+  },
+];
+
+/** The recommended assignment as a plain map, used by the "use recommended" button. */
+export const RECOMMENDED_TASK_MODELS: Record<AiTask, string> = Object.fromEntries(
+  AI_TASKS.map((t) => [t.task, t.recommended]),
+) as Record<AiTask, string>;
 
 export const MODELS = MODEL_OPTIONS.map((m) => m.id);
 

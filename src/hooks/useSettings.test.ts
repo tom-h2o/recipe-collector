@@ -28,31 +28,38 @@ beforeEach(() => {
 describe('useSettings defaults', () => {
   it('starts from code defaults, not a stored snapshot', () => {
     const { result } = renderHook(() => useSettings('u1'));
-    expect(result.current.settings).toEqual({ gemini_model: DEFAULT_MODEL, temperature_unit: 'C' });
+    expect(result.current.settings).toEqual({ gemini_model: DEFAULT_MODEL, task_models: {}, temperature_unit: 'C' });
   });
 
-  it('only carries model and temperature unit', () => {
+  it('only carries models and temperature unit', () => {
     // Regression guard: prompts used to live here. A non-empty seeded prompt was
     // written into the user's row on any save, pinning them to stale text that
-    // had lost its language instructions.
+    // had lost its language instructions. task_models is a map of model ids, not
+    // free text, so it does not reintroduce that failure — but the list is still
+    // pinned so anything else added here has to be a deliberate decision.
     const { result } = renderHook(() => useSettings('u1'));
-    expect(Object.keys(result.current.settings).sort()).toEqual(['gemini_model', 'temperature_unit']);
+    expect(Object.keys(result.current.settings).sort()).toEqual(['gemini_model', 'task_models', 'temperature_unit']);
+  });
+
+  it('starts with no per-task overrides, so every task follows the main model', () => {
+    const { result } = renderHook(() => useSettings('u1'));
+    expect(result.current.settings.task_models).toEqual({});
   });
 });
 
 describe('fetchSettings', () => {
   it('applies the stored row', async () => {
-    single.mockResolvedValue({ data: { gemini_model: 'gemini-pro', temperature_unit: 'F' } });
+    single.mockResolvedValue({ data: { gemini_model: 'gemini-pro', task_models: {}, temperature_unit: 'F' } });
     const { result } = renderHook(() => useSettings('u1'));
     await act(async () => { await result.current.fetchSettings(); });
-    expect(result.current.settings).toEqual({ gemini_model: 'gemini-pro', temperature_unit: 'F' });
+    expect(result.current.settings).toEqual({ gemini_model: 'gemini-pro', task_models: {}, temperature_unit: 'F' });
   });
 
   it('falls back to defaults for blank columns', async () => {
     single.mockResolvedValue({ data: { gemini_model: '', temperature_unit: '' } });
     const { result } = renderHook(() => useSettings('u1'));
     await act(async () => { await result.current.fetchSettings(); });
-    expect(result.current.settings).toEqual({ gemini_model: DEFAULT_MODEL, temperature_unit: 'C' });
+    expect(result.current.settings).toEqual({ gemini_model: DEFAULT_MODEL, task_models: {}, temperature_unit: 'C' });
   });
 
   it('does not query at all when signed out', async () => {
@@ -63,22 +70,22 @@ describe('fetchSettings', () => {
 });
 
 describe('saveSettings', () => {
-  it('writes exactly user_id, model and unit — nothing else', async () => {
+  it('writes exactly user_id, models and unit — nothing else', async () => {
     const { result } = renderHook(() => useSettings('u1'));
     await act(async () => {
-      await result.current.saveSettings({ gemini_model: 'gemini-pro', temperature_unit: 'F' });
+      await result.current.saveSettings({ gemini_model: 'gemini-pro', task_models: {}, temperature_unit: 'F' });
     });
     expect(upsert).toHaveBeenCalledTimes(1);
     const [payload, options] = upsert.mock.calls[0];
-    expect(Object.keys(payload).sort()).toEqual(['gemini_model', 'temperature_unit', 'user_id']);
-    expect(payload).toEqual({ user_id: 'u1', gemini_model: 'gemini-pro', temperature_unit: 'F' });
+    expect(Object.keys(payload).sort()).toEqual(['gemini_model', 'task_models', 'temperature_unit', 'user_id']);
+    expect(payload).toEqual({ user_id: 'u1', gemini_model: 'gemini-pro', task_models: {}, temperature_unit: 'F' });
     expect(options).toEqual({ onConflict: 'user_id' });
   });
 
   it('refuses to save when signed out', async () => {
     const { result } = renderHook(() => useSettings(null));
     await act(async () => {
-      await result.current.saveSettings({ gemini_model: 'gemini-pro', temperature_unit: 'F' });
+      await result.current.saveSettings({ gemini_model: 'gemini-pro', task_models: {}, temperature_unit: 'F' });
     });
     expect(upsert).not.toHaveBeenCalled();
     expect(toastError).toHaveBeenCalled();
@@ -88,7 +95,7 @@ describe('saveSettings', () => {
     upsert.mockResolvedValue({ error: { message: 'nope' } });
     const { result } = renderHook(() => useSettings('u1'));
     await act(async () => {
-      await result.current.saveSettings({ gemini_model: 'gemini-pro', temperature_unit: 'F' });
+      await result.current.saveSettings({ gemini_model: 'gemini-pro', task_models: {}, temperature_unit: 'F' });
     });
     expect(result.current.settings.gemini_model).toBe(DEFAULT_MODEL);
     expect(toastError).toHaveBeenCalled();
@@ -98,7 +105,7 @@ describe('saveSettings', () => {
     upsert.mockResolvedValue({ error: { message: 'nope' } });
     const { result } = renderHook(() => useSettings('u1'));
     await act(async () => {
-      await result.current.saveSettings({ gemini_model: 'gemini-pro', temperature_unit: 'C' });
+      await result.current.saveSettings({ gemini_model: 'gemini-pro', task_models: {}, temperature_unit: 'C' });
     });
     await waitFor(() => expect(result.current.isSavingSettings).toBe(false));
   });

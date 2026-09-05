@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 import type { CheerioAPI } from 'cheerio';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey, getUserId } from './_lib/supabase.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId, modelFor } from './_lib/supabase.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { extractedRecipeSchema, extractSchema, extractPhotoSchema, extractPdfSchema, normaliseExtractPhotoBody } from './_lib/schemas.js';
@@ -321,15 +321,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ];
       const inputPreview = `[${images.length} image${images.length === 1 ? '' : 's'}: ${images.map((i) => i.mimeType).join(', ')}]`;
       try {
-        const response = await client.models.generateContent({ model: settings.gemini_model, contents: [{ role: 'user', parts }], config: { responseMimeType: 'application/json', temperature: 0.1 } });
+        const response = await client.models.generateContent({ model: modelFor(settings, 'extract'), contents: [{ role: 'user', parts }], config: { responseMimeType: 'application/json', temperature: 0.1 } });
         const text = response.text;
         if (!text) throw new Error('Gemini returned an empty response.');
         const recipeData = validateExtractedRecipe(JSON.parse(text));
-        supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: settings.gemini_model, status: 'success', latency_ms: Date.now() - startTime, input_preview: inputPreview, output_preview: text.substring(0, 300), user_id: userId }).then(() => {}, () => {});
+        supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: modelFor(settings, 'extract'), model_version: response.modelVersion ?? null, status: 'success', latency_ms: Date.now() - startTime, input_preview: inputPreview, output_preview: text.substring(0, 300), user_id: userId }).then(() => {}, () => {});
         return res.status(200).json(recipeData);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
-        supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: settings.gemini_model, status: 'error', latency_ms: Date.now() - startTime, input_preview: inputPreview, error_message: errorMessage, user_id: userId }).then(() => {}, () => {});
+        supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: modelFor(settings, 'extract'), status: 'error', latency_ms: Date.now() - startTime, input_preview: inputPreview, error_message: errorMessage, user_id: userId }).then(() => {}, () => {});
         throw err;
       }
     }
@@ -342,15 +342,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const client = getGeminiClient(apiKey);
       const startTime = Date.now();
       try {
-        const response = await client.models.generateContent({ model: settings.gemini_model, contents: [{ role: 'user', parts: [{ inlineData: { mimeType: 'application/pdf', data: pdfBase64 } }, { text: pdfPrompt(settings.temperature_unit) }] }], config: { responseMimeType: 'application/json', temperature: 0.1 } });
+        const response = await client.models.generateContent({ model: modelFor(settings, 'extract'), contents: [{ role: 'user', parts: [{ inlineData: { mimeType: 'application/pdf', data: pdfBase64 } }, { text: pdfPrompt(settings.temperature_unit) }] }], config: { responseMimeType: 'application/json', temperature: 0.1 } });
         const text = response.text;
         if (!text) throw new Error('Gemini returned an empty response.');
         const recipeData = validateExtractedRecipe(JSON.parse(text));
-        supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: settings.gemini_model, status: 'success', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', output_preview: text.substring(0, 300), user_id: userId }).then(() => {}, () => {});
+        supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: modelFor(settings, 'extract'), model_version: response.modelVersion ?? null, status: 'success', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', output_preview: text.substring(0, 300), user_id: userId }).then(() => {}, () => {});
         return res.status(200).json(recipeData);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
-        supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: settings.gemini_model, status: 'error', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', error_message: errorMessage, user_id: userId }).then(() => {}, () => {});
+        supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: modelFor(settings, 'extract'), status: 'error', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', error_message: errorMessage, user_id: userId }).then(() => {}, () => {});
         throw err;
       }
     }
@@ -373,7 +373,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const bodyText = $('body').text().replace(/\s+/g, ' ').substring(0, 20000);
 
     const finalPrompt = buildUrlExtractionPrompt(promptTemplate, pageTitle, pageDescription, ogImage, bodyText, structuredRecipe);
-    const cacheKey = makeCacheKey('extract', { model: settings.gemini_model, prompt: finalPrompt });
+    const cacheKey = makeCacheKey('extract', { model: modelFor(settings, 'extract'), prompt: finalPrompt });
     const cachedRecipe = await getCached(supabase, cacheKey);
     if (cachedRecipe) {
       console.info('extract cache hit', { url, structuredDataFound: !!structuredRecipe });
@@ -384,7 +384,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
 
     const client = getGeminiClient(apiKey);
-    const recipeData = validateExtractedRecipe(await generateJson(client, settings.gemini_model, finalPrompt, { supabase, endpoint: 'extract', userId }));
+    const recipeData = validateExtractedRecipe(await generateJson(client, modelFor(settings, 'extract'), finalPrompt, { supabase, endpoint: 'extract', userId }));
 
     setCached(supabase, cacheKey, 'extract', recipeData, 24 * 7);
     console.info('extract gemini verified', { url, structuredDataFound: !!structuredRecipe });
