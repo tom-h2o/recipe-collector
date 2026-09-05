@@ -9,11 +9,14 @@ import '@fontsource-variable/manrope'
 import './index.css'
 import App from './App.tsx'
 import { initSentry } from './lib/sentry'
+import { registerServiceWorker } from './lib/registerServiceWorker'
 
 initSentry()
 
-// The service worker is registered by vite-plugin-pwa (injectRegister: 'inline').
-// Registering it again here raced with that one.
+// Registered here rather than by vite-plugin-pwa's inline snippet, which never
+// re-checked for a new worker on an installed PWA and never reloaded the page
+// when one took over. See registerServiceWorker.ts.
+registerServiceWorker()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
