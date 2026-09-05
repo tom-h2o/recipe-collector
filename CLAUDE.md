@@ -117,6 +117,16 @@ GitHub Actions secret needed for DB migrations: `SUPABASE_DB_URL` (Postgres conn
 - **Per-task models:** `settings.task_models` (jsonb, migration 0052) maps an `AiTask` to a model id; a missing key falls back to `gemini_model`. Endpoints must resolve via `modelFor(settings, task)` from `api/_lib/supabase.ts` — reading `settings.gemini_model` directly still works but silently ignores the user's choice, so `tests/unit/modelFor.test.ts` fails any endpoint that does. The task list is declared in both `src/types.ts` and `api/_lib/supabase.ts` and the same test asserts they match.
 - **Settings fallback row:** the `settings` table has one row per user, keyed by `user_id`. The `id` column uses a sequence starting at 2; the global fallback row is `id=1, user_id=null`. `getSettings(supabase, userId)` reads the user's row first, falls back to `id=1`. Frontend upserts on `user_id` conflict.
 - **Auth required on AI endpoints:** every AI endpoint returns 401 if `getUserId()` resolves to `null` (no/invalid Bearer token) before doing any work — there is no legitimate unauthenticated caller since the frontend is fully auth-gated. Rate limiting then calls `checkRateLimit(supabase, userId)` AFTER the cache check (cached responses bypass the limit). Returns 429 at 100 calls/day. Count derived from `gemini_logs` rows for the current UTC day.
+- **Testing RLS requires a real session, not the service key.** `SUPABASE_SERVICE_KEY` bypasses RLS entirely, so any check made with it is blind to exactly the policies it is meant to verify — a broken policy looks identical to a working one. To exercise a policy as a given user, impersonate them in the SQL editor:
+  ```sql
+  begin;
+  select set_config('request.jwt.claims',
+    '{"sub":"<user-uuid>","role":"authenticated"}', true);
+  set local role authenticated;
+  select count(*) from public.recipes;   -- the query under test
+  rollback;
+  ```
+  Used to confirm account linking on 2026-09-05: the requester saw 11 recipes (own 7 + linked 4), proving `recipes_select` and `linked_user_ids()` widen the read as intended.
 - **Writes RLS refuses are silent:** an update whose row the policy excludes matches zero rows and PostgREST returns **no error**. `updateRecipe` in `recipeStore.ts` therefore asks for the affected rows (`.select('id')`) and throws when none came back — without that, the optimistic local merge painted changes that were never written. Any new write path against another user's rows needs the same treatment.
 - **Linked recipes are read-only in the UI too:** `RecipeDetail` computes `isLinked` and must gate every owner-only control with it. Rating and notes were left live, so a linked recipe showed "Your Rating" over the owner's stars and appeared to accept clicks.
 - **Recipe sharing RLS:** `recipe_shares` uses `auth.email() = recipient_email` so recipients can see their inbox. Service key copies the recipe server-side on accept.
