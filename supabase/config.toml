@@ -25,8 +25,11 @@ max_rows = 1000
 [studio]
 enabled = false
 
+# Required, not optional: migration 0017 inserts into storage.buckets, so a
+# fresh build fails without the storage schema.
 [storage]
-enabled = false
+enabled = true
+file_size_limit = "5MiB"
 
 [realtime]
 enabled = false
