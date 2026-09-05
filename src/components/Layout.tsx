@@ -8,6 +8,8 @@ interface Props {
   activeView: ActiveView;
   user: User | null;
   isAdmin: boolean;
+  onOpenWhatsNew?: () => void;
+  hasUnreadReleases?: boolean;
   recipeCount: number;
   inboxCount: number;
   onSetView: (v: ActiveView) => void;
@@ -26,7 +28,7 @@ const MOBILE_TABS = [
   { view: 'admin' as const, icon: ShieldCheck, label: 'Admin' },
 ] as const;
 
-export function Layout({ activeView, user, isAdmin, recipeCount, inboxCount, onSetView, onOpenSettings, onOpenSuggest, onAddRecipe, onSignOut, children }: Props) {
+export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadReleases, recipeCount, inboxCount, onSetView, onOpenSettings, onOpenSuggest, onAddRecipe, onSignOut, children }: Props) {
   const { isDark, toggle } = useDarkMode();
 
   return (
@@ -136,7 +138,7 @@ export function Layout({ activeView, user, isAdmin, recipeCount, inboxCount, onS
               <Plus className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">Add Recipe</span>
             </button>
-            {user && <UserMenu user={user} onSignOut={onSignOut} />}
+            {user && <UserMenu user={user} onSignOut={onSignOut} onOpenWhatsNew={onOpenWhatsNew} hasUnreadReleases={hasUnreadReleases} />}
           </div>
         </div>
       </header>
