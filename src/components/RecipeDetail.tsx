@@ -56,6 +56,17 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
   const isLinked = !!recipe && !!userId && !!recipe.user_id && recipe.user_id !== userId;
   const [adopting, setAdopting] = useState(false);
 
+  /**
+   * Who can actually read a note on your own recipe. It used to be labelled
+   * "Personal Notes", which was never true: recipes_select hands the whole row
+   * to linked accounts, and the admin recipe view selects '*', so notes reach
+   * both. The label now says so rather than implying privacy the app does not
+   * provide.
+   */
+  const noteAudience = linkedPeople.length > 0
+    ? `Visible to ${linkedPeople.map((p) => p.label).join(', ')} and to an app administrator.`
+    : 'Visible to an app administrator.';
+
   async function handleAdopt() {
     if (!recipe || !userId) return;
     setAdopting(true);
@@ -782,7 +793,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
               {(!isLinked || recipe.notes) && (
                 <div className="space-y-1.5">
                   <label className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground">
-                    {isLinked ? `${ownerLabel || 'Their'} notes` : 'Personal Notes'}
+                    {isLinked ? `${ownerLabel || 'Their'} notes` : 'Notes'}
                   </label>
                   {isLinked ? (
                     <p className="w-full rounded-xl bg-sk-surface-highest dark:bg-input text-sk-on-surface dark:text-foreground font-sans text-sm px-4 py-3 whitespace-pre-wrap">
@@ -796,6 +807,9 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                       placeholder="e.g. Add more garlic next time, great with crusty bread..."
                       className="w-full rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface dark:text-foreground font-sans text-sm px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sk-primary/25 min-h-[70px] resize-none placeholder:text-sk-outline dark:placeholder:text-muted-foreground"
                     />
+                  )}
+                  {!isLinked && (
+                    <p className="text-[11px] font-sans text-sk-outline dark:text-muted-foreground">{noteAudience}</p>
                   )}
                 </div>
               )}
