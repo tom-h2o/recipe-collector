@@ -1,20 +1,29 @@
-import { Check, X, Inbox, ChefHat, ArrowLeft } from 'lucide-react';
-import type { RecipeShare } from '@/types';
+import { Check, X, Inbox, ChefHat, ArrowLeft, Link2 } from 'lucide-react';
+import type { RecipeShare, LinkedPerson } from '@/types';
 
 interface Props {
   shares: RecipeShare[];
+  /**
+   * Pending requests to link accounts. They live here rather than only in
+   * Settings because an invitation nobody sees is an invitation nobody accepts.
+   */
+  linkInvites?: LinkedPerson[];
   onAccept: (share: RecipeShare) => void;
   onReject: (share: RecipeShare) => void;
+  onAcceptLink?: (linkId: string) => void;
+  onDeclineLink?: (linkId: string) => void;
   onBack: () => void;
 }
 
-export function RecipeInbox({ shares, onAccept, onReject, onBack }: Props) {
-  if (shares.length === 0) {
+export function RecipeInbox({ shares, linkInvites = [], onAccept, onReject, onAcceptLink, onDeclineLink, onBack }: Props) {
+  const total = shares.length + linkInvites.length;
+
+  if (total === 0) {
     return (
       <div className="max-w-2xl mx-auto text-center py-24 animate-in fade-in duration-500">
         <Inbox className="w-16 h-16 mx-auto text-zinc-300 dark:text-zinc-700 mb-4" />
         <p className="text-xl font-bold text-zinc-500 dark:text-zinc-400">Your inbox is empty</p>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">When someone sends you a recipe it will appear here.</p>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">Recipes people send you, and requests to connect accounts, appear here.</p>
         <button
           onClick={onBack}
           className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-sk-primary hover:text-sk-primary-container dark:text-primary transition-colors"
@@ -39,10 +48,47 @@ export function RecipeInbox({ shares, onAccept, onReject, onBack }: Props) {
           <Inbox className="w-6 h-6 text-sk-primary dark:text-primary" />
           Recipe Inbox
           <span className="text-sm font-semibold px-2 py-0.5 bg-sk-primary-fixed/40 dark:bg-primary/15 text-sk-primary dark:text-primary rounded-full">
-            {shares.length}
+            {total}
           </span>
         </h2>
       </div>
+
+      {linkInvites.map((invite) => (
+        <div
+          key={invite.linkId}
+          className="bg-white dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm overflow-hidden flex"
+        >
+          <div className="w-28 h-28 shrink-0 bg-sk-primary-fixed/30 dark:bg-primary/10 flex items-center justify-center">
+            <Link2 className="w-10 h-10 text-sk-primary/40 dark:text-primary/30" />
+          </div>
+
+          <div className="flex-1 min-w-0 p-4 flex flex-col justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-bold text-zinc-900 dark:text-zinc-50 truncate">Connection request</p>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-0.5">
+                <span className="font-semibold">{invite.email}</span> wants to connect.
+                You would each be able to browse the other’s recipes and save copies —
+                your whole collection, not selected recipes. Neither of you can edit the other’s.
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => onAcceptLink?.(invite.linkId)}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground text-sm font-semibold transition-colors"
+              >
+                <Check className="w-4 h-4" /> Connect
+              </button>
+              <button
+                onClick={() => onDeclineLink?.(invite.linkId)}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 text-sm font-semibold transition-colors"
+              >
+                <X className="w-4 h-4" /> Decline
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
 
       {shares.map((share) => (
         <div
