@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId, getVisibleUserIds, modelFor } from './_lib/supabase.js';
+import { suggestResponseSchema } from './_lib/responseSchemas.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { suggestResultSchema, suggestSchema } from './_lib/schemas.js';
@@ -80,7 +81,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const rl = await checkRateLimit(supabase, userId);
       if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
       const client = getGeminiClient(apiKey);
-      const suggestedIds = parseSuggestResult(await generateJson(client, modelFor(settings, 'suggest'), prompt, { supabase, endpoint: 'suggest', userId }));
+      const suggestedIds = parseSuggestResult(await generateJson(client, modelFor(settings, 'suggest'), prompt, { supabase, endpoint: 'suggest', userId }, { responseSchema: suggestResponseSchema }));
       const candidateIds = new Set(topCandidates.map((c) => String(c.recipe.id)));
       validIds = suggestedIds.filter((id) => candidateIds.has(id));
       setCached(supabase, cacheKey, 'suggest', validIds, 1);

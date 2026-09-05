@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId, canEditRecipe, modelFor } from './_lib/supabase.js';
+import { nutritionResponseSchema } from './_lib/responseSchemas.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { nutritionResultSchema, nutritionSchema } from './_lib/schemas.js';
@@ -74,7 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
 
     const client = getGeminiClient(apiKey);
-    const nutrition = parseNutritionResult(await generateJson(client, modelFor(settings, 'nutrition'), prompt, { supabase, endpoint: 'nutrition', recipeId, userId }));
+    const nutrition = parseNutritionResult(await generateJson(client, modelFor(settings, 'nutrition'), prompt, { supabase, endpoint: 'nutrition', recipeId, userId }, { responseSchema: nutritionResponseSchema }));
 
     const { error: updateError } = await supabase.from('recipes').update({ nutrition }).eq('id', recipeId).eq('user_id', userId);
     if (updateError) throw updateError;

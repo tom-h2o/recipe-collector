@@ -4,6 +4,7 @@ import type { CheerioAPI } from 'cheerio';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId, modelFor } from './_lib/supabase.js';
+import { extractedRecipeResponseSchema } from './_lib/responseSchemas.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { extractedRecipeSchema, extractSchema, extractPhotoSchema, extractPdfSchema, normaliseExtractPhotoBody } from './_lib/schemas.js';
@@ -321,7 +322,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ];
       const inputPreview = `[${images.length} image${images.length === 1 ? '' : 's'}: ${images.map((i) => i.mimeType).join(', ')}]`;
       try {
-        const response = await client.models.generateContent({ model: modelFor(settings, 'extract'), contents: [{ role: 'user', parts }], config: { responseMimeType: 'application/json', temperature: 0.1 } });
+        const response = await client.models.generateContent({ model: modelFor(settings, 'extract'), contents: [{ role: 'user', parts }], config: { responseMimeType: 'application/json', temperature: 0.1, responseSchema: extractedRecipeResponseSchema } });
         const text = response.text;
         if (!text) throw new Error('Gemini returned an empty response.');
         const recipeData = validateExtractedRecipe(JSON.parse(text));
@@ -342,7 +343,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const client = getGeminiClient(apiKey);
       const startTime = Date.now();
       try {
-        const response = await client.models.generateContent({ model: modelFor(settings, 'extract'), contents: [{ role: 'user', parts: [{ inlineData: { mimeType: 'application/pdf', data: pdfBase64 } }, { text: pdfPrompt(settings.temperature_unit) }] }], config: { responseMimeType: 'application/json', temperature: 0.1 } });
+        const response = await client.models.generateContent({ model: modelFor(settings, 'extract'), contents: [{ role: 'user', parts: [{ inlineData: { mimeType: 'application/pdf', data: pdfBase64 } }, { text: pdfPrompt(settings.temperature_unit) }] }], config: { responseMimeType: 'application/json', temperature: 0.1, responseSchema: extractedRecipeResponseSchema } });
         const text = response.text;
         if (!text) throw new Error('Gemini returned an empty response.');
         const recipeData = validateExtractedRecipe(JSON.parse(text));
@@ -384,7 +385,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
 
     const client = getGeminiClient(apiKey);
-    const recipeData = validateExtractedRecipe(await generateJson(client, modelFor(settings, 'extract'), finalPrompt, { supabase, endpoint: 'extract', userId }));
+    const recipeData = validateExtractedRecipe(await generateJson(client, modelFor(settings, 'extract'), finalPrompt, { supabase, endpoint: 'extract', userId }, { responseSchema: extractedRecipeResponseSchema }));
 
     setCached(supabase, cacheKey, 'extract', recipeData, 24 * 7);
     console.info('extract gemini verified', { url, structuredDataFound: !!structuredRecipe });
