@@ -18,7 +18,7 @@ Captured during development. Items marked ✅ have been implemented.
 - ✅ **Auth required on all AI endpoints** — every `api/*.ts` endpoint that calls Gemini now returns 401 if `getUserId()` is null, instead of silently skipping the rate-limit check for unauthenticated requests
 - ✅ **Admin panel server-side pagination** — `GET /api/account?tab=users|recipes|logs&page=&pageSize=` now queries only the requested page (via `.range()` / GoTrue's `listUsers({ page, perPage })`) instead of always fetching 1000 users / 200 recipes / 100 logs. Per-user recipe/AI-call counts are bounded head-only counts scoped to the users on the current page, not a full-table scan. The Recipes tab changed from a per-user accordion to a flat searchable table (with an optional owner filter, reachable by clicking a user's recipe count in the Users tab) since accordion grouping doesn't compose with server-side pagination.
 
-### Shipped later (PRs #7–#23)
+### Shipped later (PRs #7–#28)
 
 - ✅ **Dark mode** — `tailwind.config.js` wrapped tokens as `oklch(var(--x))` while `index.css` already included the wrapper, so every theme utility compiled to invalid CSS and resolved to transparent. Guarded by `tests/unit/theme.test.ts`, which compiles the real stylesheet
 - ✅ **Multi-photo extraction** — a recipe can span up to 8 photos, sent to Gemini in one request and merged; photos are downscaled client-side to stay inside Vercel's 4.5 MB body limit
@@ -33,6 +33,7 @@ Captured during development. Items marked ✅ have been implemented.
 - ✅ **Gemini model list** — cut from nine ids to three tiers with guidance and prices. `gemini-2.5-flash-lite` was offered but retired upstream, returning 404 on every call
 - ✅ **`find-image` no longer spends AI budget** — an Unsplash lookup was consuming the Gemini daily allowance
 - ✅ **Model tiers follow Google's current release** — the three tiers use `-latest` aliases instead of pinned ids, so a new Gemini release needs no code change. Safe only because `generateJson()` now records the response's `modelVersion` in `gemini_logs.model_version`; the logs UI and admin breakdown show the resolved model, not the alias
+- ✅ **Per-person ratings** — rating lived on the recipe row, so there was one and it belonged to whoever owned it; connected accounts can now each rate the same dish and see the other's
 - ✅ **Collections in the vault UI** — `RecipeVault` renders collection filter chips and `RecipeDetail` has add/remove handlers; both halves of the old entry are done
 
 ---

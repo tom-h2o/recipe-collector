@@ -273,6 +273,7 @@ export default function App() {
             recipe={selectedRecipe}
             userId={user?.id}
             ownerLabel={connectedPeople.find((p) => p.userId === selectedRecipe?.user_id)?.label ?? null}
+            linkedPeople={connectedPeople}
             preferredLanguage={selectedRecipe.preferred_language ?? null}
             temperatureUnit={settings.temperature_unit}
             translationsCache={translationsCache}
