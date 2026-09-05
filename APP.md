@@ -55,7 +55,7 @@ A personal recipe manager powered by Google Gemini AI. Save, organise, and cook 
 - Known contacts are autocompleted from previous shares
 
 ### Settings & Customisation
-- Choose between Gemini models (e.g. gemini-2.5-flash)
+- Choose between three Gemini tiers (Lite / Flash / Pro), each tracking Google’s current release for that tier
 - Customise the AI prompt for each function: extraction, tagging, nutrition, translation, suggestion, shopping
 - Switch between two Gemini API keys
 - Toggle temperature display between °C and °F

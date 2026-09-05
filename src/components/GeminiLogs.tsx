@@ -7,6 +7,8 @@ interface GeminiLog {
   created_at: string;
   endpoint: string;
   model: string;
+  /** The concrete model that ran, when `model` was an alias. */
+  model_version: string | null;
   status: 'success' | 'error';
   latency_ms: number | null;
   input: string | null;
@@ -45,7 +47,7 @@ export function GeminiLogs() {
     setLoading(true);
     const { data } = await supabase
       .from('gemini_logs')
-      .select('id, created_at, endpoint, model, status, latency_ms, input, output, error_message, recipe_id')
+      .select('id, created_at, endpoint, model, model_version, status, latency_ms, input, output, error_message, recipe_id')
       .order('created_at', { ascending: false })
       .limit(100);
     if (data) setLogs(data as GeminiLog[]);
@@ -129,8 +131,13 @@ export function GeminiLogs() {
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md w-fit ${ENDPOINT_COLORS[log.endpoint] ?? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600'}`}>
                     {log.endpoint}
                   </span>
-                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate font-mono">
-                    {log.model.replace('gemini-', '')}
+                  <span
+                    className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate font-mono"
+                    title={log.model_version && log.model_version !== log.model
+                      ? `${log.model} resolved to ${log.model_version}`
+                      : log.model}
+                  >
+                    {(log.model_version ?? log.model).replace('gemini-', '')}
                   </span>
                   <span>
                     {log.status === 'success'

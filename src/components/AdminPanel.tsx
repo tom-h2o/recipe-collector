@@ -521,7 +521,12 @@ export function AdminPanel() {
                       <td className="px-6 py-2.5 text-zinc-500 dark:text-zinc-400 whitespace-nowrap text-xs">{formatTime(l.created_at)}</td>
                       <td className="px-4 py-2.5 text-zinc-500 dark:text-zinc-400 text-xs max-w-[160px] truncate">{l.user_email ?? '—'}</td>
                       <td className="px-4 py-2.5 font-mono text-xs text-zinc-700 dark:text-zinc-300">{l.endpoint}</td>
-                      <td className="px-4 py-2.5 font-mono text-xs text-zinc-500 dark:text-zinc-400">{l.model ?? '—'}</td>
+                      <td
+                        className="px-4 py-2.5 font-mono text-xs text-zinc-500 dark:text-zinc-400"
+                        title={l.model_version && l.model_version !== l.model ? `${l.model} resolved to ${l.model_version}` : undefined}
+                      >
+                        {l.model_version ?? l.model ?? '—'}
+                      </td>
                       <td className="px-4 py-2.5">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${l.status === 'success' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>
                           {l.status}

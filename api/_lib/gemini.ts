@@ -43,6 +43,12 @@ export async function generateJson<T = unknown>(
   let status: 'success' | 'error' = 'success';
   let outputPreview: string | undefined;
   let errorMessage: string | undefined;
+  /**
+   * The concrete model Google actually ran. `model` may be an alias such as
+   * gemini-flash-latest, which moves to a new release without a code change;
+   * recording this is what makes that safe to rely on.
+   */
+  let modelVersion: string | undefined;
 
   try {
     const response = await client.models.generateContent({
@@ -50,6 +56,7 @@ export async function generateJson<T = unknown>(
       contents: prompt,
       config: { responseMimeType: 'application/json', temperature: 0.1 },
     });
+    modelVersion = response.modelVersion ?? undefined;
     const text = response.text;
     if (!text) throw new Error('Gemini returned an empty response.');
     outputPreview = text;
@@ -61,6 +68,7 @@ export async function generateJson<T = unknown>(
         contents: `Repair the following invalid JSON and return only valid JSON. Do not change the data unless needed to make it syntactically valid.\n\nParse error: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}\n\nInvalid JSON:\n${text}`,
         config: { responseMimeType: 'application/json', temperature: 0 },
       });
+      modelVersion = repairResponse.modelVersion ?? modelVersion;
       const repairedText = repairResponse.text;
       if (!repairedText) throw parseErr;
       outputPreview = repairedText;
@@ -78,6 +86,7 @@ export async function generateJson<T = unknown>(
         .insert({
           endpoint: logCtx.endpoint,
           model,
+          model_version: modelVersion ?? null,
           status,
           latency_ms: Date.now() - startTime,
           input: prompt,

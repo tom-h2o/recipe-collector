@@ -21,14 +21,18 @@ describe('Gemini model list', () => {
 
   it('uses plausible model IDs', () => {
     for (const model of MODELS) {
-      expect(model, `"${model}" is not a gemini-<version> id`).toMatch(/^gemini-\d/);
+      expect(model, `"${model}" is not a gemini-* id`).toMatch(/^gemini-/);
     }
   });
 
-  it('excludes the auto-updating -latest aliases', () => {
-    // These re-point to new models without notice, which would silently change
-    // behaviour for anyone who had saved that setting.
-    expect(MODELS.filter((m) => m.endsWith('-latest'))).toEqual([]);
+  it('addresses every tier through a -latest alias', () => {
+    // Pinned ids go stale: each Google release needed a code change and a
+    // migration, and in between the app sat on an older model. The aliases move
+    // on their own. This is only safe because generateContent responses carry
+    // modelVersion and gemini.ts records it, so the concrete model behind an
+    // alias is always recoverable — see modelDefaults.test.ts, which asserts
+    // that logging is still in place.
+    expect(MODELS.filter((m) => !m.endsWith('-latest'))).toEqual([]);
   });
 
   it('excludes non-text variants that cannot serve recipe extraction', () => {
@@ -50,8 +54,10 @@ describe('Gemini model list', () => {
     }
   });
 
-  it('flags preview models as preview', () => {
-    for (const m of MODEL_OPTIONS.filter((o) => o.id.includes('preview'))) {
+  it('flags the Pro tier as preview-backed', () => {
+    // gemini-pro-latest resolves to gemini-3.1-pro-preview today. An alias hides
+    // that, so the description has to say it.
+    for (const m of MODEL_OPTIONS.filter((o) => o.name === 'Pro')) {
       expect(
         `${m.badge ?? ''} ${m.description}`.toLowerCase(),
         `${m.id} is a preview model but nothing says so`,
