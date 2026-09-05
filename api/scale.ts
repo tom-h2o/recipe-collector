@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId, modelFor } from './_lib/supabase.js';
+import { scaledIngredientsResponseSchema } from './_lib/responseSchemas.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { scaledIngredientsResultSchema, scaleSchema } from './_lib/schemas.js';
@@ -68,7 +69,7 @@ Rules:
 - Keep the array in the same order as the input.`;
 
     const client = getGeminiClient(apiKey);
-    const scaled = parseScaledIngredientsResult(await generateJson(client, modelFor(settings, 'scale'), prompt, { supabase, endpoint: 'scale', userId }));
+    const scaled = parseScaledIngredientsResult(await generateJson(client, modelFor(settings, 'scale'), prompt, { supabase, endpoint: 'scale', userId }, { responseSchema: scaledIngredientsResponseSchema }));
 
     if (cacheKey) setCached(supabase, cacheKey, 'scale', scaled, 24 * 30);
 

@@ -136,13 +136,23 @@ export async function callWithRetry<T>(
   }
 }
 
+export interface GenerateOptions extends RetryOptions {
+  /**
+   * Constrains the model's output shape. Without it `responseMimeType` only asks
+   * for JSON and the model can still emit something unparseable — the cause of
+   * four of the five failures ever recorded in gemini_logs.
+   */
+  responseSchema?: unknown;
+}
+
 export async function generateJson<T = unknown>(
   client: GoogleGenAI,
   model: string,
   prompt: string,
   logCtx?: GeminiLogContext,
-  retry: RetryOptions = {},
+  options: GenerateOptions = {},
 ): Promise<T> {
+  const { responseSchema, ...retry } = options;
   const startTime = Date.now();
   let status: 'success' | 'error' = 'success';
   let outputPreview: string | undefined;
@@ -161,7 +171,7 @@ export async function generateJson<T = unknown>(
       () => client.models.generateContent({
         model,
         contents: prompt,
-        config: { responseMimeType: 'application/json', temperature: 0.1 },
+        config: { responseMimeType: 'application/json', temperature: 0.1, ...(responseSchema ? { responseSchema } : {}) },
       }),
       { ...retry, onAttempt: () => { attempts += 1; } },
     );
@@ -177,7 +187,7 @@ export async function generateJson<T = unknown>(
         () => client.models.generateContent({
           model,
           contents: `Repair the following invalid JSON and return only valid JSON. Do not change the data unless needed to make it syntactically valid.\n\nParse error: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}\n\nInvalid JSON:\n${text}`,
-          config: { responseMimeType: 'application/json', temperature: 0 },
+          config: { responseMimeType: 'application/json', temperature: 0, ...(responseSchema ? { responseSchema } : {}) },
         }),
         { ...retry, onAttempt: () => { attempts += 1; } },
       );

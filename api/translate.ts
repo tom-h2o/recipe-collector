@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId, userOwnsRecipe, modelFor } from './_lib/supabase.js';
+import { translationResponseSchema } from './_lib/responseSchemas.js';
 import { getGeminiClient, generateJson } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { translationResultSchema, translateSchema } from './_lib/schemas.js';
@@ -55,7 +56,7 @@ Return this exact JSON structure:
 
     const client = getGeminiClient(apiKey);
     const result = translationResultSchema.parse(
-      await generateJson(client, modelFor(settings, 'translate'), prompt, { supabase, endpoint: 'translate', recipeId, userId }),
+      await generateJson(client, modelFor(settings, 'translate'), prompt, { supabase, endpoint: 'translate', recipeId, userId }, { responseSchema: translationResponseSchema }),
     );
 
     const row = { recipe_id: recipeId, language_code: targetLanguage, title: result.title, description: result.description, instructions: result.instructions, ingredients: result.ingredients };
