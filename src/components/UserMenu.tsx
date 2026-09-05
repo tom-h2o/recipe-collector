@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { LogOut, User, KeyRound, Eye, EyeOff, X, Download, Trash2 } from 'lucide-react';
+import { LogOut, User, KeyRound, Eye, EyeOff, X, Download, Trash2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,9 +12,12 @@ import { Label } from '@/components/ui/label';
 interface Props {
   user: SupabaseUser;
   onSignOut: () => void;
+  onOpenWhatsNew?: () => void;
+  /** Dot on the avatar and the menu entry when there are unread release notes. */
+  hasUnreadReleases?: boolean;
 }
 
-export function UserMenu({ user, onSignOut }: Props) {
+export function UserMenu({ user, onSignOut, onOpenWhatsNew, hasUnreadReleases = false }: Props) {
   const { updatePassword } = useAuth();
   const [open, setOpen] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -130,12 +133,19 @@ export function UserMenu({ user, onSignOut }: Props) {
       <div ref={ref} className="relative">
         <button
           onClick={() => setOpen((v) => !v)}
-          className="flex items-center justify-center w-9 h-9 rounded-full overflow-hidden ring-2 ring-transparent hover:ring-sk-primary transition-all focus:outline-none focus-visible:ring-sk-primary"
-          aria-label="Account menu"
+          className="relative flex items-center justify-center w-9 h-9 rounded-full overflow-hidden ring-2 ring-transparent hover:ring-sk-primary transition-all focus:outline-none focus-visible:ring-sk-primary"
+          aria-label={hasUnreadReleases ? 'Account menu, new updates available' : 'Account menu'}
           aria-expanded={open}
         >
           {avatar}
         </button>
+        {hasUnreadReleases && (
+          // Outside the button so `overflow-hidden` on the avatar cannot clip it.
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-sk-primary ring-2 ring-white dark:ring-zinc-900"
+          />
+        )}
 
         {open && (
           <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl z-50 overflow-hidden">
@@ -168,6 +178,18 @@ export function UserMenu({ user, onSignOut }: Props) {
                 <KeyRound className="w-4 h-4 text-zinc-400" />
                 Change password
               </button>
+              {onOpenWhatsNew && (
+                <button
+                  onClick={() => { setOpen(false); onOpenWhatsNew(); }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"
+                >
+                  <Sparkles className="w-4 h-4 text-zinc-400" />
+                  <span className="flex-1">What's new</span>
+                  {hasUnreadReleases && (
+                    <span className="w-2 h-2 rounded-full bg-sk-primary shrink-0" aria-label="unread updates" />
+                  )}
+                </button>
+              )}
               <button
                 onClick={handleExportRecipes}
                 className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"

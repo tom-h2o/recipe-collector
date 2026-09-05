@@ -5,6 +5,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useRecipes } from '@/hooks/useRecipes';
 import { useMealPlans } from '@/hooks/useMealPlans';
 import { useShoppingList } from '@/hooks/useShoppingList';
+import { useChangelog } from '@/hooks/useChangelog';
+import { WhatsNew } from '@/components/WhatsNew';
 import { useAccountLinks } from '@/hooks/useAccountLinks';
 import { useSettings } from '@/hooks/useSettings';
 import { useAuth } from '@/hooks/useAuth';
@@ -57,6 +59,7 @@ export default function App() {
   // Vault owner chip: null shows everyone visible, otherwise one person
 
   const [activeOwnerId, setActiveOwnerId] = useState<string | null>(null);
+  const changelog = useChangelog();
   const [activeView, setActiveView] = useState<ActiveView>('vault');
   const [publicRecipe, setPublicRecipe] = useState<Recipe | null>(null);
 
@@ -179,6 +182,8 @@ export default function App() {
           activeView={activeView}
           user={user}
           isAdmin={!!ADMIN_EMAIL && user?.email === ADMIN_EMAIL}
+          onOpenWhatsNew={changelog.open}
+          hasUnreadReleases={changelog.hasUnread}
           recipeCount={recipes.length}
           inboxCount={inboxCount + linkInvites.length}
           onSetView={setActiveView}
@@ -303,6 +308,13 @@ export default function App() {
             userId={user?.id}
           />
         )}
+
+        <WhatsNew
+          isOpen={changelog.isOpen}
+          releases={changelog.isOpen && changelog.unread.length > 0 ? changelog.unread : changelog.releases}
+          unreadCount={changelog.unread.length}
+          onClose={changelog.close}
+        />
 
         {isSettingsOpen && (
           <SettingsPanel
