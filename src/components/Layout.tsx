@@ -129,6 +129,8 @@ export function Layout({ activeView, user, isAdmin, recipeCount, inboxCount, onS
             </button>
             <button
               onClick={onAddRecipe}
+              aria-label="Add recipe"
+              title="Add recipe"
               className="inline-flex items-center justify-center gap-2 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/80 text-white dark:text-primary-foreground font-semibold rounded-full shadow-ambient transition-all duration-200 hover:scale-[1.02] h-9 sm:h-10 text-sm w-9 sm:w-auto sm:px-6"
             >
               <Plus className="w-4 h-4 shrink-0" />

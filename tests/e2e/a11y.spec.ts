@@ -181,3 +181,39 @@ test('meal planner can be filled in without a mouse', async ({ page }) => {
   await page.keyboard.press('Escape');
   await expect(picker).toBeHidden();
 });
+
+// ── mobile ───────────────────────────────────────────────────────────────────
+// Labels hidden below a breakpoint leave icon-only buttons with no accessible
+// name, which a desktop-width audit cannot see. The Add Recipe button — the
+// app's primary action — was announced as just "button" on a phone.
+
+test.describe('at phone width', () => {
+  test.use({ viewport: { width: 375, height: 812 } });
+
+  const screens = [
+    { name: 'vault', settle: 'Classic Margherita Pizza' },
+    { name: 'planner', tab: 'Planner', settle: 'Breakfast' },
+    { name: 'shopping', tab: 'Shopping', settle: 'Your shopping list is empty' },
+    { name: 'inbox', tab: 'Inbox', settle: 'Your inbox is empty' },
+  ] as const;
+
+  for (const s of screens) {
+    test(`${s.name} is clean and does not scroll sideways`, async ({ page }) => {
+      await installMockBackend(page);
+      await page.goto('/');
+      await expect(page.locator('header')).toBeVisible();
+      if ('tab' in s && s.tab) {
+        await page.getByRole('button', { name: s.tab, exact: false }).filter({ visible: true }).first().click();
+      }
+      await expect(page.getByText(s.settle).first()).toBeVisible();
+
+      const { scrollW, clientW } = await page.evaluate(() => ({
+        scrollW: document.documentElement.scrollWidth,
+        clientW: document.documentElement.clientWidth,
+      }));
+      expect(scrollW, 'the page scrolls horizontally on a phone').toBeLessThanOrEqual(clientW);
+
+      expect(await auditSerious(page, `mobile ${s.name}`)).toEqual([]);
+    });
+  }
+});

@@ -100,6 +100,8 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
               <div className="flex items-center gap-3 shrink-0">
                 <button
                   onClick={() => setShowIngredients((v) => !v)}
+                  aria-label={showIngredients ? 'Hide ingredients' : 'Show ingredients'}
+                  aria-pressed={showIngredients}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${showIngredients ? 'bg-sk-primary/20 text-sk-primary-fixed' : 'hover:bg-white/10 text-white/50 hover:text-white dark:text-primary-foreground/80'}`}
                 >
                   <List className="w-4 h-4" />
