@@ -44,7 +44,10 @@ export default function App() {
   const { mealPlans, fetchMealPlans, addMealPlan, removeMealPlan } = useMealPlans(user?.id);
   const { shoppingList, pantryItems, isGeneratingShopping, fetchShoppingList, fetchPantryItems, generateShoppingList, toggleItem, deleteItem, clearAll, moveItemToPantry, moveItemToShopping, deletePantryItem, addToPantry } = useShoppingList(user?.id);
   const { settings, isSavingSettings, fetchSettings, saveSettings } = useSettings(user?.id);
-  const { connected: connectedPeople, fetchLinks } = useAccountLinks(user?.id, user?.email);
+  const {
+    connected: connectedPeople, pendingIncoming: linkInvites,
+    fetchLinks, accept: acceptLink, disconnect: declineLink,
+  } = useAccountLinks(user?.id, user?.email);
   const { inboxShares, inboxCount, contacts, fetchInbox, fetchContacts, sendShare, acceptShare, rejectShare } = useRecipeShares(user?.id, user?.email);
   const { translationsCache, translationsLoading, cacheTranslation } = useTranslationCache(recipes);
   const { collections, memberships, fetchCollections, createCollection, deleteCollection, renameCollection, addToCollection, removeFromCollection } = useCollections(user?.id);
@@ -167,7 +170,7 @@ export default function App() {
           user={user}
           isAdmin={!!ADMIN_EMAIL && user?.email === ADMIN_EMAIL}
           recipeCount={recipes.length}
-          inboxCount={inboxCount}
+          inboxCount={inboxCount + linkInvites.length}
           onSetView={setActiveView}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenSuggest={() => setIsSuggestOpen(true)}
@@ -239,8 +242,11 @@ export default function App() {
           {activeView === 'inbox' && (
             <RecipeInbox
               shares={inboxShares}
+              linkInvites={linkInvites}
               onAccept={handleAcceptShare}
               onReject={rejectShare}
+              onAcceptLink={async (id) => { await acceptLink(id); fetchRecipes(''); }}
+              onDeclineLink={declineLink}
               onBack={() => setActiveView('vault')}
             />
           )}
