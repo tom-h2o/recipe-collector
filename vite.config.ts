@@ -9,7 +9,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      injectRegister: 'inline',
+      // Registration lives in src/lib/registerServiceWorker.ts: the inline snippet
+      // checked for updates only on `load` and never reloaded the page when a new
+      // worker took control, so phones kept rendering the previous build.
+      injectRegister: null,
       workbox: {
         // Without clientsClaim the new worker activates but does not take over
         // pages that are already open, so the first load after a deploy still
