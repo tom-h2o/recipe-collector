@@ -17,9 +17,33 @@ describe('default Gemini model', () => {
     expect(SERVER_DEFAULT).toBe(CLIENT_DEFAULT);
   });
 
-  it('is a concrete pinned id, not an auto-updating alias', () => {
-    expect(CLIENT_DEFAULT).toMatch(/^gemini-\d/);
-    expect(CLIENT_DEFAULT).not.toMatch(/-latest$/);
+  it('is an auto-updating alias, so releases do not need a code change', () => {
+    expect(CLIENT_DEFAULT).toMatch(/^gemini-/);
+    expect(CLIENT_DEFAULT).toMatch(/-latest$/);
+  });
+});
+
+/**
+ * Aliases are only defensible because we can always tell what actually ran.
+ *
+ * gemini-flash-latest re-points to a new release whenever Google promotes one.
+ * Without recording the response's modelVersion, a change in extraction quality
+ * would be untraceable — no log row would say which model produced it. Dropping
+ * that logging would quietly turn the alias into the liability it isn't today,
+ * and nothing else in the suite would notice, hence this test.
+ */
+describe('alias resolution is recorded', () => {
+  const geminiSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'api/_lib/gemini.ts'),
+    'utf8',
+  );
+
+  it('reads modelVersion off the generateContent response', () => {
+    expect(geminiSource).toMatch(/response\.modelVersion/);
+  });
+
+  it('writes it to the gemini_logs row alongside the requested model', () => {
+    expect(geminiSource).toMatch(/model_version:/);
   });
 });
 

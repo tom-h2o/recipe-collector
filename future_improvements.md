@@ -18,7 +18,7 @@ Captured during development. Items marked ✅ have been implemented.
 - ✅ **Auth required on all AI endpoints** — every `api/*.ts` endpoint that calls Gemini now returns 401 if `getUserId()` is null, instead of silently skipping the rate-limit check for unauthenticated requests
 - ✅ **Admin panel server-side pagination** — `GET /api/account?tab=users|recipes|logs&page=&pageSize=` now queries only the requested page (via `.range()` / GoTrue's `listUsers({ page, perPage })`) instead of always fetching 1000 users / 200 recipes / 100 logs. Per-user recipe/AI-call counts are bounded head-only counts scoped to the users on the current page, not a full-table scan. The Recipes tab changed from a per-user accordion to a flat searchable table (with an optional owner filter, reachable by clicking a user's recipe count in the Users tab) since accordion grouping doesn't compose with server-side pagination.
 
-### Shipped later (PRs #7–#19)
+### Shipped later (PRs #7–#23)
 
 - ✅ **Dark mode** — `tailwind.config.js` wrapped tokens as `oklch(var(--x))` while `index.css` already included the wrapper, so every theme utility compiled to invalid CSS and resolved to transparent. Guarded by `tests/unit/theme.test.ts`, which compiles the real stylesheet
 - ✅ **Multi-photo extraction** — a recipe can span up to 8 photos, sent to Gemini in one request and merged; photos are downscaled client-side to stay inside Vercel's 4.5 MB body limit
@@ -32,6 +32,7 @@ Captured during development. Items marked ✅ have been implemented.
 - ✅ **Query indexes** — the schema had six indexes and none matched how the app queries; the rate-limit check ran before every AI call against an index covering only half its filter
 - ✅ **Gemini model list** — cut from nine ids to three tiers with guidance and prices. `gemini-2.5-flash-lite` was offered but retired upstream, returning 404 on every call
 - ✅ **`find-image` no longer spends AI budget** — an Unsplash lookup was consuming the Gemini daily allowance
+- ✅ **Model tiers follow Google's current release** — the three tiers use `-latest` aliases instead of pinned ids, so a new Gemini release needs no code change. Safe only because `generateJson()` now records the response's `modelVersion` in `gemini_logs.model_version`; the logs UI and admin breakdown show the resolved model, not the alias
 - ✅ **Collections in the vault UI** — `RecipeVault` renders collection filter chips and `RecipeDetail` has add/remove handlers; both halves of the old entry are done
 
 ---
@@ -98,6 +99,40 @@ entries are wanted. Display as per-day totals on the planner plus a prominent
 already stored, so showing them costs little — but targets for five numbers make
 for a busier UI than targets for two.
 
+### Admin-managed model list (no deploy needed)
+Considered and deliberately deferred — the `-latest` aliases removed most of the
+pressure for it, since a new Google release no longer needs a code change at all.
+Worth building if a release ever regresses and the tiers need pinning back in a
+hurry, or if the tier line-up itself should change without a deploy.
+
+**Shape.** A `model_options` table mirroring `MODEL_OPTIONS` (`id`, `name`,
+`badge`, `description`, `price`, `sort_order`, `is_default`), edited from a new
+tab in `AdminPanel`. `MODEL_OPTIONS` in `constants.ts` stays as the seed *and*
+the fallback: an empty or unreachable table means the hardcoded list is used, so
+the dropdown can never come up empty.
+
+**Endpoint.** Goes into `api/account.ts` as another action behind the existing
+`assertAdmin()`, not a new file — Vercel Hobby caps at 12 functions and 10 are in
+use. See the function-limit note in CLAUDE.md.
+
+**Validation before save is the whole point.** On save the server calls
+`generateContent` once against the submitted id and refuses the write if it
+errors, surfacing Google's own message. `gemini-2.5-flash-lite` reached the
+dropdown precisely because `ListModels` advertised it while every real call
+returned 404 (migration 0044) — a list endpoint is not evidence a model serves
+requests, so the only honest check is making the call. Store the response's
+`modelVersion` alongside the row so the panel can show `gemini-flash-latest →
+gemini-3.8-flash` per tier.
+
+**Setting the default** has to do what migration 0050 did by hand: update every
+`settings` row in the same request, because the standing policy is that all users
+move to the new default together.
+
+**The risk to hold in view.** This creates a way to change what every user's AI
+calls run against, from a web form, with no deploy and no review. Validation stops
+a *broken* id, not an expensive one — Pro is roughly 3× Flash — so the confirm
+step should show the price delta rather than pretend that isn't a real button.
+
 ### Recipe version history
 When a recipe is edited, the previous version is permanently overwritten with no way to undo.
 - Store snapshots in a `recipe_versions` table on every update
@@ -111,7 +146,7 @@ Currently importing multiple recipes requires opening each one individually. A q
 ## Bigger Changes
 
 ### Model usage breakdown still scans all `gemini_logs` rows
-`getStats()` in `api/account.ts` (Overview tab's "Model usage" chart) still does `select('model')` over the entire `gemini_logs` table to build the per-model counts — the one query the admin pagination pass didn't bound, since PostgREST can't do `GROUP BY` aggregation without a DB-side RPC/view. Fixing it properly needs a migration (e.g. a `gemini_logs_by_model` view or an RPC function); low priority until `gemini_logs` gets large enough for this single-column fetch to matter.
+`getStats()` in `api/account.ts` (Overview tab's "Model usage" chart) still does `select('model, model_version')` over the entire `gemini_logs` table to build the per-model counts — the one query the admin pagination pass didn't bound, since PostgREST can't do `GROUP BY` aggregation without a DB-side RPC/view. Fixing it properly needs a migration (e.g. a `gemini_logs_by_model` view or an RPC function); low priority until `gemini_logs` gets large enough for this single-column fetch to matter.
 
 ### Offline recipe browsing — partly done
 Read-only browsing already survives a bad connection: a `NetworkFirst` runtime

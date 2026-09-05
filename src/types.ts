@@ -165,6 +165,8 @@ export interface AdminLog {
   created_at: string;
   endpoint: string;
   model: string;
+  /** The concrete model that ran, when `model` was a -latest alias. */
+  model_version?: string | null;
   status: string;
   latency_ms: number | null;
   user_id: string | null;

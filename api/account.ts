@@ -67,11 +67,17 @@ async function getStats(supabase: SupabaseClient) {
     supabase.from('gemini_logs').select('*', { count: 'exact', head: true }),
     supabase.from('gemini_logs').select('*', { count: 'exact', head: true }).gte('created_at', todayStart),
     supabase.from('gemini_logs').select('*', { count: 'exact', head: true }).gte('created_at', weekStart),
-    supabase.from('gemini_logs').select('model'),
+    supabase.from('gemini_logs').select('model, model_version'),
   ]);
 
+  // Grouped by the model that actually ran, not the alias that was requested.
+  // Tallying by alias would collapse every release into one bucket labelled
+  // "gemini-flash-latest", which says nothing about what served the traffic.
   const modelMap: Record<string, number> = {};
-  for (const r of modelRowsRes.data ?? []) if (r.model) modelMap[r.model] = (modelMap[r.model] ?? 0) + 1;
+  for (const r of modelRowsRes.data ?? []) {
+    const name = r.model_version || r.model;
+    if (name) modelMap[name] = (modelMap[name] ?? 0) + 1;
+  }
   const model_breakdown = Object.entries(modelMap).map(([model, count]) => ({ model, count })).sort((a, b) => b.count - a.count);
 
   const totalUsers = (userCountRes.data as { total?: number } | null)?.total ?? 0;
@@ -135,7 +141,7 @@ async function getRecipesPage(supabase: SupabaseClient, page: number, pageSize: 
 async function getLogsPage(supabase: SupabaseClient, page: number, pageSize: number) {
   const { data, count, error } = await supabase
     .from('gemini_logs')
-    .select('id, created_at, endpoint, model, status, latency_ms, user_id', { count: 'exact' })
+    .select('id, created_at, endpoint, model, model_version, status, latency_ms, user_id', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(page * pageSize, page * pageSize + pageSize - 1);
   if (error) throw new HttpError(500, error.message);
