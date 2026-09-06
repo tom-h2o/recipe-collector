@@ -54,7 +54,9 @@ test('recipe detail drawer', async ({ page }) => {
   await page.goto('/');
   await page.getByText('Classic Margherita Pizza').click();
   // the drawer renders the instructions, which the card does not
-  await expect(page.getByText('Prepare dough.', { exact: false })).toBeVisible();
+  // Scoped to the dialog: RecipePrintSheet renders the same recipe again,
+  // hidden except in print media, so an unscoped text match finds two.
+  await expect(page.getByRole('dialog').getByText('Prepare dough.', { exact: false })).toBeVisible();
   expect(await auditSerious(page, 'recipe detail')).toEqual([]);
 });
 
