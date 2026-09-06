@@ -124,8 +124,22 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, use
                 <div className="space-y-2">
                   <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Gemini Model</Label>
                   <Select value={local.gemini_model} onValueChange={(v) => { if (v) setLocal((p) => ({ ...p, gemini_model: v })); }}>
-                    <SelectTrigger aria-label="Gemini model" className="w-full">
-                      <SelectValue placeholder="Select model" />
+                    <SelectTrigger aria-label="Gemini model" className="w-full h-auto min-h-9 py-1.5">
+                      {/* An explicit label: without it the trigger renders the
+                          selected item's entire block — description and price
+                          included — inside a fixed-height, nowrap box. */}
+                      <SelectValue placeholder="Select model">
+                        {(value: string) => {
+                          const m = MODEL_OPTIONS.find((o) => o.id === value);
+                          if (!m) return 'Select model';
+                          return (
+                            <span className="flex items-center gap-2 min-w-0">
+                              <span className="font-semibold shrink-0">{m.name}</span>
+                              <span className="text-xs text-zinc-600 dark:text-zinc-400 truncate">{m.id}</span>
+                            </span>
+                          );
+                        }}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {MODEL_OPTIONS.map((m) => (
@@ -182,8 +196,14 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, use
                           value={local.task_models?.[t.task] ?? ''}
                           onValueChange={(v) => setTaskModel(t.task, v === '' ? null : (v as string))}
                         >
-                          <SelectTrigger aria-label={`Model for ${t.label}`} className="w-[9.5rem] shrink-0">
-                            <SelectValue placeholder={`Same as main`} />
+                          <SelectTrigger aria-label={`Model for ${t.label}`} className="w-[11rem] shrink-0">
+                            <SelectValue placeholder="Same as main">
+                              {(value: string) => (
+                                <span className="truncate">
+                                  {value ? (MODEL_OPTIONS.find((o) => o.id === value)?.name ?? value) : 'Same as main'}
+                                </span>
+                              )}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="">
