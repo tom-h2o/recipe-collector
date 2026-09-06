@@ -33,6 +33,7 @@ Captured during development. Items marked ✅ have been implemented.
 - ✅ **Gemini model list** — cut from nine ids to three tiers with guidance and prices. `gemini-2.5-flash-lite` was offered but retired upstream, returning 404 on every call
 - ✅ **`find-image` no longer spends AI budget** — an Unsplash lookup was consuming the Gemini daily allowance
 - ✅ **Model tiers follow Google's current release** — the three tiers use `-latest` aliases instead of pinned ids, so a new Gemini release needs no code change. Safe only because `generateJson()` now records the response's `modelVersion` in `gemini_logs.model_version`; the logs UI and admin breakdown show the resolved model, not the alias
+- ✅ **Cook mode timer** — durations mentioned in a step become one-tap chips (25% of steps in this vault name one, across en/de/pl), plus a manual set. Driven by a wall-clock deadline so a locked phone does not lose time
 - ✅ **Per-person ratings** — rating lived on the recipe row, so there was one and it belonged to whoever owned it; connected accounts can now each rate the same dish and see the other's
 - ✅ **Collections in the vault UI** — `RecipeVault` renders collection filter chips and `RecipeDetail` has add/remove handlers; both halves of the old entry are done
 
@@ -41,11 +42,6 @@ Captured during development. Items marked ✅ have been implemented.
 ## Quick Wins
 
 - ✅ **Meal planner week navigation** — prev/next week buttons with `weekOffset` state; shows weekly calorie total
-
-### Cook mode timer
-Step-by-step cook mode has no timer despite most steps mentioning durations.
-- Parse time expressions from step text ("simmer for 10 minutes") and pre-fill a countdown
-- Or a simple manual stopwatch in the cook mode header
 
 ### Rate limit indicator in the header
 Currently only visible after opening Settings → Usage Logs. A lightweight indicator in the navbar (e.g. a small pill showing "82/100 today") would be more discoverable without requiring navigation.

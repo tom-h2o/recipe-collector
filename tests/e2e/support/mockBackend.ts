@@ -50,7 +50,10 @@ export const MOCK_RECIPES = [
       { amount: '200g', name: 'mozzarella', details: 'torn' },
       { amount: '1 can', name: 'plum tomatoes', details: 'crushed' },
     ],
-    instructions: 'Prepare dough. Add toppings. Bake at 400C.',
+    // The duration is load-bearing: cook mode offers a timer chip for it, and
+    // "400C" alongside it must NOT become one. a11y.spec.ts matches on the
+    // leading sentence only.
+    instructions: 'Prepare dough. Add toppings. Bake at 400C for 12 minutes.',
     image_url: '',
     servings: 2,
     tags: ['Baking', 'Vegetarian', 'Italian'],

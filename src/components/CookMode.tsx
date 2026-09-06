@@ -2,6 +2,9 @@ import { ChefHat, X, CheckSquare, Square, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { useState } from 'react';
+import { CookTimer } from '@/components/CookTimer';
+import { useCookTimer } from '@/hooks/useCookTimer';
+import { parseDurations } from '@/lib/parseDurations';
 import { parseIngredients } from '@/lib/recipeUtils';
 import type { Recipe, RecipeTranslation } from '@/types';
 
@@ -16,6 +19,9 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
   const [cookStep, setCookStep] = useState(0);
   const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
   const [showIngredients, setShowIngredients] = useState(false);
+  // Deliberately not reset when the step changes: a timer set for one step
+  // usually needs to keep running while the cook reads ahead.
+  const timer = useCookTimer();
 
   if (!recipe) return null;
 
@@ -28,6 +34,10 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
     return { amount: t.amount ?? ing.amount, name: t.name ?? ing.name, details: t.details ?? ing.details };
   });
   const currentStep = steps[cookStep] || '';
+  // Not memoised: this runs a regex over one step's text, and a useMemo here
+  // would sit after the `if (!recipe) return null` guard above, which breaks
+  // the rules of hooks.
+  const stepDurations = parseDurations(currentStep);
   const isFirst = cookStep === 0;
   const isLast = cookStep === steps.length - 1;
 
@@ -125,6 +135,8 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
                 </p>
               </div>
             </div>
+
+            <CookTimer timer={timer} suggestions={stepDurations} />
 
             {/* Step dots — never scrolls */}
             <div className="shrink-0 flex justify-center gap-0.5 py-3">
