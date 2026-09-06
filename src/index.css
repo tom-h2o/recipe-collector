@@ -171,81 +171,119 @@
 
 /* Print styles for clean recipe output */
 @media print {
-  body {
-    @apply bg-white text-black;
-  }
-
-  nav, .no-print, [class*="print:hidden"] {
+  /*
+   * Everything on screen is hidden and only the print sheet is shown. The old
+   * rules here styled classes (.print-recipe, .print-title, …) that no component
+   * ever applied, so printing produced the app itself: the drawer floating on a
+   * blurred backdrop, a decorative gradient over the top third, and the servings
+   * +/- buttons rendered as dead controls.
+   *
+   * RecipePrintSheet portals to <body>, which is what makes this single rule
+   * enough — and what keeps a restyle of the drawer from silently changing what
+   * comes out of the printer.
+   */
+  body > *:not(.print-sheet) {
     display: none !important;
   }
 
-  .print-recipe {
-    @apply max-w-4xl mx-auto;
+  body {
+    background: #fff !important;
+    color: #000 !important;
   }
 
-  .print-title {
-    @apply text-3xl font-bold mb-4 border-b-2 border-black pb-2;
+  .print-sheet {
+    display: block !important;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    color: #000;
   }
 
-  .print-description {
-    @apply text-lg mb-6 italic text-gray-700;
+  .print-sheet-title {
+    font-size: 24pt;
+    font-weight: 700;
+    margin: 0 0 4pt;
   }
 
-  .print-section {
-    @apply mb-8;
-    page-break-inside: avoid;
+  .print-sheet-description {
+    font-style: italic;
+    margin: 0 0 6pt;
   }
 
-  .print-section-title {
-    @apply text-xl font-bold mb-3 border-b-2 border-gray-400 pb-2;
+  .print-sheet-meta {
+    font-size: 10pt;
+    color: #444;
+    margin: 0 0 14pt;
+    padding-bottom: 6pt;
+    border-bottom: 1pt solid #000;
   }
 
-  .print-ingredients {
-    @apply list-none pl-0;
+  .print-sheet-section {
+    margin-bottom: 14pt;
+    /* Never split a heading from the list it introduces. */
+    break-inside: avoid;
   }
 
-  .print-ingredients li {
-    @apply mb-2 list-disc list-inside;
+  .print-sheet-heading {
+    font-size: 13pt;
+    font-weight: 700;
+    margin: 0 0 6pt;
+    border-bottom: 0.5pt solid #999;
+    padding-bottom: 2pt;
   }
 
-  .print-instructions {
-    @apply leading-relaxed whitespace-pre-wrap;
+  .print-sheet-ingredients {
+    margin: 0;
+    padding-left: 16pt;
+    /* Two columns: a long ingredient list otherwise pushes the method onto a
+       second sheet, and the cook then needs both pages at once. */
+    columns: 2;
+    column-gap: 24pt;
   }
 
-  .print-nutrition {
-    @apply w-full border-collapse;
+  .print-sheet-ingredients li {
+    margin-bottom: 3pt;
+    break-inside: avoid;
   }
 
-  .print-nutrition th,
-  .print-nutrition td {
-    @apply border border-gray-400 px-3 py-2 text-left;
+  .print-sheet-steps {
+    margin: 0;
+    padding-left: 16pt;
   }
 
-  .print-nutrition th {
-    @apply bg-gray-100 font-bold;
+  .print-sheet-steps li {
+    margin-bottom: 7pt;
+    break-inside: avoid;
+    line-height: 1.45;
   }
 
-  .print-metadata {
-    @apply text-sm text-gray-600 mb-6;
+  .print-sheet-nutrition {
+    border-collapse: collapse;
+    font-size: 10pt;
   }
 
-  .print-section {
-    page-break-inside: avoid;
+  .print-sheet-nutrition th,
+  .print-sheet-nutrition td {
+    border: 0.5pt solid #999;
+    padding: 3pt 8pt;
+    text-align: left;
   }
 
-  .print-ingredients li {
-    page-break-inside: avoid;
+  .print-sheet-source {
+    font-size: 9pt;
+    color: #555;
+    margin-top: 12pt;
+    /* Long URLs must wrap rather than run off the page. */
+    word-break: break-word;
   }
 
-  .print-instructions {
-    page-break-inside: avoid;
+  @page {
+    margin: 14mm;
   }
+}
 
-  a {
-    @apply text-black underline;
-  }
-
-  a[href]::after {
-    content: " (" attr(href) ")";
-  }
+/* Only ever visible on paper. */
+.print-sheet {
+  display: none;
 }

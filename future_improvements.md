@@ -33,6 +33,7 @@ Captured during development. Items marked ✅ have been implemented.
 - ✅ **Gemini model list** — cut from nine ids to three tiers with guidance and prices. `gemini-2.5-flash-lite` was offered but retired upstream, returning 404 on every call
 - ✅ **`find-image` no longer spends AI budget** — an Unsplash lookup was consuming the Gemini daily allowance
 - ✅ **Model tiers follow Google's current release** — the three tiers use `-latest` aliases instead of pinned ids, so a new Gemini release needs no code change. Safe only because `generateJson()` now records the response's `modelVersion` in `gemini_logs.model_version`; the logs UI and admin breakdown show the resolved model, not the alias
+- ✅ **Recipe PDF export** — the print button existed but printed the app: the drawer on a blurred backdrop, a decorative gradient over the top third, and the servings +/- buttons. There is now a real print sheet, and the saved file is named after the recipe. The `print-*` CSS the old note called "print-optimised" styled classes no component ever applied
 - ✅ **Cook mode timer** — durations mentioned in a step become one-tap chips (25% of steps in this vault name one, across en/de/pl), plus a manual set. Driven by a wall-clock deadline so a locked phone does not lose time
 - ✅ **Per-person ratings** — rating lived on the recipe row, so there was one and it belonged to whoever owned it; connected accounts can now each rate the same dish and see the other's
 - ✅ **Collections in the vault UI** — `RecipeVault` renders collection filter chips and `RecipeDetail` has add/remove handlers; both halves of the old entry are done
@@ -166,9 +167,6 @@ trigger entirely.
 
 ### Cook mode voice control
 Hands-free step navigation via the Web Speech API (`SpeechRecognition`) — say "next" or "back" to navigate steps without touching the screen.
-
-### Recipe PDF export
-The `/recipe/:id` public share route is print-optimised via Tailwind `print:` utilities. A one-click "Export as PDF" button (using `window.print()` or a headless puppeteer function) would be a natural addition.
 
 ---
 
