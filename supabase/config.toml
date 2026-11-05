@@ -34,7 +34,8 @@ file_size_limit = "5MiB"
 [realtime]
 enabled = false
 
-[inbucket]
+# Renamed from [inbucket] in Supabase CLI 3.0.
+[local_smtp]
 enabled = false
 
 [analytics]
