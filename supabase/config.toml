@@ -34,8 +34,10 @@ file_size_limit = "5MiB"
 [realtime]
 enabled = false
 
-# Renamed from [inbucket] in Supabase CLI 3.0.
-[local_smtp]
+# [inbucket] on CLI 2.x; CLI 3.0 renames this to [local_smtp]. Both jobs run
+# 2.x (see the version note in ci.yml), so this key must stay as it is until
+# the upgrade is made deliberately, on both sides at once.
+[inbucket]
 enabled = false
 
 [analytics]

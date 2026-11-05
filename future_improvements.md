@@ -131,6 +131,18 @@ calls run against, from a web form, with no deploy and no review. Validation sto
 a *broken* id, not an expensive one — Pro is roughly 3× Flash — so the confirm
 step should show the price delta rather than pretend that isn't a real button.
 
+### Supabase CLI 3.x upgrade
+Both CI jobs are pinned to 2.101.0 — the `rls` job through setup-cli, and
+`migrate-production` through the `supabase` devDependency that `npx` resolves.
+3.0 renames `[inbucket]` to `[local_smtp]` in config.toml and 2.x rejects the new
+key, so the two have to move together, in one change, with `supabase/config.toml`
+updated alongside.
+
+Not urgent. Deliberately left pinned rather than tracking `latest`, because an
+upstream release of a major version should not land on whichever pull request
+happens to run next. `tests/unit/supabaseCliVersion.test.ts` fails if the two
+pins drift apart or the config key stops matching.
+
 ### A second Gemini project, if the app ever matters daily
 On 2026-09-15 three calls failed with `403 PERMISSION_DENIED` — "Your project has
 been denied access" — and every AI feature was down until it cleared. There is one
