@@ -58,12 +58,14 @@ jobs:
 
     - uses: supabase/setup-cli@v1
       with:
-        # Pinned deliberately. With `latest`, the CLI releasing 3.0 — which
-        # renamed [inbucket] to [local_smtp] — turned this job red on a pull
-        # request that touched none of it. A job whose purpose is catching drift
-        # has to be trustworthy, and surprise breakage on unrelated work is how
-        # people learn to ignore a red check. Bump it on purpose.
-        version: 3.0.0
+        # Pinned, and pinned to the SAME major as the `supabase` devDependency
+        # that `npx supabase` resolves in the migrate-production job below.
+        # With `latest` here, the CLI releasing 3.0 turned this job red on an
+        # unrelated pull request; pinning it to 3.0.0 then split the two jobs
+        # across major versions, which broke the other one instead — 3.0 renamed
+        # [inbucket] to [local_smtp] and 2.x rejects the new key.
+        # tests/unit/supabaseCliVersion.test.ts asserts the two stay in step.
+        version: 2.101.0
 
     # Spins up the real Postgres with every migration applied, which is the only
     # way to exercise row level security. The service key used elsewhere bypasses
