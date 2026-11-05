@@ -11,6 +11,8 @@ import { CookMode } from '@/components/CookMode';
 import { Button } from '@/components/ui/button';
 import { RecipeGallery } from '@/components/RecipeGallery';
 import { useRecipeRatings } from '@/hooks/useRecipeRatings';
+import { usePrintTitle } from '@/hooks/usePrintTitle';
+import { RecipePrintSheet } from '@/components/RecipePrintSheet';
 import { useRecipeImages } from '@/hooks/useRecipeImages';
 import { adoptRecipe } from '@/lib/adoptRecipe';
 
@@ -92,6 +94,9 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
     ? translationsCache?.[`${recipe.id}:${preferredLanguage}`] ?? null
     : null;
   const [translation, setTranslation] = useState<RecipeTranslation | null>(cachedTranslation);
+
+  // Names the saved PDF after the recipe, in whichever language is shown.
+  usePrintTitle((typeof translation?.title === 'string' ? translation.title : null) || recipe?.title);
   const [isTranslating, setIsTranslating] = useState(false);
   const [showAddPlan, setShowAddPlan] = useState(false);
   const [planMeal, setPlanMeal] = useState<string>(DEFAULT_MEAL_TYPE);
@@ -284,6 +289,23 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
   }
 
   const parsed = parseIngredients(recipe.ingredients);
+
+  /**
+   * Exactly what the ingredient table renders — scaled, AI-scaled or translated.
+   * Derived once so the printed sheet cannot drift from the screen: printing a
+   * recipe scaled to 6 servings must not hand back the original quantities.
+   */
+  const displayIngredients = parsed.map((ing, i) => {
+    const aiIng = aiIngredients?.[i];
+    const translatedIng = translation?.ingredients?.[i];
+    const baseAmount = typeof translatedIng?.amount === 'string' ? translatedIng.amount : ing.amount;
+    const rawDetails = typeof translatedIng?.details === 'string' ? translatedIng.details : ing.details;
+    return {
+      amount: aiIng ? aiIng.amount : (scaleAmount(baseAmount, scale) || ''),
+      name: typeof translatedIng?.name === 'string' ? translatedIng.name : ing.name,
+      details: rawDetails ? convertTemperaturesInText(rawDetails, temperatureUnit) : (rawDetails ?? ''),
+    };
+  });
   const rawInstructions = (typeof translation?.instructions === 'string' ? translation.instructions : recipe.instructions) ?? '';
   const displayInstructions = convertTemperaturesInText(rawInstructions, temperatureUnit) ?? '';
   const steps = displayInstructions.split(/\n+/).map((s) => s.trim()).filter(Boolean);
@@ -312,6 +334,17 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
 
   return (
     <>
+    {/* Only rendered to paper. Portalled to <body>, which is what lets the print
+        rules hide the entire app with one selector. */}
+    <RecipePrintSheet
+      recipe={recipe}
+      ingredients={displayIngredients}
+      servings={scaledServings}
+      title={typeof translation?.title === 'string' ? translation.title : undefined}
+      description={typeof translation?.description === 'string' ? translation.description : undefined}
+      instructions={displayInstructions}
+    />
+
     <Dialog open={!!recipe} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent showCloseButton={false} className="sm:max-w-[780px] overflow-hidden rounded-3xl bg-white dark:bg-card border-0 shadow-ambient p-0 w-[95vw] sm:w-full" style={{ boxShadow: '0 24px 80px rgba(47, 49, 46, 0.12)' }}>
         {/* Fixed close button — always visible, never scrolls away */}
@@ -602,14 +635,10 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                 <div className="rounded-xl overflow-hidden bg-sk-surface-low dark:bg-muted">
                   <table className="w-full text-sm">
                     <tbody>
-                      {parsed.map((ing, i) => {
-                        const aiIng = aiIngredients?.[i];
-                        const translatedIng = translation?.ingredients?.[i];
-                        const baseAmount = typeof translatedIng?.amount === 'string' ? translatedIng.amount : ing.amount;
-                        const displayAmount = aiIng ? aiIng.amount : (scaleAmount(baseAmount, scale) || '—');
-                        const displayName = typeof translatedIng?.name === 'string' ? translatedIng.name : ing.name;
-                        const rawDetails = typeof translatedIng?.details === 'string' ? translatedIng.details : ing.details;
-                        const displayDetails = rawDetails ? convertTemperaturesInText(rawDetails, temperatureUnit) : rawDetails;
+                      {displayIngredients.map((ing, i) => {
+                        const displayAmount = ing.amount || '—';
+                        const displayName = ing.name;
+                        const displayDetails = ing.details;
                         return (
                           <tr key={i} className={i % 2 === 0 ? 'bg-sk-surface-low dark:bg-muted' : 'bg-white dark:bg-card/50'}>
                             <td className="py-2.5 px-4 font-semibold font-sans text-sk-primary dark:text-primary whitespace-nowrap w-1/3">
