@@ -3,7 +3,7 @@ import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId, modelFor } from './_lib/supabase.js';
 import { scaledIngredientsResponseSchema } from './_lib/responseSchemas.js';
-import { getGeminiClient, generateJson } from './_lib/gemini.js';
+import { getGeminiClient, generateJson, describeGeminiError } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { scaledIngredientsResultSchema, scaleSchema } from './_lib/schemas.js';
 import { getCached, setCached } from './_lib/cache.js';
@@ -78,6 +78,9 @@ Rules:
     if (err instanceof ZodError) return res.status(400).json({ error: err.issues[0]?.message ?? 'Invalid request' });
     captureException(err);
     console.error('Scale error:', err);
-    return res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to scale recipe' });
+    // Never pass err.message through: for a Gemini failure that is the raw
+    // API envelope, which reads as though the user's recipe is at fault.
+    const described = describeGeminiError(err, 'Failed to scale recipe');
+    return res.status(described.status).json({ error: described.message });
   }
 }

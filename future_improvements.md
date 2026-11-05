@@ -131,6 +131,22 @@ calls run against, from a web form, with no deploy and no review. Validation sto
 a *broken* id, not an expensive one — Pro is roughly 3× Flash — so the confirm
 step should show the price delta rather than pretend that isn't a real button.
 
+### A second Gemini project, if the app ever matters daily
+On 2026-09-15 three calls failed with `403 PERMISSION_DENIED` — "Your project has
+been denied access" — and every AI feature was down until it cleared. There is one
+Gemini project and no failover.
+
+Worth knowing before building anything: a second **key** changes nothing, because
+a project-level denial applies to every key in that project. Real failover means a
+second Google Cloud project with its own billing, plus `resolveApiKey()` learning
+to pick between them and the call path retrying once on an auth-shaped failure.
+
+Deliberately not done. At current volume (39 AI calls in the logs, 2 new recipes in
+two months) the ongoing cost of a second project outweighs an outage that cleared
+on its own. The failure is at least legible now — `describeGeminiError()` tells the
+user it is a configuration problem and not their recipe. Revisit if the app becomes
+something depended on daily, or if the 403 recurs.
+
 ### Recipe version history
 When a recipe is edited, the previous version is permanently overwritten with no way to undo.
 - Store snapshots in a `recipe_versions` table on every update

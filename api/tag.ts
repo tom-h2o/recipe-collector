@@ -3,7 +3,7 @@ import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId, canEditRecipe, modelFor } from './_lib/supabase.js';
 import { tagResponseSchema } from './_lib/responseSchemas.js';
-import { getGeminiClient, generateJson } from './_lib/gemini.js';
+import { getGeminiClient, generateJson, describeGeminiError } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { tagResultSchema, tagSchema } from './_lib/schemas.js';
 import { makeCacheKey, getCached, setCached } from './_lib/cache.js';
@@ -110,6 +110,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (err instanceof ZodError) return res.status(400).json({ error: err.issues[0]?.message ?? 'Invalid request' });
     captureException(err);
     console.error('Tagging error:', err);
-    return res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to tag recipe' });
+    // Never pass err.message through: for a Gemini failure that is the raw
+    // API envelope, which reads as though the user's recipe is at fault.
+    const described = describeGeminiError(err, 'Failed to tag recipe');
+    return res.status(described.status).json({ error: described.message });
   }
 }
