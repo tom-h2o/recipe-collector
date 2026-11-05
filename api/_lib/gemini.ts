@@ -136,6 +136,116 @@ export async function callWithRetry<T>(
   }
 }
 
+/**
+ * Turns a provider failure into something a user can act on.
+ *
+ * The frontend shows `error` from the response body verbatim, and every
+ * endpoint passed `err.message` straight through — which for a Gemini failure
+ * is the raw API envelope. On 15 September 2026 three calls failed and what
+ * reached the user was:
+ *
+ *   {"error":{"code":403,"message":"Your project has been denied access.
+ *    Please contact support.","status":"PERMISSION_DENIED"}}
+ *
+ * That tells a cook nothing, and worse, it reads as though their recipe is at
+ * fault. These messages say whose problem it is and whether retrying helps.
+ *
+ * Returns the HTTP status to send as well: a provider outage is a 503 from us,
+ * not a 500, because nothing about the request was wrong.
+ */
+export interface DescribedError {
+  status: number;
+  message: string;
+  /** False for configuration or quota faults, where retrying changes nothing. */
+  retryable: boolean;
+}
+
+function errorCodeAndStatus(err: unknown): { code?: number; status?: string } {
+  const out: { code?: number; status?: string } = {};
+  // This runs inside a catch block. Throwing here would turn a handled failure
+  // into an unhandled one, so a null or non-object `err` must fall straight
+  // through to the caller's fallback wording.
+  if (err === null || (typeof err !== 'object' && typeof err !== 'string')) return out;
+
+  const e = (typeof err === 'string' ? { message: err } : err) as {
+    status?: unknown; code?: unknown; message?: unknown;
+  };
+
+  if (typeof e.code === 'number') out.code = e.code;
+  if (typeof e.status === 'number') out.code = e.status;
+  if (typeof e.status === 'string') out.status = e.status;
+
+  const message = typeof e.message === 'string' ? e.message : '';
+  if (message) {
+    try {
+      const parsed = JSON.parse(message) as { error?: { code?: number; status?: string } };
+      if (typeof parsed.error?.code === 'number') out.code = parsed.error.code;
+      if (typeof parsed.error?.status === 'string') out.status = parsed.error.status;
+    } catch {
+      // Not every SDK error carries a JSON body; the fields above still apply.
+    }
+  }
+  return out;
+}
+
+export function describeGeminiError(err: unknown, fallback: string): DescribedError {
+  const { code, status } = errorCodeAndStatus(err);
+
+  // Configuration: the project or key is rejected. Nobody using the app can fix
+  // this and retrying will fail identically, so say so plainly.
+  if (code === 401 || code === 403 || status === 'PERMISSION_DENIED' || status === 'UNAUTHENTICATED') {
+    return {
+      status: 503,
+      message: 'The AI service is not available right now because of a configuration problem on our side. Nothing is wrong with your recipe — please try again later.',
+      retryable: false,
+    };
+  }
+
+  // Google's own quota, distinct from this app's 100/day allowance, which is
+  // checked before any call is made and returns its own 429.
+  if (code === 429 || status === 'RESOURCE_EXHAUSTED') {
+    return {
+      status: 503,
+      message: 'The AI service has hit its usage limit for now. Please try again later.',
+      retryable: false,
+    };
+  }
+
+  // Transient and already retried by callWithRetry before reaching here.
+  if (code === 500 || code === 502 || code === 503 || code === 504
+      || status === 'UNAVAILABLE' || status === 'INTERNAL' || status === 'DEADLINE_EXCEEDED') {
+    return {
+      status: 503,
+      message: 'The AI service is busy. This usually clears in a minute — please try again.',
+      retryable: true,
+    };
+  }
+
+  // A model id that no longer serves requests, which is how
+  // gemini-2.5-flash-lite behaved (migration 0044).
+  if (code === 404 || status === 'NOT_FOUND') {
+    return {
+      status: 503,
+      message: 'The configured AI model is unavailable. This is a configuration problem on our side.',
+      retryable: false,
+    };
+  }
+
+  // Unrecognised, and no provider code or status was found — so this is one of
+  // our own errors, such as a Zod validation failure on the model's output
+  // ("Invalid Gemini nutrition output: expected number, received NaN"). That
+  // wording was written deliberately and says more than a generic fallback, so
+  // it is kept.
+  //
+  // The one thing never passed through is something shaped like the provider's
+  // JSON envelope, whatever this function managed to parse out of it.
+  const raw = err instanceof Error ? err.message : '';
+  if (raw && !raw.trimStart().startsWith('{')) {
+    return { status: 500, message: raw, retryable: true };
+  }
+  return { status: 500, message: fallback, retryable: true };
+}
+
 export interface GenerateOptions extends RetryOptions {
   /**
    * Constrains the model's output shape. Without it `responseMimeType` only asks

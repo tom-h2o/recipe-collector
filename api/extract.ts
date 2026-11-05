@@ -5,7 +5,7 @@ import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId, modelFor } from './_lib/supabase.js';
 import { extractedRecipeResponseSchema } from './_lib/responseSchemas.js';
-import { getGeminiClient, generateJson } from './_lib/gemini.js';
+import { getGeminiClient, generateJson, describeGeminiError } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { extractedRecipeSchema, extractSchema, extractPhotoSchema, extractPdfSchema, normaliseExtractPhotoBody } from './_lib/schemas.js';
 import { EXTRACT_TEMPLATE } from './_lib/prompts.js';
@@ -394,6 +394,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err: unknown) {
     if (err instanceof ZodError) return res.status(400).json({ error: err.issues[0]?.message ?? 'Invalid request' });
     captureException(err);
-    return res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to extract recipe' });
+    // The raw error is kept in gemini_logs above — that is how the 403 outage on
+    // 15 Sept 2026 was diagnosed. What goes back to the browser is sanitised:
+    // err.message for a Gemini failure is the provider's JSON envelope.
+    const described = describeGeminiError(err, 'Failed to extract recipe');
+    return res.status(described.status).json({ error: described.message });
   }
 }

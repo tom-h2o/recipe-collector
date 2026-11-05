@@ -40,6 +40,14 @@ async function loadHandler(rateAllowed = true, generated: unknown = [{ category:
   }));
   vi.doMock('./_lib/gemini.js', () => ({
     getGeminiClient: () => ({}),
+    // Mirrors the real describeGeminiError closely enough for these tests:
+    // our own error wording is preserved, a provider envelope is not.
+    describeGeminiError: (err: unknown, fallback: string) => {
+      const raw = err instanceof Error ? err.message : '';
+      return raw && !raw.trimStart().startsWith('{')
+        ? { status: 500, message: raw, retryable: true }
+        : { status: 500, message: fallback, retryable: true };
+    },
     generateJson,
   }));
   const mod = await import('./shopping');
