@@ -82,9 +82,15 @@ export interface RetryOptions {
   maxAttempts?: number;
   baseDelayMs?: number;
   /**
-   * Stop retrying once this much time has passed since the first attempt. A
-   * retry the platform kills mid-flight helps nobody, so this stays well inside
-   * the serverless execution ceiling.
+   * Upper bound on total time spent across attempts, so a retry the platform
+   * kills mid-flight is never started.
+   *
+   * This was 7000ms, chosen from a guess about the serverless ceiling that the
+   * logs disprove: a translate call has completed successfully at 124 seconds.
+   * The effect was that retrying never once worked for extract — its calls take
+   * 10-53s, so the very first failure had already blown a 7s budget and the
+   * retry was skipped. Every 503 on the slowest and most valuable endpoint went
+   * straight to the user as a hard failure.
    */
   deadlineMs?: number;
   sleep?: (ms: number) => Promise<void>;
@@ -99,7 +105,9 @@ export interface RetryOptions {
 const DEFAULT_RETRY: Required<RetryOptions> = {
   maxAttempts: 3,
   baseDelayMs: 400,
-  deadlineMs: 7000,
+  // Comfortably above the slowest call seen in gemini_logs (124s succeeded),
+  // leaving room for a retry of anything that failed inside ~50s.
+  deadlineMs: 110_000,
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   onAttempt: () => {},
 };
@@ -120,6 +128,7 @@ export async function callWithRetry<T>(
   const startedAt = Date.now();
 
   for (let attempt = 1; ; attempt++) {
+    const attemptStartedAt = Date.now();
     try {
       onAttempt(attempt);
       return { value: await fn(), attempts: attempt };
@@ -130,7 +139,14 @@ export async function callWithRetry<T>(
       // model do not all come back at the same instant.
       const backoff = baseDelayMs * 2 ** (attempt - 1);
       const delay = backoff + Math.random() * backoff * 0.25;
-      if (Date.now() - startedAt + delay > deadlineMs) throw err;
+
+      // Budget for the retry actually taking about as long as the attempt that
+      // just failed, rather than treating it as free. Comparing only elapsed
+      // time against the deadline would start a retry with no room to finish,
+      // and the platform would kill it mid-flight — a slower failure, and a
+      // wasted call against the daily allowance.
+      const likelyCost = Date.now() - attemptStartedAt;
+      if (Date.now() - startedAt + delay + likelyCost > deadlineMs) throw err;
       await sleep(delay);
     }
   }
