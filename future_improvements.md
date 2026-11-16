@@ -131,6 +131,16 @@ calls run against, from a web form, with no deploy and no review. Validation sto
 a *broken* id, not an expensive one — Pro is roughly 3× Flash — so the confirm
 step should show the price delta rather than pretend that isn't a real button.
 
+### Playwright upgrade, so the runner can move off 24.04
+CI runners are pinned to `ubuntu-24.04` because GitHub moved `ubuntu-latest` to
+26.04 and Playwright 1.60 refuses to install there. The project is on `^1.60.0`;
+1.65 is current. Upgrading Playwright and unpinning the runner should move
+together, in one change, with the full E2E suite run against the new image before
+merging.
+
+Not urgent — 24.04 is supported for a long while yet. Pinned deliberately so an
+image rollout cannot turn the pipeline red on unrelated work.
+
 ### Supabase CLI 3.x upgrade
 Both CI jobs are pinned to 2.101.0 — the `rls` job through setup-cli, and
 `migrate-production` through the `supabase` devDependency that `npx` resolves.

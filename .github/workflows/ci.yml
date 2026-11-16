@@ -12,7 +12,12 @@ env:
 jobs:
   validate:
     name: Validation
-    runs-on: ubuntu-latest
+    # Pinned, not `latest`. GitHub moved `ubuntu-latest` to 26.04 and Playwright
+    # 1.60 refuses to install on it ("does not support chromium on
+    # ubuntu26.04-x64"), turning Validation red on an unrelated pull request —
+    # the same shape as the Supabase CLI pin below. Bump deliberately, with the
+    # Playwright version, not by whatever the runner image becomes overnight.
+    runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v4
 
@@ -52,7 +57,12 @@ jobs:
 
   rls:
     name: RLS Policy Tests
-    runs-on: ubuntu-latest
+    # Pinned, not `latest`. GitHub moved `ubuntu-latest` to 26.04 and Playwright
+    # 1.60 refuses to install on it ("does not support chromium on
+    # ubuntu26.04-x64"), turning Validation red on an unrelated pull request —
+    # the same shape as the Supabase CLI pin below. Bump deliberately, with the
+    # Playwright version, not by whatever the runner image becomes overnight.
+    runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v4
 
@@ -83,7 +93,12 @@ jobs:
   migrate-production:
     name: Production Database Migration
     needs: validate
-    runs-on: ubuntu-latest
+    # Pinned, not `latest`. GitHub moved `ubuntu-latest` to 26.04 and Playwright
+    # 1.60 refuses to install on it ("does not support chromium on
+    # ubuntu26.04-x64"), turning Validation red on an unrelated pull request —
+    # the same shape as the Supabase CLI pin below. Bump deliberately, with the
+    # Playwright version, not by whatever the runner image becomes overnight.
+    runs-on: ubuntu-24.04
     if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') && github.event_name == 'push'
     steps:
     - uses: actions/checkout@v4
