@@ -75,6 +75,35 @@ describe('callWithRetry', () => {
     ).rejects.toEqual({ status: 503 });
     expect(fn).toHaveBeenCalledTimes(1);
   });
+
+  it('retries a slow call, which is the case that matters most', async () => {
+    // The whole point. extract takes 10-53s, so a deadline smaller than one
+    // attempt meant its 503s were never retried — the retry shipped in #30 had
+    // never once fired on the endpoint people actually noticed failing.
+    let now = 0;
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+
+    const fn = vi.fn()
+      .mockImplementationOnce(async () => { now += 27_000; throw { status: 503 }; })
+      .mockImplementationOnce(async () => { now += 27_000; return 'ok'; });
+
+    await expect(callWithRetry(fn, { sleep: async () => {} }))
+      .resolves.toEqual({ value: 'ok', attempts: 2 });
+  });
+
+  it('budgets for the retry costing what the failed attempt cost', async () => {
+    // A retry started with no room to finish is killed mid-flight: slower for
+    // the user and a wasted call against the daily allowance.
+    let now = 0;
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+
+    // One attempt eats most of the budget; a second would not fit.
+    const fn = vi.fn().mockImplementation(async () => { now += 70_000; throw { status: 503 }; });
+
+    await expect(callWithRetry(fn, { deadlineMs: 110_000, sleep: async () => {} }))
+      .rejects.toEqual({ status: 503 });
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('generateJson logging under retry', () => {
