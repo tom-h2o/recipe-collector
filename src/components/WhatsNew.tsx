@@ -65,7 +65,16 @@ function WhatsNewDialog({ releases, unreadCount, onClose }: Omit<Props, 'isOpen'
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 pb-2 space-y-6">
+        {/* Focusable and named: once the notes are long enough to scroll,
+            someone using only a keyboard has to be able to reach and scroll
+            this region. axe flags it as scrollable-region-focusable, which is
+            what caught it when a longer release entry was added. */}
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Release notes"
+          className="flex-1 overflow-y-auto px-5 pb-2 space-y-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sk-primary/40 rounded-lg"
+        >
           {releases.length === 0 ? (
             <p className="text-sm text-zinc-500 dark:text-zinc-400 py-4">Nothing to report yet.</p>
           ) : (

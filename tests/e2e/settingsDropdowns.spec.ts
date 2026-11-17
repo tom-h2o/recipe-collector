@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { installMockBackend } from './support/mockBackend';
+import { MODEL_OPTIONS, DEFAULT_MODEL } from '../../src/lib/constants';
 
 /**
  * The select trigger is a fixed-height, `whitespace-nowrap` box, and Base UI
@@ -39,9 +40,13 @@ test('the model trigger shows the tier, not the whole option block', async ({ pa
   await page.goto('/');
   await page.getByTitle('Settings').click();
 
+  // Derived, not hardcoded: this test is about the trigger showing the tier
+  // name rather than the whole option block, and it broke on a tier rename
+  // ("Flash" -> "Standard") that was not a regression in what it guards.
+  const tier = MODEL_OPTIONS.find((m) => m.id === DEFAULT_MODEL)?.name ?? '';
   const trigger = page.getByLabel('Gemini model');
-  await expect(trigger).toContainText('Flash');
+  await expect(trigger).toContainText(tier);
   // The description and price belong in the open list, never in the trigger.
   await expect(trigger).not.toContainText('per 1M tokens');
-  await expect(trigger).not.toContainText('Best all-round choice');
+  await expect(trigger).not.toContainText('everyday model');
 });
