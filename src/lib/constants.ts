@@ -1,34 +1,34 @@
 import type { AiTask } from '../types';
 
 /**
- * Newest stable Flash, addressed through Google's alias rather than a pinned id.
+ * Gemini 4 Hydrogen: Google's everyday model in the generation that replaced 3.x.
  *
- * The alias moves on its own when Google promotes a new release, so the app does
- * not need a code change every few months. That would be unsafe if we could not
- * tell what actually ran — but every generateContent response carries
- * `modelVersion`, and gemini.ts records it on each log row, so the concrete model
- * behind an alias is always visible after the fact.
+ * A pinned id, not an alias, and that is a deliberate partial reversal of the
+ * policy set in PR #23. Aliases track releases *within* a tier — they did move
+ * gemini-flash-latest from 3.7 to 3.8 without a code change — but Google shipped
+ * Gemini 4 under entirely new names (hydrogen, carbon, argon) and left
+ * gemini-flash-latest pointed at the 3.x Flash tier. So an alias does not carry
+ * you across a generation, which is what that PR claimed it would.
+ *
+ * Verified against generateContent, which is the only test that counts here:
+ * gemini-4-hydrogen answers 200 while the whole 3.x Flash tier — the alias and
+ * gemini-3.8-flash directly — was returning 503 and timing out.
  *
  * Must stay equal to DEFAULT_MODEL in api/_lib/supabase.ts; modelDefaults.test.ts
  * asserts that.
  */
-export const DEFAULT_MODEL = 'gemini-flash-latest';
+export const DEFAULT_MODEL = 'gemini-4-hydrogen';
 
 /**
  * The models offered in Settings.
  *
- * Deliberately short. The full Gemini catalogue has a dozen text models whose
- * names say nothing about which to pick; three tiers — cheap, balanced,
- * accurate — cover every real decision here.
+ * Three tiers — cheap, everyday, frontier — because the full catalogue is dozens
+ * of ids whose names say nothing about which to pick.
  *
- * Each id is an alias that Google points at the current release in that tier, so
- * this list does not go stale. Aliases still have to be verified with a live
- * generateContent call before shipping: ListModels advertises models that no
- * longer serve requests, which is how a dead one reached this list before (see
- * migration 0044).
- *
- * `price` is the tier's pricing at the time of writing. An alias moving to a new
- * release can change it, which is why the UI labels it as approximate.
+ * Each id is verified against generateContent before shipping. ListModels
+ * advertises models that no longer serve requests, which is how a dead one
+ * reached this list once before (see migration 0044), and it also advertises
+ * models your billing plan cannot call at all (see the Frontier tier below).
  */
 export interface ModelOption {
   id: string;
@@ -51,18 +51,18 @@ export const MODEL_OPTIONS: ModelOption[] = [
     price: '~$0.30 / $2.50 per 1M tokens',
   },
   {
-    id: 'gemini-flash-latest',
-    name: 'Flash',
+    id: 'gemini-4-hydrogen',
+    name: 'Standard',
     badge: 'Recommended',
-    description: 'Best all-round choice, and the one used by default. Handles photo and multi-page extraction reliably.',
-    price: '~$0.75 / $3.75 per 1M tokens',
+    description: 'Google\'s current everyday model and the one used by default. Handles photo and multi-page extraction reliably.',
+    price: '~$1.50 / $7.50 per 1M tokens',
   },
   {
-    id: 'gemini-pro-latest',
-    name: 'Pro',
-    badge: 'Most accurate',
-    description: 'Most accurate on messy handwriting and awkward scans. Slower, and roughly three times the cost of Flash. This tier currently resolves to a preview release, which can change or be withdrawn.',
-    price: '~$2.00 / $12.00 per 1M tokens',
+    id: 'gemini-4-carbon',
+    name: 'Frontier',
+    badge: 'Paid plan',
+    description: 'Strongest reasoning, for messy handwriting and awkward scans. Google gives this model no free allowance at all, so it returns a quota error unless billing is enabled on the API key.',
+    price: '~$2.00 / $10.00 per 1M tokens, rising to ~$4.00 / $20.00 after 30 Nov 2026',
   },
 ];
 
@@ -88,14 +88,14 @@ export const AI_TASKS: AiTaskInfo[] = [
   {
     task: 'extract',
     label: 'Recipe extraction',
-    description: 'Reading a recipe off a web page, a PDF or photographed pages. The hardest job in the app and the one where a weaker model visibly loses ingredients.',
-    recommended: 'gemini-flash-latest',
+    description: 'Reading a recipe off a web page, a PDF or photographed pages. Lite handles a normal web page perfectly well and is far quicker; move this to Standard if you mostly extract from photos or handwriting.',
+    recommended: 'gemini-flash-lite-latest',
   },
   {
     task: 'translate',
     label: 'Translation',
-    description: 'Rewriting a recipe in another language. Wrong quantities or mistranslated techniques are hard to notice, so this is worth spending on.',
-    recommended: 'gemini-flash-latest',
+    description: 'Rewriting a recipe in another language. Wrong quantities or mistranslated techniques are hard to notice, so this is the one task worth spending on by default.',
+    recommended: 'gemini-4-hydrogen',
   },
   {
     task: 'suggest',
