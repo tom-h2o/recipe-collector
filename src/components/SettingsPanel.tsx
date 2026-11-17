@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { GeminiLogs } from '@/components/GeminiLogs';
 import { ConnectionsPanel } from '@/components/ConnectionsPanel';
 import { useAccountLinks } from '@/hooks/useAccountLinks';
+import { useModelResolution } from '@/hooks/useModelResolution';
 import { MODEL_OPTIONS, AI_TASKS, RECOMMENDED_TASK_MODELS } from '@/lib/constants';
 import type { AppSettings, AiTask } from '@/types';
 
@@ -31,6 +32,7 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, use
   const [local, setLocal] = useState<AppSettings>(settings);
   const [tab, setTab] = useState<Tab>('settings');
   const { usage, loadingUsage, fetchUsage } = useUsage(userId);
+  const { resolutionFor } = useModelResolution(userId);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setLocal(settings); }, [settings, isOpen]);
@@ -163,6 +165,40 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, use
                   </Select>
                   <p className="text-xs text-zinc-600 dark:text-zinc-400">
                     Used by every task that has no model of its own below.
+                  </p>
+
+                  {/* What each id has actually been running as. An alias hides
+                      the real model, and Google moves them without notice — the
+                      only trustworthy answer comes from calls that happened. */}
+                  <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800 mt-3">
+                    {MODEL_OPTIONS.map((m) => {
+                      const r = resolutionFor(m.id);
+                      const isAlias = m.id.endsWith('-latest');
+                      return (
+                        <div key={m.id} className="px-3 py-2 flex items-baseline justify-between gap-3 text-xs">
+                          <span className="font-mono text-zinc-600 dark:text-zinc-400 truncate">
+                            {m.id}
+                            {isAlias && (
+                              <span className="ml-1.5 text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-500">alias</span>
+                            )}
+                          </span>
+                          {r ? (
+                            <span className="text-right shrink-0">
+                              <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-200">{r.servedBy}</span>
+                              <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">
+                                last run {new Date(r.at).toLocaleDateString()}
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="shrink-0 text-zinc-500 dark:text-zinc-400">not used yet</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    What each model actually ran as, taken from your own recent AI calls — an
+                    alias can point somewhere different without warning.
                   </p>
                 </div>
 

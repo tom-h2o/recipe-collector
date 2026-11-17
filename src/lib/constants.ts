@@ -88,13 +88,13 @@ export const AI_TASKS: AiTaskInfo[] = [
   {
     task: 'extract',
     label: 'Recipe extraction',
-    description: 'Reading a recipe off a web page, a PDF or photographed pages. The hardest job in the app and the one where a weaker model visibly loses ingredients.',
-    recommended: 'gemini-4-hydrogen',
+    description: 'Reading a recipe off a web page, a PDF or photographed pages. Lite handles a normal web page perfectly well and is far quicker; move this to Standard if you mostly extract from photos or handwriting.',
+    recommended: 'gemini-flash-lite-latest',
   },
   {
     task: 'translate',
     label: 'Translation',
-    description: 'Rewriting a recipe in another language. Wrong quantities or mistranslated techniques are hard to notice, so this is worth spending on.',
+    description: 'Rewriting a recipe in another language. Wrong quantities or mistranslated techniques are hard to notice, so this is the one task worth spending on by default.',
     recommended: 'gemini-4-hydrogen',
   },
   {
