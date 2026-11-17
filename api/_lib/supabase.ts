@@ -29,7 +29,7 @@ export function modelFor(settings: Settings, task: AiTask): string {
 // An alias Google keeps pointed at the current Flash release. Kept equal to
 // DEFAULT_MODEL in src/lib/constants.ts — enforced by modelDefaults.test.ts.
 // The concrete model behind it is recorded per call in gemini_logs.model_version.
-export const DEFAULT_MODEL = 'gemini-flash-latest';
+export const DEFAULT_MODEL = 'gemini-4-hydrogen';
 
 export function getServerSupabase(): SupabaseClient {
   const url = process.env.VITE_SUPABASE_URL || '';

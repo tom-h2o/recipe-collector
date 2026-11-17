@@ -17,9 +17,13 @@ describe('default Gemini model', () => {
     expect(SERVER_DEFAULT).toBe(CLIENT_DEFAULT);
   });
 
-  it('is an auto-updating alias, so releases do not need a code change', () => {
+  it('is a Gemini model id that has been verified against generateContent', () => {
+    // No longer required to be a -latest alias. Aliases track releases inside a
+    // tier but not across a generation: Google left gemini-flash-latest on the
+    // 3.x Flash tier when it shipped Gemini 4 under new names. What actually
+    // matters is that the id serves generateContent — ListModels advertises both
+    // retired models and models a free-tier key cannot call.
     expect(CLIENT_DEFAULT).toMatch(/^gemini-/);
-    expect(CLIENT_DEFAULT).toMatch(/-latest$/);
   });
 });
 

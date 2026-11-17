@@ -19,6 +19,16 @@ export interface ReleaseNote {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    id: '2026-11-17',
+    title: 'Moved to Google\'s Gemini 4 models',
+    items: [
+      'Recipe extraction, tagging and the rest now run on Gemini 4, the generation that replaced the models this app was using.',
+      'The old model tier had been returning "high demand" errors; the new one is answering normally.',
+      'A failed AI request now explains itself instead of showing Google\'s raw error, and says when the problem is ours rather than your recipe.',
+      'Requests that fail because the service is briefly busy are retried automatically — previously that only worked for the quick tasks, never for recipe extraction.',
+    ],
+  },
+  {
     id: '2026-09-05',
     title: 'Ratings you each own, and a faster brain',
     items: [
