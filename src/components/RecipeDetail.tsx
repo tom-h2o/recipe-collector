@@ -611,9 +611,16 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                     const isOriginal = (recipe.original_language ?? 'en') === lang.code;
                     const isActive = preferredLanguage === lang.code || (!preferredLanguage && isOriginal);
                     // Already in recipe_translations: opening it is free, and
-                    // it can be thrown away. The original is never "cached" —
-                    // there is nothing stored for it and nothing to delete.
-                    const isCached = !isOriginal && cachedLanguages.includes(lang.code);
+                    // it can be thrown away.
+                    //
+                    // Deliberately NOT excluding the original language. A row
+                    // can exist for it — the model writes one whenever it is
+                    // asked to translate into a language it then reports as the
+                    // source, and original_language is itself only the model's
+                    // guess and can be wrong. Excluding it meant a bad stored
+                    // translation of the original was the one thing that could
+                    // not be deleted, which is exactly when you most want to.
+                    const isCached = cachedLanguages.includes(lang.code);
                     const canRemove = isCached && !isLinked;
                     return (
                       <span

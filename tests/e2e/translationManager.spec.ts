@@ -66,12 +66,27 @@ test('deletes a single translation and stops advertising it', async ({ page }) =
   await expect(dialog.getByRole('button', { name: /Français/ })).toBeVisible();
 });
 
-test('the original language is never offered for deletion', async ({ page }) => {
-  // There is no stored row for the original, so there is nothing to delete.
+test('a stored translation of the original language can be deleted too', async ({ page }) => {
+  // The model writes a row for the original whenever it is asked to translate
+  // into a language it then reports as the source — and original_language is
+  // itself only the model's guess. Excluding it made a bad stored translation
+  // of the original the one thing that could not be deleted.
   await installMockBackend(page);
   await withTranslations(page, ['en']);
   await openPicker(page);
 
   const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('button', { name: /Delete the English translation/i })).toBeVisible();
+});
+
+test('a language with no stored row offers nothing to delete', async ({ page }) => {
+  // Including the original: the tick and the cross follow the stored row, not
+  // the label.
+  await installMockBackend(page);
+  await withTranslations(page, []);
+  await openPicker(page);
+
+  const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('button', { name: /Delete the English translation/i })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: /Delete the Deutsch translation/i })).toHaveCount(0);
 });
