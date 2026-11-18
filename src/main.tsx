@@ -10,8 +10,13 @@ import './index.css'
 import App from './App.tsx'
 import { initSentry } from './lib/sentry'
 import { registerServiceWorker } from './lib/registerServiceWorker'
+import { recoverFromStaleChunks } from './lib/recoverFromStaleChunks'
 
 initSentry()
+
+// Before anything lazy-loads: a deploy that renamed the chunks this page was
+// told to fetch otherwise leaves a white screen with no error anyone can see.
+recoverFromStaleChunks()
 
 // Registered here rather than by vite-plugin-pwa's inline snippet, which never
 // re-checked for a new worker on an installed PWA and never reloaded the page

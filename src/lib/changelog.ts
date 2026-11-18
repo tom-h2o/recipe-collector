@@ -19,6 +19,14 @@ export interface ReleaseNote {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    id: '2026-11-20',
+    title: 'Fixes for a blank page and for deleting translations',
+    items: [
+      'After an update, the app could open as a blank white page on a device that still had the previous version cached \u2014 it now notices and reloads itself once.',
+      'A translation of the recipe\u2019s own original language could not be deleted, which was exactly the one you would want to remove when it came out wrong.',
+    ],
+  },
+  {
     id: '2026-11-19',
     title: 'Better shared links, and a fix for translation',
     items: [
