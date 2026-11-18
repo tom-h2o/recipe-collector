@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 const ROOT = join(__dirname, '..', '..');
 const MIGRATIONS = join(ROOT, 'supabase', 'migrations');
-const migration = readFileSync(join(MIGRATIONS, '0056_public_recipe_links.sql'), 'utf8');
+const migration = readFileSync(join(MIGRATIONS, '0061_public_recipe_links.sql'), 'utf8');
 
 /** The RETURNS TABLE(...) list of get_shared_recipe. */
 function returnedColumns(): string[] {
@@ -16,7 +16,7 @@ function returnedColumns(): string[] {
     .filter(Boolean);
 }
 
-describe('public share links (migration 0056)', () => {
+describe('public share links (migration 0061)', () => {
   // Why this file exists: a public page is the one place where adding a column
   // to `recipes` can leak something. `select *` would have shipped the owner's
   // private notes to anyone holding a link, so the RPC names its columns and
@@ -120,8 +120,8 @@ describe('guest routes follow the device theme', () => {
   });
 });
 
-describe('the gallery and translation RPCs (migration 0058)', () => {
-  const m = readFileSync(join(MIGRATIONS, '0058_shared_recipe_extras.sql'), 'utf8');
+describe('the gallery and translation RPCs (migration 0063)', () => {
+  const m = readFileSync(join(MIGRATIONS, '0063_shared_recipe_extras.sql'), 'utf8');
 
   it.each(['get_shared_recipe_images', 'get_shared_recipe_translations'])(
     '%s is security definer, pinned, and reachable by anon',

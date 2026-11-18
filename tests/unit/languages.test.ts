@@ -36,7 +36,7 @@ describe('offered languages', () => {
   });
 
   it('does not offer Polish', () => {
-    // Removed deliberately. Migration 0057 cleared the cached Polish
+    // Removed deliberately. Migration 0062 cleared the cached Polish
     // translations and reset any recipe left displaying in it.
     expect(LANGUAGES.map((l) => l.code)).not.toContain('pl');
     expect(schemaLanguages()).not.toContain('pl');
@@ -45,7 +45,7 @@ describe('offered languages', () => {
 
   it('still reads Polish durations out of recipe text', () => {
     // Not a contradiction: recipes written in Polish are still in the vault
-    // (original_language survives 0057), and their steps still say "25 minut".
+    // (original_language survives 0062), and their steps still say "25 minut".
     // Dropping this would quietly remove cook-mode timers from those recipes.
     const durations = readFileSync(join(ROOT, 'src', 'lib', 'parseDurations.ts'), 'utf8');
     expect(durations).toMatch(/minut/);
