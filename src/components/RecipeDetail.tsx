@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages, Send, MoreHorizontal, Tag, Salad, FolderOpen, Link2Off } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages, Send, MoreHorizontal, Tag, Salad, FolderOpen, Link2Off, Check} from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
@@ -11,6 +11,8 @@ import { CookMode } from '@/components/CookMode';
 import { Button } from '@/components/ui/button';
 import { RecipeGallery } from '@/components/RecipeGallery';
 import { useRecipeRatings } from '@/hooks/useRecipeRatings';
+import { useRecipeTranslations } from '@/hooks/useRecipeTranslations';
+import { AnchoredMenu } from '@/components/AnchoredMenu';
 import { usePrintTitle } from '@/hooks/usePrintTitle';
 import { RecipePrintSheet } from '@/components/RecipePrintSheet';
 import { useRecipeImages } from '@/hooks/useRecipeImages';
@@ -42,6 +44,11 @@ interface Props {
   onRemoveFromCollection?: (collectionId: string) => Promise<void>;
 }
 
+/** A recipe belonging to a linked account: readable, never writable. */
+function isLinkedRecipe(recipe: Recipe | null, userId?: string | null): boolean {
+  return !!recipe && !!userId && !!recipe.user_id && recipe.user_id !== userId;
+}
+
 export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', translationsCache, onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onSend, onUpdateRecipe, userId, ownerLabel, linkedPeople = [], onAddMealPlan, onSaveScaled, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection }: Props) {
   const baseServings0 = recipe?.original_servings || recipe?.servings || 1;
   const [scaledServings, setScaledServings] = useState(baseServings0);
@@ -51,12 +58,16 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
   const [isCookMode, setIsCookMode] = useState(false);
   const { images, busy: galleryBusy, fetchImages, addImages, deleteImage } = useRecipeImages(recipe?.id ?? null, userId ?? null);
   const { myRating, otherRatings, busy: ratingBusy, setRating } = useRecipeRatings(recipe?.id ?? null, userId ?? null);
+  // Which languages already exist in the cache, so the picker can say which
+  // ones are free to open and which would cost another Gemini call.
+  const { languages: cachedLanguages, removing: removingLanguage, remove: removeTranslation, refresh: refreshTranslations } =
+    useRecipeTranslations(recipe?.id ?? null, !isLinkedRecipe(recipe, userId));
 
   useEffect(() => { fetchImages(); }, [fetchImages]);
 
   // A recipe from a linked account is read-only: RLS refuses writes, so the
   // owner-only controls are disabled rather than left to fail on click.
-  const isLinked = !!recipe && !!userId && !!recipe.user_id && recipe.user_id !== userId;
+  const isLinked = isLinkedRecipe(recipe, userId);
   const [adopting, setAdopting] = useState(false);
 
   // ---- Public share link -------------------------------------------------
@@ -151,6 +162,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
   const [planMeal, setPlanMeal] = useState<string>(DEFAULT_MEAL_TYPE);
   const [isAddingToPlan, setIsAddingToPlan] = useState(false);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
   const [showTagEditor, setShowTagEditor] = useState(false);
   const [notesValue, setNotesValue] = useState(recipe?.notes || '');
   const [isRegeneratingTags, setIsRegeneratingTags] = useState(false);
@@ -192,6 +204,9 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
         if (cancelled) return;
         setTranslation(data);
         onTranslationCached(recipe.id, preferredLanguage, data);
+        // The picker's "already translated" ticks come from the table, so a
+        // freshly created translation has to be picked up here too.
+        refreshTranslations();
         if (!data.cached) toast.success('Recipe translated!');
         if (data.detectedSourceLanguage && !recipe.original_language) {
           onUpdateRecipe(recipe.id, { original_language: data.detectedSourceLanguage });
@@ -273,6 +288,25 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
       setIsSavingScaled(false);
     }
   }
+  /**
+   * Throws away one cached translation.
+   *
+   * If the reader is currently looking at that language there is nothing left
+   * to render, so the recipe drops back to its original rather than sitting on
+   * a translation that no longer exists.
+   */
+  async function handleRemoveTranslation(langCode: string, label: string) {
+    if (!recipe) return;
+    const wasShowing = preferredLanguage === langCode;
+    const removed = await removeTranslation(langCode);
+    if (!removed) {
+      toast.error(`Could not delete the ${label} translation.`);
+      return;
+    }
+    if (wasShowing) onLanguageChange(null);
+    toast.success(`${label} translation deleted.`);
+  }
+
   function handleTranslate(langCode: string) {
     if (!recipe) return;
     const origLang = recipe.original_language ?? 'en';
@@ -483,12 +517,17 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                 <div className="w-px h-5 bg-sk-outline-variant/30 dark:bg-border mx-0.5" />
                 <div className="relative">
                   <button
+                    ref={moreButtonRef}
                     onClick={() => setShowMoreOptions((v) => !v)}
                     className={`p-2.5 rounded-full transition-colors ${showMoreOptions ? 'text-sk-on-surface-variant bg-sk-surface-low dark:bg-muted' : 'text-sk-outline hover:text-sk-on-surface-variant hover:bg-sk-surface-low dark:hover:bg-muted'}`}
                     title="More options"
                   ><MoreHorizontal className="w-4 h-4" /></button>
-                  {showMoreOptions && (
-                    <div className="absolute right-0 top-full mt-1 z-30 w-52 max-h-[60vh] overflow-y-auto bg-white dark:bg-card rounded-2xl shadow-ambient p-2 flex flex-col gap-0.5" style={{ boxShadow: '0 12px 40px rgba(47,49,46,0.10)' }}>
+                  <AnchoredMenu
+                    open={showMoreOptions}
+                    onClose={() => setShowMoreOptions(false)}
+                    anchorRef={moreButtonRef}
+                    className="w-52 bg-white dark:bg-card rounded-2xl shadow-ambient p-2 flex flex-col gap-0.5"
+                  >
                       {/*
                         Sharing is owner-only: RLS refuses the token write on a
                         linked account's recipe, so the control is not offered
@@ -538,8 +577,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                         {isRegeneratingNutrition ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <Salad className="w-3.5 h-3.5 shrink-0" />}
                         {isRegeneratingNutrition ? 'Regenerating…' : 'Regenerate nutrition'}
                       </button>
-                    </div>
-                  )}
+                  </AnchoredMenu>
                 </div>
               </div>
 
@@ -572,22 +610,60 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                   {LANGUAGES.map((lang) => {
                     const isOriginal = (recipe.original_language ?? 'en') === lang.code;
                     const isActive = preferredLanguage === lang.code || (!preferredLanguage && isOriginal);
+                    // Already in recipe_translations: opening it is free, and
+                    // it can be thrown away. The original is never "cached" —
+                    // there is nothing stored for it and nothing to delete.
+                    const isCached = !isOriginal && cachedLanguages.includes(lang.code);
+                    const canRemove = isCached && !isLinked;
                     return (
-                      <button
+                      <span
                         key={lang.code}
-                        onClick={() => handleTranslate(lang.code)}
-                        disabled={isTranslating}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold font-sans transition-colors ${
+                        className={`inline-flex items-center rounded-full text-xs font-semibold font-sans transition-colors ${
                           isActive
                             ? 'bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground'
-                            : 'bg-sk-surface-low dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary hover:bg-sk-primary-fixed/40'
-                        } disabled:opacity-50`}
-                        title={isOriginal ? 'Original language' : `Translate to ${lang.label}`}
+                            : 'bg-sk-surface-low dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground'
+                        } ${removingLanguage === lang.code ? 'opacity-50' : ''}`}
                       >
-                        <span>{lang.flag}</span>
-                        <span>{lang.label}</span>
-                        {isOriginal && <span className="opacity-60 text-[10px] ml-0.5">orig</span>}
-                      </button>
+                        <button
+                          onClick={() => handleTranslate(lang.code)}
+                          disabled={isTranslating || removingLanguage === lang.code}
+                          className={`inline-flex items-center gap-1.5 pl-3 py-1.5 rounded-full ${canRemove ? 'pr-1.5' : 'pr-3'} ${
+                            isActive ? '' : 'hover:text-sk-primary dark:hover:text-primary'
+                          } disabled:opacity-50 transition-colors`}
+                          title={
+                            isOriginal
+                              ? 'Original language'
+                              : isCached
+                                ? `${lang.label} — already translated, opens instantly`
+                                : `Translate to ${lang.label} (uses one AI call)`
+                          }
+                        >
+                          <span>{lang.flag}</span>
+                          <span>{lang.label}</span>
+                          {isOriginal && <span className="opacity-60 text-[10px] ml-0.5">orig</span>}
+                          {isCached && (
+                            <Check
+                              className={`w-3 h-3 ml-0.5 shrink-0 ${isActive ? 'text-white/90 dark:text-primary-foreground/90' : 'text-sk-primary dark:text-primary'}`}
+                              aria-label="Already translated"
+                            />
+                          )}
+                        </button>
+                        {canRemove && (
+                          <button
+                            onClick={() => handleRemoveTranslation(lang.code, lang.label)}
+                            disabled={removingLanguage !== null}
+                            aria-label={`Delete the ${lang.label} translation`}
+                            title={`Delete the ${lang.label} translation`}
+                            className={`mr-1 p-1 rounded-full transition-colors disabled:opacity-50 ${
+                              isActive
+                                ? 'hover:bg-white/20 text-white/80 dark:text-primary-foreground/80'
+                                : 'hover:bg-destructive/10 hover:text-destructive text-sk-outline dark:text-muted-foreground'
+                            }`}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </span>
                     );
                   })}
                   {isTranslating && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />}
