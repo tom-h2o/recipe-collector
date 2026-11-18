@@ -19,6 +19,34 @@ export interface ReleaseNote {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    id: '2026-11-19',
+    title: 'Better shared links, and a fix for translation',
+    items: [
+      'Translating a recipe from a connected account used to fail outright. It now works \u2014 the check behind it was asking whether you owned the recipe rather than whether you could see it.',
+      'A shared link pasted into WhatsApp, Slack or a message now shows the recipe\u2019s name and photo instead of a bare address. Shared recipes are kept out of search engines.',
+      'Guests can now see all of a recipe\u2019s photos, its nutrition, switch between any languages you had already translated it into, and flip between \u00B0C and \u00B0F.',
+      'Saving a shared recipe as a PDF now names the file after the recipe.',
+      'Recipes with a live public link are marked in your vault, and there is a new "Shared" filter to see them all at once.',
+      'Polish is no longer offered as a translation language.',
+      'Added to your home screen, the app now shows its own key symbol on the deep green of the app itself \u2014 and is called Speisekammer, not the old name it had kept there.',
+    ],
+  },
+  {
+    id: '2026-11-18',
+    title: 'Share a recipe with someone who has no account',
+    items: [
+      'Open a recipe, choose "Create public link", and send it to anyone — they can read the whole recipe without signing up or installing anything.',
+      'They can change the servings and the amounts follow, step through cook mode with its timers, and print or save it as a PDF.',
+      'Sharing is per recipe and off until you turn it on. "Stop sharing" takes the link down again, and anyone still holding it sees nothing.',
+      'Your private notes and ratings are never part of a shared link, even though they sit on the same recipe.',
+      'The old "Copy share link" button handed out a link that only worked for people who already had an account; it now creates a link that genuinely works for anyone.',
+      'Cook mode now fills the screen on a laptop or desktop again, instead of being squeezed into a narrow column.',
+      'A shared link now also introduces the app to whoever opens it, with a new "About" page at /about listing everything it can do \u2014 reachable from the sign-in screen too.',
+      'The app goes by one name everywhere now: Speisekammer, including the browser tab and the installed app on your phone.',
+      'Shared pages follow your device\u2019s light or dark setting, which they previously ignored.',
+    ],
+  },
+  {
     id: '2026-11-17',
     title: 'Moved to Google\'s Gemini 4 models',
     items: [

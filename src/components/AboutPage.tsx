@@ -1,0 +1,108 @@
+import { ArrowRight, ExternalLink } from 'lucide-react';
+import { SpeisekammerLogo } from '@/components/SpeisekammerLogo';
+import {
+  APP_NAME, APP_TAGLINE, AUTHOR_NAME, AUTHOR_URL, PITCH, CAPABILITY_GROUPS,
+} from '@/lib/appInfo';
+
+interface Props {
+  /** Where "create an account" goes. The app root shows the sign-in screen. */
+  signUpHref?: string;
+}
+
+/**
+ * The /about page. Rendered before AuthGate, so it has to stand on its own for
+ * someone with no account — it makes no queries and reads no session.
+ */
+export function AboutPage({ signUpHref = '/' }: Props) {
+  return (
+    <div className="min-h-screen bg-sk-surface dark:bg-zinc-950 text-sk-on-surface dark:text-foreground font-sans">
+      <div className="max-w-4xl mx-auto px-6 py-16 sm:py-24 space-y-20">
+
+        {/* ── Masthead ─────────────────────────────────────────────────── */}
+        <header className="text-center space-y-4">
+          <div className="flex items-center justify-center gap-3">
+            <SpeisekammerLogo size={48} />
+            <h1 className="font-serif text-4xl sm:text-5xl font-normal text-sk-primary dark:text-primary tracking-tight">
+              {APP_NAME}
+            </h1>
+          </div>
+          <p className="text-xs uppercase tracking-[0.15em] text-sk-on-surface-variant dark:text-muted-foreground">
+            {APP_TAGLINE}
+          </p>
+        </header>
+
+        {/* ── The problem, then the answer ─────────────────────────────── */}
+        <section className="space-y-6 max-w-2xl mx-auto">
+          <h2 className="font-serif text-2xl sm:text-3xl font-normal">Why it exists</h2>
+          <p className="text-lg leading-relaxed text-sk-on-surface-variant dark:text-muted-foreground">
+            {PITCH.problem}
+          </p>
+          <p className="text-lg leading-relaxed text-sk-on-surface-variant dark:text-muted-foreground">
+            {PITCH.solution}
+          </p>
+        </section>
+
+        {/* ── What it does ─────────────────────────────────────────────── */}
+        <section className="space-y-12">
+          <h2 className="font-serif text-2xl sm:text-3xl font-normal text-center">What it does</h2>
+          {CAPABILITY_GROUPS.map((group) => (
+            <div key={group.heading} className="space-y-5">
+              <h3 className="text-xs uppercase tracking-[0.15em] text-sk-primary dark:text-primary font-semibold border-b border-sk-outline-variant dark:border-border pb-2">
+                {group.heading}
+              </h3>
+              <ul className="grid sm:grid-cols-2 gap-x-8 gap-y-6">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <li key={item.title} className="flex gap-4">
+                      <span className="shrink-0 w-10 h-10 rounded-full bg-sk-primary-fixed/50 dark:bg-primary/15 flex items-center justify-center">
+                        <Icon className="w-5 h-5 text-sk-primary dark:text-primary" />
+                      </span>
+                      <div className="space-y-1">
+                        <h4 className="font-semibold leading-snug">{item.title}</h4>
+                        <p className="text-sm leading-relaxed text-sk-on-surface-variant dark:text-muted-foreground">
+                          {item.blurb}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </section>
+
+        {/* ── Call to action ───────────────────────────────────────────── */}
+        <section className="text-center space-y-6 bg-sk-surface-low dark:bg-card rounded-3xl p-10 sm:p-14">
+          <h2 className="font-serif text-2xl sm:text-3xl font-normal">Start your own vault</h2>
+          <p className="text-sk-on-surface-variant dark:text-muted-foreground max-w-xl mx-auto leading-relaxed">
+            Making an account takes a moment, and the first recipe takes about as
+            long as pasting a link.
+          </p>
+          <a
+            href={signUpHref}
+            className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold transition-colors"
+          >
+            Create a free account <ArrowRight className="w-4 h-4" />
+          </a>
+        </section>
+
+        {/* ── Who made it ──────────────────────────────────────────────── */}
+        <footer className="text-center space-y-3 pt-4 border-t border-sk-outline-variant dark:border-border">
+          <p className="text-sm text-sk-on-surface-variant dark:text-muted-foreground pt-8">
+            {APP_NAME} is designed and built by{' '}
+            <span className="font-semibold text-sk-on-surface dark:text-foreground">{AUTHOR_NAME}</span>.
+          </p>
+          <a
+            href={AUTHOR_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm font-medium text-sk-primary dark:text-primary hover:underline"
+          >
+            <ExternalLink className="w-4 h-4" /> github.com/tom-h2o
+          </a>
+        </footer>
+      </div>
+    </div>
+  );
+}

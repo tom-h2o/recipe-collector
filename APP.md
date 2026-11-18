@@ -1,4 +1,6 @@
-# Recipe Vault
+# Speisekammer
+
+*Your Curated Recipe Vault.*
 
 A personal recipe manager powered by Google Gemini AI. Save, organise, and cook recipes from anywhere — import from a URL, snap a photo, or type them in manually.
 

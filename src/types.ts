@@ -36,6 +36,12 @@ export interface Recipe {
   /** Set when this recipe was adopted from a linked account's copy. */
   copied_from_recipe_id?: string | null;
   user_id?: string | null;
+  /**
+   * Random token behind the public share link, or null/undefined when the
+   * recipe is not shared. Never sent to a public viewer: the share page reads
+   * through the get_shared_recipe RPC, which does not return this column.
+   */
+  public_share_token?: string | null;
 }
 
 export interface RecipeTranslation {

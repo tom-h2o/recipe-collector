@@ -132,6 +132,28 @@ export async function getVisibleUserIds(supabase: SupabaseClient, userId: string
 }
 
 /**
+ * True when the user may *read* this recipe: their own, or one belonging to an
+ * account they are linked with.
+ *
+ * Distinct from userOwnsRecipe, which answers "may they change it". Translation
+ * is a read: `recipes_select` (migration 0049) lets a linked account open the
+ * recipe, and RecipeDetail offers the language picker on it, so gating that on
+ * ownership returned 403 for every linked recipe someone tried to translate.
+ */
+export async function userCanReadRecipe(supabase: SupabaseClient, recipeId: string, userId: string): Promise<boolean> {
+  const visibleIds = await getVisibleUserIds(supabase, userId);
+  const { data, error } = await supabase
+    .from('recipes')
+    .select('id')
+    .eq('id', recipeId)
+    .in('user_id', visibleIds)
+    .maybeSingle();
+
+  if (error) throw error;
+  return !!data;
+}
+
+/**
  * The admin may act on recipes they do not own (view, edit, re-run tagging or
  * nutrition from the admin panel), so ownership checks accept an admin as well.
  */

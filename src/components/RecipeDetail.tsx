@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages, Send, MoreHorizontal, Tag, Salad, FolderOpen } from 'lucide-react';
+import { Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages, Send, MoreHorizontal, Tag, Salad, FolderOpen, Link2Off } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
@@ -27,7 +27,8 @@ interface Props {
   onEdit: (r: Recipe) => void;
   onDelete: (r: Recipe) => void;
   onSend?: (r: Recipe) => void;
-  onUpdateRecipe: (id: string, changes: Partial<Recipe>) => void;
+  /** Resolves to whether the write landed; false means RLS refused it and a toast was already shown. */
+  onUpdateRecipe: (id: string, changes: Partial<Recipe>) => Promise<boolean>;
   userId?: string | null;
   /** Nickname of the linked person who owns this recipe, when it is not the viewer's. */
   ownerLabel?: string | null;
@@ -57,6 +58,54 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
   // owner-only controls are disabled rather than left to fail on click.
   const isLinked = !!recipe && !!userId && !!recipe.user_id && recipe.user_id !== userId;
   const [adopting, setAdopting] = useState(false);
+
+  // ---- Public share link -------------------------------------------------
+  // The link is keyed on a random token, not on recipe.id, so sharing is
+  // opt-in and revocable. Setting the token back to null takes the link down.
+  const [shareBusy, setShareBusy] = useState(false);
+  const shareToken = recipe?.public_share_token ?? null;
+  const shareUrl = shareToken ? `${window.location.origin}/r/${shareToken}` : null;
+
+  async function copyToClipboard(url: string, created: boolean) {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success(created ? 'Public link created and copied' : 'Public link copied');
+    } catch {
+      // Clipboard access can be refused (insecure context, denied permission).
+      // The link still exists, so say so rather than implying a failure.
+      toast.success(created ? 'Public link created' : 'Public link ready', {
+        description: url,
+      });
+    }
+  }
+
+  async function handleCreateShareLink() {
+    if (!recipe || shareBusy) return;
+    setShareBusy(true);
+    try {
+      const token = crypto.randomUUID();
+      // Copy only after the token is actually stored. Copying first is how the
+      // old button came to hand out links that led to a login screen.
+      const saved = await onUpdateRecipe(recipe.id, { public_share_token: token });
+      if (!saved) return;
+      await copyToClipboard(`${window.location.origin}/r/${token}`, true);
+    } finally {
+      setShareBusy(false);
+      setShowMoreOptions(false);
+    }
+  }
+
+  async function handleStopSharing() {
+    if (!recipe || shareBusy) return;
+    setShareBusy(true);
+    try {
+      const saved = await onUpdateRecipe(recipe.id, { public_share_token: null });
+      if (saved) toast.success('Link turned off. Anyone holding it now sees nothing.');
+    } finally {
+      setShareBusy(false);
+      setShowMoreOptions(false);
+    }
+  }
 
   /**
    * Who can actually read a note on your own recipe. It used to be labelled
@@ -440,12 +489,38 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                   ><MoreHorizontal className="w-4 h-4" /></button>
                   {showMoreOptions && (
                     <div className="absolute right-0 top-full mt-1 z-30 w-52 max-h-[60vh] overflow-y-auto bg-white dark:bg-card rounded-2xl shadow-ambient p-2 flex flex-col gap-0.5" style={{ boxShadow: '0 12px 40px rgba(47,49,46,0.10)' }}>
-                      <button
-                        onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/recipe/${recipe.id}`); toast.success('Link copied!'); setShowMoreOptions(false); }}
-                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium font-sans text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted hover:text-sk-primary dark:hover:text-primary transition-colors text-left"
-                      >
-                        <Share2 className="w-3.5 h-3.5 shrink-0" /> Copy share link
-                      </button>
+                      {/*
+                        Sharing is owner-only: RLS refuses the token write on a
+                        linked account's recipe, so the control is not offered
+                        there at all.
+                      */}
+                      {!isLinked && (
+                        shareUrl ? (
+                          <>
+                            <button
+                              onClick={() => { copyToClipboard(shareUrl, false); setShowMoreOptions(false); }}
+                              className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium font-sans text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted hover:text-sk-primary dark:hover:text-primary transition-colors text-left"
+                            >
+                              <Share2 className="w-3.5 h-3.5 shrink-0" /> Copy public link
+                            </button>
+                            <button
+                              onClick={handleStopSharing}
+                              disabled={shareBusy}
+                              className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium font-sans text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted hover:text-destructive transition-colors text-left disabled:opacity-50"
+                            >
+                              <Link2Off className="w-3.5 h-3.5 shrink-0" /> Stop sharing
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={handleCreateShareLink}
+                            disabled={shareBusy}
+                            className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium font-sans text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted hover:text-sk-primary dark:hover:text-primary transition-colors text-left disabled:opacity-50"
+                          >
+                            <Share2 className="w-3.5 h-3.5 shrink-0" /> Create public link
+                          </button>
+                        )
+                      )}
                       <div className="h-px bg-sk-surface-container dark:bg-border my-1" />
                       <button
                         onClick={() => { handleRegenerateTags(); setShowMoreOptions(false); }}
