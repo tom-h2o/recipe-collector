@@ -12,7 +12,7 @@ create extension if not exists pgtap with schema extensions;
 create schema if not exists tests;
 
 begin;
-select plan(18);
+select plan(24);
 
 -- ── Fixtures ────────────────────────────────────────────────────────────────
 -- Three accounts: two that will be linked, and a third that must stay isolated.
@@ -201,6 +201,64 @@ select is(
   (select count(*)::int from public.recipe_ratings where user_id = '22222222-2222-2222-2222-222222222222'),
   0,
   'after disconnecting, their ratings are hidden too — a recipe can outlive a link'
+);
+reset role;
+
+-- ── Public share links (migration 0056) ─────────────────────────────────────
+-- The one read path that an account-less stranger can reach. It must open
+-- exactly one recipe, only while its owner wants it open, and it must never
+-- carry the owner's private columns.
+update public.recipes
+   set public_share_token = '77777777-7777-7777-7777-777777777777',
+       notes = 'ana''s private note',
+       rating = 5
+ where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+
+set local role anon;
+
+select throws_ok(
+  'select count(*) from public.recipes',
+  '42501',
+  null,
+  'anon cannot read the recipes table directly, share link or not'
+);
+
+select is(
+  (select count(*)::int from public.get_shared_recipe('77777777-7777-7777-7777-777777777777')),
+  1,
+  'a valid share token opens exactly one recipe for an anonymous reader'
+);
+
+select is(
+  (select title from public.get_shared_recipe('77777777-7777-7777-7777-777777777777')),
+  'Ana pasta',
+  'and it is the recipe the token belongs to'
+);
+
+select is(
+  (select count(*)::int from public.get_shared_recipe(null)),
+  0,
+  'a null token opens nothing — revoking must not publish every unshared recipe'
+);
+
+select is(
+  (select count(*)::int from public.get_shared_recipe('99999999-9999-9999-9999-999999999999')),
+  0,
+  'an unknown or stale token opens nothing'
+);
+
+reset role;
+
+-- Revocation: the owner sets the token back to null.
+update public.recipes
+   set public_share_token = null
+ where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+
+set local role anon;
+select is(
+  (select count(*)::int from public.get_shared_recipe('77777777-7777-7777-7777-777777777777')),
+  0,
+  'once revoked, the old link opens nothing'
 );
 reset role;
 

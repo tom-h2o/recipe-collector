@@ -19,6 +19,18 @@ export interface ReleaseNote {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    id: '2026-11-18',
+    title: 'Share a recipe with someone who has no account',
+    items: [
+      'Open a recipe, choose "Create public link", and send it to anyone — they can read the whole recipe without signing up or installing anything.',
+      'They can change the servings and the amounts follow, step through cook mode with its timers, and print or save it as a PDF.',
+      'Sharing is per recipe and off until you turn it on. "Stop sharing" takes the link down again, and anyone still holding it sees nothing.',
+      'Your private notes and ratings are never part of a shared link, even though they sit on the same recipe.',
+      'The old "Copy share link" button handed out a link that only worked for people who already had an account; it now creates a link that genuinely works for anyone.',
+      'Cook mode now fills the screen on a laptop or desktop again, instead of being squeezed into a narrow column.',
+    ],
+  },
+  {
     id: '2026-11-17',
     title: 'Moved to Google\'s Gemini 4 models',
     items: [

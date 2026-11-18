@@ -62,6 +62,16 @@ export default function App() {
   const changelog = useChangelog();
   const [activeView, setActiveView] = useState<ActiveView>('vault');
   const [publicRecipe, setPublicRecipe] = useState<Recipe | null>(null);
+  // A share link that does not resolve must say so. Falling through to the
+  // login screen (what happened before) reads as "you need an account", which
+  // is exactly the wrong message for a revoked or mistyped link.
+  const [publicLinkMissing, setPublicLinkMissing] = useState(false);
+  // Read once from the entry URL: it decides whether this render belongs to a
+  // guest following a share link, before any fetch has resolved.
+  const isPublicSharePath = typeof window !== 'undefined' && window.location.pathname.startsWith('/r/');
+  const shareTokenFromPath = isPublicSharePath
+    ? decodeURIComponent(window.location.pathname.slice('/r/'.length)).trim()
+    : '';
 
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -79,7 +89,27 @@ export default function App() {
 
   useEffect(() => {
     const path = window.location.pathname;
-    if (path.startsWith('/recipe/')) {
+    if (path.startsWith('/r/')) {
+      // Public share link. Read through the security definer RPC, which is the
+      // only thing an anonymous visitor may call: `anon` has no select grant on
+      // recipes at all, and the RPC returns a deliberately narrowed column set
+      // (no notes, no user_id, no rating). See migration 0056.
+      // An empty token needs no round trip; the render path below treats it as
+      // a dead link, which keeps this effect free of synchronous setState.
+      if (shareTokenFromPath) {
+        supabase.rpc('get_shared_recipe', { p_token: shareTokenFromPath }).then(({ data, error }) => {
+          const row = Array.isArray(data) ? data[0] : null;
+          if (row && !error) {
+            setPublicRecipe(row as Recipe);
+            setActiveView('public_recipe');
+          } else {
+            setPublicLinkMissing(true);
+          }
+        });
+      }
+    } else if (path.startsWith('/recipe/')) {
+      // Owner-facing permalink, kept for existing bookmarks. This one reads the
+      // table directly, so it resolves only for someone the RLS policy allows.
       const id = path.split('/recipe/')[1];
       if (id) {
         supabase.from('recipes').select('*').eq('id', id).single().then(({ data }) => {
@@ -96,7 +126,7 @@ export default function App() {
       fetchContacts();
       fetchCollections();
     }
-  }, [fetchRecipes, fetchMealPlans, fetchShoppingList, fetchPantryItems, fetchSettings, fetchInbox, fetchContacts, fetchCollections]);
+  }, [shareTokenFromPath, fetchRecipes, fetchMealPlans, fetchShoppingList, fetchPantryItems, fetchSettings, fetchInbox, fetchContacts, fetchCollections]);
 
   // Scroll to top whenever the active view changes
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [activeView]);
@@ -108,12 +138,15 @@ export default function App() {
   // fetchRecipes but left out of the deps, so picking a person re-rendered the
   // chips without ever refetching and the vault kept showing everyone.
   useEffect(() => {
+    // A guest on a share link has no vault to search, and the query would come
+    // back empty under RLS anyway — so skip the round trip entirely.
+    if (isPublicSharePath) return;
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
       fetchRecipes(searchQuery, activeFilter, activeCollectionId, memberships, sortBy, activeOwnerId);
     }, 300);
     return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
-  }, [searchQuery, activeFilter, activeCollectionId, memberships, sortBy, activeOwnerId, fetchRecipes]);
+  }, [isPublicSharePath, searchQuery, activeFilter, activeCollectionId, memberships, sortBy, activeOwnerId, fetchRecipes]);
 
   function openForm(recipe?: Recipe) {
     setEditingRecipe(recipe ?? null);
@@ -132,16 +165,20 @@ export default function App() {
     return () => document.removeEventListener('keydown', handleKey);
   }, []);
 
-  async function handleUpdateRecipe(id: string, changes: Partial<Recipe>) {
+  // Returns whether the write landed. Most callers ignore it, but minting a
+  // share link must not copy a URL to the clipboard unless the token was
+  // actually saved — handing out a dead link is the bug this feature fixes.
+  async function handleUpdateRecipe(id: string, changes: Partial<Recipe>): Promise<boolean> {
     try {
       await updateRecipe(id, changes);
     } catch (err) {
       // Surfaced rather than swallowed: the store now rejects a write that RLS
       // refused, and the open drawer must not keep showing the change either.
       toast.error(err instanceof Error ? err.message : 'Could not save that change.');
-      return;
+      return false;
     }
     setSelectedRecipe((prev) => prev?.id === id ? { ...prev, ...changes } : prev);
+    return true;
   }
 
   async function handleDelete() {
@@ -169,6 +206,30 @@ export default function App() {
         <Suspense fallback={<ViewFallback />}>
           <PublicRecipe recipe={publicRecipe} />
         </Suspense>
+      </div>
+    );
+  }
+
+  // Everything below renders behind AuthGate. A visitor following a share link
+  // has no account, so a share URL must resolve to its own page (or its own
+  // error) before we ever reach that gate.
+  if (isPublicSharePath) {
+    if (publicLinkMissing || !shareTokenFromPath) {
+      return (
+        <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans text-zinc-900 dark:text-zinc-50 flex items-center justify-center p-6">
+          <div className="max-w-md text-center space-y-4">
+            <h1 className="text-3xl font-black">This link isn't available</h1>
+            <p className="text-zinc-600 dark:text-zinc-400">
+              The recipe may have been unshared by its owner, or the link may be
+              incomplete. Ask whoever sent it for a fresh link.
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans text-zinc-900 dark:text-zinc-50">
+        <ViewFallback />
       </div>
     );
   }

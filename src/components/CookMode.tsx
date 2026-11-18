@@ -59,9 +59,16 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
       <DialogTrigger className="hidden" />
+      {/*
+        sm:max-w-none is not redundant: DialogContent's base class list ends in
+        `sm:max-w-sm`, and tailwind-merge treats a responsive variant as a
+        different group from the bare `max-w-none`, so both survive and the
+        `sm:` one wins from 640px up — which capped this full-screen dialog at
+        384px on every desktop.
+      */}
       <DialogContent
         showCloseButton={false}
-        className="max-w-none w-screen h-screen max-h-screen rounded-none border-0 bg-zinc-950 text-white p-0 overflow-hidden"
+        className="max-w-none sm:max-w-none w-screen h-screen max-h-screen rounded-none border-0 bg-zinc-950 text-white p-0 overflow-hidden"
       >
         {/* Root: full-screen flex row */}
         <div className="flex w-full h-full overflow-hidden">
