@@ -4,7 +4,27 @@ import type { Recipe } from '@/types';
 
 // RecipeDetail reaches for Supabase through two hooks and the API helper.
 // None of that is what this file is about, so they are stubbed flat.
-vi.mock('@/lib/supabase', () => ({ supabase: { from: () => ({}), rpc: () => Promise.resolve({ data: [], error: null }) } }));
+// A chainable no-op builder. RecipeDetail pulls in useRecipeTranslations,
+// which queries recipe_translations on mount; a `from()` returning a bare
+// object made that reject unhandled, which Vitest flags as a source of false
+// positives even while the assertions below still pass.
+vi.mock('@/lib/supabase', () => {
+  const builder: Record<string, unknown> = {};
+  for (const op of ['select', 'eq', 'in', 'is', 'not', 'order', 'limit', 'delete', 'insert', 'update', 'upsert']) {
+    builder[op] = () => builder;
+  }
+  builder.then = (resolve: (v: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(resolve);
+  builder.single = () => Promise.resolve({ data: null, error: null });
+  builder.maybeSingle = () => Promise.resolve({ data: null, error: null });
+  return {
+    supabase: {
+      from: () => builder,
+      rpc: () => Promise.resolve({ data: [], error: null }),
+      channel: () => ({ on: () => ({ subscribe: () => ({}) }), subscribe: () => ({}) }),
+      removeChannel: () => {},
+    },
+  };
+});
 vi.mock('@/lib/api', () => ({ apiFetch: vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) })) }));
 vi.mock('@/hooks/useRecipeImages', () => ({
   useRecipeImages: () => ({ images: [], loading: false, busy: false, fetchImages: vi.fn(), addImages: vi.fn(), deleteImage: vi.fn(), setImages: vi.fn() }),
