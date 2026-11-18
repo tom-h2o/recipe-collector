@@ -1,6 +1,6 @@
 -- The photo gallery and the cached translations of a publicly shared recipe.
 --
--- Same three rules as get_shared_recipe (migration 0056), for the same reasons:
+-- Same three rules as get_shared_recipe (migration 0061), for the same reasons:
 -- the token is the only key, `anon` reaches no row of these tables on its own
 -- (their policies are all `to authenticated`, so RLS denies it by default --
 -- note that anon does hold Supabase's standard SELECT grant, so the grant is

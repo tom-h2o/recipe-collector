@@ -217,7 +217,7 @@ select is(
 );
 reset role;
 
--- ── Public share links (migration 0056) ─────────────────────────────────────
+-- ── Public share links (migration 0061) ─────────────────────────────────────
 -- The one read path that an account-less stranger can reach. It must open
 -- exactly one recipe, only while its owner wants it open, and it must never
 -- carry the owner's private columns.

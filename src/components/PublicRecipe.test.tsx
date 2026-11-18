@@ -96,7 +96,7 @@ describe('PublicRecipe', () => {
   });
 
   it('never renders the owner’s private fields, even if they reach the component', () => {
-    // The RPC does not return these columns at all (migration 0056). This is
+    // The RPC does not return these columns at all (migration 0061). This is
     // the second line of defence: if a future change widens that column list,
     // the page still must not print someone's private notes to the world.
     render(
