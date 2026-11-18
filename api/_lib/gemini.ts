@@ -269,6 +269,19 @@ export interface GenerateOptions extends RetryOptions {
    * four of the five failures ever recorded in gemini_logs.
    */
   responseSchema?: unknown;
+  /**
+   * Whether the model may spend time reasoning before answering.
+   *
+   * Gemini 4 thinks by default, which is paid for twice: in latency, and in
+   * the chance that the reasoning leaks into the answer — a recipe title came
+   * back as "Vegan Chocolate Mousse``` Wait! I almost output extra text and
+   * markdown!...". For a task that rewrites given text into a given shape,
+   * there is nothing to reason about.
+   *
+   * Left on by default so this is opt-out per endpoint rather than a silent
+   * change to all of them: extraction from messy HTML may genuinely benefit.
+   */
+  thinking?: boolean;
 }
 
 export async function generateJson<T = unknown>(
@@ -278,7 +291,7 @@ export async function generateJson<T = unknown>(
   logCtx?: GeminiLogContext,
   options: GenerateOptions = {},
 ): Promise<T> {
-  const { responseSchema, ...retry } = options;
+  const { responseSchema, thinking = true, ...retry } = options;
   const startTime = Date.now();
   let status: 'success' | 'error' = 'success';
   let outputPreview: string | undefined;
@@ -297,7 +310,7 @@ export async function generateJson<T = unknown>(
       () => client.models.generateContent({
         model,
         contents: prompt,
-        config: { responseMimeType: 'application/json', temperature: 0.1, ...(responseSchema ? { responseSchema } : {}) },
+        config: { responseMimeType: 'application/json', temperature: 0.1, ...(responseSchema ? { responseSchema } : {}), ...(thinking ? {} : { thinkingConfig: { thinkingBudget: 0 } }) },
       }),
       { ...retry, onAttempt: () => { attempts += 1; } },
     );
@@ -313,7 +326,7 @@ export async function generateJson<T = unknown>(
         () => client.models.generateContent({
           model,
           contents: `Repair the following invalid JSON and return only valid JSON. Do not change the data unless needed to make it syntactically valid.\n\nParse error: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}\n\nInvalid JSON:\n${text}`,
-          config: { responseMimeType: 'application/json', temperature: 0, ...(responseSchema ? { responseSchema } : {}) },
+          config: { responseMimeType: 'application/json', temperature: 0, ...(responseSchema ? { responseSchema } : {}), ...(thinking ? {} : { thinkingConfig: { thinkingBudget: 0 } }) },
         }),
         { ...retry, onAttempt: () => { attempts += 1; } },
       );

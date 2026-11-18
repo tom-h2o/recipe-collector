@@ -59,7 +59,13 @@ Return this exact JSON structure:
 
     const client = getGeminiClient(apiKey);
     const result = translationResultSchema.parse(
-      await generateJson(client, modelFor(settings, 'translate'), prompt, { supabase, endpoint: 'translate', recipeId, userId }, { responseSchema: translationResponseSchema }),
+      await generateJson(client, modelFor(settings, 'translate'), prompt, { supabase, endpoint: 'translate', recipeId, userId }, {
+        responseSchema: translationResponseSchema,
+        // Translating given text into a given shape leaves nothing to reason
+        // about, and the thinking pass is what makes this the slowest endpoint
+        // people wait on — gemini_logs has a successful translate at 124s.
+        thinking: false,
+      }),
     );
 
     const row = { recipe_id: recipeId, language_code: targetLanguage, title: result.title, description: result.description, instructions: result.instructions, ingredients: result.ingredients };
