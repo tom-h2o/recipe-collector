@@ -30,8 +30,37 @@ function makeBuilder(table: string) {
   return builder;
 }
 
+// Realtime channels, captured so a test can deliver an event by hand.
+interface FakeChannel {
+  name: string;
+  handler?: (payload: { new?: unknown }) => void;
+  subscribed: boolean;
+  removed: boolean;
+}
+const channels: FakeChannel[] = [];
+
+function makeChannel(name: string): FakeChannel {
+  const ch: FakeChannel = { name, subscribed: false, removed: false };
+  const api = {
+    on: (_event: string, _cfg: unknown, handler: (payload: { new?: unknown }) => void) => {
+      ch.handler = handler;
+      return api;
+    },
+    subscribe: () => { ch.subscribed = true; return ch; },
+  };
+  channels.push(ch);
+  return api as unknown as FakeChannel;
+}
+
 vi.mock('@/lib/supabase', () => ({
-  supabase: { from: (table: string) => makeBuilder(table) },
+  supabase: {
+    from: (table: string) => makeBuilder(table),
+    channel: (name: string) => makeChannel(name),
+    removeChannel: (ch: FakeChannel) => {
+      const found = channels.find((c) => c === ch || c.name === ch?.name);
+      if (found) found.removed = true;
+    },
+  },
 }));
 vi.mock('@/lib/api', () => ({ apiFetch: vi.fn().mockResolvedValue({ json: async () => ({ imageUrl: '' }) }) }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), loading: vi.fn() } }));
@@ -49,6 +78,7 @@ const recipe = (over: Partial<Recipe> = {}): Recipe => ({
 const reset = () => {
   results.length = 0;
   calls.length = 0;
+  channels.length = 0;
   useRecipeStore.getState().stopAllPolling();
   useRecipeStore.setState({ recipes: [], page: 0, hasMore: true, loading: false });
 };
@@ -134,7 +164,7 @@ describe('startPolling', () => {
     expect(useRecipeStore.getState().processingIds.has('r1')).toBe(true);
 
     queueResult({ id: 'r1', tags: ['Italian'], nutrition: { calories: 100 } });
-    await vi.advanceTimersByTimeAsync(2000);
+    await vi.advanceTimersByTimeAsync(5000);
 
     expect(useRecipeStore.getState().processingIds.has('r1')).toBe(false);
     expect(useRecipeStore.getState().recipes[0].tags).toEqual(['Italian']);
@@ -146,7 +176,7 @@ describe('startPolling', () => {
     useRecipeStore.getState().startPolling('r1');
 
     queueResult({ id: 'r1', tags: [], nutrition: null });
-    await vi.advanceTimersByTimeAsync(2000);
+    await vi.advanceTimersByTimeAsync(5000);
     expect(useRecipeStore.getState().processingIds.has('r1')).toBe(true);
   });
 
@@ -155,9 +185,9 @@ describe('startPolling', () => {
     useRecipeStore.setState({ recipes: [recipe({ id: 'r1' })] });
     useRecipeStore.getState().startPolling('r1');
 
-    for (let elapsed = 0; elapsed <= 32000; elapsed += 2000) {
+    for (let elapsed = 0; elapsed <= 35000; elapsed += 5000) {
       queueResult({ id: 'r1', tags: [], nutrition: null });
-      await vi.advanceTimersByTimeAsync(2000);
+      await vi.advanceTimersByTimeAsync(5000);
     }
     expect(useRecipeStore.getState().processingIds.has('r1')).toBe(false);
   });
@@ -170,6 +200,94 @@ describe('startPolling', () => {
   });
 });
 
+/**
+ * Realtime is the fast path; the poll is the net under it. Both have to be
+ * able to finish the job alone, because the ways Realtime goes quiet — a table
+ * missing from the publication, a blocked websocket, a lost event — all look
+ * identical to "still processing" from the client.
+ */
+describe('startPolling: the Realtime fast path', () => {
+  it('subscribes to updates for exactly that recipe', () => {
+    vi.useFakeTimers();
+    useRecipeStore.getState().startPolling('r1');
+
+    expect(channels).toHaveLength(1);
+    expect(channels[0].name).toBe('recipe-processing:r1');
+    expect(channels[0].subscribed).toBe(true);
+  });
+
+  it('clears the spinner the moment the event lands, without waiting for a poll', async () => {
+    vi.useFakeTimers();
+    useRecipeStore.setState({ recipes: [recipe({ id: 'r1' })] });
+    useRecipeStore.getState().startPolling('r1');
+    expect(useRecipeStore.getState().processingIds.has('r1')).toBe(true);
+
+    // No timer advanced at all: this is what Realtime buys.
+    channels[0].handler?.({ new: { id: 'r1', tags: ['Italian'], nutrition: { calories: 100 } } });
+
+    expect(useRecipeStore.getState().processingIds.has('r1')).toBe(false);
+    expect(useRecipeStore.getState().recipes[0].tags).toEqual(['Italian']);
+  });
+
+  it('ignores an update that arrives before the AI pass has finished', () => {
+    vi.useFakeTimers();
+    useRecipeStore.setState({ recipes: [recipe({ id: 'r1' })] });
+    useRecipeStore.getState().startPolling('r1');
+
+    // Any other write to the row — a rename, a favourite — also fires here.
+    channels[0].handler?.({ new: { id: 'r1', tags: [], nutrition: null } });
+
+    expect(useRecipeStore.getState().processingIds.has('r1')).toBe(true);
+  });
+
+  it('tears the subscription down once it has fired', () => {
+    vi.useFakeTimers();
+    useRecipeStore.setState({ recipes: [recipe({ id: 'r1' })] });
+    useRecipeStore.getState().startPolling('r1');
+
+    channels[0].handler?.({ new: { id: 'r1', tags: ['x'], nutrition: {} } });
+
+    expect(channels[0].removed).toBe(true);
+    expect(useRecipeStore.getState().realtimeChannels.size).toBe(0);
+    expect(useRecipeStore.getState().pollingIntervals.size).toBe(0);
+  });
+
+  it('still finishes through the poll when Realtime never delivers', async () => {
+    // The publication is missing, or the socket is blocked: the channel
+    // subscribes and then says nothing. This is the case the net exists for.
+    vi.useFakeTimers();
+    useRecipeStore.setState({ recipes: [recipe({ id: 'r1' })] });
+    useRecipeStore.getState().startPolling('r1');
+
+    queueResult({ id: 'r1', tags: ['Italian'], nutrition: { calories: 100 } });
+    await vi.advanceTimersByTimeAsync(5000);
+
+    expect(useRecipeStore.getState().processingIds.has('r1')).toBe(false);
+    expect(channels[0].removed).toBe(true);
+  });
+
+  it('does not double-finish when both paths report the same recipe', async () => {
+    vi.useFakeTimers();
+    useRecipeStore.setState({ recipes: [recipe({ id: 'r1' })] });
+    useRecipeStore.getState().startPolling('r1');
+
+    channels[0].handler?.({ new: { id: 'r1', tags: ['Italian'], nutrition: { calories: 100 } } });
+    // A poll already in flight resolves afterwards; finish() must no-op.
+    queueResult({ id: 'r1', tags: ['Italian'], nutrition: { calories: 100 } });
+    await vi.advanceTimersByTimeAsync(5000);
+
+    expect(useRecipeStore.getState().processingIds.size).toBe(0);
+    expect(useRecipeStore.getState().recipes[0].tags).toEqual(['Italian']);
+  });
+
+  it('starts one subscription per recipe, not one per call', () => {
+    vi.useFakeTimers();
+    useRecipeStore.getState().startPolling('r1');
+    useRecipeStore.getState().startPolling('r1');
+    expect(channels).toHaveLength(1);
+  });
+});
+
 describe('stopAllPolling', () => {
   it('clears every interval and processing marker', () => {
     vi.useFakeTimers();
@@ -178,6 +296,16 @@ describe('stopAllPolling', () => {
     useRecipeStore.getState().stopAllPolling();
     expect(useRecipeStore.getState().pollingIntervals.size).toBe(0);
     expect(useRecipeStore.getState().processingIds.size).toBe(0);
+  });
+
+  it('also closes the Realtime subscriptions, so they do not outlive the page', () => {
+    vi.useFakeTimers();
+    useRecipeStore.getState().startPolling('a');
+    useRecipeStore.getState().startPolling('b');
+    useRecipeStore.getState().stopAllPolling();
+
+    expect(useRecipeStore.getState().realtimeChannels.size).toBe(0);
+    expect(channels.every((c) => c.removed)).toBe(true);
   });
 });
 

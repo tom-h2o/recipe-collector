@@ -100,7 +100,7 @@ export default function App() {
       // Public share link. Read through the security definer RPC, which is the
       // only thing an anonymous visitor may call: `anon` has no select grant on
       // recipes at all, and the RPC returns a deliberately narrowed column set
-      // (no notes, no user_id, no rating). See migration 0056.
+      // (no notes, no user_id, no rating). See migration 0061.
       // An empty token needs no round trip; the render path below treats it as
       // a dead link, which keeps this effect free of synchronous setState.
       if (shareTokenFromPath) {

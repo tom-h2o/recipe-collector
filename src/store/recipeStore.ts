@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { apiFetch } from '@/lib/api';
 import { PAGE_SIZE } from '@/lib/constants';
 import { parseIngredients } from '@/lib/recipeUtils';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { Recipe, MealPlan, ShoppingItem, PantryItem } from '@/types';
 
 export type RecipePayload = Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>;
@@ -28,6 +29,8 @@ interface RecipeState {
 
   // Polling intervals tracker (in-memory, outside React lifecycle)
   pollingIntervals: Map<string, ReturnType<typeof setInterval>>;
+  /** Realtime subscriptions waiting for a recipe's AI pass to land. */
+  realtimeChannels: Map<string, RealtimeChannel>;
 
   // Recipes Actions
   fetchRecipes: (
@@ -123,6 +126,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
   currentSortBy: 'newest',
   currentOwnerFilter: null,
   pollingIntervals: new Map(),
+  realtimeChannels: new Map(),
 
   // Meal Plans
   mealPlans: [],
@@ -243,6 +247,73 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
     set({ processingIds: nextProcessing });
 
     const started = Date.now();
+
+    /** Tags and nutrition both present is what "the AI pass finished" means. */
+    const isDone = (row: Partial<Recipe> | null | undefined) =>
+      !!row && Array.isArray(row.tags) && row.tags.length > 0 && row.nutrition != null;
+
+    /** Tears down both channels and clears the spinner. Safe to call twice. */
+    const finish = (row: Partial<Recipe> | null, timedOut: boolean) => {
+      if (!get().pollingIntervals.has(recipeId) && !get().realtimeChannels.has(recipeId)) return;
+
+      const intervals = new Map(get().pollingIntervals);
+      const handle = intervals.get(recipeId);
+      if (handle) clearInterval(handle);
+      intervals.delete(recipeId);
+
+      const channels = new Map(get().realtimeChannels);
+      const channel = channels.get(recipeId);
+      if (channel) {
+        channels.delete(recipeId);
+        try { supabase.removeChannel(channel); } catch { /* already gone */ }
+      }
+
+      const nextProcessingIds = new Set(get().processingIds);
+      nextProcessingIds.delete(recipeId);
+
+      set({ pollingIntervals: intervals, realtimeChannels: channels, processingIds: nextProcessingIds });
+
+      if (timedOut) {
+        toast.warning('Auto-tagging took too long — you can edit tags manually.', { duration: 5000 });
+      }
+      if (row) {
+        set({ recipes: get().recipes.map((r) => (r.id === recipeId ? { ...r, ...row } : r)) });
+      }
+    };
+
+    // Realtime is the fast path: the row arrives the moment the AI pass writes
+    // it, rather than up to one poll interval later.
+    //
+    // It is deliberately NOT the only path. postgres_changes fires only for
+    // tables in the supabase_realtime publication (migration 0059), and a
+    // subscription to an unpublished table connects, reports SUBSCRIBED, and
+    // then stays silent — indistinguishable from "still processing" until the
+    // timeout. The poll below is the net under that, and under a dropped
+    // socket, a blocked websocket, or an event lost in transit. Dropping it
+    // would trade a 2s delay for a 30s hang.
+    try {
+      const channel = supabase
+        .channel(`recipe-processing:${recipeId}`)
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'recipes', filter: `id=eq.${recipeId}` },
+          (payload: { new?: Partial<Recipe> }) => {
+            const row = payload?.new;
+            if (isDone(row)) finish(row ?? null, false);
+          },
+        )
+        .subscribe();
+
+      const channels = new Map(get().realtimeChannels);
+      channels.set(recipeId, channel);
+      set({ realtimeChannels: channels });
+    } catch {
+      // No Realtime in this environment, or a client without it. The poll
+      // still covers us, so this is not worth surfacing to the cook.
+    }
+
+    // The net. Slower than it was (2s -> 5s) because it is no longer the
+    // primary signal: six requests across the 30s budget instead of fifteen.
     const interval = setInterval(async () => {
       const { data } = await supabase
         .from('recipes')
@@ -250,40 +321,26 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
         .eq('id', recipeId)
         .single();
 
-      const done = data && Array.isArray(data.tags) && data.tags.length > 0 && data.nutrition !== null;
+      const done = isDone(data);
       const timedOut = Date.now() - started > 30000;
 
-      if (done || timedOut) {
-        clearInterval(interval);
-        const currentIntervals = get().pollingIntervals;
-        currentIntervals.delete(recipeId);
-        set({ pollingIntervals: new Map(currentIntervals) });
+      if (done || timedOut) finish(data ?? null, timedOut && !done);
+    }, 5000);
 
-        const nextProcessingIds = new Set(get().processingIds);
-        nextProcessingIds.delete(recipeId);
-        set({ processingIds: nextProcessingIds });
-
-        if (timedOut && !done) {
-          toast.warning('Auto-tagging took too long — you can edit tags manually.', { duration: 5000 });
-        }
-        if (data) {
-          set({
-            recipes: get().recipes.map((r) => (r.id === recipeId ? { ...r, ...data } : r))
-          });
-        }
-      }
-    }, 2000);
-
-    const currentIntervals = get().pollingIntervals;
+    const currentIntervals = new Map(get().pollingIntervals);
     currentIntervals.set(recipeId, interval);
-    set({ pollingIntervals: new Map(currentIntervals) });
+    set({ pollingIntervals: currentIntervals });
   },
 
   stopAllPolling: () => {
-    const { pollingIntervals } = get();
+    const { pollingIntervals, realtimeChannels } = get();
     pollingIntervals.forEach((interval) => clearInterval(interval));
+    realtimeChannels.forEach((channel) => {
+      try { supabase.removeChannel(channel); } catch { /* already gone */ }
+    });
     set({
       pollingIntervals: new Map(),
+      realtimeChannels: new Map(),
       processingIds: new Set(),
     });
   },
