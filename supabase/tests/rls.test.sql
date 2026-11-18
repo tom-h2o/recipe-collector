@@ -305,7 +305,7 @@ select is(
 );
 reset role;
 
--- ── Deleting a translation (migration 0060) ─────────────────────────────────
+-- ── Deleting a translation (migration 0064) ─────────────────────────────────
 -- recipe_translations had no delete policy at all, so a delete from the
 -- browser matched zero rows and PostgREST reported no error: the row survived
 -- and the UI would have called it a success.
