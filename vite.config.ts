@@ -78,16 +78,14 @@ export default defineConfig({
         display: 'standalone',
         start_url: '/',
         icons: [
-          {
-            src: '/favicon.svg',
-            sizes: '192x192',
-            type: 'image/svg+xml',
-          },
-          {
-            src: '/favicon.svg',
-            sizes: '512x512',
-            type: 'image/svg+xml',
-          },
+          // PNGs, not the SVG: iOS ignores SVG icons for the home screen
+          // entirely, and Android only renders one reliably at some sizes.
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          // Separate maskable art: Android crops up to 20% off every edge to
+          // fit the launcher's shape, so the key is drawn smaller here. Marking
+          // the normal icon 'any maskable' instead would get it clipped.
+          { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
     }),
