@@ -12,7 +12,7 @@ create extension if not exists pgtap with schema extensions;
 create schema if not exists tests;
 
 begin;
-select plan(28);
+select plan(32);
 
 -- ── Fixtures ────────────────────────────────────────────────────────────────
 -- Three accounts: two that will be linked, and a third that must stay isolated.
@@ -302,6 +302,58 @@ select is(
   (select count(*)::int from public.get_shared_recipe('77777777-7777-7777-7777-777777777777')),
   0,
   'once revoked, the old link opens nothing'
+);
+reset role;
+
+-- ── Deleting a translation (migration 0060) ─────────────────────────────────
+-- recipe_translations had no delete policy at all, so a delete from the
+-- browser matched zero rows and PostgREST reported no error: the row survived
+-- and the UI would have called it a success.
+select tests.as_user('11111111-1111-1111-1111-111111111111');
+
+select is(
+  (select count(*)::int from public.recipe_translations
+    where recipe_id = 'aaaaaaaa-0000-0000-0000-000000000001'),
+  1,
+  'the owner can see their own translation before deleting it'
+);
+
+delete from public.recipe_translations
+ where recipe_id = 'aaaaaaaa-0000-0000-0000-000000000001'
+   and language_code = 'de';
+
+select is(
+  (select count(*)::int from public.recipe_translations
+    where recipe_id = 'aaaaaaaa-0000-0000-0000-000000000001'),
+  0,
+  'an owner can delete a translation of their own recipe'
+);
+reset role;
+
+-- Ben's recipe is linked to Ana, so she can read its translation. Reading is
+-- not writing: linked recipes are read-only everywhere else in the app, and
+-- deleting a cached translation would make its owner pay to rebuild it.
+insert into public.account_links (requester_id, addressee_id, status)
+values ('11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'accepted')
+on conflict do nothing;
+
+select tests.as_user('11111111-1111-1111-1111-111111111111');
+
+select is(
+  (select count(*)::int from public.recipe_translations
+    where recipe_id = 'bbbbbbbb-0000-0000-0000-000000000002'),
+  1,
+  'a linked account can read the other person''s translation'
+);
+
+delete from public.recipe_translations
+ where recipe_id = 'bbbbbbbb-0000-0000-0000-000000000002';
+
+select is(
+  (select count(*)::int from public.recipe_translations
+    where recipe_id = 'bbbbbbbb-0000-0000-0000-000000000002'),
+  1,
+  'but cannot delete it — the row is still there'
 );
 reset role;
 

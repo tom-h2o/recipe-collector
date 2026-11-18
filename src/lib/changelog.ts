@@ -28,6 +28,8 @@ export const RELEASES: ReleaseNote[] = [
       'Saving a shared recipe as a PDF now names the file after the recipe.',
       'Recipes with a live public link are marked in your vault, and there is a new "Shared" filter to see them all at once.',
       'Polish is no longer offered as a translation language.',
+      'The language picker now ticks the languages a recipe has already been translated into \u2014 those open instantly and cost nothing \u2014 and lets you delete any of them you no longer want.',
+      'The options menu behind the three dots no longer runs off the side of the screen on a narrow phone, where half its labels used to be cut off.',
       'Added to your home screen, the app now shows its own key symbol on the deep green of the app itself \u2014 and is called Speisekammer, not the old name it had kept there.',
     ],
   },
