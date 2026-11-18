@@ -657,11 +657,18 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
 
                 {recipe.nutrition && (() => {
                   const n = recipe.nutrition;
-                  const fmt = (v: number) => Math.round(v * scale);
+                  // Deliberately not multiplied by `scale`. These are
+                  // per-serving figures — NUTRITION_TEMPLATE tells the model to
+                  // "divide total recipe nutrients by the number of servings" —
+                  // and a per-serving figure does not change with the size of
+                  // the batch. Scaling them made a recipe taken from 4 servings
+                  // to 8 report twice the calories *per serving*, under a
+                  // heading that still read "Per serving".
+                  const fmt = (v: number) => Math.round(v);
                   return (
                     <div className="mt-4">
                       <p className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground mb-2">
-                        Per serving {scale !== 1 ? `(scaled ×${scale.toFixed(2)})` : ''}
+                        Per serving
                       </p>
                       <div className="grid grid-cols-2 gap-2">
                         {[
