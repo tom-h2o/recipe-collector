@@ -17,10 +17,13 @@
 --     token means "not shared"; nulls are distinct under a unique index, so
 --     every unshared recipe can hold one.
 --
---  2. `anon` is granted NO table access. The read goes through a security
---     definer function that returns exactly one recipe for a valid token. This
---     keeps the blast radius at one row and avoids a second policy on recipes
---     that a future change could widen by accident.
+--  2. `anon` reaches no row of `recipes` on its own. Supabase grants `anon`
+--     SELECT on public tables as part of its standard setup, so what holds it
+--     out is RLS: every policy on recipes is `to authenticated`, none applies
+--     to anon, and row-level security denies by default. The one way through
+--     is this security definer function, which returns exactly one recipe for
+--     a valid token. That keeps the blast radius at one row and avoids a
+--     second policy on recipes that a future change could widen by accident.
 --
 --  3. The function returns an explicit column list. `select *` would hand a
 --     public page `notes` (the owner's private notes), `user_id`, `rating` and

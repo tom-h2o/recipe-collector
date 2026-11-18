@@ -12,7 +12,7 @@ create extension if not exists pgtap with schema extensions;
 create schema if not exists tests;
 
 begin;
-select plan(24);
+select plan(28);
 
 -- ── Fixtures ────────────────────────────────────────────────────────────────
 -- Three accounts: two that will be linked, and a third that must stay isolated.
@@ -27,6 +27,19 @@ values
   ('aaaaaaaa-0000-0000-0000-000000000001', 'Ana pasta',   '[{"amount":"1","name":"pasta"}]'::jsonb, 'boil', '11111111-1111-1111-1111-111111111111'),
   ('bbbbbbbb-0000-0000-0000-000000000002', 'Ben bread',   '[{"amount":"1","name":"flour"}]'::jsonb, 'bake', '22222222-2222-2222-2222-222222222222'),
   ('cccccccc-0000-0000-0000-000000000003', 'Clara cake',  '[{"amount":"1","name":"sugar"}]'::jsonb, 'mix',  '33333333-3333-3333-3333-333333333333');
+
+-- A photo and a translation on each of two recipes. Without rows here, the
+-- "anon reads none of this" assertions below would pass against empty tables
+-- and prove nothing at all.
+insert into public.recipe_images (recipe_id, user_id, url, source, sort_order)
+values
+  ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'https://img.test/ana.jpg', 'upload', 1),
+  ('bbbbbbbb-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222', 'https://img.test/ben.jpg', 'upload', 1);
+
+insert into public.recipe_translations (recipe_id, language_code, title, instructions, ingredients)
+values
+  ('aaaaaaaa-0000-0000-0000-000000000001', 'de', 'Ana Nudeln', 'kochen', '[]'::jsonb),
+  ('bbbbbbbb-0000-0000-0000-000000000002', 'de', 'Ben Brot',   'backen', '[]'::jsonb);
 
 /** Impersonate a signed-in user, the way PostgREST does per request. */
 create or replace function tests.as_user(uid uuid) returns void language plpgsql as $$
@@ -216,11 +229,41 @@ update public.recipes
 
 set local role anon;
 
-select throws_ok(
-  'select count(*) from public.recipes',
-  '42501',
-  null,
-  'anon cannot read the recipes table directly, share link or not'
+-- Zero rows, not an error. Supabase grants `anon` SELECT on public tables as
+-- part of its standard setup, so what keeps an anonymous visitor out is RLS,
+-- not a missing grant: every policy on these tables is `to authenticated`, so
+-- none applies to anon and row-level security denies by default. An earlier
+-- version of this test asserted a 42501 and passed only against a hand-built
+-- local Postgres where `anon` had no grants at all — which tested the fixture,
+-- not the product. Do not change it back.
+select is(
+  (select count(*)::int from public.recipes),
+  0,
+  'anon reads no recipes directly, share link or not'
+);
+
+select is(
+  (select count(*)::int from public.recipe_images),
+  0,
+  'anon reads no recipe photos directly'
+);
+
+select is(
+  (select count(*)::int from public.recipe_translations),
+  0,
+  'anon reads no translations directly'
+);
+
+select is(
+  (select count(*)::int from public.get_shared_recipe_images('77777777-7777-7777-7777-777777777777')),
+  1,
+  'a share token opens the photos of that recipe, and only that recipe'
+);
+
+select is(
+  (select count(*)::int from public.get_shared_recipe_translations('77777777-7777-7777-7777-777777777777')),
+  1,
+  'and its cached translations, and only its own'
 );
 
 select is(

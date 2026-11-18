@@ -1,8 +1,11 @@
 -- The photo gallery and the cached translations of a publicly shared recipe.
 --
 -- Same three rules as get_shared_recipe (migration 0056), for the same reasons:
--- the token is the only key, `anon` gets no table grant, and every column is
--- named rather than selected with *.
+-- the token is the only key, `anon` reaches no row of these tables on its own
+-- (their policies are all `to authenticated`, so RLS denies it by default --
+-- note that anon does hold Supabase's standard SELECT grant, so the grant is
+-- not what protects them), and every column is named rather than selected
+-- with *.
 --
 -- Translations are free to hand out: they are already in recipe_translations,
 -- put there by the owner. Nothing here can cause an AI call — the guest page
