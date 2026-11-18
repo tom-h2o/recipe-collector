@@ -333,9 +333,15 @@ reset role;
 -- Ben's recipe is linked to Ana, so she can read its translation. Reading is
 -- not writing: linked recipes are read-only everywhere else in the app, and
 -- deleting a cached translation would make its owner pay to rebuild it.
-insert into public.account_links (requester_id, addressee_id, status)
-values ('11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'accepted')
-on conflict do nothing;
+-- requester_email and addressee_email are NOT NULL: the link can be created
+-- before the addressee has an account, so the address is what identifies them.
+-- The earlier "disconnecting revokes access" block deleted Ana's link, so this
+-- re-establishes it rather than updating one.
+insert into public.account_links (requester_id, requester_email, addressee_email, addressee_id, status)
+values (
+  '11111111-1111-1111-1111-111111111111', 'ana@example.com',
+  'ben@example.com', '22222222-2222-2222-2222-222222222222', 'accepted'
+);
 
 select tests.as_user('11111111-1111-1111-1111-111111111111');
 
