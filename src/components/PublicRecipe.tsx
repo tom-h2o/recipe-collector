@@ -1,8 +1,17 @@
 import { useState } from 'react';
-import { ChefHat, Users, Printer, Play, Minus, Plus, RotateCcw } from 'lucide-react';
+import { ChefHat, Users, Printer, Play, Minus, Plus, RotateCcw, ArrowRight } from 'lucide-react';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
 import { CookMode } from '@/components/CookMode';
+import { SpeisekammerLogo } from '@/components/SpeisekammerLogo';
+import { APP_NAME, AUTHOR_NAME, AUTHOR_URL, CAPABILITY_GROUPS } from '@/lib/appInfo';
 import type { Recipe } from '@/types';
+
+/**
+ * A handful of highlights for the guest, taken from the same list the About
+ * page renders so the two cannot drift. One per group, which keeps the pitch
+ * short and still covers the span of the app.
+ */
+const HIGHLIGHTS = CAPABILITY_GROUPS.map((g) => g.items[0]);
 
 interface Props {
   recipe: Recipe;
@@ -33,6 +42,7 @@ export function PublicRecipe({ recipe }: Props) {
   const scaledRecipe: Recipe = { ...recipe, ingredients: parsed, servings };
 
   return (
+    <>
     <div className="max-w-3xl mx-auto bg-white dark:bg-zinc-950 md:shadow-2xl rounded-3xl overflow-hidden print:shadow-none print:w-full border border-zinc-200 dark:border-zinc-800 break-inside-avoid">
       {recipe.image_url && (
         <img src={recipe.image_url} className="w-full h-64 md:h-96 object-cover" alt={recipe.title} />
@@ -124,5 +134,74 @@ export function PublicRecipe({ recipe }: Props) {
 
       <CookMode recipe={scaledRecipe} isOpen={isCookMode} onClose={() => setIsCookMode(false)} />
     </div>
+
+    {/*
+      The pitch. print:hidden throughout — someone printing this wants the
+      recipe for the kitchen wall, not an advert for the app.
+    */}
+    <aside className="print:hidden max-w-3xl mx-auto mt-10 space-y-8">
+      <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 md:p-10 space-y-8">
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <SpeisekammerLogo size={32} />
+            <h2 className="font-serif text-2xl font-normal text-sk-primary dark:text-primary tracking-tight">
+              {APP_NAME}
+            </h2>
+          </div>
+          <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
+            Someone sent you this from their recipe vault. It is where they keep
+            every recipe worth cooking twice — pulled in from links, cookbook
+            photos and PDFs, then searchable, scalable and ready for the week
+            ahead. You can have one too.
+          </p>
+        </div>
+
+        <ul className="grid sm:grid-cols-2 gap-x-8 gap-y-5">
+          {HIGHLIGHTS.map((item) => {
+            const Icon = item.icon;
+            return (
+              <li key={item.title} className="flex gap-3">
+                <span className="shrink-0 w-9 h-9 rounded-full bg-sk-primary-fixed/50 dark:bg-primary/15 flex items-center justify-center">
+                  <Icon className="w-4 h-4 text-sk-primary dark:text-primary" />
+                </span>
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">{item.title}</h3>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">{item.blurb}</p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="flex flex-col sm:flex-row gap-3 pt-1">
+          <a
+            href="/"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold transition-colors"
+          >
+            Create a free account <ArrowRight className="w-4 h-4" />
+          </a>
+          <a
+            href="/about"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-zinc-200 dark:border-zinc-800 font-semibold text-zinc-700 dark:text-zinc-300 hover:border-sk-primary hover:text-sk-primary dark:hover:text-primary transition-colors"
+          >
+            See everything it does
+          </a>
+        </div>
+      </div>
+
+      <p className="text-center text-xs text-zinc-500 dark:text-zinc-500 pb-4">
+        {APP_NAME} is designed and built by{' '}
+        <a
+          href={AUTHOR_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold text-zinc-700 dark:text-zinc-300 hover:text-sk-primary dark:hover:text-primary hover:underline"
+        >
+          {AUTHOR_NAME}
+        </a>
+        .
+      </p>
+    </aside>
+    </>
   );
 }

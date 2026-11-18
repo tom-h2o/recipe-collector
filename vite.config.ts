@@ -70,9 +70,9 @@ export default defineConfig({
         ],
       },
       manifest: {
-        name: 'Recipe Vault',
-        short_name: 'RecipeVault',
-        description: 'Your beautiful personal digital recipe organiser.',
+        name: 'Speisekammer',
+        short_name: 'Speisekammer',
+        description: 'Your curated recipe vault: collect recipes from links, photos and PDFs, then search, scale, plan and cook from them.',
         theme_color: '#315f3b',
         background_color: '#fafafa',
         display: 'standalone',

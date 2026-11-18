@@ -109,3 +109,31 @@ describe('PublicRecipe', () => {
     expect(document.body.textContent).not.toContain('SECRET NOTE');
   });
 });
+
+describe('PublicRecipe: the pitch to a guest', () => {
+  it('explains what the app is and credits its author', () => {
+    render(<PublicRecipe recipe={recipe} />);
+    expect(screen.getByText(/Someone sent you this from their recipe vault/i)).toBeInTheDocument();
+    expect(screen.getByText('Thomas Holder')).toBeInTheDocument();
+  });
+
+  it('offers a way to sign up and a way to read more', () => {
+    render(<PublicRecipe recipe={recipe} />);
+    expect(screen.getByRole('link', { name: /create a free account/i })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: /see everything it does/i })).toHaveAttribute('href', '/about');
+  });
+
+  it('keeps the pitch off the printed page', () => {
+    // Printing a shared recipe should produce a recipe, not an advert.
+    const { container } = render(<PublicRecipe recipe={recipe} />);
+    const aside = container.querySelector('aside');
+    expect(aside).not.toBeNull();
+    expect(aside!.className).toContain('print:hidden');
+    expect(aside!.textContent).toMatch(/Create a free account/i);
+  });
+
+  it('does not leak the author’s email address', () => {
+    render(<PublicRecipe recipe={recipe} />);
+    expect(document.body.textContent).not.toMatch(/@(icloud|gmail|me)\.com/i);
+  });
+});

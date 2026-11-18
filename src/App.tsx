@@ -32,6 +32,8 @@ const ShoppingList = lazy(() => import('@/components/ShoppingList').then((m) => 
 const SettingsPanel = lazy(() => import('@/components/SettingsPanel').then((m) => ({ default: m.SettingsPanel })));
 const SuggestModal = lazy(() => import('@/components/SuggestModal').then((m) => ({ default: m.SuggestModal })));
 const PublicRecipe = lazy(() => import('@/components/PublicRecipe').then((m) => ({ default: m.PublicRecipe })));
+const AboutPage = lazy(() => import('@/components/AboutPage').then((m) => ({ default: m.AboutPage })));
+import { ThemeSync } from '@/components/ThemeSync';
 const SendRecipeModal = lazy(() => import('@/components/SendRecipeModal').then((m) => ({ default: m.SendRecipeModal })));
 const RecipeInbox = lazy(() => import('@/components/RecipeInbox').then((m) => ({ default: m.RecipeInbox })));
 const AdminPanel = lazy(() => import('@/components/AdminPanel').then((m) => ({ default: m.AdminPanel })));
@@ -72,6 +74,9 @@ export default function App() {
   const shareTokenFromPath = isPublicSharePath
     ? decodeURIComponent(window.location.pathname.slice('/r/'.length)).trim()
     : '';
+  // /about is public too: someone deciding whether to sign up must be able to
+  // read it without signing up first.
+  const isAboutPath = typeof window !== 'undefined' && /^\/about\/?$/.test(window.location.pathname);
 
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -89,7 +94,9 @@ export default function App() {
 
   useEffect(() => {
     const path = window.location.pathname;
-    if (path.startsWith('/r/')) {
+    if (isAboutPath) {
+      // Nothing to load: the page is static copy.
+    } else if (path.startsWith('/r/')) {
       // Public share link. Read through the security definer RPC, which is the
       // only thing an anonymous visitor may call: `anon` has no select grant on
       // recipes at all, and the RPC returns a deliberately narrowed column set
@@ -126,7 +133,7 @@ export default function App() {
       fetchContacts();
       fetchCollections();
     }
-  }, [shareTokenFromPath, fetchRecipes, fetchMealPlans, fetchShoppingList, fetchPantryItems, fetchSettings, fetchInbox, fetchContacts, fetchCollections]);
+  }, [isAboutPath, shareTokenFromPath, fetchRecipes, fetchMealPlans, fetchShoppingList, fetchPantryItems, fetchSettings, fetchInbox, fetchContacts, fetchCollections]);
 
   // Scroll to top whenever the active view changes
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [activeView]);
@@ -140,13 +147,13 @@ export default function App() {
   useEffect(() => {
     // A guest on a share link has no vault to search, and the query would come
     // back empty under RLS anyway — so skip the round trip entirely.
-    if (isPublicSharePath) return;
+    if (isPublicSharePath || isAboutPath) return;
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
       fetchRecipes(searchQuery, activeFilter, activeCollectionId, memberships, sortBy, activeOwnerId);
     }, 300);
     return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
-  }, [isPublicSharePath, searchQuery, activeFilter, activeCollectionId, memberships, sortBy, activeOwnerId, fetchRecipes]);
+  }, [isPublicSharePath, isAboutPath, searchQuery, activeFilter, activeCollectionId, memberships, sortBy, activeOwnerId, fetchRecipes]);
 
   function openForm(recipe?: Recipe) {
     setEditingRecipe(recipe ?? null);
@@ -202,11 +209,25 @@ export default function App() {
 
   if (activeView === 'public_recipe' && publicRecipe) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-6 sm:p-10 font-sans print:p-0 print:bg-white text-zinc-900 dark:text-zinc-50">
+      <>
+        <ThemeSync />
+        <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-6 sm:p-10 font-sans print:p-0 print:bg-white text-zinc-900 dark:text-zinc-50">
+          <Suspense fallback={<ViewFallback />}>
+            <PublicRecipe recipe={publicRecipe} />
+          </Suspense>
+        </div>
+      </>
+    );
+  }
+
+  if (isAboutPath) {
+    return (
+      <>
+        <ThemeSync />
         <Suspense fallback={<ViewFallback />}>
-          <PublicRecipe recipe={publicRecipe} />
+          <AboutPage />
         </Suspense>
-      </div>
+      </>
     );
   }
 
@@ -217,6 +238,7 @@ export default function App() {
     if (publicLinkMissing || !shareTokenFromPath) {
       return (
         <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans text-zinc-900 dark:text-zinc-50 flex items-center justify-center p-6">
+          <ThemeSync />
           <div className="max-w-md text-center space-y-4">
             <h1 className="text-3xl font-black">This link isn't available</h1>
             <p className="text-zinc-600 dark:text-zinc-400">

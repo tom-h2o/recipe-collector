@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useDarkMode } from '@/hooks/useDarkMode';
+import { SpeisekammerLogo } from '@/components/SpeisekammerLogo';
 
 interface Props {
   children: React.ReactNode;
@@ -14,28 +15,6 @@ interface Props {
 
 type AuthMode = 'password' | 'magic';
 type PasswordStep = 'signin' | 'forgot' | 'reset';
-
-/* Speisekammer skeleton key icon */
-function SpeisekammerLogo({ size = 48 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 36 36"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-      className="text-sk-primary"
-    >
-      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2.5" fill="none"/>
-      <circle cx="11" cy="11" r="3" fill="currentColor"/>
-      <line x1="16.5" y1="14.5" x2="30" y2="28" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-      <line x1="23" y1="21.5" x2="26" y2="24.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-      <line x1="26" y1="24.5" x2="29" y2="21.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-      <path d="M7 4 Q11 1 15 5 Q11 8 7 4Z" fill="currentColor" opacity="0.45"/>
-    </svg>
-  );
-}
 
 export function AuthGate({ children }: Props) {
   const {
@@ -270,6 +249,15 @@ export function AuthGate({ children }: Props) {
             </p>
             <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground mt-2">
               Sign in to access your recipes
+            </p>
+            <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground">
+              New here?{' '}
+              <a
+                href="/about"
+                className="font-semibold text-sk-primary dark:text-primary hover:underline"
+              >
+                See what Speisekammer does
+              </a>
             </p>
           </div>
 

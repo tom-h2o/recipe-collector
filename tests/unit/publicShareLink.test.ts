@@ -101,3 +101,21 @@ describe('the share link the UI hands out', () => {
     expect(detail).toMatch(/\{!isLinked && \(\s*\n\s*shareUrl \?/);
   });
 });
+
+describe('guest routes follow the device theme', () => {
+  const app = readFileSync(join(ROOT, 'src', 'App.tsx'), 'utf8');
+
+  it('mounts ThemeSync on all three screens that render neither Layout nor AuthGate', () => {
+    // useDarkMode is what puts `dark` on <html>, and it is called only from
+    // Layout and AuthGate. The share page, the dead-link page and /about
+    // render neither, so without ThemeSync every `dark:` class on them is
+    // dead and they stay light on a device set to dark.
+    expect((app.match(/<ThemeSync \/>/g) ?? []).length).toBe(3);
+  });
+
+  it('keeps the public pages off the vault queries', () => {
+    // A guest has no vault; the query returns nothing under RLS and is a
+    // wasted round trip on every share view.
+    expect(app).toMatch(/if \(isPublicSharePath \|\| isAboutPath\) return;/);
+  });
+});

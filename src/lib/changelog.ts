@@ -28,6 +28,9 @@ export const RELEASES: ReleaseNote[] = [
       'Your private notes and ratings are never part of a shared link, even though they sit on the same recipe.',
       'The old "Copy share link" button handed out a link that only worked for people who already had an account; it now creates a link that genuinely works for anyone.',
       'Cook mode now fills the screen on a laptop or desktop again, instead of being squeezed into a narrow column.',
+      'A shared link now also introduces the app to whoever opens it, with a new "About" page at /about listing everything it can do \u2014 reachable from the sign-in screen too.',
+      'The app goes by one name everywhere now: Speisekammer, including the browser tab and the installed app on your phone.',
+      'Shared pages follow your device\u2019s light or dark setting, which they previously ignored.',
     ],
   },
   {
