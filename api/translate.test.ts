@@ -169,3 +169,15 @@ describe('/api/translate: whose recipes can be translated', () => {
     expect(src).not.toMatch(/userOwnsRecipe\(/);
   });
 });
+
+describe('/api/translate: latency', () => {
+  it('asks the model not to spend time reasoning', async () => {
+    // Translating given text into a given shape leaves nothing to reason
+    // about, and the thinking pass is what makes this the endpoint people
+    // wait on. Guards against the option being dropped in a refactor.
+    const { readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const src = readFileSync(join(process.cwd(), 'api', 'translate.ts'), 'utf8');
+    expect(src).toMatch(/thinking:\s*false/);
+  });
+});
