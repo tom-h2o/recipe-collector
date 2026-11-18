@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey, getUserId, userOwnsRecipe, modelFor } from './_lib/supabase.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId, userCanReadRecipe, modelFor } from './_lib/supabase.js';
 import { translationResponseSchema } from './_lib/responseSchemas.js';
 import { getGeminiClient, generateJson, describeGeminiError } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
@@ -9,7 +9,7 @@ import { translationResultSchema, translateSchema } from './_lib/schemas.js';
 import { TRANSLATE_TEMPLATE } from './_lib/prompts.js';
 import { checkRateLimit } from './_lib/rateLimit.js';
 
-const LANGUAGE_NAMES: Record<string, string> = { en: 'English', de: 'German', fr: 'French', es: 'Spanish', pl: 'Polish' };
+const LANGUAGE_NAMES: Record<string, string> = { en: 'English', de: 'German', fr: 'French', es: 'Spanish' };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
@@ -21,7 +21,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const supabase = getServerSupabase();
     const userId = await getUserId(req.headers.authorization as string | undefined);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-    if (!await userOwnsRecipe(supabase, recipeId, userId)) return res.status(403).json({ error: 'Forbidden' });
+    // Read visibility, not ownership: a linked account can open the recipe and
+    // the UI offers it the language picker, so an ownership check 403'd every
+    // attempt to translate a recipe shared from a connected account.
+    if (!await userCanReadRecipe(supabase, recipeId, userId)) return res.status(403).json({ error: 'Forbidden' });
 
     const { data: existing } = await supabase.from('recipe_translations').select('*').eq('recipe_id', recipeId).eq('language_code', targetLanguage).single();
     if (existing) return res.status(200).json({ ...existing, cached: true });

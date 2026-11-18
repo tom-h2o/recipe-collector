@@ -1,18 +1,38 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/r/(.*)",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|Facebot|WhatsApp|Twitterbot|Slackbot|Slack-ImgProxy|TelegramBot|Discordbot|LinkedInBot|SkypeUriPreview|redditbot|Applebot|iMessageBot|Googlebot|bingbot|Pinterest|vkShare|W3C_Validator|SignalBot|Mastodon|Synapse|Element|embedly|quora link preview|outbrain|nuzzel|Viber|Line|Snapchat|XING|Flipboard|Yahoo Link Preview).*"
+        }
+      ],
+      "destination": "/api/share-preview?token=$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {
       "source": "/sw.js",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
       ]
     },
     {
       "source": "/index.html",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
       ]
     }
   ]

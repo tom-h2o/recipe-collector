@@ -116,3 +116,35 @@ describe('RecipeCard', () => {
     expect(screen.getByText('+3 more')).toBeInTheDocument();
   });
 });
+
+describe('RecipeCard: the shared badge', () => {
+  const defaults = {
+    isProcessing: false,
+    activeFilter: null,
+    onOpen: vi.fn(),
+    onToggleFavourite: vi.fn(),
+    onFilterChange: vi.fn(),
+  };
+
+  it('marks a recipe that has a live public link', () => {
+    // Otherwise the only way to find out what you have put on the internet is
+    // to open every recipe's menu in turn.
+    render(
+      <RecipeCard
+        recipe={{ ...baseRecipe, public_share_token: '77777777-7777-7777-7777-777777777777' }}
+        {...defaults}
+      />
+    );
+    expect(screen.getByText('Shared')).toBeInTheDocument();
+  });
+
+  it('says nothing for a recipe that is not shared', () => {
+    render(<RecipeCard recipe={baseRecipe} {...defaults} />);
+    expect(screen.queryByText('Shared')).not.toBeInTheDocument();
+  });
+
+  it('says nothing once the link has been revoked', () => {
+    render(<RecipeCard recipe={{ ...baseRecipe, public_share_token: null }} {...defaults} />);
+    expect(screen.queryByText('Shared')).not.toBeInTheDocument();
+  });
+});

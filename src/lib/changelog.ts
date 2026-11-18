@@ -19,6 +19,18 @@ export interface ReleaseNote {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    id: '2026-11-19',
+    title: 'Better shared links, and a fix for translation',
+    items: [
+      'Translating a recipe from a connected account used to fail outright. It now works \u2014 the check behind it was asking whether you owned the recipe rather than whether you could see it.',
+      'A shared link pasted into WhatsApp, Slack or a message now shows the recipe\u2019s name and photo instead of a bare address. Shared recipes are kept out of search engines.',
+      'Guests can now see all of a recipe\u2019s photos, its nutrition, switch between any languages you had already translated it into, and flip between \u00B0C and \u00B0F.',
+      'Saving a shared recipe as a PDF now names the file after the recipe.',
+      'Recipes with a live public link are marked in your vault, and there is a new "Shared" filter to see them all at once.',
+      'Polish is no longer offered as a translation language.',
+    ],
+  },
+  {
     id: '2026-11-18',
     title: 'Share a recipe with someone who has no account',
     items: [

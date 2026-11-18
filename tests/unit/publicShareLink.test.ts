@@ -119,3 +119,84 @@ describe('guest routes follow the device theme', () => {
     expect(app).toMatch(/if \(isPublicSharePath \|\| isAboutPath\) return;/);
   });
 });
+
+describe('the gallery and translation RPCs (migration 0058)', () => {
+  const m = readFileSync(join(MIGRATIONS, '0058_shared_recipe_extras.sql'), 'utf8');
+
+  it.each(['get_shared_recipe_images', 'get_shared_recipe_translations'])(
+    '%s is security definer, pinned, and reachable by anon',
+    (fn) => {
+      expect(m).toMatch(new RegExp(`create or replace function public\\.${fn}\\(p_token uuid\\)`, 'i'));
+      expect(m).toMatch(new RegExp(`grant execute on function public\\.${fn}\\(uuid\\) to anon`, 'i'));
+    },
+  );
+
+  it('pins the search_path on both functions', () => {
+    expect((m.match(/set search_path = ''/g) ?? []).length).toBe(2);
+  });
+
+  it('guards both against a null token', () => {
+    expect((m.match(/p_token is not null/g) ?? []).length).toBe(2);
+  });
+
+  it('reaches the rows only through the shared recipe', () => {
+    // Joining on recipes.public_share_token is what scopes these to one
+    // recipe; without it a token would expose every image in the table.
+    expect((m.match(/r\.public_share_token = p_token/g) ?? []).length).toBe(2);
+  });
+
+  it('never exposes who owns the photos', () => {
+    const returns = m.match(/returns table \(([\s\S]*?)\)\s*language sql/g) ?? [];
+    expect(returns.length).toBe(2);
+    for (const block of returns) {
+      expect(block).not.toMatch(/user_id/);
+    }
+  });
+});
+
+describe('the guest page', () => {
+  const page = readFileSync(join(ROOT, 'src', 'components', 'PublicRecipe.tsx'), 'utf8');
+
+  it('names a guest’s saved PDF after the recipe', () => {
+    // Browsers take the filename from document.title, so without this the
+    // export is named after the tab — and the tab is the app's name.
+    expect(page).toMatch(/usePrintTitle\(/);
+  });
+
+  it('never reaches an AI endpoint', () => {
+    // Every /api route requires a Bearer token and is rate limited per user.
+    // A guest may read a translation that exists; they must not be able to
+    // cause one to be made.
+    expect(page).not.toMatch(/apiFetch|\/api\//);
+  });
+
+  it('reads only through the share RPCs', () => {
+    const tables = page.match(/\.from\(['"][a-z_]+['"]\)/g) ?? [];
+    expect(tables).toEqual([]);
+  });
+});
+
+describe('finding your shared recipes again', () => {
+  const store = readFileSync(join(ROOT, 'src', 'store', 'recipeStore.ts'), 'utf8');
+  const constants = readFileSync(join(ROOT, 'src', 'lib', 'constants.ts'), 'utf8');
+
+  it('offers a filter chip for them', () => {
+    expect(constants).toMatch(/Shared/);
+  });
+
+  it('filters on the token server-side, like every other chip', () => {
+    // Client-side filtering would break the paginated query: the page size is
+    // applied in the database, so a post-filter returns short pages.
+    expect(store).toMatch(/not\('public_share_token', 'is', null\)/);
+  });
+
+  it('runs one copy of the filter logic, not two', () => {
+    // fetchRecipes and loadMore each had their own copy. A chip added to one
+    // and not the other filters the first page, then loads an unfiltered
+    // second page when the reader scrolls.
+    expect((store.match(/applyTagFilter\(query,/g) ?? []).length).toBe(2);
+    expect((store.match(/function applyTagFilter/g) ?? []).length).toBe(1);
+    // The chip names appear once each, inside that one function.
+    expect((store.match(/Favourites'/g) ?? []).length).toBe(1);
+  });
+});

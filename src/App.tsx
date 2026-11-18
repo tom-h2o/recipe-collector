@@ -213,7 +213,7 @@ export default function App() {
         <ThemeSync />
         <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-6 sm:p-10 font-sans print:p-0 print:bg-white text-zinc-900 dark:text-zinc-50">
           <Suspense fallback={<ViewFallback />}>
-            <PublicRecipe recipe={publicRecipe} />
+            <PublicRecipe recipe={publicRecipe} shareToken={shareTokenFromPath || null} />
           </Suspense>
         </div>
       </>

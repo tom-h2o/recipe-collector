@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Star, Users, Loader2, Clock, ExternalLink } from 'lucide-react';
+import { Star, Users, Loader2, Clock, ExternalLink, Share2 } from 'lucide-react';
 import { parseIngredients } from '@/lib/recipeUtils';
 import type { Recipe } from '@/types';
 
@@ -57,6 +57,19 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, translation, tr
         >
           <Star className={`w-4 h-4 ${recipe.is_favourite ? 'fill-sk-primary text-sk-primary dark:fill-primary dark:text-primary' : 'text-sk-outline dark:text-muted-foreground'}`} />
         </button>
+        {/*
+          Publicly shared. Without this the only way to find out which recipes
+          have a live link is to open each one's menu in turn, which is no way
+          to keep track of what you have put on the internet.
+        */}
+        {recipe.public_share_token && (
+          <div
+            title="This recipe has a public link anyone can open"
+            className="absolute top-2 left-2 flex items-center gap-1 bg-sk-primary/90 dark:bg-primary/90 text-white dark:text-primary-foreground text-[10px] font-semibold px-2 py-1 rounded-full font-sans backdrop-blur-sm"
+          >
+            <Share2 className="w-3 h-3" aria-hidden="true" /> Shared
+          </div>
+        )}
         {/* Processing badge */}
         {(isProcessing || translationLoading) && (
           <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 bg-black/70 backdrop-blur-sm text-white text-[10px] font-semibold px-2.5 py-1 rounded-full font-sans">

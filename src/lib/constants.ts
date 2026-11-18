@@ -138,6 +138,7 @@ export const MODELS = MODEL_OPTIONS.map((m) => m.id);
 
 export const FILTERS = [
   '⭐ Favourites',
+  '🔗 Shared',
   'Quick (<30min)',
   'Vegetarian',
   'Vegan',
@@ -165,7 +166,6 @@ export const LANGUAGES = [
   { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
   { code: 'fr', label: 'Français', flag: '🇫🇷' },
   { code: 'es', label: 'Español', flag: '🇪🇸' },
-  { code: 'pl', label: 'Polski', flag: '🇵🇱' },
 ] as const;
 
 export type LanguageCode = typeof LANGUAGES[number]['code'];

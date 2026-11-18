@@ -29,7 +29,7 @@ async function loadHandler(options: { upsertError?: Error } = {}) {
   const updateSecondEq = vi.fn().mockResolvedValue({ error: null });
   const updateFirstEq = vi.fn(() => ({ eq: updateSecondEq }));
   const update = vi.fn(() => ({ eq: updateFirstEq }));
-  const userOwnsRecipe = vi.fn().mockResolvedValue(true);
+  const userCanReadRecipe = vi.fn().mockResolvedValue(true);
   const supabase = {
     from: vi.fn((table: string) => {
       if (table === 'recipe_translations') {
@@ -69,7 +69,7 @@ async function loadHandler(options: { upsertError?: Error } = {}) {
     }),
     resolveApiKey: () => 'key',
     getUserId: vi.fn().mockResolvedValue('user-1'),
-    userOwnsRecipe,
+    userCanReadRecipe,
   }));
   vi.doMock('./_lib/rateLimit.js', () => ({
     checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, used: 0, limit: 100, remaining: 100 }),
@@ -88,7 +88,7 @@ async function loadHandler(options: { upsertError?: Error } = {}) {
   }));
 
   const mod = await import('./translate');
-  return { handler: mod.default, upsert, userOwnsRecipe };
+  return { handler: mod.default, upsert, userCanReadRecipe };
 }
 
 describe('/api/translate', () => {
@@ -116,9 +116,9 @@ describe('/api/translate', () => {
     expect(upsert).toHaveBeenCalledWith(expect.objectContaining({ title: 'Kuchen' }), { onConflict: 'recipe_id,language_code' });
   });
 
-  it('rejects recipes not owned by the user', async () => {
-    const { handler, userOwnsRecipe } = await loadHandler();
-    userOwnsRecipe.mockResolvedValue(false);
+  it('rejects recipes the user cannot even see', async () => {
+    const { handler, userCanReadRecipe } = await loadHandler();
+    userCanReadRecipe.mockResolvedValue(false);
     const res = createResponse();
 
     await handler({ method: 'POST', headers: {}, body: requestBody } as VercelRequest, res);
@@ -135,5 +135,37 @@ describe('/api/translate', () => {
 
     expect(res.statusCode).toBe(500);
     expect(res.body).toEqual({ error: 'insert failed' });
+  });
+});
+
+describe('/api/translate: whose recipes can be translated', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('translates a recipe belonging to a linked account', async () => {
+    // Regression: the endpoint gated on ownership while `recipes_select`
+    // (migration 0049) lets a linked account read the recipe and RecipeDetail
+    // offers it the language picker. Every such attempt came back 403, which
+    // is what "the language feature is unreliable" looked like from outside.
+    const { handler, userCanReadRecipe } = await loadHandler();
+    userCanReadRecipe.mockResolvedValue(true);
+
+    const res = createResponse();
+
+    await handler({ method: 'POST', headers: {}, body: requestBody } as VercelRequest, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(userCanReadRecipe).toHaveBeenCalled();
+  });
+
+  it('asks about read visibility, never about ownership', async () => {
+    // Guards the fix itself: swapping back to an ownership check would make
+    // every linked recipe fail again, and no other assertion here would notice.
+    const { readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const src = readFileSync(join(process.cwd(), 'api', 'translate.ts'), 'utf8');
+    expect(src).toMatch(/userCanReadRecipe\(/);
+    expect(src).not.toMatch(/userOwnsRecipe\(/);
   });
 });

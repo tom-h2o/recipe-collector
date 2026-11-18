@@ -77,6 +77,23 @@ interface RecipeState {
  * Applied as a query filter rather than after fetching, because the vault
  * paginates server-side and post-filtering would return short pages.
  */
+/**
+ * Applies a filter chip to a recipes query.
+ *
+ * Shared by fetchRecipes and loadMore, which ran separate copies of this and
+ * so had to be edited in lockstep: a chip added to one but not the other
+ * filters the first page and then loads an unfiltered second page.
+ *
+ * Most chips are tags; the two that are not are properties of the row.
+ */
+type RecipeQuery = ReturnType<ReturnType<typeof supabase.from>['select']>;
+
+function applyTagFilter<T extends RecipeQuery>(query: T, tagFilter: string): T {
+  if (tagFilter === '\u2b50 Favourites') return query.eq('is_favourite', true) as T;
+  if (tagFilter === '\ud83d\udd17 Shared') return query.not('public_share_token', 'is', null) as T;
+  return query.contains('tags', [tagFilter]) as T;
+}
+
 async function getAdoptedOriginalIds(): Promise<string[]> {
   try {
     const { data } = await supabase
@@ -147,11 +164,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
     }
 
     if (tagFilter) {
-      if (tagFilter === '⭐ Favourites') {
-        query = query.eq('is_favourite', true);
-      } else {
-        query = query.contains('tags', [tagFilter]);
-      }
+      query = applyTagFilter(query, tagFilter);
     }
 
     if (collectionId) {
@@ -194,11 +207,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       query = query.textSearch('search_vector', currentSearchQuery);
     }
     if (currentTagFilter) {
-      if (currentTagFilter === '⭐ Favourites') {
-        query = query.eq('is_favourite', true);
-      } else {
-        query = query.contains('tags', [currentTagFilter]);
-      }
+      query = applyTagFilter(query, currentTagFilter);
     }
     if (currentCollectionId) {
       const ids = currentMemberships.filter((m) => m.collection_id === currentCollectionId).map((m) => m.recipe_id);
