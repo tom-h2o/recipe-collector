@@ -57,6 +57,23 @@ export const extractPdfSchema = z.object({
   pdfBase64: z.string().min(1, 'pdfBase64 is required'),
 });
 
+/**
+ * Pasted recipe text. The lower bound is the shortest thing that could still
+ * be a recipe; the upper matches what URL extraction keeps of a page body.
+ * Over-long text is refused rather than cut, because a silent cut drops the
+ * end of the method, and a recipe missing its last steps looks complete.
+ */
+export const MIN_EXTRACT_TEXT = 30;
+export const MAX_EXTRACT_TEXT = 20000;
+
+export const extractTextSchema = z.object({
+  text: z
+    .string()
+    .trim()
+    .min(MIN_EXTRACT_TEXT, 'Paste the whole recipe — the ingredients and the steps.')
+    .max(MAX_EXTRACT_TEXT, `That is too long to read in one go (the limit is ${MAX_EXTRACT_TEXT.toLocaleString('en')} characters). Paste just the recipe.`),
+});
+
 const nullableInteger = z.preprocess(
   (value) => value === undefined || value === '' ? null : value,
   z.number().int().nonnegative().nullable(),

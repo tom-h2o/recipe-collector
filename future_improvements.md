@@ -47,8 +47,7 @@ Captured during development. Items marked ✅ have been implemented.
 ### Rate limit indicator in the header
 Currently only visible after opening Settings → Usage Logs. A lightweight indicator in the navbar (e.g. a small pill showing "82/100 today") would be more discoverable without requiring navigation.
 
-### Plain-text recipe import
-Currently recipes come in via URL, photo, or PDF. Add a text area mode where users can paste a recipe as plain text and Gemini structures it — useful for recipes copied from apps, books, or chat.
+- ✅ **Plain-text recipe import** — a fourth import tab beside URL, photo and PDF: paste a recipe from a chat, a note or another app and Gemini structures it. Handled inside `api/extract.ts` (`{ text }`), so it needs no new serverless function
 
 - ✅ **Embedding backfill** — `backfill_embeddings.js` utility script exists (gitignored)
 

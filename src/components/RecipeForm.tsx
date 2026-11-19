@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ChefHat, Link, Camera, ImagePlus, X, Plus, ChevronUp, ChevronDown, Wand2, Sparkles, FileText } from 'lucide-react';
+import { ChefHat, Link, Camera, ImagePlus, X, Plus, ChevronUp, ChevronDown, Wand2, Sparkles, FileText, ClipboardPaste } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,22 @@ import type { RecipeImageSource } from '@/types';
 import type { Recipe, Ingredient } from '@/types';
 
 type RecipePayload = Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>;
-type ImportTab = 'url' | 'photo' | 'pdf';
+type ImportTab = 'url' | 'photo' | 'pdf' | 'text';
+
+/**
+ * Mirrors MIN_EXTRACT_TEXT / MAX_EXTRACT_TEXT in api/_lib/schemas.ts, which is
+ * what actually enforces them. Kept here only so the button is not offered for
+ * a paste the server will refuse; `src` does not import from `api`.
+ */
+const MIN_PASTE_LENGTH = 30;
+const MAX_PASTE_LENGTH = 20000;
+
+const IMPORT_TABS: { id: ImportTab; label: string; icon: typeof ChefHat }[] = [
+  { id: 'url', label: 'URL', icon: ChefHat },
+  { id: 'photo', label: 'Photo', icon: Camera },
+  { id: 'pdf', label: 'PDF', icon: FileText },
+  { id: 'text', label: 'Text', icon: ClipboardPaste },
+];
 
 interface Props {
   isOpen: boolean;
@@ -47,6 +62,10 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isExtractingPdf, setIsExtractingPdf] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+
+  // Pasted-text import state
+  const [pastedText, setPastedText] = useState('');
+  const [isExtractingText, setIsExtractingText] = useState(false);
 
   // Image upload state
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -88,6 +107,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
       setPhotoFiles([]);
       setPhotoPreviews((prev) => { prev.forEach(URL.revokeObjectURL); return []; });
       setPdfFile(null);
+      setPastedText('');
       setImageFile(null); setImagePreview(null);
     }
   }, [editingRecipe, isOpen]);
@@ -200,6 +220,39 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
       toast.error(err instanceof Error ? err.message : "Couldn't extract recipe.", { id });
     } finally {
       setIsExtractingPdf(false);
+    }
+  }
+
+  async function handleTextExtract() {
+    const text = pastedText.trim();
+    if (text.length < MIN_PASTE_LENGTH) return;
+    setIsExtractingText(true);
+    const id = toast.loading('Reading your text with Gemini AI...');
+    try {
+      const res = await apiFetch('/api/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to extract recipe');
+      setTitle(data.title || '');
+      setDescription(data.description || '');
+      setServings(data.servings ? String(data.servings) : '');
+      setPrepTime(data.prep_time_mins ? String(data.prep_time_mins) : '');
+      setCookTime(data.cook_time_mins ? String(data.cook_time_mins) : '');
+      setInstructions(data.instructions || '');
+      setOriginalLanguage(data.original_language && data.original_language.length === 2 ? data.original_language : null);
+      if (Array.isArray(data.ingredients)) {
+        setIngredients(parseIngredients(data.ingredients));
+      }
+      toast.success('Recipe filled in from your text. Review the details below.', { id });
+    } catch (err: unknown) {
+      // The pasted text is deliberately left in the box: after a failure the
+      // person fixes it or tries again, and should not have to find it twice.
+      toast.error(err instanceof Error ? err.message : "Couldn't extract recipe.", { id });
+    } finally {
+      setIsExtractingText(false);
     }
   }
 
@@ -323,7 +376,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
         ><X className="w-4 h-4" /></button>
 
         {/* Magic extraction overlay */}
-        {(isExtracting || isExtractingPhoto || isExtractingPdf) && (
+        {(isExtracting || isExtractingPhoto || isExtractingPdf || isExtractingText) && (
           <div className="absolute inset-0 z-30 flex flex-col items-center justify-center rounded-2xl overflow-hidden">
             {/* Blurred background */}
             <div className="absolute inset-0 backdrop-blur-md bg-white/70 dark:bg-zinc-900/70" />
@@ -400,10 +453,10 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
               {/* Text */}
               <div className="space-y-1">
                 <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                  {isExtractingPhoto ? (photoFiles.length > 1 ? 'Reading your photos...' : 'Reading your photo...') : isExtractingPdf ? 'Reading your PDF...' : 'Casting spell...'}
+                  {isExtractingPhoto ? (photoFiles.length > 1 ? 'Reading your photos...' : 'Reading your photo...') : isExtractingPdf ? 'Reading your PDF...' : isExtractingText ? 'Reading your text...' : 'Casting spell...'}
                 </p>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  {isExtractingPhoto ? (photoFiles.length > 1 ? `Gemini is combining ${photoFiles.length} pages into one recipe` : 'Gemini is analysing the image') : isExtractingPdf ? 'Gemini is reading the document' : 'Gemini is extracting the recipe'}
+                  {isExtractingPhoto ? (photoFiles.length > 1 ? `Gemini is combining ${photoFiles.length} pages into one recipe` : 'Gemini is analysing the image') : isExtractingPdf ? 'Gemini is reading the document' : isExtractingText ? 'Gemini is sorting it into ingredients and steps' : 'Gemini is extracting the recipe'}
                 </p>
               </div>
             </div>
@@ -417,7 +470,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
             {editingRecipe ? 'Edit Recipe' : 'Add New Recipe'}
           </DialogTitle>
           <DialogDescription className="text-zinc-500">
-            {editingRecipe ? 'Update the details of your recipe.' : 'Import from a URL, snap a photo, or enter details manually.'}
+            {editingRecipe ? 'Update the details of your recipe.' : 'Import from a URL, a photo, a PDF or pasted text, or enter details manually.'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
@@ -425,29 +478,24 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
           {/* Import section */}
           {!editingRecipe && (
             <div className="bg-zinc-100 dark:bg-zinc-800/60 p-4 rounded-xl space-y-3 border border-zinc-200 dark:border-zinc-700/50">
-              {/* Tab switcher */}
+              {/* Tab switcher. Four tabs do not fit a narrow phone with "From" on
+                  each, so the word is dropped below the sm breakpoint, and on
+                  the narrowest screens (320px) the icon goes as well: "Photo"
+                  overflowed its tab by 4px there. */}
               <div className="flex gap-1 bg-zinc-200 dark:bg-zinc-700/50 rounded-lg p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setImportTab('url')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all ${importTab === 'url' ? 'bg-white dark:bg-zinc-800 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
-                >
-                  <ChefHat className="w-3.5 h-3.5" /> From URL
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setImportTab('photo')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all ${importTab === 'photo' ? 'bg-white dark:bg-zinc-800 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
-                >
-                  <Camera className="w-3.5 h-3.5" /> From Photo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setImportTab('pdf')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all ${importTab === 'pdf' ? 'bg-white dark:bg-zinc-800 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
-                >
-                  <FileText className="w-3.5 h-3.5" /> From PDF
-                </button>
+                {IMPORT_TABS.map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setImportTab(id)}
+                    aria-pressed={importTab === id}
+                    aria-label={`From ${label}`}
+                    className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all ${importTab === id ? 'bg-white dark:bg-zinc-800 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
+                  >
+                    <Icon className="w-3.5 h-3.5 shrink-0 max-[359px]:hidden" />
+                    <span><span className="hidden sm:inline">From </span>{label}</span>
+                  </button>
+                ))}
               </div>
 
               {importTab === 'url' && (
@@ -591,6 +639,30 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
                       {isExtractingPdf ? 'Reading PDF...' : 'Extract Recipe from PDF'}
                     </Button>
                   )}
+                </div>
+              )}
+
+              {importTab === 'text' && (
+                <div className="space-y-2">
+                  <Label htmlFor="paste-recipe" className="sr-only">Recipe text</Label>
+                  <Textarea
+                    id="paste-recipe"
+                    value={pastedText}
+                    onChange={(e) => setPastedText(e.target.value)}
+                    maxLength={MAX_PASTE_LENGTH}
+                    rows={6}
+                    placeholder="Paste a recipe from a message, a note or another app — ingredients and steps, in any order."
+                    className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 min-h-32 max-h-64 overflow-y-auto"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleTextExtract}
+                    disabled={isExtractingText || pastedText.trim().length < MIN_PASTE_LENGTH}
+                    variant="default"
+                    className="w-full font-medium bg-sk-primary hover:bg-sk-primary-container shadow-ambient border-0"
+                  >
+                    {isExtractingText ? 'Reading text...' : 'Extract Recipe from Text'}
+                  </Button>
                 </div>
               )}
             </div>
