@@ -104,7 +104,7 @@ test('cook mode', async ({ page }) => {
   await installMockBackend(page);
   await page.goto('/');
   await page.getByText('Classic Margherita Pizza').click();
-  await page.getByTitle('Cook Mode').click();
+  await page.getByRole('button', { name: 'Cook', exact: true }).click();
   // cook mode shows a step counter that nothing else on the page renders
   await expect(page.getByText(/^1\/\d+$/)).toBeVisible();
   expect(await auditSerious(page, 'cook mode')).toEqual([]);

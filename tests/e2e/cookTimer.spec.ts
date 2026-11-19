@@ -5,7 +5,7 @@ async function openCookMode(page: import('@playwright/test').Page) {
   await installMockBackend(page);
   await page.goto('/');
   await page.getByText('Classic Margherita Pizza').click();
-  await page.getByRole('button', { name: /cook mode/i }).click();
+  await page.getByRole('button', { name: 'Cook', exact: true }).click();
 }
 
 test('offers a timer for a duration the step mentions', async ({ page }) => {

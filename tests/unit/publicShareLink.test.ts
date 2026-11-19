@@ -98,7 +98,12 @@ describe('the share link the UI hands out', () => {
   it('offers sharing only on recipes the viewer owns', () => {
     // RLS refuses the token write on a linked account's recipe, so the control
     // must not be offered there (the mistake ratings and notes once made).
-    expect(detail).toMatch(/\{!isLinked && \(\s*\n\s*shareUrl \?/);
+    //
+    // The share entries sit inside the owner-only block of the options menu,
+    // after a separator. What matters is that the `!isLinked` gate is still
+    // open when `shareUrl ?` is reached: nothing between the two may close it
+    // (`)}`), however the menu around them is laid out.
+    expect(detail).toMatch(/\{!isLinked && \(\s*<>(?:(?!\)\})[\s\S])*?\{shareUrl \?/);
   });
 });
 
