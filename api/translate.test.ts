@@ -19,7 +19,7 @@ const requestBody = {
   targetLanguage: 'de',
   title: 'Cake',
   description: 'Simple cake',
-  instructions: 'Mix and chill.',
+  instructions: 'Mix.\nChill.',
   ingredients: [{ amount: '200g', name: 'cream cheese', details: '' }],
 };
 
@@ -106,7 +106,7 @@ async function loadHandler(options: { upsertError?: Error; answers?: unknown[] }
   }));
 
   const mod = await import('./translate');
-  return { handler: mod.default, upsert, userCanReadRecipe, modelCalls };
+  return { handler: mod.default, upsert, userCanReadRecipe, modelCalls, generateJson };
 }
 
 describe('/api/translate', () => {
@@ -248,3 +248,75 @@ describe('/api/translate: what gets stored', () => {
     expect((res.body as { error: string }).error).toMatch(/1 ingredients where the recipe has 2/);
   });
 });
+
+describe('/api/translate: one step stays one step', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const fourSteps = {
+    ...requestBody,
+    instructions: 'Melt the butter.\nStir in the flour.\n\nAdd the milk slowly.\nSimmer for 5 minutes.',
+  };
+  const german = ['Butter schmelzen.', 'Mehl einrühren.', 'Milch langsam zugeben.', '5 Minuten köcheln lassen.'];
+
+  it('sends the steps as a list and says how many there are', async () => {
+    const { handler, generateJson } = await loadHandler({ answers: [{ ...honestAnswer, instructions: german }] });
+    const res = createResponse();
+
+    await handler({ method: 'POST', headers: {}, body: fourSteps } as VercelRequest, res);
+
+    const prompt = generateJson.mock.calls[0][2] as string;
+    // An array, not one string with line breaks in it. The blank line between
+    // two steps is not a step.
+    expect(prompt).toContain('"instructions": ["Melt the butter.","Stir in the flour.","Add the milk slowly.","Simmer for 5 minutes."]');
+    expect(prompt).toContain('must have exactly 4 entries');
+  });
+
+  it('stores four translated steps as four steps', async () => {
+    const { handler, upsert } = await loadHandler({ answers: [{ ...honestAnswer, instructions: german }] });
+    const res = createResponse();
+
+    await handler({ method: 'POST', headers: {}, body: fourSteps } as VercelRequest, res);
+
+    expect(res.statusCode).toBe(200);
+    expect((res.body as { instructions: string }).instructions).toBe(german.join('\n'));
+    expect(upsert).toHaveBeenCalledWith(expect.objectContaining({ instructions: german.join('\n') }), expect.anything());
+  });
+
+  it('never stores a translation that ran the steps together', async () => {
+    // The reported fault: steps 1 to 4 came back as a single point.
+    const merged = { ...honestAnswer, instructions: german.join(' ') };
+    const { handler, upsert, modelCalls } = await loadHandler({ answers: [merged] });
+    const res = createResponse();
+
+    await handler({ method: 'POST', headers: {}, body: fourSteps } as VercelRequest, res);
+
+    expect(upsert).not.toHaveBeenCalled();
+    expect(modelCalls).toHaveBeenCalledTimes(2);            // asked once more, then given up
+    expect((res.body as { error: string }).error).toMatch(/it has 1 step where the recipe has 4/);
+  });
+
+  it('accepts the second answer when the first ran the steps together', async () => {
+    const merged = { ...honestAnswer, instructions: [german.join(' ')] };
+    const { handler, upsert } = await loadHandler({ answers: [merged, { ...honestAnswer, instructions: german }] });
+    const res = createResponse();
+
+    await handler({ method: 'POST', headers: {}, body: fourSteps } as VercelRequest, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(upsert).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not let a line break inside one step turn it into two', async () => {
+    const wrapped = { ...honestAnswer, instructions: ['Butter\nschmelzen.', 'Mehl einrühren.', 'Milch langsam zugeben.', '5 Minuten köcheln lassen.'] };
+    const { handler } = await loadHandler({ answers: [wrapped] });
+    const res = createResponse();
+
+    await handler({ method: 'POST', headers: {}, body: fourSteps } as VercelRequest, res);
+
+    expect(res.statusCode).toBe(200);
+    expect((res.body as { instructions: string }).instructions.split('\n')).toEqual(german);
+  });
+});
+

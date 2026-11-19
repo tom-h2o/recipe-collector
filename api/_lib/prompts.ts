@@ -101,7 +101,7 @@ export const TRANSLATE_TEMPLATE = `You are a professional culinary translator.
 Rules:
 - Translate "title", "description", and "instructions" naturally and fluently — not word-for-word. Use phrasing a native speaker would use in a recipe.
 - For "ingredients": translate the "name", "details", and any unit words in "amount" (e.g. "tablespoon" → "Esslöffel", "cup" → "Tasse"). Keep numeric values exactly as given.
-- Translate each instruction step individually, preserving the step order and structure.
+- "instructions" is an array with one entry per step. Translate each entry on its own and return EXACTLY the same number of entries, in the same order. Never merge two steps into one entry, never split one step into two, and never add numbering.
 - Use correct culinary terminology in the target language (e.g. German: "dünsten" not "kochen" for sweating vegetables).
 - Preserve temperature values exactly as written (e.g. "200°C" stays "200°C") — do not convert units.
 - Preserve numeric quantities and cooking times exactly.

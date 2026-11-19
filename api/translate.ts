@@ -8,7 +8,7 @@ import { captureException } from './_lib/sentry.js';
 import { translationResultSchema, translateSchema } from './_lib/schemas.js';
 import { TRANSLATE_TEMPLATE } from './_lib/prompts.js';
 import { checkRateLimit } from './_lib/rateLimit.js';
-import { assertPlausibleTranslation } from './_lib/translationGuard.js';
+import { assertPlausibleTranslation, splitSteps } from './_lib/translationGuard.js';
 
 const LANGUAGE_NAMES: Record<string, string> = { en: 'English', de: 'German', fr: 'French', es: 'Spanish' };
 
@@ -39,22 +39,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const targetName = LANGUAGE_NAMES[targetLanguage] ?? targetLanguage;
     const ingredientText = JSON.stringify(ingredients.map((i) => ({ amount: i.amount, name: i.name, details: i.details ?? '' })));
+    // Steps go out as an array and come back as one. Sent as a single string
+    // they were only line breaks inside it, and a translation came back with
+    // steps 1 to 4 run together into one point.
+    const steps = splitSteps(instructions);
     const prompt = `${TRANSLATE_TEMPLATE} Translate the following recipe into ${targetName}.
 
 Input recipe:
 {
   "title": ${JSON.stringify(title)},
   "description": ${JSON.stringify(description)},
-  "instructions": ${JSON.stringify(instructions)},
+  "instructions": ${JSON.stringify(steps)},
   "ingredients": ${ingredientText}
 }
+
+The recipe has ${steps.length} ${steps.length === 1 ? 'step' : 'steps'}, so "instructions" in your answer must have exactly ${steps.length} ${steps.length === 1 ? 'entry' : 'entries'}.
 
 Return this exact JSON structure:
 {
   "detectedSourceLanguage": "en",
   "title": "...",
   "description": "...",
-  "instructions": "...",
+  "instructions": ["...", "..."],
   "ingredients": [{ "amount": "...", "name": "...", "details": "..." }]
 }`;
 
