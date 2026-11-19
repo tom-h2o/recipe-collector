@@ -44,6 +44,16 @@ interface Props {
   onRemoveFromCollection?: (collectionId: string) => Promise<void>;
 }
 
+/** One look for every row in the options menu, so they read as one list. */
+const MENU_ITEM =
+  'flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium font-sans text-left transition-colors disabled:opacity-50 ' +
+  'text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted hover:text-sk-primary dark:hover:text-primary';
+
+/** For the two that take something away. */
+const MENU_ITEM_DANGER =
+  'flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium font-sans text-left transition-colors disabled:opacity-50 ' +
+  'text-sk-on-surface-variant dark:text-muted-foreground hover:bg-destructive/10 hover:text-destructive';
+
 /** A recipe belonging to a linked account: readable, never writable. */
 function isLinkedRecipe(recipe: Recipe | null, userId?: string | null): boolean {
   return !!recipe && !!userId && !!recipe.user_id && recipe.user_id !== userId;
@@ -456,30 +466,29 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
               <DialogTitle className="font-serif text-2xl sm:text-3xl md:text-[2.25rem] font-bold tracking-tight text-sk-on-surface dark:text-foreground leading-tight">
                 {translation ? String(translation.title ?? recipe.title) : recipe.title}
               </DialogTitle>
-              <div className="flex items-center gap-0.5 flex-wrap pt-1 print:hidden">
-                {recipe.source_url && (
-                  <a
-                    href={recipe.source_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-2.5 rounded-full text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15 transition-colors"
-                    title={`View original: ${recipe.source_name || recipe.source_url}`}
-                  ><Globe className="w-4 h-4" /></a>
-                )}
-                {!recipe.source_url && recipe.image_url && (
-                  <button
-                    onClick={() => document.getElementById('recipe-gallery')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                    className="p-2.5 rounded-full text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15 transition-colors"
-                    title="View original photo"
-                  ><ImageIcon className="w-4 h-4" /></button>
-                )}
-                {onSend && (
-                  <button
-                    onClick={() => onSend(recipe)}
-                    className="p-2.5 rounded-full text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15 transition-colors"
-                    title="Send recipe to someone"
-                  ><Send className="w-4 h-4" /></button>
-                )}
+              {/*
+                Ordered by how often each is reached for, not by how many fit.
+                Cooking is why a recipe gets opened, so it is the one labelled
+                button; translate, meal plan and send are a tap away; everything
+                rarer — and everything destructive — is behind the menu.
+
+                This bar carried nine equal icons, with Cook, Delete and Print
+                indistinguishable from one another.
+              */}
+              <div className="flex items-center gap-2 flex-wrap pt-1 print:hidden">
+                <button
+                  onClick={() => setIsCookMode(true)}
+                  className="inline-flex items-center gap-2 pl-4 pr-5 py-2.5 rounded-full bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold font-sans text-sm transition-colors"
+                >
+                  <Flame className="w-4 h-4" /> Cook
+                </button>
+
+                <button
+                  onClick={() => setShowLangPicker((v) => !v)}
+                  className={`p-2.5 rounded-full transition-colors ${showLangPicker ? 'text-sk-primary bg-sk-primary-fixed/40 dark:bg-primary/20' : 'text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15'}`}
+                  title="Translate recipe"
+                ><Languages className="w-4 h-4" /></button>
+
                 {onAddMealPlan && (
                   <button
                     onClick={() => setShowAddPlan((v) => !v)}
@@ -487,35 +496,16 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                     title="Add to meal plan"
                   ><CalendarPlus className="w-4 h-4" /></button>
                 )}
-                <div className="w-px h-5 bg-sk-outline-variant/30 dark:bg-border mx-0.5" />
-                <button
-                  onClick={() => setShowLangPicker((v) => !v)}
-                  className={`p-2.5 rounded-full transition-colors ${showLangPicker ? 'text-sk-primary bg-sk-primary-fixed/40 dark:bg-primary/20' : 'text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15'}`}
-                  title="Translate recipe"
-                ><Languages className="w-4 h-4" /></button>
-                <div className="w-px h-5 bg-sk-outline-variant/30 dark:bg-border mx-0.5" />
-                <button
-                  onClick={() => setIsCookMode(true)}
-                  className="p-2.5 rounded-full text-sk-outline hover:text-sk-secondary dark:hover:text-secondary-foreground hover:bg-sk-secondary-container/30 dark:hover:bg-secondary/20 transition-colors"
-                  title="Cook Mode"
-                ><Flame className="w-4 h-4" /></button>
-                <button
-                  onClick={() => { onClose(); onEdit(recipe); }}
-                  className="p-2.5 rounded-full text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15 transition-colors"
-                  title="Edit recipe"
-                ><Pencil className="w-4 h-4" /></button>
-                <button
-                  onClick={() => onDelete(recipe)}
-                  className="p-2.5 rounded-full text-sk-outline hover:text-destructive hover:bg-destructive/10 transition-colors"
-                  title="Delete recipe"
-                ><Trash2 className="w-4 h-4" /></button>
-                <button
-                  onClick={() => window.print()}
-                  className="p-2.5 rounded-full text-sk-outline hover:text-sk-on-surface-variant hover:bg-sk-surface-low dark:hover:bg-muted transition-colors print:hidden"
-                  title="Print recipe"
-                ><Printer className="w-4 h-4" /></button>
-                <div className="w-px h-5 bg-sk-outline-variant/30 dark:bg-border mx-0.5" />
-                <div className="relative">
+
+                {onSend && (
+                  <button
+                    onClick={() => onSend(recipe)}
+                    className="p-2.5 rounded-full text-sk-outline hover:text-sk-primary hover:bg-sk-primary-fixed/30 dark:hover:bg-primary/15 transition-colors"
+                    title="Send recipe to someone"
+                  ><Send className="w-4 h-4" /></button>
+                )}
+
+                <div className="relative ml-auto">
                   <button
                     ref={moreButtonRef}
                     onClick={() => setShowMoreOptions((v) => !v)}
@@ -526,57 +516,92 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                     open={showMoreOptions}
                     onClose={() => setShowMoreOptions(false)}
                     anchorRef={moreButtonRef}
-                    className="w-52 bg-white dark:bg-card rounded-2xl shadow-ambient p-2 flex flex-col gap-0.5"
+                    className="w-60 bg-white dark:bg-card rounded-2xl shadow-ambient p-2 flex flex-col gap-0.5"
                   >
-                      {/*
-                        Sharing is owner-only: RLS refuses the token write on a
-                        linked account's recipe, so the control is not offered
-                        there at all.
-                      */}
-                      {!isLinked && (
-                        shareUrl ? (
-                          <>
-                            <button
-                              onClick={() => { copyToClipboard(shareUrl, false); setShowMoreOptions(false); }}
-                              className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium font-sans text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted hover:text-sk-primary dark:hover:text-primary transition-colors text-left"
-                            >
-                              <Share2 className="w-3.5 h-3.5 shrink-0" /> Copy public link
-                            </button>
-                            <button
-                              onClick={handleStopSharing}
-                              disabled={shareBusy}
-                              className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium font-sans text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted hover:text-destructive transition-colors text-left disabled:opacity-50"
-                            >
-                              <Link2Off className="w-3.5 h-3.5 shrink-0" /> Stop sharing
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            onClick={handleCreateShareLink}
-                            disabled={shareBusy}
-                            className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium font-sans text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted hover:text-sk-primary dark:hover:text-primary transition-colors text-left disabled:opacity-50"
-                          >
-                            <Share2 className="w-3.5 h-3.5 shrink-0" /> Create public link
-                          </button>
-                        )
+                      {recipe.source_url && (
+                        <a
+                          href={recipe.source_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => setShowMoreOptions(false)}
+                          className={MENU_ITEM}
+                        >
+                          <Globe className="w-3.5 h-3.5 shrink-0" /> View original
+                        </a>
                       )}
-                      <div className="h-px bg-sk-surface-container dark:bg-border my-1" />
-                      <button
-                        onClick={() => { handleRegenerateTags(); setShowMoreOptions(false); }}
-                        disabled={isRegeneratingTags || isRegeneratingNutrition}
-                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium font-sans text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted hover:text-sk-primary dark:hover:text-primary transition-colors text-left disabled:opacity-50"
-                      >
-                        {isRegeneratingTags ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <Tag className="w-3.5 h-3.5 shrink-0" />}
-                        {isRegeneratingTags ? 'Regenerating…' : 'Regenerate tags'}
+                      {!recipe.source_url && recipe.image_url && (
+                        <button
+                          onClick={() => { document.getElementById('recipe-gallery')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setShowMoreOptions(false); }}
+                          className={MENU_ITEM}
+                        >
+                          <ImageIcon className="w-3.5 h-3.5 shrink-0" /> View original photo
+                        </button>
+                      )}
+
+                      {/* Owner-only from here: a linked account may read this
+                          recipe but RLS refuses every write to it. */}
+                      {!isLinked && (
+                        <button
+                          onClick={() => { onClose(); onEdit(recipe); }}
+                          className={MENU_ITEM}
+                        >
+                          <Pencil className="w-3.5 h-3.5 shrink-0" /> Edit recipe
+                        </button>
+                      )}
+
+                      <button onClick={() => { window.print(); setShowMoreOptions(false); }} className={MENU_ITEM}>
+                        <Printer className="w-3.5 h-3.5 shrink-0" /> Print or save as PDF
                       </button>
-                      <button
-                        onClick={() => { handleRegenerateNutrition(); setShowMoreOptions(false); }}
-                        disabled={isRegeneratingTags || isRegeneratingNutrition}
-                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium font-sans text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted hover:text-sk-primary dark:hover:text-primary transition-colors text-left disabled:opacity-50"
-                      >
-                        {isRegeneratingNutrition ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <Salad className="w-3.5 h-3.5 shrink-0" />}
-                        {isRegeneratingNutrition ? 'Regenerating…' : 'Regenerate nutrition'}
-                      </button>
+
+                      {!isLinked && (
+                        <>
+                          <div className="h-px bg-sk-surface-container dark:bg-border my-1" />
+                          {shareUrl ? (
+                            <>
+                              <button
+                                onClick={() => { copyToClipboard(shareUrl, false); setShowMoreOptions(false); }}
+                                className={MENU_ITEM}
+                              >
+                                <Share2 className="w-3.5 h-3.5 shrink-0" /> Copy public link
+                              </button>
+                              <button onClick={handleStopSharing} disabled={shareBusy} className={MENU_ITEM_DANGER}>
+                                <Link2Off className="w-3.5 h-3.5 shrink-0" /> Stop sharing
+                              </button>
+                            </>
+                          ) : (
+                            <button onClick={handleCreateShareLink} disabled={shareBusy} className={MENU_ITEM}>
+                              <Share2 className="w-3.5 h-3.5 shrink-0" /> Create public link
+                            </button>
+                          )}
+
+                          <div className="h-px bg-sk-surface-container dark:bg-border my-1" />
+                          <button
+                            onClick={() => { handleRegenerateTags(); setShowMoreOptions(false); }}
+                            disabled={isRegeneratingTags || isRegeneratingNutrition}
+                            className={MENU_ITEM}
+                          >
+                            {isRegeneratingTags ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <Tag className="w-3.5 h-3.5 shrink-0" />}
+                            {isRegeneratingTags ? 'Regenerating…' : 'Regenerate tags'}
+                          </button>
+                          <button
+                            onClick={() => { handleRegenerateNutrition(); setShowMoreOptions(false); }}
+                            disabled={isRegeneratingTags || isRegeneratingNutrition}
+                            className={MENU_ITEM}
+                          >
+                            {isRegeneratingNutrition ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <Salad className="w-3.5 h-3.5 shrink-0" />}
+                            {isRegeneratingNutrition ? 'Regenerating…' : 'Regenerate nutrition'}
+                          </button>
+
+                          {/* Last, and set apart: the one that cannot be undone. */}
+                          <div className="h-px bg-sk-surface-container dark:bg-border my-1" />
+                          <button
+                            onClick={() => { onDelete(recipe); setShowMoreOptions(false); }}
+                            className={MENU_ITEM_DANGER}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 shrink-0" /> Delete recipe
+                          </button>
+                        </>
+                      )}
                   </AnchoredMenu>
                 </div>
               </div>
