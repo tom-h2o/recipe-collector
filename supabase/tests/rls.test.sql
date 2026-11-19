@@ -12,7 +12,7 @@ create extension if not exists pgtap with schema extensions;
 create schema if not exists tests;
 
 begin;
-select plan(32);
+select plan(35);
 
 -- ── Fixtures ────────────────────────────────────────────────────────────────
 -- Three accounts: two that will be linked, and a third that must stay isolated.
@@ -362,6 +362,39 @@ select is(
   'but cannot delete it — the row is still there'
 );
 reset role;
+
+-- ── Admin model usage (migration 0066) ───────────────────────────────────────
+-- Counted in the database because the API returns at most 1000 rows, which
+-- silently truncated the tally api/account.ts used to do in JavaScript.
+-- Model names here are ones no other row can have, so whatever else is in the
+-- table does not matter.
+insert into public.gemini_logs (endpoint, model, model_version, status)
+values
+  ('tag', 'tap-alias', 'tap-resolved-1', 'success'),
+  ('tag', 'tap-alias', 'tap-resolved-1', 'error'),
+  ('tag', 'tap-alias', null,             'success'),
+  ('tag', 'tap-alias', '',               'success');
+
+select results_eq(
+  $$ select model, call_count::int from public.gemini_model_usage()
+      where model like 'tap-%' order by model $$,
+  $$ values ('tap-alias', 2), ('tap-resolved-1', 2) $$,
+  'model usage groups by the model that ran, falling back to the id that was requested'
+);
+
+-- A revoked EXECUTE really is a permission error, unlike a table read that
+-- row level security answers with zero rows. Supabase grants EXECUTE to both
+-- of these roles by default privilege, so this fails if the revoke is dropped.
+select ok(
+  not has_function_privilege('anon', 'public.gemini_model_usage()', 'execute')
+  and not has_function_privilege('authenticated', 'public.gemini_model_usage()', 'execute'),
+  'neither anon nor a signed-in user may call the admin model usage function'
+);
+
+select ok(
+  has_function_privilege('service_role', 'public.gemini_model_usage()', 'execute'),
+  'the service key, which the admin endpoint uses, may'
+);
 
 select * from finish();
 rollback;

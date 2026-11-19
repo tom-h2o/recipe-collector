@@ -180,8 +180,7 @@ Currently importing multiple recipes requires opening each one individually. A q
 
 ## Bigger Changes
 
-### Model usage breakdown still scans all `gemini_logs` rows
-`getStats()` in `api/account.ts` (Overview tab's "Model usage" chart) still does `select('model, model_version')` over the entire `gemini_logs` table to build the per-model counts — the one query the admin pagination pass didn't bound, since PostgREST can't do `GROUP BY` aggregation without a DB-side RPC/view. Fixing it properly needs a migration (e.g. a `gemini_logs_by_model` view or an RPC function); low priority until `gemini_logs` gets large enough for this single-column fetch to matter.
+- ✅ **Model usage breakdown counted in the database** — `getStats()` no longer downloads every `gemini_logs` row to tally them; `gemini_model_usage()` (migration 0066) groups them. The old query was also silently capped at 1000 rows by the API, so the chart was wrong past that
 
 ### Offline recipe browsing — partly done
 Read-only browsing already survives a bad connection: a `NetworkFirst` runtime
