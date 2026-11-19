@@ -11,6 +11,8 @@ import App from './App.tsx'
 import { initSentry } from './lib/sentry'
 import { registerServiceWorker } from './lib/registerServiceWorker'
 import { recoverFromStaleChunks } from './lib/recoverFromStaleChunks'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { LoadFailure } from './components/LoadFailure'
 
 initSentry()
 
@@ -25,6 +27,10 @@ registerServiceWorker()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    {/* The lazy views in App sit under no other boundary. Without this one a
+        view whose file will not load unmounts everything: a white page. */}
+    <ErrorBoundary fallbackRender={(error) => <LoadFailure error={error} />}>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 )
