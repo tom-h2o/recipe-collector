@@ -124,7 +124,9 @@ export default function App() {
         });
       }
     } else {
-      fetchRecipes('');
+      // Deliberately no fetchRecipes() here. The debounced effect below runs on
+      // mount too and issues exactly the same query; doing both meant the vault
+      // loaded twice before anyone had typed anything.
       fetchMealPlans();
       fetchShoppingList();
       fetchPantryItems();
@@ -144,16 +146,33 @@ export default function App() {
   // Every value read inside must be listed: activeOwnerId was passed to
   // fetchRecipes but left out of the deps, so picking a person re-rendered the
   // chips without ever refetching and the vault kept showing everyone.
+  // `memberships` only affects the query when a collection chip is active —
+  // it is what narrows the result to that collection's recipe ids. As a raw
+  // dependency it is a new array on every load, so the vault refetched each
+  // time collections arrived, with nothing about the result changing. The key
+  // is empty unless a collection is selected, so those runs stop happening.
+  const membershipKey = activeCollectionId
+    ? memberships
+        .filter((m) => m.collection_id === activeCollectionId)
+        .map((m) => m.recipe_id)
+        .sort()
+        .join(',')
+    : '';
+  // Updated in an effect, not during render: the fetch effect below is declared
+  // after this one and so runs after it, which is what keeps the ref current.
+  const membershipsRef = useRef(memberships);
+  useEffect(() => { membershipsRef.current = memberships; }, [memberships]);
+
   useEffect(() => {
     // A guest on a share link has no vault to search, and the query would come
     // back empty under RLS anyway — so skip the round trip entirely.
     if (isPublicSharePath || isAboutPath) return;
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
-      fetchRecipes(searchQuery, activeFilter, activeCollectionId, memberships, sortBy, activeOwnerId);
+      fetchRecipes(searchQuery, activeFilter, activeCollectionId, membershipsRef.current, sortBy, activeOwnerId);
     }, 300);
     return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
-  }, [isPublicSharePath, isAboutPath, searchQuery, activeFilter, activeCollectionId, memberships, sortBy, activeOwnerId, fetchRecipes]);
+  }, [isPublicSharePath, isAboutPath, searchQuery, activeFilter, activeCollectionId, membershipKey, sortBy, activeOwnerId, fetchRecipes]);
 
   function openForm(recipe?: Recipe) {
     setEditingRecipe(recipe ?? null);
