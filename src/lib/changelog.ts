@@ -19,6 +19,14 @@ export interface ReleaseNote {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    id: '2026-11-23',
+    title: 'Fix for a page that kept reloading',
+    items: [
+      'On some browsers the app could reload itself over and over, flickering and impossible to use. That was a fault in an earlier fix: when a part of the app would not load, it reloaded the page to recover \u2014 and then did so again on every reload. It now reloads once at most.',
+      'If part of the app still cannot be loaded after that, you now get a message that says so, with a button to reload and one to reset the saved app files, instead of a blank or flickering page.',
+    ],
+  },
+  {
     id: '2026-11-22',
     title: 'Paste a recipe as text',
     items: [

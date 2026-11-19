@@ -3,6 +3,8 @@ import { Component, type ReactNode } from 'react';
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  /** Like `fallback`, for a fallback that needs to say what went wrong. */
+  fallbackRender?: (error: Error) => ReactNode;
 }
 
 interface State {
@@ -18,6 +20,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   override render() {
     if (this.state.error) {
+      if (this.props.fallbackRender) return this.props.fallbackRender(this.state.error);
       return this.props.fallback ?? (
         <div className="flex flex-col items-center justify-center p-8 text-center gap-3">
           <p className="font-semibold text-zinc-700 dark:text-zinc-300">Something went wrong displaying this recipe.</p>
