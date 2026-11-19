@@ -19,6 +19,14 @@ export interface ReleaseNote {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    id: '2026-11-21',
+    title: 'Translations that come out wrong are no longer kept',
+    items: [
+      'A translation could come back with stray text from the AI in the middle of the title, and was saved like that \u2014 so the recipe stayed broken in that language until you deleted it. Such a result is now thrown away and asked for again, and if the second try is no better you get a message instead of a damaged recipe.',
+      'Tags and nutrition appear sooner after you save a recipe.',
+    ],
+  },
+  {
     id: '2026-11-20',
     title: 'Fixes for a blank page and for deleting translations',
     items: [

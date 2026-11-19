@@ -282,6 +282,35 @@ export interface GenerateOptions extends RetryOptions {
    * change to all of them: extraction from messy HTML may genuinely benefit.
    */
   thinking?: boolean;
+  /**
+   * A check on the parsed answer for what the response schema cannot express.
+   * Throw to refuse it.
+   *
+   * A refused answer is asked for once more *inside this call*, so the user is
+   * charged one of their daily hundred for one action: the allowance is
+   * derived by counting gemini_logs rows, and this call still writes exactly
+   * one, with `attempts` recording what it really took. Doing the second ask
+   * from the endpoint would write a second row. A second refusal is thrown to
+   * the caller and nothing is returned.
+   */
+  validate?: (value: unknown) => void;
+}
+
+/**
+ * Whether the provider refused the request because reasoning was switched off.
+ *
+ * Some models only run in thinking mode and answer a zero budget with a 400
+ * ("Budget 0 is invalid. This model only works in thinking mode."). Which
+ * model a task runs on is the user's choice (`settings.task_models`), so an
+ * endpoint that opts out of reasoning cannot know it will be accepted. A 400
+ * is permanent and never retried — without this, picking such a model would
+ * fail that task on every call.
+ */
+export function rejectsDisabledThinking(err: unknown): boolean {
+  const { code, status } = errorCodeAndStatus(err);
+  if (code !== 400 && status !== 'INVALID_ARGUMENT') return false;
+  const message = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
+  return /thinking/i.test(message);
 }
 
 export async function generateJson<T = unknown>(
@@ -291,7 +320,7 @@ export async function generateJson<T = unknown>(
   logCtx?: GeminiLogContext,
   options: GenerateOptions = {},
 ): Promise<T> {
-  const { responseSchema, thinking = true, ...retry } = options;
+  const { responseSchema, thinking = true, validate, ...retry } = options;
   const startTime = Date.now();
   let status: 'success' | 'error' = 'success';
   let outputPreview: string | undefined;
@@ -304,38 +333,61 @@ export async function generateJson<T = unknown>(
   let modelVersion: string | undefined;
   /** Model calls made, including retries. Recorded on the one log row below. */
   let attempts = 0;
+  /** Cleared for the rest of this call if the model turns out to require reasoning. */
+  let thinkingOff = !thinking;
 
-  try {
-    const first = await callWithRetry(
+  /** One request to the model, with transient failures retried. */
+  const ask = async (contents: string, temperature: number) => {
+    const run = () => callWithRetry(
       () => client.models.generateContent({
         model,
-        contents: prompt,
-        config: { responseMimeType: 'application/json', temperature: 0.1, ...(responseSchema ? { responseSchema } : {}), ...(thinking ? {} : { thinkingConfig: { thinkingBudget: 0 } }) },
+        contents,
+        config: { responseMimeType: 'application/json', temperature, ...(responseSchema ? { responseSchema } : {}), ...(thinkingOff ? { thinkingConfig: { thinkingBudget: 0 } } : {}) },
       }),
       { ...retry, onAttempt: () => { attempts += 1; } },
     );
-    const response = first.value;
-    modelVersion = response.modelVersion ?? undefined;
-    const text = response.text;
+    let response;
+    try {
+      response = (await run()).value;
+    } catch (err) {
+      if (!thinkingOff || !rejectsDisabledThinking(err)) throw err;
+      // Remembered, so the repair and re-ask below do not walk into the same 400.
+      thinkingOff = false;
+      response = (await run()).value;
+    }
+    modelVersion = response.modelVersion ?? modelVersion;
+    return response.text;
+  };
+
+  /** Asks for an answer and parses it, repairing malformed JSON once. */
+  const produce = async (): Promise<T> => {
+    const text = await ask(prompt, 0.1);
     if (!text) throw new Error('Gemini returned an empty response.');
     outputPreview = text;
     try {
       return parseJson<T>(text);
     } catch (parseErr) {
-      const repaired = await callWithRetry(
-        () => client.models.generateContent({
-          model,
-          contents: `Repair the following invalid JSON and return only valid JSON. Do not change the data unless needed to make it syntactically valid.\n\nParse error: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}\n\nInvalid JSON:\n${text}`,
-          config: { responseMimeType: 'application/json', temperature: 0, ...(responseSchema ? { responseSchema } : {}), ...(thinking ? {} : { thinkingConfig: { thinkingBudget: 0 } }) },
-        }),
-        { ...retry, onAttempt: () => { attempts += 1; } },
+      const repairedText = await ask(
+        `Repair the following invalid JSON and return only valid JSON. Do not change the data unless needed to make it syntactically valid.\n\nParse error: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}\n\nInvalid JSON:\n${text}`,
+        0,
       );
-      const repairResponse = repaired.value;
-      modelVersion = repairResponse.modelVersion ?? modelVersion;
-      const repairedText = repairResponse.text;
       if (!repairedText) throw parseErr;
       outputPreview = repairedText;
       return parseJson<T>(repairedText);
+    }
+  };
+
+  try {
+    const value = await produce();
+    if (!validate) return value;
+    try {
+      validate(value);
+      return value;
+    } catch {
+      // Refused once: ask again. A second refusal is the caller's to report.
+      const second = await produce();
+      validate(second);
+      return second;
     }
   } catch (err) {
     status = 'error';

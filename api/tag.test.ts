@@ -42,6 +42,7 @@ async function loadHandler(generated: unknown) {
   vi.doMock('./_lib/rateLimit.js', () => ({
     checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, used: 0, limit: 100, remaining: 100 }),
   }));
+  const generateJson = vi.fn().mockResolvedValue(generated);
   vi.doMock('./_lib/gemini.js', () => ({
     getGeminiClient: () => ({ models: { embedContent: vi.fn().mockResolvedValue({ embeddings: [{ values: [0.1] }] }) } }),
     // Mirrors the real describeGeminiError closely enough for these tests:
@@ -52,10 +53,10 @@ async function loadHandler(generated: unknown) {
         ? { status: 500, message: raw, retryable: true }
         : { status: 500, message: fallback, retryable: true };
     },
-    generateJson: vi.fn().mockResolvedValue(generated),
+    generateJson,
   }));
   const mod = await import('./tag');
-  return { handler: mod.default, firstEq, secondEq, canEditRecipe };
+  return { handler: mod.default, firstEq, secondEq, canEditRecipe, generateJson };
 }
 
 describe('/api/tag', () => {
@@ -90,5 +91,17 @@ describe('/api/tag', () => {
 
     expect(res.statusCode).toBe(500);
     expect(res.body).toEqual({ error: 'Gemini returned no supported tags.' });
+  });
+
+  it('asks the model not to spend time reasoning', async () => {
+    // Choosing from a fixed list is classification, and this runs after every
+    // save: it is half of what the spinner on a new card waits for.
+    const { handler, generateJson } = await loadHandler(['Dessert']);
+    const res = createResponse();
+
+    await handler({ method: 'POST', headers: {}, body: { recipeId: '550e8400-e29b-41d4-a716-446655440000', title: 'Cake', ingredients: ['cream'] } } as VercelRequest, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(generateJson.mock.calls[0][4]).toMatchObject({ thinking: false });
   });
 });

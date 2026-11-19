@@ -83,7 +83,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
 
     const client = getGeminiClient(apiKey);
-    const tags = parseTagResult(await generateJson(client, modelFor(settings, 'tag'), prompt, { supabase, endpoint: 'tag', recipeId, userId }, { responseSchema: tagResponseSchema }));
+    const tags = parseTagResult(await generateJson(client, modelFor(settings, 'tag'), prompt, { supabase, endpoint: 'tag', recipeId, userId }, {
+      responseSchema: tagResponseSchema,
+      // Picking from a fixed list of 23 tags is classification, and this call
+      // runs after every save: it is half of what the spinner on a new card
+      // waits for.
+      thinking: false,
+    }));
     const validTags = tags.filter((t) => AVAILABLE_TAGS.includes(t));
     if (validTags.length === 0) throw new Error('Gemini returned no supported tags.');
 

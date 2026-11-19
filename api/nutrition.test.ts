@@ -42,6 +42,7 @@ async function loadHandler(generated: unknown) {
   vi.doMock('./_lib/rateLimit.js', () => ({
     checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, used: 0, limit: 100, remaining: 100 }),
   }));
+  const generateJson = vi.fn().mockResolvedValue(generated);
   vi.doMock('./_lib/gemini.js', () => ({
     getGeminiClient: () => ({}),
     // Mirrors the real describeGeminiError closely enough for these tests:
@@ -52,10 +53,10 @@ async function loadHandler(generated: unknown) {
         ? { status: 500, message: raw, retryable: true }
         : { status: 500, message: fallback, retryable: true };
     },
-    generateJson: vi.fn().mockResolvedValue(generated),
+    generateJson,
   }));
   const mod = await import('./nutrition');
-  return { handler: mod.default, firstEq, secondEq, canEditRecipe };
+  return { handler: mod.default, firstEq, secondEq, canEditRecipe, generateJson };
 }
 
 describe('/api/nutrition', () => {
@@ -89,5 +90,17 @@ describe('/api/nutrition', () => {
     await handler({ method: 'POST', headers: {}, body: { recipeId: '550e8400-e29b-41d4-a716-446655440000', title: 'Cake', ingredients: ['cream'], servings: 4 } } as VercelRequest, res);
 
     expect(res.statusCode).toBe(500);
+  });
+
+  it('asks the model not to spend time reasoning', async () => {
+    // The other half of the wait after a save. Guards the option against being
+    // dropped in a refactor; whether it stays is a judgement about accuracy.
+    const { handler, generateJson } = await loadHandler({ calories: 450, protein_g: 12, carbs_g: 40, fat_g: 18, fiber_g: 3 });
+    const res = createResponse();
+
+    await handler({ method: 'POST', headers: {}, body: { recipeId: '550e8400-e29b-41d4-a716-446655440000', title: 'Cake', ingredients: ['cream'], servings: 4 } } as VercelRequest, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(generateJson.mock.calls[0][4]).toMatchObject({ thinking: false });
   });
 });
