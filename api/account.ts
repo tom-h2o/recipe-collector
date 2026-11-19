@@ -56,29 +56,37 @@ async function emailMapFor(supabase: SupabaseClient, userIds: (string | null)[])
   return Object.fromEntries(entries);
 }
 
-async function getStats(supabase: SupabaseClient) {
+export async function getStats(supabase: SupabaseClient) {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
   const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const [userCountRes, totalRecipesRes, totalAiCallsRes, callsTodayRes, callsThisWeekRes, modelRowsRes] = await Promise.all([
+  const [userCountRes, totalRecipesRes, totalAiCallsRes, callsTodayRes, callsThisWeekRes, modelUsageRes] = await Promise.all([
     supabase.auth.admin.listUsers({ page: 1, perPage: 1 }),
     supabase.from('recipes').select('*', { count: 'exact', head: true }),
     supabase.from('gemini_logs').select('*', { count: 'exact', head: true }),
     supabase.from('gemini_logs').select('*', { count: 'exact', head: true }).gte('created_at', todayStart),
     supabase.from('gemini_logs').select('*', { count: 'exact', head: true }).gte('created_at', weekStart),
-    supabase.from('gemini_logs').select('model, model_version'),
+    supabase.rpc('gemini_model_usage'),
   ]);
 
-  // Grouped by the model that actually ran, not the alias that was requested.
-  // Tallying by alias would collapse every release into one bucket labelled
-  // "gemini-flash-latest", which says nothing about what served the traffic.
-  const modelMap: Record<string, number> = {};
-  for (const r of modelRowsRes.data ?? []) {
-    const name = r.model_version || r.model;
-    if (name) modelMap[name] = (modelMap[name] ?? 0) + 1;
+  // Counted in the database (migration 0066), grouped by the model that
+  // actually ran rather than the id that was requested. This used to select
+  // every row and tally them here, which was not just unbounded but wrong: the
+  // API returns at most 1000 rows per request, silently, so past a thousand
+  // logged calls the chart counted an arbitrary thousand of them while
+  // total_ai_calls beside it showed the real figure.
+  //
+  // A failure here costs the chart, not the page — which is also what happens
+  // in the minutes after a deploy, before the migration job has created the
+  // function.
+  if (modelUsageRes.error) {
+    captureException(modelUsageRes.error);
+    console.error('Model usage breakdown failed:', modelUsageRes.error);
   }
-  const model_breakdown = Object.entries(modelMap).map(([model, count]) => ({ model, count })).sort((a, b) => b.count - a.count);
+  const usageRows = (modelUsageRes.data ?? []) as { model: string; call_count: number | string }[];
+  // Already ordered by count; bigint can arrive as a string.
+  const model_breakdown = usageRows.map((r) => ({ model: r.model, count: Number(r.call_count) }));
 
   const totalUsers = (userCountRes.data as { total?: number } | null)?.total ?? 0;
 

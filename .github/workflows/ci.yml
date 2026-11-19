@@ -7,6 +7,10 @@ on:
     branches: [ "master", "main", "develop", "staging" ]
 
 env:
+  # checkout and setup-node are on v5, which runs on Node 24 natively; before
+  # that every run warned that they "target Node.js 20 but are being forced to
+  # run on Node.js 24". This stays for supabase/setup-cli@v1, which has no such
+  # release to move to.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
@@ -19,10 +23,10 @@ jobs:
     # Playwright version, not by whatever the runner image becomes overnight.
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Use Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v5
       with:
         node-version: '20.x'
         cache: 'npm'
@@ -45,8 +49,29 @@ jobs:
     # E2E runs here, before any deploy, so it can actually gate a release.
     # The specs mock every Supabase call via Playwright route interception, so
     # these values only need to be internally consistent — no real project.
+    # The browser download is cached, keyed on the installed Playwright version
+    # and the runner image, since a browser build belongs to exactly one of
+    # each. It usually takes about 25 seconds, but it is a download from a CDN
+    # in the middle of the job and has taken four and a half minutes. The system
+    # packages are not cacheable this way and are installed either way.
+    - name: Read Playwright version
+      id: playwright
+      run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+    - name: Cache Playwright browsers
+      id: playwright-cache
+      uses: actions/cache@v5
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-ubuntu-24.04-${{ steps.playwright.outputs.version }}
+
     - name: Install Playwright Chromium Browser
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
       run: npx playwright install --with-deps chromium
+
+    - name: Install Playwright system dependencies
+      if: steps.playwright-cache.outputs.cache-hit == 'true'
+      run: npx playwright install-deps chromium
 
     - name: Run Playwright E2E Tests
       env:
@@ -64,7 +89,7 @@ jobs:
     # Playwright version, not by whatever the runner image becomes overnight.
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - uses: supabase/setup-cli@v1
       with:
@@ -101,10 +126,10 @@ jobs:
     runs-on: ubuntu-24.04
     if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') && github.event_name == 'push'
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Use Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v5
       with:
         node-version: '20.x'
         cache: 'npm'
