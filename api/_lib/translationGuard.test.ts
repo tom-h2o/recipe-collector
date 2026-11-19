@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assertPlausibleTranslation, findTranslationFault, TranslationRejectedError, type TranslatableText } from './translationGuard';
+import { assertPlausibleTranslation, findTranslationFault, splitSteps, TranslationRejectedError, type TranslatableText } from './translationGuard';
 
 const source: TranslatableText = {
   title: 'Vegan Chocolate Mousse (Quick, Easy, Healthy)',
@@ -83,6 +83,33 @@ describe('findTranslationFault', () => {
   it('does not call short instructions cut short', () => {
     const brief = { ...source, instructions: 'Mix and chill.' };
     expect(findTranslationFault(brief, { ...german, instructions: 'Mischen.' })).toBeNull();
+  });
+});
+
+describe('steps', () => {
+  it('splits a method the way the views number it', () => {
+    expect(splitSteps('Melt.\n\n  Blend.  \nChill.\n')).toEqual(['Melt.', 'Blend.', 'Chill.']);
+    expect(splitSteps('One paragraph, no breaks.')).toEqual(['One paragraph, no breaks.']);
+  });
+
+  it('refuses a translation that ran the steps together', () => {
+    // The reported fault: every word translated, and steps 1 to 3 shown as
+    // one numbered point.
+    const merged = { ...german, instructions: german.instructions.replace(/\n/g, ' ') };
+    expect(findTranslationFault(source, merged)).toBe('it has 1 step where the recipe has 3');
+  });
+
+  it('refuses a translation that dropped or invented a step', () => {
+    const lines = german.instructions.split('\n');
+    expect(findTranslationFault(source, { ...german, instructions: lines.slice(0, 2).join('\n') }))
+      .toBe('it has 2 steps where the recipe has 3');
+    expect(findTranslationFault(source, { ...german, instructions: german.instructions + '\nGuten Appetit!' }))
+      .toBe('it has 4 steps where the recipe has 3');
+  });
+
+  it('does not count blank lines as steps', () => {
+    const spaced = { ...source, instructions: source.instructions.replace(/\n/g, '\n\n') };
+    expect(findTranslationFault(spaced, german)).toBeNull();
   });
 });
 

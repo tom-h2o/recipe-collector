@@ -19,6 +19,14 @@ export interface ReleaseNote {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    id: '2026-11-24',
+    title: 'Translations keep their steps',
+    items: [
+      'A translated recipe could come back with several steps run together into one point. Each step is now translated on its own, and a translation whose number of steps does not match the recipe is thrown away and asked for again instead of being saved.',
+      'A translation saved before this fix stays as it is. To correct one, open the language menu on that recipe, delete the language, and choose it again.',
+    ],
+  },
+  {
     id: '2026-11-23',
     title: 'Fix for a page that kept reloading',
     items: [

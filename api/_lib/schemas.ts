@@ -179,6 +179,21 @@ export const translateSchema = z.object({
   ).min(1),
 });
 
+/**
+ * Translated steps, one array entry per step, stored as the newline-separated
+ * string the rest of the app expects. A line break *inside* an entry would
+ * turn one step into two when the views split on line breaks, so it is
+ * flattened to a space. A plain string is passed through: that is what the
+ * model returned before steps were sent as an array, and the step-count check
+ * in translationGuard.ts is what judges it.
+ */
+const stepsFromUnknown = z.preprocess(
+  (value) => Array.isArray(value)
+    ? value.map((step) => String(step ?? '').replace(/\s*\n+\s*/g, ' ').trim()).filter(Boolean).join('\n')
+    : value == null ? '' : String(value),
+  z.string(),
+);
+
 export const translationResultSchema = z.object({
   detectedSourceLanguage: z.preprocess(
     (value) => value == null ? undefined : String(value).slice(0, 2).toLowerCase(),
@@ -186,7 +201,7 @@ export const translationResultSchema = z.object({
   ),
   title: stringFromUnknown.pipe(z.string().min(1)),
   description: stringFromUnknown,
-  instructions: stringFromUnknown.pipe(z.string().min(1)),
+  instructions: stepsFromUnknown.pipe(z.string().min(1)),
   ingredients: z.array(
     z.preprocess(
       (value) => {

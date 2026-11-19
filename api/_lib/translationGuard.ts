@@ -16,6 +16,9 @@
  * deliberately coarse: each one describes something no real translation does,
  * so a false alarm should not be possible for an honest result. They are not
  * a quality judgement — a clumsy translation passes.
+ *
+ * The step count is the one check that is about structure rather than damage:
+ * the translation must have exactly as many steps as the recipe.
  */
 
 export interface TranslatableText {
@@ -26,6 +29,16 @@ export interface TranslatableText {
 }
 
 const FENCE = '```';
+
+/**
+ * The steps of a method, by the same rule every view uses to number them
+ * (RecipeDetail, CookMode, the print sheet and the public page all split on
+ * line breaks). A recipe's steps exist nowhere else: `instructions` is one
+ * string, and a step is whatever sits between two line breaks.
+ */
+export function splitSteps(instructions: string): string[] {
+  return instructions.split(/\n+/).map((step) => step.trim()).filter(Boolean);
+}
 
 /**
  * How much longer than its source a title may be. German runs about a third
@@ -68,6 +81,15 @@ export function findTranslationFault(source: TranslatableText, result: Translata
   const received = result.instructions.length;
   if (received > sent * 6 + 300) return 'the instructions are far longer than the original';
   if (sent >= 200 && received < sent / 6) return 'the instructions are cut short';
+
+  // One step in, one step out. Steps 1 to 4 came back as a single paragraph:
+  // every word translated, and the method shown as one numbered point, with
+  // cook mode offering a single screen for the whole dish.
+  const sentSteps = splitSteps(source.instructions).length;
+  const receivedSteps = splitSteps(result.instructions).length;
+  if (receivedSteps !== sentSteps) {
+    return `it has ${receivedSteps} ${receivedSteps === 1 ? 'step' : 'steps'} where the recipe has ${sentSteps}`;
+  }
 
   return null;
 }

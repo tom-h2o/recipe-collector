@@ -105,7 +105,10 @@ export const translationResponseSchema: Schema = {
     detectedSourceLanguage: { type: Type.STRING },
     title: { type: Type.STRING },
     description: { type: Type.STRING },
-    instructions: { type: Type.STRING },
+    // One entry per step, not one string. As a single string the steps were
+    // only line breaks inside it, and the model returned steps 1 to 4 as one
+    // paragraph — nothing in a STRING says where a step ends.
+    instructions: { type: Type.ARRAY, items: { type: Type.STRING } },
     ingredients: { type: Type.ARRAY, items: ingredientItem },
   },
   // detectedSourceLanguage stays optional: it is advisory, and forcing the model
