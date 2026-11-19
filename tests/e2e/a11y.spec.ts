@@ -68,6 +68,15 @@ test('add recipe dialog', async ({ page }) => {
   expect(await auditSerious(page, 'add recipe')).toEqual([]);
 });
 
+test('add recipe dialog, pasting text', async ({ page }) => {
+  await installMockBackend(page);
+  await page.goto('/');
+  await page.getByRole('button', { name: /add recipe/i }).click();
+  await page.getByRole('button', { name: 'From Text', exact: true }).click();
+  await expect(page.getByLabel('Recipe text')).toBeVisible();
+  expect(await auditSerious(page, 'add recipe: text')).toEqual([]);
+});
+
 test('settings dialog', async ({ page }) => {
   await installMockBackend(page);
   await page.goto('/');

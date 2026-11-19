@@ -19,6 +19,14 @@ export interface ReleaseNote {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    id: '2026-11-22',
+    title: 'Paste a recipe as text',
+    items: [
+      'Adding a recipe has a fourth way in: Text. Paste a recipe from a chat message, a note or another app \u2014 ingredients and steps in any order \u2014 and it is sorted into the form for you to check, in the language it was written in.',
+      'If what you pasted turns out not to be a recipe, you are told so instead of getting an invented one, and your text stays in the box.',
+    ],
+  },
+  {
     id: '2026-11-21',
     title: 'Translations that come out wrong are no longer kept',
     items: [
