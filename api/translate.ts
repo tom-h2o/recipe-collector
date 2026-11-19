@@ -8,6 +8,7 @@ import { captureException } from './_lib/sentry.js';
 import { translationResultSchema, translateSchema } from './_lib/schemas.js';
 import { TRANSLATE_TEMPLATE } from './_lib/prompts.js';
 import { checkRateLimit } from './_lib/rateLimit.js';
+import { assertPlausibleTranslation } from './_lib/translationGuard.js';
 
 const LANGUAGE_NAMES: Record<string, string> = { en: 'English', de: 'German', fr: 'French', es: 'Spanish' };
 
@@ -65,6 +66,15 @@ Return this exact JSON structure:
         // about, and the thinking pass is what makes this the slowest endpoint
         // people wait on — gemini_logs has a successful translate at 124s.
         thinking: false,
+        // The schema fixes the shape, not the content: leaked reasoning in the
+        // title is a valid string. Refused here it is asked for once more and
+        // otherwise never reaches the upsert below — a stored translation is
+        // served from the cache on every later open.
+        validate: (raw) => {
+          const candidate = translationResultSchema.safeParse(raw);
+          // An answer of the wrong shape is the parse above's to report.
+          if (candidate.success) assertPlausibleTranslation({ title, description, instructions, ingredients }, candidate.data);
+        },
       }),
     );
 

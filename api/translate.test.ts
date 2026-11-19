@@ -23,7 +23,15 @@ const requestBody = {
   ingredients: [{ amount: '200g', name: 'cream cheese', details: '' }],
 };
 
-async function loadHandler(options: { upsertError?: Error } = {}) {
+const honestAnswer = {
+  detectedSourceLanguage: 'en-US',
+  title: 'Kuchen',
+  description: ['Einfacher Kuchen'],
+  instructions: ['Mischen.', 'Kalt stellen.'],
+  ingredients: ['200g Frischkaese'],
+};
+
+async function loadHandler(options: { upsertError?: Error; answers?: unknown[] } = {}) {
   vi.resetModules();
   const upsert = vi.fn().mockResolvedValue({ error: options.upsertError ?? null });
   const updateSecondEq = vi.fn().mockResolvedValue({ error: null });
@@ -49,12 +57,22 @@ async function loadHandler(options: { upsertError?: Error } = {}) {
     }),
   };
 
-  const generateJson = vi.fn().mockResolvedValue({
-    detectedSourceLanguage: 'en-US',
-    title: 'Kuchen',
-    description: ['Einfacher Kuchen'],
-    instructions: ['Mischen.', 'Kalt stellen.'],
-    ingredients: ['200g Frischkaese'],
+  // Stands in for the real generateJson where it matters here: an answer the
+  // endpoint's `validate` refuses is asked for once more, and a second refusal
+  // is thrown. The real thing is covered in _lib/gemini.test.ts.
+  const answers = [...(options.answers ?? [honestAnswer])];
+  const modelCalls = vi.fn();
+  const generateJson = vi.fn(async (_client: unknown, _model: string, _prompt: string, _ctx: unknown, opts?: { validate?: (v: unknown) => void }) => {
+    const next = () => { modelCalls(); return answers.length > 1 ? answers.shift() : answers[0]; };
+    const first = next();
+    try {
+      opts?.validate?.(first);
+      return first;
+    } catch {
+      const second = next();
+      opts?.validate?.(second);
+      return second;
+    }
   });
 
   vi.doMock('./_lib/supabase.js', () => ({
@@ -88,7 +106,7 @@ async function loadHandler(options: { upsertError?: Error } = {}) {
   }));
 
   const mod = await import('./translate');
-  return { handler: mod.default, upsert, userCanReadRecipe };
+  return { handler: mod.default, upsert, userCanReadRecipe, modelCalls };
 }
 
 describe('/api/translate', () => {
@@ -179,5 +197,54 @@ describe('/api/translate: latency', () => {
     const { join } = await import('node:path');
     const src = readFileSync(join(process.cwd(), 'api', 'translate.ts'), 'utf8');
     expect(src).toMatch(/thinking:\s*false/);
+  });
+});
+
+describe('/api/translate: what gets stored', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // What the model really returned for a stored translation: a valid string
+  // in the right field, so the response schema had nothing to object to.
+  const leaked = { ...honestAnswer, title: 'Kuchen``` Wait! I almost output extra text and markdown!...' };
+
+  it('never stores a garbled translation', async () => {
+    // A stored row is served from the cache on every later open, so letting
+    // this through made the recipe unreadable in that language until someone
+    // deleted the translation by hand.
+    const { handler, upsert, modelCalls } = await loadHandler({ answers: [leaked] });
+    const res = createResponse();
+
+    await handler({ method: 'POST', headers: {}, body: requestBody } as VercelRequest, res);
+
+    expect(upsert).not.toHaveBeenCalled();
+    expect(modelCalls).toHaveBeenCalledTimes(2);
+    expect(res.statusCode).toBe(500);
+    expect((res.body as { error: string }).error).toBe(
+      'The translation came back garbled (the title contains a code fence), so it was not saved. Please try again.',
+    );
+  });
+
+  it('stores the second answer when only the first was garbled', async () => {
+    const { handler, upsert } = await loadHandler({ answers: [leaked, honestAnswer] });
+    const res = createResponse();
+
+    await handler({ method: 'POST', headers: {}, body: requestBody } as VercelRequest, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(upsert).toHaveBeenCalledWith(expect.objectContaining({ title: 'Kuchen' }), { onConflict: 'recipe_id,language_code' });
+  });
+
+  it('refuses a translation that lost an ingredient', async () => {
+    const body = { ...requestBody, ingredients: [...requestBody.ingredients, { amount: '2', name: 'eggs', details: '' }] };
+    const { handler, upsert } = await loadHandler();
+    const res = createResponse();
+
+    await handler({ method: 'POST', headers: {}, body } as VercelRequest, res);
+
+    expect(upsert).not.toHaveBeenCalled();
+    expect((res.body as { error: string }).error).toMatch(/1 ingredients where the recipe has 2/);
   });
 });

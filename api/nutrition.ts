@@ -75,7 +75,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
 
     const client = getGeminiClient(apiKey);
-    const nutrition = parseNutritionResult(await generateJson(client, modelFor(settings, 'nutrition'), prompt, { supabase, endpoint: 'nutrition', recipeId, userId }, { responseSchema: nutritionResponseSchema }));
+    const nutrition = parseNutritionResult(await generateJson(client, modelFor(settings, 'nutrition'), prompt, { supabase, endpoint: 'nutrition', recipeId, userId }, {
+      responseSchema: nutritionResponseSchema,
+      // The other half of the wait after a save. Unlike tagging this one is a
+      // trade: the figures are an estimate either way and the prompt carries
+      // its own calibration anchors, but reasoning may make them a little
+      // steadier. If the values drift, this line is the thing to remove.
+      thinking: false,
+    }));
 
     const { error: updateError } = await supabase.from('recipes').update({ nutrition }).eq('id', recipeId).eq('user_id', userId);
     if (updateError) throw updateError;
