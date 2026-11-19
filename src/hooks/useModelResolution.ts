@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export interface ModelResolution {
-  /** The id configured in Settings, e.g. gemini-flash-lite-latest. */
+  /** The id configured in Settings, e.g. gemini-3.5-flash-lite. */
   model: string;
   /** The concrete model Google actually ran, from the response's modelVersion. */
   servedBy: string;

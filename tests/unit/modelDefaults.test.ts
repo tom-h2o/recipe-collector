@@ -63,23 +63,46 @@ describe('all users follow the default model', () => {
   const migrationsDir = path.resolve(process.cwd(), 'supabase/migrations');
 
   /** The model named by the most recent migration that assigns gemini_model. */
-  function latestSyncedModel(): { file: string; model: string } | null {
-    const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort();
-    for (const file of [...files].reverse()) {
+  /**
+   * Every migration statement that assigns gemini_model, newest file first.
+   *
+   * A `where` clause does not distinguish a default change from a repair —
+   * 0055 moves everyone to the default *except* those who deliberately chose
+   * Lite or Frontier, so it has one too. What separates them is the value: a
+   * default change assigns DEFAULT_MODEL, anything else is a targeted fix
+   * (0065 moves users off a Lite id the API never served).
+   */
+  function modelAssignments(): { file: string; model: string; scoped: boolean }[] {
+    const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort().reverse();
+    const out: { file: string; model: string; scoped: boolean }[] = [];
+    for (const file of files) {
       const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-      const match = [...sql.matchAll(/set\s+gemini_model\s*=\s*'([^']+)'/gi)].pop();
-      if (match) return { file, model: match[1] };
+      for (const m of sql.matchAll(/set\s+gemini_model\s*=\s*'([^']+)'([\s\S]*?);/gi)) {
+        out.push({ file, model: m[1], scoped: /\bwhere\b/i.test(m[2] ?? '') });
+      }
     }
-    return null;
+    return out;
   }
 
   it('has a migration moving existing rows onto the current default', () => {
-    const latest = latestSyncedModel();
-    expect(latest, 'no migration assigns gemini_model at all').not.toBeNull();
+    const assignments = modelAssignments();
+    expect(assignments.length, 'no migration assigns gemini_model at all').toBeGreaterThan(0);
     expect(
-      latest!.model,
-      `DEFAULT_MODEL is "${CLIENT_DEFAULT}" but the newest sync migration (${latest!.file}) ` +
-        `sets "${latest!.model}". Add a migration updating public.settings so existing users move too.`,
-    ).toBe(CLIENT_DEFAULT);
+      assignments.map((a) => a.model),
+      `DEFAULT_MODEL is "${CLIENT_DEFAULT}" but no migration sets it. Add one ` +
+        'updating public.settings so existing users move too.',
+    ).toContain(CLIENT_DEFAULT);
+  });
+
+  it('never moves every user onto something that is not the default', () => {
+    // A repair may move the users it names onto another model; it must say who
+    // through a `where` clause. An unconditional assignment to anything but
+    // DEFAULT_MODEL would silently override the default for everyone.
+    const unscopedNonDefault = modelAssignments()
+      .filter((a) => !a.scoped && a.model !== CLIENT_DEFAULT);
+    expect(
+      unscopedNonDefault,
+      'these assign a non-default model to every row with no where clause',
+    ).toEqual([]);
   });
 });
