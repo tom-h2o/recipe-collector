@@ -17,14 +17,16 @@ async function openSettings(page: import('@playwright/test').Page, logs: unknown
   await page.getByText('Gemini Model').waitFor();
 }
 
-test('shows what an alias actually resolved to', async ({ page }) => {
+test('shows what a configured id actually ran as', async ({ page }) => {
+  // All three tiers are pinned ids now, so none carries the "alias" badge —
+  // but what Google served behind an id is still worth showing, because a
+  // pinned id can be served by a dated revision.
   await openSettings(page, [
-    { model: 'gemini-flash-lite-latest', model_version: 'gemini-3.5-flash-lite', created_at: '2026-11-18T10:00:00Z', endpoint: 'tag' },
+    { model: 'gemini-3.5-flash-lite', model_version: 'gemini-3.5-flash-lite-002', created_at: '2026-11-18T10:00:00Z', endpoint: 'tag' },
   ]);
 
-  const row = page.locator('div', { hasText: /^gemini-flash-lite-latest/ }).last();
-  await expect(row).toContainText('gemini-3.5-flash-lite');
-  await expect(row).toContainText('alias', { ignoreCase: true });
+  const row = page.locator('div', { hasText: /^gemini-3\.5-flash-lite/ }).last();
+  await expect(row).toContainText('gemini-3.5-flash-lite-002');
 });
 
 test('says so when a model has never run, instead of inventing a resolution', async ({ page }) => {
@@ -36,11 +38,11 @@ test('says so when a model has never run, instead of inventing a resolution', as
 
 test('reports the newest resolution when a model has moved', async ({ page }) => {
   await openSettings(page, [
-    { model: 'gemini-flash-lite-latest', model_version: 'gemini-3.5-flash-lite', created_at: '2026-11-18T10:00:00Z', endpoint: 'tag' },
-    { model: 'gemini-flash-lite-latest', model_version: 'gemini-3.1-flash-lite', created_at: '2026-01-01T10:00:00Z', endpoint: 'tag' },
+    { model: 'gemini-3.5-flash-lite', model_version: 'gemini-3.5-flash-lite-002', created_at: '2026-11-18T10:00:00Z', endpoint: 'tag' },
+    { model: 'gemini-3.5-flash-lite', model_version: 'gemini-3.5-flash-lite-001', created_at: '2026-01-01T10:00:00Z', endpoint: 'tag' },
   ]);
 
-  const row = page.locator('div', { hasText: /^gemini-flash-lite-latest/ }).last();
-  await expect(row).toContainText('gemini-3.5-flash-lite');
-  await expect(row).not.toContainText('gemini-3.1-flash-lite');
+  const row = page.locator('div', { hasText: /^gemini-3\.5-flash-lite/ }).last();
+  await expect(row).toContainText('gemini-3.5-flash-lite-002');
+  await expect(row).not.toContainText('gemini-3.5-flash-lite-001');
 });

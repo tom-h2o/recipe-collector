@@ -44,7 +44,13 @@ export interface ModelOption {
 
 export const MODEL_OPTIONS: ModelOption[] = [
   {
-    id: 'gemini-flash-lite-latest',
+    // Pinned, not an alias. `gemini-flash-lite-latest` is not a model the API
+    // serves — it is absent from Google's own model list, which is why every
+    // call on this tier failed. The Gemini 4 family (hydrogen, argon, carbon,
+    // neon) has no lite member at all: argon is a *reasoning* model, cheaper
+    // per turn than carbon but nothing like a flash-lite. The cheapest model
+    // Google still serves is this one, and the price below was always its.
+    id: 'gemini-3.5-flash-lite',
     name: 'Lite',
     badge: 'Cheapest',
     description: 'Fastest and lowest cost. Fine for tagging, nutrition and clean recipe pages. Can miss detail in handwriting or multi-page photos.',
@@ -89,7 +95,7 @@ export const AI_TASKS: AiTaskInfo[] = [
     task: 'extract',
     label: 'Recipe extraction',
     description: 'Reading a recipe off a web page, a PDF or photographed pages. Lite handles a normal web page perfectly well and is far quicker; move this to Standard if you mostly extract from photos or handwriting.',
-    recommended: 'gemini-flash-lite-latest',
+    recommended: 'gemini-3.5-flash-lite',
   },
   {
     task: 'translate',
@@ -101,31 +107,31 @@ export const AI_TASKS: AiTaskInfo[] = [
     task: 'suggest',
     label: 'Recipe suggestions',
     description: 'Picking recipes that match the ingredients you have. Most of the work is done by the embedding search; the model only ranks the shortlist.',
-    recommended: 'gemini-flash-lite-latest',
+    recommended: 'gemini-3.5-flash-lite',
   },
   {
     task: 'tag',
     label: 'Tagging',
     description: 'Assigning tags to a recipe whose text is already available. Short, structured, and forgiving of a cheaper model.',
-    recommended: 'gemini-flash-lite-latest',
+    recommended: 'gemini-3.5-flash-lite',
   },
   {
     task: 'nutrition',
     label: 'Nutrition estimates',
     description: 'Estimating calories and macros from the ingredient list. Already an approximation, so a cheaper model changes little.',
-    recommended: 'gemini-flash-lite-latest',
+    recommended: 'gemini-3.5-flash-lite',
   },
   {
     task: 'scale',
     label: 'Recipe scaling',
     description: 'Adjusting quantities for a different number of servings. Mostly arithmetic with unit conversions.',
-    recommended: 'gemini-flash-lite-latest',
+    recommended: 'gemini-3.5-flash-lite',
   },
   {
     task: 'shopping',
     label: 'Shopping list',
     description: 'Merging the meal plan into one list and grouping it by aisle. Repetitive and well within a cheap model.',
-    recommended: 'gemini-flash-lite-latest',
+    recommended: 'gemini-3.5-flash-lite',
   },
 ];
 

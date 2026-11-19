@@ -25,14 +25,24 @@ describe('Gemini model list', () => {
     }
   });
 
-  it('prefers a -latest alias where one tracks the tier', () => {
+  it('uses no alias that does not point at a tier we want', () => {
     // Aliases move within a tier: gemini-flash-latest went 3.7 -> 3.8 with no
     // code change, which is what PR #23 was for. They do NOT carry across a
-    // generation — Google shipped Gemini 4 as hydrogen/carbon/argon and left
-    // gemini-flash-latest on the 3.x Flash tier. So a pinned id is allowed when
-    // no alias points at the tier we want, and at least one alias should remain
-    // to keep the benefit where it exists.
-    expect(MODELS.some((m) => m.endsWith('-latest'))).toBe(true);
+    // generation. Google shipped Gemini 4 as hydrogen/argon/carbon/neon — fixed
+    // names, no -latest alias among them — and left the Flash aliases on 3.x.
+    //
+    // This test used to require that at least one alias survive. That stopped
+    // being possible: no alias points at any of the three tiers now offered, so
+    // all three are pinned. What remains worth asserting is that an alias, if
+    // one is reintroduced, is a deliberate choice rather than a leftover.
+    const aliases = MODELS.filter((m) => m.endsWith('-latest'));
+    expect(aliases, 'an alias here must be verified against generateContent first').toEqual([]);
+  });
+
+  it('does not offer gemini-flash-lite-latest, which the API does not serve', () => {
+    // Absent from Google's model list entirely, so every call on the Lite tier
+    // failed. Migration 0065 moves stored settings off it.
+    expect(MODELS).not.toContain('gemini-flash-lite-latest');
   });
 
   it('excludes non-text variants that cannot serve recipe extraction', () => {
