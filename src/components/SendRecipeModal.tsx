@@ -3,6 +3,7 @@ import { Send, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogTitle } from '@/components/ui/dialog';
 import type { Recipe, Contact } from '@/types';
 
 interface Props {
@@ -25,11 +26,8 @@ export function SendRecipeModal({ recipe, contacts, isOpen, onClose, onSend }: P
       setEmail('');
       setError(null);
       setShowSuggestions(false);
-      setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [isOpen]);
-
-  if (!isOpen) return null;
 
   const suggestions = email.length >= 1
     ? contacts.filter((c) => c.contact_email.includes(email.toLowerCase())).slice(0, 5)
@@ -48,19 +46,32 @@ export function SendRecipeModal({ recipe, contacts, isOpen, onClose, onSend }: P
     }
   }
 
+  // A real dialog rather than a fixed overlay, because it opens on top of the
+  // recipe drawer, which is one. As a plain overlay it could only work with
+  // the recipe closed first: the drawer's dialog swallowed clicks on the email
+  // field, and Escape closed the recipe underneath while this stayed open.
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
-      <div
-        className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-xl p-6 space-y-5"
-        onClick={(e) => e.stopPropagation()}
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      {/* A dialog nested in another does not get a backdrop of its own unless
+          asked. Without one the form floats on an undimmed recipe, and a click
+          beside it lands on nothing. */}
+      <DialogPortal>
+        <DialogOverlay forceRender className="bg-black/40" />
+      </DialogPortal>
+      <DialogContent
+        showCloseButton={false}
+        initialFocus={inputRef}
+        className="w-[calc(100%-2rem)] sm:max-w-sm bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-xl p-6 gap-5"
       >
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Send recipe</h2>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5 truncate max-w-[220px]">{recipe.title}</p>
+          <div className="min-w-0">
+            <DialogTitle className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Send recipe</DialogTitle>
+            <DialogDescription className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5 truncate max-w-[220px]">{recipe.title}</DialogDescription>
           </div>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Close"
             className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-400"
           >
             <X className="w-4 h-4" />
@@ -124,7 +135,7 @@ export function SendRecipeModal({ recipe, contacts, isOpen, onClose, onSend }: P
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

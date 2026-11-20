@@ -386,10 +386,24 @@ export default function App() {
             translationsCache={translationsCache}
             onLanguageChange={(lang) => { handleUpdateRecipe(selectedRecipe.id, { preferred_language: lang }); }}
             onTranslationCached={cacheTranslation}
-            onClose={() => setSelectedRecipe(null)}
+            onClose={() => { setSendTarget(null); setSelectedRecipe(null); }}
             onEdit={(r) => openForm(r)}
             onDelete={setDeleteTarget}
-            onSend={(r) => { setSelectedRecipe(null); setSendTarget(r); }}
+            // The recipe stays open behind the send form. It used to be closed
+            // first, which was a workaround: the form was a plain overlay and
+            // could not take a click or an Escape while the drawer was up.
+            onSend={(r) => setSendTarget(r)}
+            nestedDialogs={sendTarget && (
+              <Suspense fallback={null}>
+                <SendRecipeModal
+                  recipe={sendTarget}
+                  contacts={contacts}
+                  isOpen={true}
+                  onClose={() => setSendTarget(null)}
+                  onSend={sendShare}
+                />
+              </Suspense>
+            )}
             onUpdateRecipe={handleUpdateRecipe}
             onAddMealPlan={addMealPlan}
             onSaveScaled={saveRecipe}
@@ -435,16 +449,6 @@ export default function App() {
             isOpen={isSuggestOpen}
             onClose={() => setIsSuggestOpen(false)}
             onSelectRecipe={setSelectedRecipe}
-          />
-        )}
-
-        {sendTarget && (
-          <SendRecipeModal
-            recipe={sendTarget}
-            contacts={contacts}
-            isOpen={true}
-            onClose={() => setSendTarget(null)}
-            onSend={sendShare}
           />
         )}
 
