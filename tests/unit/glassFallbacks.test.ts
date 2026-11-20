@@ -27,16 +27,27 @@ function atRule(prelude: RegExp): string {
 describe('glass fallbacks', () => {
   it('goes solid where the browser cannot blur', () => {
     const rule = atRule(/@supports not \(\(backdrop-filter: blur\(1px\)\) or \(-webkit-backdrop-filter: blur\(1px\)\)\)/);
-    expect(rule).toMatch(/--glass-alpha:\s*1;/);
-    // The menus set their own alpha, so they need their own line.
-    expect(rule).toMatch(/\.glass-menu\s*\{\s*--glass-alpha:\s*1;/);
+    expect(rule).toMatch(/--glass-alpha:\s*1\s*!important;/);
+    expect(rule).toMatch(/\[class\*='glass'\]/);
   });
 
   it('goes solid and stops blurring for "reduce transparency"', () => {
     const rule = atRule(/@media \(prefers-reduced-transparency: reduce\)/);
-    expect(rule).toMatch(/--glass-alpha:\s*1;/);
-    expect(rule).toMatch(/--glass-blur:\s*none;/);
-    expect(rule).toMatch(/\.glass-menu\s*\{\s*--glass-alpha:\s*1;/);
+    expect(rule).toMatch(/--glass-alpha:\s*1\s*!important;/);
+    expect(rule).toMatch(/--glass-blur:\s*none\s*!important;/);
+    expect(rule).toMatch(/\[class\*='glass'\]/);
+  });
+
+  it('no variant can escape the fallbacks by setting its own alpha', () => {
+    // .glass-menu, .glass-control and .glass-dark each set --glass-alpha. A
+    // fallback that only reset :root would leave every one of them
+    // translucent, so both fallbacks name all glass classes and are !important.
+    const variants = css.match(/\.glass-[a-z]+\s*\{[^}]*--glass-alpha:[^}]*\}/g) ?? [];
+    expect(variants.length).toBeGreaterThanOrEqual(3);
+    for (const variant of variants) {
+      // None of them may itself be !important, or it would win over the fallback.
+      expect(variant).not.toMatch(/--glass-alpha:[^;]*!important/);
+    }
   });
 
   it('stops giving way and springing for "reduce motion", but keeps the fade', () => {

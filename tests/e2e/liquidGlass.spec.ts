@@ -130,12 +130,45 @@ test.describe('glass', () => {
       expect(surface['backdrop-filter'], selector).toBe('none');
     }
 
-    // The menus too.
+    // The round button on a card's photo, which sets an alpha of its own.
+    const star = await style(page, '.glass-control', ['background-color', 'backdrop-filter']);
+    expect(alpha(star['background-color'])).toBe(1);
+    expect(star['backdrop-filter']).toBe('none');
+
+    // The menus and the smoked close button too.
     await page.getByText('Classic Margherita Pizza').click();
+    const close = await style(page, '.glass-dark', ['background-color', 'backdrop-filter']);
+    expect(alpha(close['background-color'])).toBe(1);
+    expect(close['backdrop-filter']).toBe('none');
     await page.getByTitle('More options').click();
     const menu = await style(page, '.glass-menu', ['background-color', 'backdrop-filter']);
     expect(alpha(menu['background-color'])).toBe(1);
     expect(menu['backdrop-filter']).toBe('none');
+  });
+
+  test('has thickness: lit along the top, lifted off the page', async ({ page }) => {
+    // Translucency alone reads as a pale sticker on a pale page. What makes
+    // the bar look like glass is a rim of light, a sheen and a real shadow.
+    await open(page);
+    const bar = await style(page, 'nav .glass', ['box-shadow', 'background-image']);
+    expect(bar['box-shadow']).toContain('inset');
+    expect(bar['background-image']).toContain('linear-gradient');
+    // More than one outer shadow: a tight one for contact and a wide one for height.
+    expect(bar['box-shadow'].split('inset').length).toBeGreaterThanOrEqual(3);
+  });
+
+  test('the buttons that sit on a photo are glass', async ({ page }) => {
+    await open(page);
+    const star = await style(page, '[title="Favourite"], [title="Unfavourite"]', ['backdrop-filter', 'background-color']);
+    expect(star['backdrop-filter']).toContain('blur');
+    expect(alpha(star['background-color'])).toBeLessThan(1);
+
+    await page.getByText('Classic Margherita Pizza').click();
+    const close = await style(page, '[title="Close"]', ['backdrop-filter', 'background-color', 'color']);
+    expect(close['backdrop-filter']).toContain('blur');
+    expect(alpha(close['background-color'])).toBeLessThan(1);
+    // Smoked, with a white cross: legible over a picture of any brightness.
+    expect(close.color).toBe('rgb(255, 255, 255)');
   });
 });
 

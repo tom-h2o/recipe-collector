@@ -22,7 +22,7 @@ export const RELEASES: ReleaseNote[] = [
     id: '2026-11-28',
     title: 'A new look: glass',
     items: [
-      'The tab bar now floats over the page as a glass capsule, and a tinted pill slides to the tab you choose. On a phone the page runs out softly beneath it. The header and the dropdown menus are glass too.',
+      'The tab bar now floats over the page as a glass capsule, and a tinted pill slides to the tab you choose. On a phone the page runs out softly beneath it. The header, the dropdown menus and the small round buttons that sit on photos are glass too.',
       'Everything you can tap now answers: it fades the moment you touch it and recovers when you let go. Buttons and filters also give a little, and the main green buttons get darker instead of paler.',
       'If your device is set to reduce transparency, the glass becomes solid. If it is set to reduce motion, nothing slides or springs; a tap is still acknowledged by the change in colour.',
     ],

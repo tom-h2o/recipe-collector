@@ -65,12 +65,16 @@
     /* Liquid glass — see the .glass block below. Bare channels like the rest,
        with each alpha in a token of its own (tests/unit/theme.test.ts). */
     --glass-surface: 250 249 245;
-    --glass-alpha: 0.62;
+    --glass-alpha: 0.5;
     --glass-edge: 255 255 255;
-    --glass-edge-alpha: 0.55;
+    --glass-edge-alpha: 0.6;
     --glass-shadow: 47 49 46;
-    --glass-shadow-alpha: 0.14;
-    --glass-blur: blur(22px) saturate(180%);
+    --glass-shadow-alpha: 0.24;
+    /* How strongly the top catches the light, and how far the bottom falls off. */
+    --glass-rim: 0.95;
+    --glass-sheen: 0.5;
+    --glass-shade: 0.045;
+    --glass-blur: blur(18px) saturate(190%);
     --pill-tint: 49 95 59;
     --pill-tint-alpha: 0.13;
   }
@@ -124,11 +128,14 @@
     --sk-outline: 139 150 134;
     --sk-outline-variant: 65 75 62;
     --glass-surface: 50 51 47;
-    --glass-alpha: 0.58;
+    --glass-alpha: 0.5;
     --glass-edge: 255 255 255;
-    --glass-edge-alpha: 0.12;
+    --glass-edge-alpha: 0.14;
     --glass-shadow: 0 0 0;
-    --glass-shadow-alpha: 0.45;
+    --glass-shadow-alpha: 0.55;
+    --glass-rim: 0.24;
+    --glass-sheen: 0.09;
+    --glass-shade: 0.2;
     --pill-tint: 165 214 167;
     --pill-tint-alpha: 0.18;
   }
@@ -188,17 +195,48 @@
  */
 .glass {
   background-color: rgb(var(--glass-surface) / var(--glass-alpha));
+  /* A sheen from the top and a slight falling-off at the bottom. Translucency
+     alone reads as a pale sticker on a pale page; what makes a surface look
+     like glass is that it has thickness and is lit from above. */
+  background-image: linear-gradient(
+    180deg,
+    rgb(255 255 255 / var(--glass-sheen)) 0%,
+    rgb(255 255 255 / 0) 44%,
+    rgb(0 0 0 / var(--glass-shade)) 100%
+  );
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
   border: 1px solid rgb(var(--glass-edge) / var(--glass-edge-alpha));
   box-shadow:
-    0 10px 36px rgb(var(--glass-shadow) / var(--glass-shadow-alpha)),
-    inset 0 1px 0 rgb(var(--glass-edge) / var(--glass-edge-alpha));
+    /* light caught along the top edge, and lost along the bottom */
+    inset 0 1px 0 rgb(255 255 255 / var(--glass-rim)),
+    inset 0 -1px 0 rgb(0 0 0 / var(--glass-shade)),
+    /* a hairline, so the shape holds on a page nearly its own colour */
+    0 0 0 0.5px rgb(var(--glass-shadow) / 0.1),
+    /* and the lift: a tight shadow for contact, a wide one for height */
+    0 2px 6px rgb(var(--glass-shadow) / calc(var(--glass-shadow-alpha) * 0.5)),
+    0 16px 36px -10px rgb(var(--glass-shadow) / var(--glass-shadow-alpha));
 }
 
 /* Menus carry text over whatever happens to be underneath, so they are denser. */
 .glass-menu {
   --glass-alpha: 0.8;
+}
+
+/* Small round controls that sit on a photo: the favourite star on a card. */
+.glass-control {
+  --glass-alpha: 0.52;
+  --glass-shadow-alpha: 0.2;
+}
+
+/* The same, smoked: for a white icon over a picture of any brightness. */
+.glass-dark {
+  --glass-surface: 18 20 18;
+  --glass-alpha: 0.46;
+  --glass-edge-alpha: 0.26;
+  --glass-rim: 0.3;
+  --glass-sheen: 0.14;
+  --glass-shade: 0.2;
 }
 
 /* The header is a bar, not a floating shape: one edge, no drop shadow. */
@@ -214,25 +252,25 @@
  * just text showing through text, so the surfaces become solid.
  */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  :root {
-    --glass-alpha: 1;
-  }
-  .glass-menu {
-    --glass-alpha: 1;
+  :root,
+  [class*='glass'] {
+    --glass-alpha: 1 !important;
   }
 }
 
 /*
  * Fallback 2: "Reduce transparency" (iOS, macOS) or the equivalent elsewhere.
  * Solid surfaces and no blur at all.
+ *
+ * Both fallbacks name every glass class at once and are !important, because
+ * the variants above (.glass-menu, .glass-control, .glass-dark) set their own
+ * alpha. A fallback that only reset :root would leave each of them translucent.
  */
 @media (prefers-reduced-transparency: reduce) {
-  :root {
-    --glass-alpha: 1;
-    --glass-blur: none;
-  }
-  .glass-menu {
-    --glass-alpha: 1;
+  :root,
+  [class*='glass'] {
+    --glass-alpha: 1 !important;
+    --glass-blur: none !important;
   }
 }
 
@@ -250,7 +288,9 @@
   left: 0;
   border-radius: 9999px;
   background-color: rgb(var(--pill-tint) / var(--pill-tint-alpha));
-  box-shadow: inset 0 0 0 1px rgb(var(--glass-edge) / var(--glass-edge-alpha));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / var(--glass-rim)),
+    inset 0 0 0 1px rgb(var(--glass-edge) / var(--glass-edge-alpha));
   pointer-events: none;
 }
 .tab-pill[data-ready='true'] {
@@ -264,9 +304,11 @@
 .tab-bar-floating {
   bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
 }
+/* Short and light on purpose. A deep fade hides exactly the content the glass
+   is there to show through; this only softens the edge where the page ends. */
 .tab-bar-fade {
-  height: calc(env(safe-area-inset-bottom, 0px) + 112px);
-  background: linear-gradient(to top, oklch(var(--background)) 18%, oklch(var(--background) / 0.75) 48%, transparent);
+  height: calc(env(safe-area-inset-bottom, 0px) + 84px);
+  background: linear-gradient(to top, oklch(var(--background) / 0.85) 0%, oklch(var(--background) / 0.35) 55%, transparent);
 }
 
 /*

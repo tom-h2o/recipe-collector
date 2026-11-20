@@ -535,7 +535,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
         {/* Fixed close button — always visible, never scrolls away */}
         <button
           onClick={handleClose}
-          className="absolute top-3 right-3 z-20 p-2.5 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white transition-colors shadow-md ring-1 ring-white/20 print:hidden"
+          className="absolute top-3 right-3 z-20 p-2.5 rounded-full glass glass-dark text-white print:hidden"
           title="Close"
         >
           <X className="w-4 h-4" />
