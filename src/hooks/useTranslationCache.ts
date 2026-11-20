@@ -46,5 +46,26 @@ export function useTranslationCache(recipes: Recipe[]) {
     [],
   );
 
-  return { translationsCache: cache, translationsLoading: isLoading, cacheTranslation };
+  /**
+   * Drops one translation from memory, for when its row has been deleted.
+   *
+   * Without this a deleted translation was only half gone. The row left the
+   * table and the picker stopped ticking the language, but the copy held here
+   * stayed, and RecipeDetail prefers this copy over asking the server. So
+   * choosing the language again showed the very translation that had just
+   * been deleted, and no new one was ever made until the page was reloaded,
+   * which is exactly wrong for the one reason anyone deletes a translation:
+   * it came out badly and should be done again.
+   */
+  const forgetTranslation = useCallback((recipeId: string, langCode: string) => {
+    setCache((prev) => {
+      const key = `${recipeId}:${langCode}`;
+      if (!(key in prev)) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+  return { translationsCache: cache, translationsLoading: isLoading, cacheTranslation, forgetTranslation };
 }

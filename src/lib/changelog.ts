@@ -19,6 +19,14 @@ export interface ReleaseNote {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    id: '2026-11-26',
+    title: 'Deleting a translation really deletes it',
+    items: [
+      'Deleting a translation removed the tick but not the translation: choosing the language again showed the same text as before, and no new one was made until you reloaded the app. A deleted translation is now gone, and choosing the language again makes a fresh one.',
+      'The language picker is tidier. The small crosses on the languages are gone; deleting a translation is rare, so it has moved into the menu behind the three dots.',
+    ],
+  },
+  {
     id: '2026-11-25',
     title: 'Sending a recipe keeps it open',
     items: [
