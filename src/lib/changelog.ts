@@ -19,6 +19,15 @@ export interface ReleaseNote {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    id: '2026-11-27',
+    title: 'Translating no longer gets stuck',
+    items: [
+      'Opening a recipe could start a translation by itself and lock every language until it finished. A translation now only starts when you choose a language, and while it is being made you can still pick any other language, or the original, to stop it.',
+      'A translation that fails, or that you delete, no longer leaves the recipe set to a language it has no text for.',
+      'While you are reading a translation, the language picker now offers "Delete this translation" right there. The menu behind the three dots still lists every stored translation.',
+    ],
+  },
+  {
     id: '2026-11-26',
     title: 'Deleting a translation really deletes it',
     items: [
