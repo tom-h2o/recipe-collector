@@ -617,7 +617,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                               (one stored for the original language) can still
                               be removed. */}
                           {cachedLanguages.map((code) => {
-                            const label = LANGUAGES.find((l) => l.code === code)?.label ?? code.toUpperCase();
+                            const label = LANGUAGES.find((l) => l.code === code)?.name ?? code.toUpperCase();
                             return (
                               <button
                                 key={code}
@@ -698,8 +698,8 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                             isOriginal
                               ? 'Original language'
                               : isCached
-                                ? `${lang.label} — already translated, opens instantly`
-                                : `Translate to ${lang.label} (uses one AI call)`
+                                ? `${lang.name} — already translated, opens instantly`
+                                : `Translate to ${lang.name} (uses one AI call)`
                           }
                         >
                           <span>{lang.flag}</span>
