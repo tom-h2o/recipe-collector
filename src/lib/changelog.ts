@@ -19,6 +19,13 @@ export interface ReleaseNote {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    id: '2026-11-25',
+    title: 'Sending a recipe keeps it open',
+    items: [
+      'When you send a recipe to a friend, the recipe now stays open behind the email form. Before, it closed as soon as the form appeared, so after sending or cancelling you were back in the vault and had to find the recipe again.',
+    ],
+  },
+  {
     id: '2026-11-24',
     title: 'Translations keep their steps',
     items: [

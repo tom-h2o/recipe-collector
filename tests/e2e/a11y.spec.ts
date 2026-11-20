@@ -77,6 +77,15 @@ test('add recipe dialog, pasting text', async ({ page }) => {
   expect(await auditSerious(page, 'add recipe: text')).toEqual([]);
 });
 
+test('send recipe form, over the open recipe', async ({ page }) => {
+  await installMockBackend(page);
+  await page.goto('/');
+  await page.getByText('Classic Margherita Pizza').click();
+  await page.getByTitle('Send recipe to someone').click();
+  await expect(page.getByRole('dialog', { name: 'Send recipe' })).toBeVisible();
+  expect(await auditSerious(page, 'send recipe')).toEqual([]);
+});
+
 test('settings dialog', async ({ page }) => {
   await installMockBackend(page);
   await page.goto('/');

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages, Send, MoreHorizontal, Tag, Salad, FolderOpen, Link2Off, Check} from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -29,6 +29,14 @@ interface Props {
   onEdit: (r: Recipe) => void;
   onDelete: (r: Recipe) => void;
   onSend?: (r: Recipe) => void;
+  /**
+   * Dialogs that open on top of this one, such as the send-to-a-friend form.
+   * They are rendered inside this dialog's own tree on purpose: two modal
+   * dialogs side by side each treat the other as "outside", so each hides the
+   * other from assistive technology and Escape closes the wrong one. Nested,
+   * the upper one is on top, and closing it leaves the recipe open.
+   */
+  nestedDialogs?: ReactNode;
   /** Resolves to whether the write landed; false means RLS refused it and a toast was already shown. */
   onUpdateRecipe: (id: string, changes: Partial<Recipe>) => Promise<boolean>;
   userId?: string | null;
@@ -59,7 +67,7 @@ function isLinkedRecipe(recipe: Recipe | null, userId?: string | null): boolean 
   return !!recipe && !!userId && !!recipe.user_id && recipe.user_id !== userId;
 }
 
-export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', translationsCache, onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onSend, onUpdateRecipe, userId, ownerLabel, linkedPeople = [], onAddMealPlan, onSaveScaled, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection }: Props) {
+export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', translationsCache, onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onSend, nestedDialogs, onUpdateRecipe, userId, ownerLabel, linkedPeople = [], onAddMealPlan, onSaveScaled, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection }: Props) {
   const baseServings0 = recipe?.original_servings || recipe?.servings || 1;
   const [scaledServings, setScaledServings] = useState(baseServings0);
   const [aiIngredients, setAiIngredients] = useState<{ amount: string; name: string; details: string }[] | null>(null);
@@ -1036,6 +1044,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
           </div>
         </div>
         </div>{/* end overflow-y-auto */}
+        {nestedDialogs}
       </DialogContent>
 
     </Dialog>
