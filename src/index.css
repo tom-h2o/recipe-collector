@@ -62,6 +62,17 @@
     --sk-on-surface-variant: 64 73 61;
     --sk-outline: 95 106 91;
     --sk-outline-variant: 191 202 186;
+    /* Liquid glass — see the .glass block below. Bare channels like the rest,
+       with each alpha in a token of its own (tests/unit/theme.test.ts). */
+    --glass-surface: 250 249 245;
+    --glass-alpha: 0.62;
+    --glass-edge: 255 255 255;
+    --glass-edge-alpha: 0.55;
+    --glass-shadow: 47 49 46;
+    --glass-shadow-alpha: 0.14;
+    --glass-blur: blur(22px) saturate(180%);
+    --pill-tint: 49 95 59;
+    --pill-tint-alpha: 0.13;
   }
 
   .dark {
@@ -112,6 +123,14 @@
     --sk-on-surface-variant: 194 204 189;
     --sk-outline: 139 150 134;
     --sk-outline-variant: 65 75 62;
+    --glass-surface: 50 51 47;
+    --glass-alpha: 0.58;
+    --glass-edge: 255 255 255;
+    --glass-edge-alpha: 0.12;
+    --glass-shadow: 0 0 0;
+    --glass-shadow-alpha: 0.45;
+    --pill-tint: 165 214 167;
+    --pill-tint-alpha: 0.18;
   }
 
   * {
@@ -153,6 +172,190 @@
   /* Ghost border for high-density data */
   .border-ghost {
     border: 1px solid rgba(191, 202, 186, 0.15);
+  }
+}
+
+/*
+ * ── Liquid glass ────────────────────────────────────────────────────────────
+ *
+ * A translucent surface that blurs and saturates what is behind it, with a
+ * light edge along the top. Used for the things that float over content: the
+ * tab bars, the header and the dropdown menus. Dialogs stay opaque; a recipe
+ * is for reading.
+ *
+ * Everything is driven by the --glass-* tokens so the three fallbacks below
+ * only have to change two values.
+ */
+.glass {
+  background-color: rgb(var(--glass-surface) / var(--glass-alpha));
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid rgb(var(--glass-edge) / var(--glass-edge-alpha));
+  box-shadow:
+    0 10px 36px rgb(var(--glass-shadow) / var(--glass-shadow-alpha)),
+    inset 0 1px 0 rgb(var(--glass-edge) / var(--glass-edge-alpha));
+}
+
+/* Menus carry text over whatever happens to be underneath, so they are denser. */
+.glass-menu {
+  --glass-alpha: 0.8;
+}
+
+/* The header is a bar, not a floating shape: one edge, no drop shadow. */
+.glass-bar {
+  background-color: rgb(var(--glass-surface) / var(--glass-alpha));
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid rgb(var(--sk-outline-variant) / 0.35);
+}
+
+/*
+ * Fallback 1: a browser with no backdrop blur. Translucency without blur is
+ * just text showing through text, so the surfaces become solid.
+ */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --glass-alpha: 1;
+  }
+  .glass-menu {
+    --glass-alpha: 1;
+  }
+}
+
+/*
+ * Fallback 2: "Reduce transparency" (iOS, macOS) or the equivalent elsewhere.
+ * Solid surfaces and no blur at all.
+ */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-alpha: 1;
+    --glass-blur: none;
+  }
+  .glass-menu {
+    --glass-alpha: 1;
+  }
+}
+
+/*
+ * ── Tab bar ─────────────────────────────────────────────────────────────────
+ *
+ * The pill is one element that slides under the chosen tab (usePillPosition
+ * measures where). The slide overshoots slightly; the width does not, because
+ * a width that overshoots reads as a wobble rather than a movement.
+ */
+.tab-pill {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  border-radius: 9999px;
+  background-color: rgb(var(--pill-tint) / var(--pill-tint-alpha));
+  box-shadow: inset 0 0 0 1px rgb(var(--glass-edge) / var(--glass-edge-alpha));
+  pointer-events: none;
+}
+.tab-pill[data-ready='true'] {
+  transition:
+    transform 0.46s cubic-bezier(0.34, 1.45, 0.64, 1),
+    width 0.3s ease,
+    opacity 0.2s ease;
+}
+
+/* The phone tab bar floats; content runs out softly underneath it. */
+.tab-bar-floating {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+}
+.tab-bar-fade {
+  height: calc(env(safe-area-inset-bottom, 0px) + 112px);
+  background: linear-gradient(to top, oklch(var(--background)) 18%, oklch(var(--background) / 0.75) 48%, transparent);
+}
+
+/*
+ * ── Touch feedback ──────────────────────────────────────────────────────────
+ *
+ * data-pressed / data-released are set by src/lib/pressFeedback.ts, which also
+ * says why this is not `:active` with a transition.
+ *
+ *  - Everything tappable fades at once and recovers softly.
+ *  - Buttons (which includes the filter chips) also give to 95% and spring back.
+ *  - Primary buttons get darker instead of paler: fading the one solid thing on
+ *    the screen makes it look disabled.
+ */
+button,
+a,
+summary,
+select,
+label,
+[role='button'],
+[data-pressable] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+[data-pressed] {
+  opacity: 0.6;
+  /* "At once": whatever transition utility the control carries must not turn
+     the press itself into a fade. */
+  transition-duration: 0s !important;
+}
+button[data-pressed] {
+  scale: 0.95;
+}
+[data-pressed].bg-sk-primary,
+[data-pressed].bg-primary {
+  opacity: 1;
+  filter: brightness(0.82);
+}
+/* Large surfaces fade but never shrink, whatever element they are. */
+[data-pressed][data-pressable='surface'] {
+  scale: none;
+}
+
+[data-released] {
+  animation: press-fade 0.34s ease-out;
+}
+button[data-released] {
+  animation:
+    press-fade 0.34s ease-out,
+    press-spring 0.46s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+[data-released].bg-sk-primary,
+[data-released].bg-primary {
+  animation:
+    press-darken 0.34s ease-out,
+    press-spring 0.46s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+[data-released][data-pressable='surface'] {
+  animation: press-fade 0.34s ease-out;
+}
+
+@keyframes press-fade {
+  from { opacity: 0.6; }
+}
+@keyframes press-spring {
+  from { scale: 0.95; }
+}
+@keyframes press-darken {
+  from { filter: brightness(0.82); }
+}
+
+/*
+ * Fallback 3: "Reduce motion". No giving way and no springing; the pill jumps
+ * to its tab. Changes of colour and opacity stay, because they are how a tap
+ * is acknowledged at all.
+ */
+@media (prefers-reduced-motion: reduce) {
+  button[data-pressed] {
+    scale: none;
+  }
+  button[data-released],
+  [data-released] {
+    animation: press-fade 0.2s linear;
+  }
+  [data-released].bg-sk-primary,
+  [data-released].bg-primary {
+    animation: press-darken 0.2s linear;
+  }
+  .tab-pill[data-ready='true'] {
+    transition: opacity 0.2s linear;
   }
 }
 

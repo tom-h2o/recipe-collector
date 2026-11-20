@@ -148,7 +148,7 @@ export function UserMenu({ user, onSignOut, onOpenWhatsNew, hasUnreadReleases = 
         )}
 
         {open && (
-          <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl z-50 overflow-hidden">
+          <div className="absolute right-0 top-full mt-2 w-64 glass glass-menu rounded-2xl z-50 overflow-hidden">
             {/* User info */}
             <div className="flex items-center gap-3 px-4 py-4 border-b border-zinc-100 dark:border-zinc-800">
               <div className="flex-shrink-0 w-10 h-10 rounded-full overflow-hidden">

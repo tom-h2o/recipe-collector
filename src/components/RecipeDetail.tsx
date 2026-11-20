@@ -608,7 +608,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                     open={showMoreOptions}
                     onClose={() => setShowMoreOptions(false)}
                     anchorRef={moreButtonRef}
-                    className="w-64 bg-white dark:bg-card rounded-2xl shadow-ambient p-2 flex flex-col gap-0.5"
+                    className="w-64 glass glass-menu rounded-2xl p-2 flex flex-col gap-0.5"
                   >
                       {recipe.source_url && (
                         <a

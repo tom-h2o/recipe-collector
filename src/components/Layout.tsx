@@ -1,8 +1,10 @@
+import { useRef } from 'react';
 import { Plus, Settings, Wand2, Sun, Moon, Inbox, CalendarDays, ShoppingCart, BookOpen, ShieldCheck } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import type { ActiveView } from '@/types';
 import { UserMenu } from '@/components/UserMenu';
 import { useDarkMode } from '@/hooks/useDarkMode';
+import { usePillPosition } from '@/hooks/usePillPosition';
 
 interface Props {
   activeView: ActiveView;
@@ -30,11 +32,16 @@ const MOBILE_TABS = [
 
 export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadReleases, recipeCount, inboxCount, onSetView, onOpenSettings, onOpenSuggest, onAddRecipe, onSignOut, children }: Props) {
   const { isDark, toggle } = useDarkMode();
+  // One pill per tab bar; each slides to whichever tab is current.
+  const desktopTabs = useRef<HTMLDivElement>(null);
+  const mobileTabs = useRef<HTMLDivElement>(null);
+  const desktopPill = usePillPosition(desktopTabs, activeView);
+  const mobilePill = usePillPosition(mobileTabs, activeView);
 
   return (
     <>
       {/* Sticky header — full-width, independent of content padding */}
-      <header className="sticky top-0 z-40 w-full bg-background/95 backdrop-blur-sm border-b border-zinc-200/60 dark:border-zinc-800/60 print:static print:border-0">
+      <header className="sticky top-0 z-40 w-full glass-bar print:static print:border-0">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-10 h-16 sm:h-[4.5rem] grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:gap-4">
 
           {/* Branding */}
@@ -57,21 +64,27 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
             </div>
           </div>
 
-          {/* Desktop nav tabs */}
+          {/* Desktop nav tabs: a glass capsule, with a tinted pill that slides
+              to the current tab instead of each tab painting its own. */}
           <div className="hidden lg:flex justify-center">
-            <div className="flex bg-sk-surface-low dark:bg-muted rounded-full p-1 gap-0.5">
+            <div ref={desktopTabs} className="relative flex glass rounded-full p-1 gap-0.5">
+              <span aria-hidden="true" className="tab-pill" data-ready={desktopPill.ready} style={desktopPill.style} />
               {(['vault', 'planner', 'shopping', 'inbox'] as const).map((view) => (
                 <button
                   key={view}
                   onClick={() => onSetView(view)}
-                  className={`px-5 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 flex items-center gap-1.5 ${
+                  aria-current={activeView === view ? 'page' : undefined}
+                  className={`relative z-10 px-2.5 xl:px-5 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors duration-200 flex items-center gap-1.5 ${
                     activeView === view
-                      ? 'bg-white dark:bg-card shadow-ambient text-sk-primary dark:text-primary'
-                      : 'text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary hover:bg-white/60 dark:hover:bg-card/40'
+                      ? 'text-sk-primary dark:text-primary'
+                      : 'text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary'
                   }`}
                 >
                   {view === 'vault' ? 'Vault'
-                    : view === 'planner' ? 'Meal Planner'
+                    : view === 'planner'
+                      // Labels stay on one line, so the long one is shortened
+                      // where the header is narrow rather than left to wrap.
+                      ? <><span className="xl:hidden">Planner</span><span className="hidden xl:inline">Meal Planner</span></>
                     : view === 'shopping' ? 'Shopping'
                     : 'Inbox'}
                   {view === 'vault' && recipeCount > 0 && (
@@ -93,10 +106,11 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
               {isAdmin && (
                 <button
                   onClick={() => onSetView('admin')}
-                  className={`px-5 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 flex items-center gap-1.5 ${
+                  aria-current={activeView === 'admin' ? 'page' : undefined}
+                  className={`relative z-10 px-2.5 xl:px-5 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors duration-200 flex items-center gap-1.5 ${
                     activeView === 'admin'
-                      ? 'bg-white dark:bg-card shadow-ambient text-sk-primary dark:text-primary'
-                      : 'text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary hover:bg-white/60 dark:hover:bg-card/40'
+                      ? 'text-sk-primary dark:text-primary'
+                      : 'text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary'
                   }`}
                 >
                   <ShieldCheck className="w-3.5 h-3.5" /> Admin
@@ -144,7 +158,7 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
       </header>
 
       {/* Content */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-10 pt-6 sm:pt-8 pb-24 lg:pb-12 space-y-6 print:hidden">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-10 pt-6 sm:pt-8 pb-32 lg:pb-12 space-y-6 print:hidden">
         {children}
 
         <footer className="pt-4 pb-2 flex justify-center">
@@ -159,19 +173,25 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
         </footer>
       </div>
 
-      {/* Mobile bottom navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-sk-surface dark:bg-card border-t border-sk-outline-variant/20 dark:border-border lg:hidden safe-area-bottom shadow-ambient">
-        <div className="flex justify-around items-center h-14 max-w-lg mx-auto">
+      {/* Content runs out softly under the floating tab bar instead of being
+          cut off by it. Purely visual, so it takes no taps. */}
+      <div aria-hidden="true" className="tab-bar-fade fixed inset-x-0 bottom-0 z-40 pointer-events-none lg:hidden print:hidden" />
+
+      {/* Mobile navigation: a glass capsule floating over the content */}
+      <nav className="tab-bar-floating fixed inset-x-3 z-50 lg:hidden print:hidden">
+        <div ref={mobileTabs} className="relative flex items-stretch h-[3.75rem] max-w-md mx-auto glass rounded-full px-1">
+          <span aria-hidden="true" className="tab-pill" data-ready={mobilePill.ready} style={mobilePill.style} />
           {MOBILE_TABS.filter((t) => t.view !== 'admin' || isAdmin).map(({ view, icon: Icon, label }) => {
             const isActive = activeView === view;
             return (
               <button
                 key={view}
                 onClick={() => onSetView(view)}
-                className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors ${
+                aria-current={isActive ? 'page' : undefined}
+                className={`relative z-10 flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0 rounded-full transition-colors ${
                   isActive
                     ? 'text-sk-primary dark:text-primary'
-                    : 'text-sk-outline dark:text-muted-foreground'
+                    : 'text-sk-on-surface-variant dark:text-muted-foreground'
                 }`}
               >
                 <Icon className="w-5 h-5" />
