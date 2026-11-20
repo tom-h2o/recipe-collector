@@ -61,4 +61,27 @@ describe('offered languages', () => {
     // original_language records what the recipe actually is; it is not a setting.
     expect(sql).not.toMatch(/set original_language/i);
   });
+
+  it('names each language the same way in the interface and in the prompt', () => {
+    // LANGUAGES carries two names: `label`, the language's own ("Deutsch"),
+    // for the picker, and `name`, the English one ("German"), for English
+    // sentences such as "Delete German translation". The prompt has its own
+    // English names in LANGUAGE_NAMES; the two must not drift apart.
+    const m = translate.match(/const LANGUAGE_NAMES[^=]*= \{([^}]*)\}/);
+    const promptNames = Object.fromEntries(
+      [...m![1].matchAll(/(\w{2}):\s*'([^']+)'/g)].map((x) => [x[1], x[2]]),
+    );
+    for (const lang of LANGUAGES) {
+      expect(promptNames[lang.code], `English name for ${lang.code}`).toBe(lang.name);
+    }
+  });
+
+  it('never puts a language\u2019s own name into an English sentence', () => {
+    // "Delete Deutsch translation" was the fault. The picker chips may show
+    // `label`; anything built into English wording must use `name`.
+    const detail = readFileSync(join(ROOT, 'src', 'components', 'RecipeDetail.tsx'), 'utf8');
+    expect(detail).not.toMatch(/(Delete|Translate to|translation deleted|delete the) \$\{[^}]*\.label\}/);
+    expect(detail).toMatch(/\.name \?\? code\.toUpperCase\(\)/);
+  });
 });
+

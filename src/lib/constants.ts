@@ -167,11 +167,17 @@ export const DEFAULT_MEAL_TYPE: typeof MEAL_TYPES[number] = 'Dinner';
 
 export const PAGE_SIZE = 24;
 
+/**
+ * `label` is the language's own name for itself and is what a language picker
+ * shows: someone looking for German looks for "Deutsch". `name` is the English
+ * name, for use inside an English sentence. The interface is English, and
+ * "Delete Deutsch translation" mixed the two.
+ */
 export const LANGUAGES = [
-  { code: 'en', label: 'English', flag: '🇬🇧' },
-  { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
-  { code: 'fr', label: 'Français', flag: '🇫🇷' },
-  { code: 'es', label: 'Español', flag: '🇪🇸' },
+  { code: 'en', label: 'English', name: 'English', flag: '🇬🇧' },
+  { code: 'de', label: 'Deutsch', name: 'German', flag: '🇩🇪' },
+  { code: 'fr', label: 'Français', name: 'French', flag: '🇫🇷' },
+  { code: 'es', label: 'Español', name: 'Spanish', flag: '🇪🇸' },
 ] as const;
 
 export type LanguageCode = typeof LANGUAGES[number]['code'];

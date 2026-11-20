@@ -58,8 +58,8 @@ test('the menu offers to delete each stored translation and nothing else', async
   await openPicker(page);
   await openMenu(page);
 
-  await expect(page.getByRole('button', { name: 'Delete Deutsch translation' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Delete Français translation' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Delete German translation' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Delete French translation' })).toHaveCount(0);
 });
 
 test('the menu has no translation entry when none is stored', async ({ page }) => {
@@ -79,12 +79,12 @@ test('deleting one translation removes its tick and its menu entry', async ({ pa
   await openPicker(page);
   await openMenu(page);
 
-  await page.getByRole('button', { name: 'Delete Deutsch translation' }).click();
+  await page.getByRole('button', { name: 'Delete German translation' }).click();
 
-  await expect(page.getByText('Deutsch translation deleted.', { exact: false })).toBeVisible();
+  await expect(page.getByText('German translation deleted.', { exact: false })).toBeVisible();
   await expect(page.getByRole('dialog').locator('[aria-label="Already translated"]')).toHaveCount(0);
   await openMenu(page);
-  await expect(page.getByRole('button', { name: 'Delete Deutsch translation' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Delete German translation' })).toHaveCount(0);
 });
 
 test('a stored translation of the original language can be deleted too', async ({ page }) => {
@@ -150,7 +150,7 @@ test('after deleting a translation, choosing the language again makes a new one'
   expect(calls).toBe(1);
 
   await openMenu(page);
-  await page.getByRole('button', { name: 'Delete Deutsch translation' }).click();
+  await page.getByRole('button', { name: 'Delete German translation' }).click();
   // Back on the original: there is nothing left to show in German.
   await expect(dialog.getByRole('heading', { name: 'Classic Margherita Pizza' })).toBeVisible();
 
