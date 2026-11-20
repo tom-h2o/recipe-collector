@@ -53,7 +53,7 @@ export default function App() {
     fetchLinks, accept: acceptLink, disconnect: declineLink,
   } = useAccountLinks(user?.id, user?.email);
   const { inboxShares, inboxCount, contacts, fetchInbox, fetchContacts, sendShare, acceptShare, rejectShare } = useRecipeShares(user?.id, user?.email);
-  const { translationsCache, translationsLoading, cacheTranslation } = useTranslationCache(recipes);
+  const { translationsCache, translationsLoading, cacheTranslation, forgetTranslation } = useTranslationCache(recipes);
   const { collections, memberships, fetchCollections, createCollection, deleteCollection, renameCollection, addToCollection, removeFromCollection } = useCollections(user?.id);
 
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null);
@@ -386,6 +386,7 @@ export default function App() {
             translationsCache={translationsCache}
             onLanguageChange={(lang) => { handleUpdateRecipe(selectedRecipe.id, { preferred_language: lang }); }}
             onTranslationCached={cacheTranslation}
+            onTranslationRemoved={forgetTranslation}
             onClose={() => { setSendTarget(null); setSelectedRecipe(null); }}
             onEdit={(r) => openForm(r)}
             onDelete={setDeleteTarget}

@@ -25,6 +25,8 @@ interface Props {
   translationsCache?: Record<string, RecipeTranslation>;
   onLanguageChange: (lang: string | null) => void;
   onTranslationCached: (recipeId: string, langCode: string, t: RecipeTranslation) => void;
+  /** The counterpart: a translation was deleted and must not be served from memory again. */
+  onTranslationRemoved?: (recipeId: string, langCode: string) => void;
   onClose: () => void;
   onEdit: (r: Recipe) => void;
   onDelete: (r: Recipe) => void;
@@ -67,7 +69,7 @@ function isLinkedRecipe(recipe: Recipe | null, userId?: string | null): boolean 
   return !!recipe && !!userId && !!recipe.user_id && recipe.user_id !== userId;
 }
 
-export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', translationsCache, onLanguageChange, onTranslationCached, onClose, onEdit, onDelete, onSend, nestedDialogs, onUpdateRecipe, userId, ownerLabel, linkedPeople = [], onAddMealPlan, onSaveScaled, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection }: Props) {
+export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', translationsCache, onLanguageChange, onTranslationCached, onTranslationRemoved, onClose, onEdit, onDelete, onSend, nestedDialogs, onUpdateRecipe, userId, ownerLabel, linkedPeople = [], onAddMealPlan, onSaveScaled, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection }: Props) {
   const baseServings0 = recipe?.original_servings || recipe?.servings || 1;
   const [scaledServings, setScaledServings] = useState(baseServings0);
   const [aiIngredients, setAiIngredients] = useState<{ amount: string; name: string; details: string }[] | null>(null);
@@ -321,8 +323,14 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
       toast.error(`Could not delete the ${label} translation.`);
       return;
     }
-    if (wasShowing) onLanguageChange(null);
-    toast.success(`${label} translation deleted.`);
+    // The copy in memory goes too, or picking the language again would show
+    // the translation that was just deleted instead of making a new one.
+    onTranslationRemoved?.(recipe.id, langCode);
+    if (wasShowing) {
+      setTranslation(null);
+      onLanguageChange(null);
+    }
+    toast.success(`${label} translation deleted. Choose the language again for a fresh one.`);
   }
 
   function handleTranslate(langCode: string) {
@@ -524,7 +532,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                     open={showMoreOptions}
                     onClose={() => setShowMoreOptions(false)}
                     anchorRef={moreButtonRef}
-                    className="w-60 bg-white dark:bg-card rounded-2xl shadow-ambient p-2 flex flex-col gap-0.5"
+                    className="w-64 bg-white dark:bg-card rounded-2xl shadow-ambient p-2 flex flex-col gap-0.5"
                   >
                       {recipe.source_url && (
                         <a
@@ -600,6 +608,29 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                             {isRegeneratingNutrition ? 'Regenerating…' : 'Regenerate nutrition'}
                           </button>
 
+                          {/* Deleting a translation lives here, not on the
+                              language chips. It is only wanted when one came
+                              out badly, which should be rare, and a cross on
+                              every translated language made the picker look
+                              like a list of things to remove. One entry per
+                              stored translation, so a row that is never shown
+                              (one stored for the original language) can still
+                              be removed. */}
+                          {cachedLanguages.map((code) => {
+                            const label = LANGUAGES.find((l) => l.code === code)?.label ?? code.toUpperCase();
+                            return (
+                              <button
+                                key={code}
+                                onClick={() => { handleRemoveTranslation(code, label); setShowMoreOptions(false); }}
+                                disabled={removingLanguage !== null}
+                                className={MENU_ITEM}
+                              >
+                                <Languages className="w-3.5 h-3.5 shrink-0" />
+                                <span>{`Delete ${label} translation`}</span>
+                              </button>
+                            );
+                          })}
+
                           {/* Last, and set apart: the one that cannot be undone. */}
                           <div className="h-px bg-sk-surface-container dark:bg-border my-1" />
                           <button
@@ -643,18 +674,11 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                   {LANGUAGES.map((lang) => {
                     const isOriginal = (recipe.original_language ?? 'en') === lang.code;
                     const isActive = preferredLanguage === lang.code || (!preferredLanguage && isOriginal);
-                    // Already in recipe_translations: opening it is free, and
-                    // it can be thrown away.
-                    //
-                    // Deliberately NOT excluding the original language. A row
-                    // can exist for it — the model writes one whenever it is
-                    // asked to translate into a language it then reports as the
-                    // source, and original_language is itself only the model's
-                    // guess and can be wrong. Excluding it meant a bad stored
-                    // translation of the original was the one thing that could
-                    // not be deleted, which is exactly when you most want to.
+                    // Already in recipe_translations: opening it is free. The
+                    // tick follows the stored row, not the label, so the
+                    // original language carries one too when a row exists for
+                    // it. Deleting one is in the options menu.
                     const isCached = cachedLanguages.includes(lang.code);
-                    const canRemove = isCached && !isLinked;
                     return (
                       <span
                         key={lang.code}
@@ -667,7 +691,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                         <button
                           onClick={() => handleTranslate(lang.code)}
                           disabled={isTranslating || removingLanguage === lang.code}
-                          className={`inline-flex items-center gap-1.5 pl-3 py-1.5 rounded-full ${canRemove ? 'pr-1.5' : 'pr-3'} ${
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
                             isActive ? '' : 'hover:text-sk-primary dark:hover:text-primary'
                           } disabled:opacity-50 transition-colors`}
                           title={
@@ -688,21 +712,6 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                             />
                           )}
                         </button>
-                        {canRemove && (
-                          <button
-                            onClick={() => handleRemoveTranslation(lang.code, lang.label)}
-                            disabled={removingLanguage !== null}
-                            aria-label={`Delete the ${lang.label} translation`}
-                            title={`Delete the ${lang.label} translation`}
-                            className={`mr-1 p-1 rounded-full transition-colors disabled:opacity-50 ${
-                              isActive
-                                ? 'hover:bg-white/20 text-white/80 dark:text-primary-foreground/80'
-                                : 'hover:bg-destructive/10 hover:text-destructive text-sk-outline dark:text-muted-foreground'
-                            }`}
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        )}
                       </span>
                     );
                   })}
