@@ -191,7 +191,16 @@ export interface AdminLog {
   latency_ms: number | null;
   user_id: string | null;
   user_email?: string | null;
+  /** Whether the call ran with reasoning (migration 0067); null before that. */
+  thinking?: ThinkingState | null;
 }
+
+/**
+ * Whether one AI call ran with reasoning, from gemini_logs.thinking.
+ * 'refused': reasoning was asked off, the model only runs with it, and the
+ * call was made again with it on. Mirrors ThinkingState in api/_lib/gemini.ts.
+ */
+export type ThinkingState = 'on' | 'off' | 'refused';
 
 export interface Collection {
   id: string;

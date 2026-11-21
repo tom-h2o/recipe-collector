@@ -26,6 +26,8 @@ async function loadHandler(generated: unknown) {
     // Kept in the mock rather than importOriginal so these stay unit tests.
     modelFor: (s: { task_models?: Record<string, string>; gemini_model: string }, task: string) =>
       s.task_models?.[task] || s.gemini_model,
+    // Mirrors REASONING_OFF_TASKS.
+    thinkingFor: (task: string) => !['translate', 'tag', 'nutrition'].includes(task),
     getSettings: vi.fn().mockResolvedValue({
       gemini_model: 'gemini-test',
       temperature_unit: 'C',
@@ -44,6 +46,7 @@ async function loadHandler(generated: unknown) {
   }));
   const generateJson = vi.fn().mockResolvedValue(generated);
   vi.doMock('./_lib/gemini.js', () => ({
+    EMBEDDING_MODEL: 'gemini-embedding-2',
     getGeminiClient: () => ({ models: { embedContent: vi.fn().mockResolvedValue({ embeddings: [{ values: [0.1] }] }) } }),
     // Mirrors the real describeGeminiError closely enough for these tests:
     // our own error wording is preserved, a provider envelope is not.

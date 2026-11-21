@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 import type { CheerioAPI } from 'cheerio';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey, getUserId, modelFor } from './_lib/supabase.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId, modelFor, thinkingFor } from './_lib/supabase.js';
 import { extractedRecipeResponseSchema } from './_lib/responseSchemas.js';
 import { getGeminiClient, generateJson, describeGeminiError } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
@@ -418,7 +418,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
 
       const client = getGeminiClient(apiKey);
-      const raw = await generateJson(client, modelFor(settings, 'extract'), prompt, { supabase, endpoint: 'extract-text', userId }, { responseSchema: extractedRecipeResponseSchema });
+      const raw = await generateJson(client, modelFor(settings, 'extract'), prompt, { supabase, endpoint: 'extract-text', userId }, { responseSchema: extractedRecipeResponseSchema, thinking: thinkingFor('extract') });
 
       // The prompt tells the model to return an empty recipe rather than invent
       // one. That fails the schema by design, and the schema's own wording
@@ -460,7 +460,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
 
     const client = getGeminiClient(apiKey);
-    const recipeData = validateExtractedRecipe(await generateJson(client, modelFor(settings, 'extract'), finalPrompt, { supabase, endpoint: 'extract', userId }, { responseSchema: extractedRecipeResponseSchema }));
+    const recipeData = validateExtractedRecipe(await generateJson(client, modelFor(settings, 'extract'), finalPrompt, { supabase, endpoint: 'extract', userId }, { responseSchema: extractedRecipeResponseSchema, thinking: thinkingFor('extract') }));
 
     setCached(supabase, cacheKey, 'extract', recipeData, 24 * 7);
     console.info('extract gemini verified', { url, structuredDataFound: !!structuredRecipe });

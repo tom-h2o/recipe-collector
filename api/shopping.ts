@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey, getUserId, modelFor } from './_lib/supabase.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId, modelFor, thinkingFor } from './_lib/supabase.js';
 import { shoppingResponseSchema } from './_lib/responseSchemas.js';
 import { getGeminiClient, generateJson, describeGeminiError } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
@@ -41,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
 
     const client = getGeminiClient(apiKey);
-    const list = parseShoppingResult(await generateJson(client, modelFor(settings, 'shopping'), prompt, { supabase, endpoint: 'shopping', userId }, { responseSchema: shoppingResponseSchema }));
+    const list = parseShoppingResult(await generateJson(client, modelFor(settings, 'shopping'), prompt, { supabase, endpoint: 'shopping', userId }, { responseSchema: shoppingResponseSchema, thinking: thinkingFor('shopping') }));
     setCached(supabase, cacheKey, 'shopping', list, 24);
     return res.status(200).json({ list });
   } catch (err: unknown) {

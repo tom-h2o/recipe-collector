@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, ChevronDown, ChevronRight, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import type { ThinkingState } from '@/types';
+import { ReasoningTag } from '@/components/ReasoningTag';
 
 interface GeminiLog {
   id: string;
@@ -17,6 +19,8 @@ interface GeminiLog {
   output_preview?: string | null;
   error_message: string | null;
   recipe_id: string | null;
+  /** Whether the call ran with reasoning (migration 0067). */
+  thinking?: ThinkingState | null;
 }
 
 const ENDPOINT_COLORS: Record<string, string> = {
@@ -45,12 +49,16 @@ export function GeminiLogs() {
 
   async function fetchLogs() {
     setLoading(true);
-    const { data } = await supabase
+    const columns = 'id, created_at, endpoint, model, model_version, status, latency_ms, input, output, error_message, recipe_id';
+    const fetchRows = (cols: string) => supabase
       .from('gemini_logs')
-      .select('id, created_at, endpoint, model, model_version, status, latency_ms, input, output, error_message, recipe_id')
+      .select(cols)
       .order('created_at', { ascending: false })
       .limit(100);
-    if (data) setLogs(data as GeminiLog[]);
+    let { data, error } = await fetchRows(`${columns}, thinking`);
+    // In the minutes after a deploy, before migration 0067 adds the column.
+    if (error && /thinking/i.test(error.message)) ({ data, error } = await fetchRows(columns));
+    if (data) setLogs(data as unknown as GeminiLog[]);
     setLoading(false);
   }
 
@@ -152,6 +160,11 @@ export function GeminiLogs() {
 
                 {expandedId === log.id && (
                   <div className="px-3 pb-3 pt-1 space-y-2 bg-zinc-50 dark:bg-zinc-900/70 border-t border-zinc-100 dark:border-zinc-800 max-h-96 overflow-y-auto">
+                    {log.thinking && (
+                      <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                        Reasoning <ReasoningTag state={log.thinking} />
+                      </p>
+                    )}
                     {log.input && (
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Input Prompt</p>

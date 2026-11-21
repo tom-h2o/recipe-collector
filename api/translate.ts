@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey, getUserId, userCanReadRecipe, modelFor } from './_lib/supabase.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId, userCanReadRecipe, modelFor, thinkingFor } from './_lib/supabase.js';
 import { translationResponseSchema } from './_lib/responseSchemas.js';
 import { getGeminiClient, generateJson, describeGeminiError } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
@@ -71,7 +71,7 @@ Return this exact JSON structure:
         // Translating given text into a given shape leaves nothing to reason
         // about, and the thinking pass is what makes this the slowest endpoint
         // people wait on — gemini_logs has a successful translate at 124s.
-        thinking: false,
+        thinking: thinkingFor('translate'),
         // The schema fixes the shape, not the content: leaked reasoning in the
         // title is a valid string. Refused here it is asked for once more and
         // otherwise never reaches the upsert below — a stored translation is

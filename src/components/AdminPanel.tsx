@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button';
 import { PublicRecipe } from '@/components/PublicRecipe';
 import { RecipeForm } from '@/components/RecipeForm';
 import type { AdminUser, AdminStats, AdminLog, AdminRecipe, Recipe } from '@/types';
+import { ReasoningTag } from '@/components/ReasoningTag';
+import { SystemCheck } from '@/components/SystemCheck';
 
-type Tab = 'overview' | 'users' | 'recipes' | 'logs';
+type Tab = 'overview' | 'users' | 'recipes' | 'logs' | 'system';
 
 const PAGE_SIZE = 25;
 
@@ -302,6 +304,7 @@ export function AdminPanel() {
     { id: 'users', label: 'Users', count: stats.total_users },
     { id: 'recipes', label: 'Recipes', count: stats.total_recipes },
     { id: 'logs', label: 'AI Logs', count: stats.total_ai_calls },
+    { id: 'system', label: 'System' },
   ];
 
   return (
@@ -315,12 +318,14 @@ export function AdminPanel() {
       </div>
 
       {/* Tabs */}
-      <div className="flex bg-sk-surface-low dark:bg-muted rounded-full p-1 gap-0.5 w-fit">
+      {/* Scrolls sideways on a narrow phone rather than pushing the page wider. */}
+      <div className="flex bg-sk-surface-low dark:bg-muted rounded-full p-1 gap-0.5 w-fit max-w-full overflow-x-auto">
         {TABS.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all flex items-center gap-1.5 ${
+            aria-current={tab === t.id ? 'page' : undefined}
+            className={`shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-semibold transition-all flex items-center gap-1.5 ${
               tab === t.id
                 ? 'bg-white dark:bg-card shadow-sm text-sk-primary dark:text-primary'
                 : 'text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary'
@@ -335,6 +340,8 @@ export function AdminPanel() {
           </button>
         ))}
       </div>
+
+      {tab === 'system' && <SystemCheck />}
 
       {/* Overview tab */}
       {tab === 'overview' && (
@@ -510,12 +517,13 @@ export function AdminPanel() {
                     <th className="text-left px-4 py-3 font-semibold">Endpoint</th>
                     <th className="text-left px-4 py-3 font-semibold">Model</th>
                     <th className="text-left px-4 py-3 font-semibold">Status</th>
+                    <th className="text-left px-4 py-3 font-semibold">Reasoning</th>
                     <th className="text-right px-4 py-3 font-semibold">Latency</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
                   {logsLoading ? (
-                    <tr><td colSpan={6} className="px-6 py-10 text-center text-zinc-400"><Loader2 className="w-4 h-4 animate-spin inline mr-2" />Loading…</td></tr>
+                    <tr><td colSpan={7} className="px-6 py-10 text-center text-zinc-400"><Loader2 className="w-4 h-4 animate-spin inline mr-2" />Loading…</td></tr>
                   ) : logs.map((l) => (
                     <tr key={l.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
                       <td className="px-6 py-2.5 text-zinc-500 dark:text-zinc-400 whitespace-nowrap text-xs">{formatTime(l.created_at)}</td>
@@ -532,6 +540,7 @@ export function AdminPanel() {
                           {l.status}
                         </span>
                       </td>
+                      <td className="px-4 py-2.5 text-xs"><ReasoningTag state={l.thinking} /></td>
                       <td className="px-4 py-2.5 text-right text-xs text-zinc-500 dark:text-zinc-400">
                         {l.latency_ms != null ? `${l.latency_ms}ms` : '—'}
                       </td>

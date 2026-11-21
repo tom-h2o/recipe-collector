@@ -1,8 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getUserId } from './_lib/supabase.js';
+import { getServerSupabase, getUserId, getSettings, resolveApiKey } from './_lib/supabase.js';
 import { captureException } from './_lib/sentry.js';
+import { getGeminiClient } from './_lib/gemini.js';
+import { configReport, reasoningReport, runLiveCheck, EXPECTED_SCHEMA, type UsageRow } from './_lib/systemCheck.js';
 
 const ADMIN_EMAIL = process.env.VITE_ADMIN_EMAIL ?? '';
 const MAX_PAGE_SIZE = 100;
@@ -16,13 +18,43 @@ class HttpError extends Error {
   }
 }
 
-async function assertAdmin(authHeader: string | undefined): Promise<void> {
+/** Throws unless the caller is the admin; returns their user id. */
+async function assertAdmin(authHeader: string | undefined): Promise<string> {
   const userId = await getUserId(authHeader);
   if (!userId) throw new HttpError(401, 'Unauthorized');
   const supabase = getServerSupabase();
   const { data, error } = await supabase.auth.admin.getUserById(userId);
   if (error || !data?.user) throw new HttpError(403, error?.message || 'Forbidden');
-  if (data.user.email !== ADMIN_EMAIL) throw new HttpError(403, 'Forbidden');
+  // An unset ADMIN_EMAIL must never match an account with no email.
+  if (!ADMIN_EMAIL || data.user.email !== ADMIN_EMAIL) throw new HttpError(403, 'Forbidden');
+  return userId;
+}
+
+/** Seven days: long enough to see every task used, short enough to reflect a change. */
+const REASONING_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * The free half of the System tab: configuration (set or missing, never a
+ * value) and reasoning per task, configured and as logged. No external calls.
+ */
+export async function getHealthOverview(supabase: SupabaseClient, adminId: string) {
+  const since = new Date(Date.now() - REASONING_WINDOW_MS).toISOString();
+  const [settings, usage] = await Promise.all([
+    getSettings(supabase, adminId),
+    supabase.rpc('gemini_thinking_usage', { since }),
+  ]);
+  // Missing in the minutes before migration 0067 runs: the configured column
+  // still shows, the evidence column says it is unavailable.
+  if (usage.error) console.error('Reasoning usage unavailable:', usage.error);
+  return {
+    config: configReport(),
+    expected_schema: EXPECTED_SCHEMA,
+    reasoning: {
+      since,
+      usage_available: !usage.error,
+      tasks: reasoningReport(settings, usage.error ? null : (usage.data as UsageRow[])),
+    },
+  };
 }
 
 async function deleteUserData(userId: string): Promise<void> {
@@ -146,16 +178,24 @@ async function getRecipesPage(supabase: SupabaseClient, page: number, pageSize: 
   return { recipes, total: count ?? 0 };
 }
 
+const LOG_COLUMNS = 'id, created_at, endpoint, model, model_version, status, latency_ms, user_id';
+
 async function getLogsPage(supabase: SupabaseClient, page: number, pageSize: number) {
-  const { data, count, error } = await supabase
+  const fetchPage = (columns: string) => supabase
     .from('gemini_logs')
-    .select('id, created_at, endpoint, model, model_version, status, latency_ms, user_id', { count: 'exact' })
+    .select(columns, { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(page * pageSize, page * pageSize + pageSize - 1);
+  let { data, count, error } = await fetchPage(`${LOG_COLUMNS}, thinking`);
+  // Code is live a few minutes before the migration job adds `thinking`
+  // (0067); the tab shows the rows without it rather than failing.
+  if (error && /thinking/i.test(error.message)) ({ data, count, error } = await fetchPage(LOG_COLUMNS));
   if (error) throw new HttpError(500, error.message);
 
-  const emailMap = await emailMapFor(supabase, (data ?? []).map((l) => l.user_id));
-  const logs = (data ?? []).map((l) => ({ ...l, user_email: l.user_id ? (emailMap[l.user_id] ?? null) : null }));
+  // The column list is a variable, so supabase-js cannot infer the row shape.
+  const rows = (data ?? []) as unknown as { user_id: string | null }[];
+  const emailMap = await emailMapFor(supabase, rows.map((l) => l.user_id));
+  const logs = rows.map((l) => ({ ...l, user_email: l.user_id ? (emailMap[l.user_id] ?? null) : null }));
 
   return { logs, total: count ?? 0 };
 }
@@ -194,7 +234,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ── GET /api/account — admin dashboard, paginated per tab ─────────────────
     if (req.method === 'GET') {
-      await assertAdmin(auth);
+      const adminId = await assertAdmin(auth);
       const supabase = getServerSupabase();
       const tab = queryParam(req, 'tab') ?? 'overview';
 
@@ -223,7 +263,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ logs, total });
       }
 
+      if (tab === 'health') {
+        return res.status(200).json(await getHealthOverview(supabase, adminId));
+      }
+
       return res.status(400).json({ error: 'Invalid tab' });
+    }
+
+    // ── POST /api/account?action=health-check — admin: run the live checks ────
+    // A POST, not part of the GET above, because it costs something: one small
+    // Gemini call per model, an embedding and an Unsplash search. The System
+    // tab sends it only when the admin presses "Run check". The calls are
+    // logged as health-check, which NON_AI_ENDPOINTS keeps out of the limit.
+    if (req.method === 'POST' && queryParam(req, 'action') === 'health-check') {
+      const adminId = await assertAdmin(auth);
+      const supabase = getServerSupabase();
+      const apiKey = resolveApiKey(await getSettings(supabase, adminId));
+      const report = await runLiveCheck({ supabase, client: apiKey ? getGeminiClient(apiKey) : null, userId: adminId });
+      return res.status(200).json(report);
     }
 
     // ── PATCH /api/account?recipeId=… — admin: edit any user's recipe ─────────
