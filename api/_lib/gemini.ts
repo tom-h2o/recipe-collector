@@ -1,4 +1,4 @@
-import { GoogleGenAI, ThinkingLevel, type ThinkingConfig } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel, type Part, type Schema, type ThinkingConfig } from '@google/genai';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { captureException } from './sentry.js';
 
@@ -270,6 +270,101 @@ export async function callWithRetry<T>(
 }
 
 /**
+ * The free tiers, by id. Kept equal to the first two entries of OFFERED_MODELS
+ * (api/_lib/supabase.ts) by gemini.test.ts; not imported from there because
+ * every endpoint test mocks that module.
+ */
+const LITE_MODEL = 'gemini-3.5-flash-lite';
+const STANDARD_MODEL = 'gemini-4-hydrogen';
+
+/**
+ * The model to ask when the chosen one cannot answer right now.
+ *
+ * Each model has its own capacity and its own free quota, so "Gemini is down"
+ * is usually one model: the System tab has shown Standard answering 503 while
+ * Lite was fine. Standard and Lite stand in for each other; anything else
+ * (Frontier, which has no free allowance, or an id someone typed) falls back
+ * to Standard. Never to Frontier: on a key without billing it fails every call.
+ */
+export function fallbackModelFor(model: string): string {
+  return model === STANDARD_MODEL ? LITE_MODEL : STANDARD_MODEL;
+}
+
+/**
+ * True when the failure is about the model being unable to serve, not about
+ * the request: overloaded or failing (the transient set, which includes 429
+ * for a used-up quota) or gone (404). A 403 is left out on purpose: a project
+ * Google has blocked is blocked for every model, and a 400 would fail the same
+ * way on any of them.
+ */
+export function modelCannotServe(err: unknown): boolean {
+  if (isTransientGeminiError(err)) return true;
+  const { code, status } = errorCodeAndStatus(err);
+  return code === 404 || status === 'NOT_FOUND';
+}
+
+/**
+ * Runs `run` on `model` and, if that model cannot serve, once more on
+ * fallbackModelFor(model).
+ *
+ * `run` is given the time it may spend, so the two runs together stay inside
+ * one deadline. The fallback is only started if it is likely to finish: like
+ * callWithRetry, it budgets for the second run costing about what the first
+ * one did. One call is still one gemini_logs row; the caller logs the model
+ * that answered.
+ */
+export async function withModelFallback<T>(
+  model: string,
+  run: (model: string, budgetMs: number) => Promise<T>,
+  options: { deadlineMs?: number; onFallback?: (from: string, to: string, err: unknown) => void } = {},
+): Promise<{ value: T; model: string }> {
+  const deadlineMs = options.deadlineMs ?? DEFAULT_RETRY.deadlineMs;
+  const startedAt = Date.now();
+  try {
+    return { value: await run(model, deadlineMs), model };
+  } catch (err) {
+    const alternative = fallbackModelFor(model);
+    const elapsed = Date.now() - startedAt;
+    if (alternative === model || !modelCannotServe(err) || elapsed * 2 > deadlineMs) throw err;
+    options.onFallback?.(model, alternative, err);
+    return { value: await run(alternative, deadlineMs - elapsed), model: alternative };
+  }
+}
+
+/**
+ * One structured request with files attached (photos, a PDF), retried and
+ * falling back to the other free model exactly as generateJson does.
+ *
+ * Photo and PDF extraction log their own row and used to call
+ * generateContent directly, so they were the one place a 503 was never
+ * retried: an overloaded model failed a photo on the first try while every
+ * text task waited and tried again. `progress` is updated as the call runs, so
+ * the caller can log the attempts and the model even when it throws.
+ */
+export async function generateFromParts(
+  client: GoogleGenAI,
+  model: string,
+  parts: Part[],
+  options: { responseSchema?: Schema; temperature?: number } & RetryOptions = {},
+  progress: { attempts: number; model: string } = { attempts: 0, model },
+): Promise<{ text: string | undefined; modelVersion: string | undefined }> {
+  const { responseSchema, temperature = 0.1, ...retry } = options;
+  progress.model = model;
+  const { value } = await withModelFallback(model, (m, budgetMs) => {
+    progress.model = m;
+    return callWithRetry(
+      () => client.models.generateContent({
+        model: m,
+        contents: [{ role: 'user', parts }],
+        config: { responseMimeType: 'application/json', temperature, ...(responseSchema ? { responseSchema } : {}) },
+      }),
+      { ...retry, deadlineMs: budgetMs, onAttempt: () => { progress.attempts += 1; } },
+    ).then((r) => r.value);
+  }, { deadlineMs: retry.deadlineMs });
+  return { text: value.text, modelVersion: value.modelVersion };
+}
+
+/**
  * Turns a provider failure into something a user can act on.
  *
  * The frontend shows `error` from the response body verbatim, and every
@@ -437,28 +532,47 @@ export async function generateJson<T = unknown>(
   /** What the log row records; updated as lower reasoning settings are tried. */
   let thinkingState: ThinkingState = thinking ? 'on' : 'off';
   /**
+   * The model that answered the first request: `model`, or its fallback when
+   * `model` could not serve (withModelFallback). The repair and the re-ask go
+   * to the same one, and the log row records it.
+   */
+  let activeModel = model;
+  /**
    * The reasoning setting settled on by the first request, reused by the
    * repair and the re-ask so they do not walk into the same 400 again.
    */
-  let settled: { config: ThinkingConfig | undefined } | null = thinking ? { config: undefined } : null;
+  let settled: { config: ThinkingConfig | undefined } | null = null;
 
-  /** One request to the model, with transient failures retried. */
-  const ask = async (contents: string, temperature: number) => {
-    const send = async (thinkingConfig: ThinkingConfig | undefined) => (await callWithRetry(
+  /** One request to model `m`, with transient failures retried. */
+  const send = (m: string, contents: string, temperature: number, deadlineMs?: number) =>
+    async (thinkingConfig: ThinkingConfig | undefined) => (await callWithRetry(
       () => client.models.generateContent({
-        model,
+        model: m,
         contents,
         config: { responseMimeType: 'application/json', temperature, ...(responseSchema ? { responseSchema } : {}), ...(thinkingConfig ? { thinkingConfig } : {}) },
       }),
-      { ...retry, onAttempt: () => { attempts += 1; } },
+      { ...retry, ...(deadlineMs !== undefined ? { deadlineMs } : {}), onAttempt: () => { attempts += 1; } },
     )).value;
+
+  /**
+   * One request to the model. The first decides the model (falling back if the
+   * chosen one cannot serve) and the reasoning setting; later ones reuse both.
+   */
+  const ask = async (contents: string, temperature: number) => {
     let response;
     if (settled) {
-      response = await send(settled.config);
+      response = await send(activeModel, contents, temperature)(settled.config);
     } else {
-      const result = await withReducedReasoning(model, send, { onStep: (state) => { thinkingState = state; } });
-      response = result.value;
-      settled = { config: result.config };
+      const first = await withModelFallback(model, async (m, budgetMs) => {
+        const sendTo = send(m, contents, temperature, budgetMs);
+        if (thinking) return { response: await sendTo(undefined), config: undefined };
+        thinkingState = 'off';
+        const r = await withReducedReasoning(m, sendTo, { onStep: (state) => { thinkingState = state; } });
+        return { response: r.value, config: r.config };
+      }, { deadlineMs: retry.deadlineMs });
+      activeModel = first.model;
+      response = first.value.response;
+      settled = { config: first.value.config };
     }
     modelVersion = response.modelVersion ?? modelVersion;
     return response.text;
@@ -503,7 +617,8 @@ export async function generateJson<T = unknown>(
     if (logCtx) {
       void insertGeminiLog(logCtx.supabase, {
         endpoint: logCtx.endpoint,
-        model,
+        // The model that answered, which is `model` unless it could not serve.
+        model: activeModel,
         model_version: modelVersion ?? null,
         attempts,
         status,
