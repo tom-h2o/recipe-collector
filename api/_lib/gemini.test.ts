@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { forgetReasoningSteps, generateJson, reducedReasoningSteps, refusesReasoningSetting } from './gemini';
+import { fallbackModelFor, forgetReasoningSteps, generateFromParts, generateJson, modelCannotServe, reducedReasoningSteps, refusesReasoningSetting, withModelFallback } from './gemini';
+import { OFFERED_MODELS } from './supabase';
 
 // Which reasoning step each model accepted is remembered per instance; every
 // test starts without that memory.
@@ -209,9 +210,11 @@ describe('a model that refuses a lower reasoning setting', () => {
   });
 
   it('leaves any other error alone', async () => {
-    const gone = new Error('{"error":{"code":404,"message":"models/x is not found","status":"NOT_FOUND"}}');
-    const { client, generateContent } = setup(gone, { text: '{"ok":true}' });
-    await expect(generateJson(client, 'gemini-4-hydrogen', 'p', undefined, { thinking: false })).rejects.toThrow('not found');
+    // Not a 400, so not a refusal of the setting; and a 403 blocks every
+    // model alike, so there is no fallback either.
+    const blocked = new Error('{"error":{"code":403,"message":"Your project has been denied access.","status":"PERMISSION_DENIED"}}');
+    const { client, generateContent } = setup(blocked, { text: '{"ok":true}' });
+    await expect(generateJson(client, 'gemini-4-hydrogen', 'p', undefined, { thinking: false })).rejects.toThrow('denied access');
     expect(generateContent).toHaveBeenCalledTimes(1);
   });
 
@@ -294,5 +297,138 @@ describe('the log row records whether reasoning was off', () => {
     await generateJson(client, 'm', 'p', logCtx);
     await settle();
     expect(rows(insert)).toHaveLength(1);
+  });
+});
+
+/**
+ * "Gemini is down" is usually one model: each has its own capacity and its own
+ * free quota, and the System tab has shown Standard answering 503 while Lite
+ * was fine. A call whose model cannot serve is asked once more on the other
+ * free model, inside the same call: one log row, one unit of the allowance.
+ */
+describe('falling back to the other free model', () => {
+  beforeEach(() => forgetReasoningSteps());
+
+  const instant = { sleep: async () => {} };
+  const overloaded = () => new Error('{"error":{"code":503,"message":"The model is overloaded.","status":"UNAVAILABLE"}}');
+  const quota = () => new Error('{"error":{"code":429,"message":"Quota exceeded","status":"RESOURCE_EXHAUSTED"}}');
+  const gone = () => new Error('{"error":{"code":404,"message":"models/x is not found","status":"NOT_FOUND"}}');
+  const blocked = () => new Error('{"error":{"code":403,"message":"Your project has been denied access.","status":"PERMISSION_DENIED"}}');
+
+  function client(...responses: ({ text: string; modelVersion?: string } | Error)[]) {
+    const generateContent = vi.fn();
+    for (const r of responses) {
+      if (r instanceof Error) generateContent.mockRejectedValueOnce(r);
+      else generateContent.mockResolvedValueOnce(r);
+    }
+    const insert = vi.fn<(row: Record<string, unknown>) => Promise<{ error: null }>>(() => Promise.resolve({ error: null }));
+    return {
+      client: { models: { generateContent } } as never,
+      generateContent,
+      insert,
+      logCtx: { supabase: { from: () => ({ insert }) } as never, endpoint: 'extract', userId: 'user-1' },
+    };
+  }
+  const modelsAsked = (fn: ReturnType<typeof vi.fn>) => fn.mock.calls.map((c) => (c[0] as { model: string }).model);
+
+  it('pairs Standard and Lite, and never falls back to Frontier', () => {
+    expect(fallbackModelFor('gemini-4-hydrogen')).toBe('gemini-3.5-flash-lite');
+    expect(fallbackModelFor('gemini-3.5-flash-lite')).toBe('gemini-4-hydrogen');
+    expect(fallbackModelFor('gemini-4-carbon')).toBe('gemini-4-hydrogen');
+    expect(fallbackModelFor('gemini-something-custom')).toBe('gemini-4-hydrogen');
+    // The two ids are copies of OFFERED_MODELS' free tiers.
+    expect(OFFERED_MODELS.slice(0, 2).map(fallbackModelFor).sort()).toEqual([...OFFERED_MODELS.slice(0, 2)].sort());
+    expect(OFFERED_MODELS.map(fallbackModelFor)).not.toContain(OFFERED_MODELS[2]);
+  });
+
+  it('counts overload, used-up quota and a missing model as "cannot serve", not a blocked project', () => {
+    expect(modelCannotServe(overloaded())).toBe(true);
+    expect(modelCannotServe(quota())).toBe(true);
+    expect(modelCannotServe(gone())).toBe(true);
+    expect(modelCannotServe(blocked())).toBe(false);
+    expect(modelCannotServe(new Error('{"error":{"code":400,"message":"bad","status":"INVALID_ARGUMENT"}}'))).toBe(false);
+  });
+
+  it('answers from the other model when the chosen one stays overloaded, and logs one row for it', async () => {
+    const { client: c, generateContent, insert, logCtx } = client(overloaded(), overloaded(), overloaded(), { text: '{"ok":true}', modelVersion: 'lite-001' });
+    await expect(generateJson(c, 'gemini-4-hydrogen', 'p', logCtx, instant)).resolves.toEqual({ ok: true });
+    expect(modelsAsked(generateContent)).toEqual(['gemini-4-hydrogen', 'gemini-4-hydrogen', 'gemini-4-hydrogen', 'gemini-3.5-flash-lite']);
+    expect(insert).toHaveBeenCalledTimes(1);
+    expect(insert.mock.calls[0][0]).toMatchObject({ model: 'gemini-3.5-flash-lite', model_version: 'lite-001', attempts: 4, status: 'success' });
+  });
+
+  it('falls back when the chosen model has used up its quota', async () => {
+    const { client: c, generateContent } = client(quota(), quota(), quota(), { text: '{"ok":true}' });
+    await expect(generateJson(c, 'gemini-3.5-flash-lite', 'p', undefined, instant)).resolves.toEqual({ ok: true });
+    expect(modelsAsked(generateContent).at(-1)).toBe('gemini-4-hydrogen');
+  });
+
+  it('falls back at once when the chosen model is gone, since retrying a 404 cannot help', async () => {
+    const { client: c, generateContent } = client(gone(), { text: '{"ok":true}' });
+    await expect(generateJson(c, 'gemini-3.5-flash-lite', 'p', undefined, instant)).resolves.toEqual({ ok: true });
+    expect(modelsAsked(generateContent)).toEqual(['gemini-3.5-flash-lite', 'gemini-4-hydrogen']);
+  });
+
+  it('does not try another model for a blocked project', async () => {
+    const { client: c, generateContent } = client(blocked(), { text: '{"ok":true}' });
+    await expect(generateJson(c, 'gemini-4-hydrogen', 'p', undefined, instant)).rejects.toThrow('denied access');
+    expect(generateContent).toHaveBeenCalledTimes(1);
+  });
+
+  it('lowers reasoning the way the fallback model accepts, and records that', async () => {
+    // Standard is asked for LOW; Lite, being a Gemini 3 model, for MINIMAL first.
+    const { client: c, generateContent, insert, logCtx } = client(overloaded(), overloaded(), overloaded(), { text: '{"ok":true}' });
+    await generateJson(c, 'gemini-4-hydrogen', 'p', logCtx, { ...instant, thinking: false });
+    const configs = generateContent.mock.calls.map((call) => (call[0] as { config: { thinkingConfig?: { thinkingLevel?: string } } }).config.thinkingConfig?.thinkingLevel);
+    expect(configs).toEqual(['LOW', 'LOW', 'LOW', 'MINIMAL']);
+    expect(insert.mock.calls[0][0]).toMatchObject({ model: 'gemini-3.5-flash-lite', thinking: 'minimal' });
+  });
+
+  it('sends the repair to the model that answered', async () => {
+    const { client: c, generateContent } = client(overloaded(), overloaded(), overloaded(), { text: '{"ok":' }, { text: '{"ok":true}' });
+    await expect(generateJson(c, 'gemini-4-hydrogen', 'p', undefined, instant)).resolves.toEqual({ ok: true });
+    expect(modelsAsked(generateContent).slice(-2)).toEqual(['gemini-3.5-flash-lite', 'gemini-3.5-flash-lite']);
+  });
+
+  it('does not start a fallback the deadline cannot fit', async () => {
+    let now = 0;
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    const run = vi.fn(async (m: string) => {
+      if (m === 'gemini-4-hydrogen') { now += 60_000; throw overloaded(); }
+      return 'late';
+    });
+    await expect(withModelFallback('gemini-4-hydrogen', run, { deadlineMs: 110_000 })).rejects.toThrow('overloaded');
+    expect(run).toHaveBeenCalledTimes(1);
+    vi.restoreAllMocks();
+  });
+
+  it('gives the fallback only the time that is left', async () => {
+    let now = 0;
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    const budgets: number[] = [];
+    const run = vi.fn(async (m: string, budgetMs: number) => {
+      budgets.push(budgetMs);
+      if (m === 'gemini-4-hydrogen') { now += 10_000; throw overloaded(); }
+      return 'ok';
+    });
+    await expect(withModelFallback('gemini-4-hydrogen', run, { deadlineMs: 110_000 })).resolves.toEqual({ value: 'ok', model: 'gemini-3.5-flash-lite' });
+    expect(budgets).toEqual([110_000, 100_000]);
+    vi.restoreAllMocks();
+  });
+
+  it('retries and falls back for photo and PDF extraction too, reporting what it took', async () => {
+    const { client: c, generateContent } = client(overloaded(), overloaded(), overloaded(), { text: '{"title":"x"}', modelVersion: 'lite-001' });
+    const progress = { attempts: 0, model: '' };
+    const out = await generateFromParts(c, 'gemini-4-hydrogen', [{ text: 'read this' }], instant, progress);
+    expect(out).toEqual({ text: '{"title":"x"}', modelVersion: 'lite-001' });
+    expect(progress).toEqual({ attempts: 4, model: 'gemini-3.5-flash-lite' });
+    expect(modelsAsked(generateContent)).toEqual(['gemini-4-hydrogen', 'gemini-4-hydrogen', 'gemini-4-hydrogen', 'gemini-3.5-flash-lite']);
+  });
+
+  it('reports the attempts and the last model tried when photo extraction fails on both', async () => {
+    const { client: c } = client(overloaded(), overloaded(), overloaded(), overloaded(), overloaded(), overloaded());
+    const progress = { attempts: 0, model: '' };
+    await expect(generateFromParts(c, 'gemini-4-hydrogen', [{ text: 'read this' }], instant, progress)).rejects.toThrow('overloaded');
+    expect(progress).toEqual({ attempts: 6, model: 'gemini-3.5-flash-lite' });
   });
 });

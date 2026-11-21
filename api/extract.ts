@@ -5,7 +5,7 @@ import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId, modelFor, thinkingFor } from './_lib/supabase.js';
 import { extractedRecipeResponseSchema } from './_lib/responseSchemas.js';
-import { getGeminiClient, generateJson, describeGeminiError } from './_lib/gemini.js';
+import { getGeminiClient, generateJson, generateFromParts, describeGeminiError } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { extractedRecipeSchema, extractSchema, extractPhotoSchema, extractPdfSchema, extractTextSchema, normaliseExtractPhotoBody } from './_lib/schemas.js';
 import { EXTRACT_TEMPLATE } from './_lib/prompts.js';
@@ -368,16 +368,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         { text: photoPrompt(settings.temperature_unit, images.length) },
       ];
       const inputPreview = `[${images.length} image${images.length === 1 ? '' : 's'}: ${images.map((i) => i.mimeType).join(', ')}]`;
+      // Retried, and moved to the other free model if this one cannot serve;
+      // progress says which model answered and how many calls it took.
+      const progress = { attempts: 0, model: modelFor(settings, 'extract') };
       try {
-        const response = await client.models.generateContent({ model: modelFor(settings, 'extract'), contents: [{ role: 'user', parts }], config: { responseMimeType: 'application/json', temperature: 0.1, responseSchema: extractedRecipeResponseSchema } });
+        const response = await generateFromParts(client, progress.model, parts, { responseSchema: extractedRecipeResponseSchema }, progress);
         const text = response.text;
         if (!text) throw new Error('Gemini returned an empty response.');
         const recipeData = validateExtractedRecipe(JSON.parse(text));
-        supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: modelFor(settings, 'extract'), model_version: response.modelVersion ?? null, status: 'success', latency_ms: Date.now() - startTime, input_preview: inputPreview, output_preview: text.substring(0, 300), user_id: userId }).then(() => {}, () => {});
+        supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: progress.model, model_version: response.modelVersion ?? null, attempts: progress.attempts, status: 'success', latency_ms: Date.now() - startTime, input_preview: inputPreview, output_preview: text.substring(0, 300), user_id: userId }).then(() => {}, () => {});
         return res.status(200).json(recipeData);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
-        supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: modelFor(settings, 'extract'), status: 'error', latency_ms: Date.now() - startTime, input_preview: inputPreview, error_message: errorMessage, user_id: userId }).then(() => {}, () => {});
+        supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: progress.model, attempts: progress.attempts, status: 'error', latency_ms: Date.now() - startTime, input_preview: inputPreview, error_message: errorMessage, user_id: userId }).then(() => {}, () => {});
         throw err;
       }
     }
@@ -389,16 +392,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { pdfBase64 } = extractPdfSchema.parse(body);
       const client = getGeminiClient(apiKey);
       const startTime = Date.now();
+      const progress = { attempts: 0, model: modelFor(settings, 'extract') };
       try {
-        const response = await client.models.generateContent({ model: modelFor(settings, 'extract'), contents: [{ role: 'user', parts: [{ inlineData: { mimeType: 'application/pdf', data: pdfBase64 } }, { text: pdfPrompt(settings.temperature_unit) }] }], config: { responseMimeType: 'application/json', temperature: 0.1, responseSchema: extractedRecipeResponseSchema } });
+        const response = await generateFromParts(client, progress.model, [{ inlineData: { mimeType: 'application/pdf', data: pdfBase64 } }, { text: pdfPrompt(settings.temperature_unit) }], { responseSchema: extractedRecipeResponseSchema }, progress);
         const text = response.text;
         if (!text) throw new Error('Gemini returned an empty response.');
         const recipeData = validateExtractedRecipe(JSON.parse(text));
-        supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: modelFor(settings, 'extract'), model_version: response.modelVersion ?? null, status: 'success', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', output_preview: text.substring(0, 300), user_id: userId }).then(() => {}, () => {});
+        supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: progress.model, model_version: response.modelVersion ?? null, attempts: progress.attempts, status: 'success', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', output_preview: text.substring(0, 300), user_id: userId }).then(() => {}, () => {});
         return res.status(200).json(recipeData);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
-        supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: modelFor(settings, 'extract'), status: 'error', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', error_message: errorMessage, user_id: userId }).then(() => {}, () => {});
+        supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: progress.model, attempts: progress.attempts, status: 'error', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', error_message: errorMessage, user_id: userId }).then(() => {}, () => {});
         throw err;
       }
     }
