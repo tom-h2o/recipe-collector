@@ -1,13 +1,31 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { z } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getUserId, getSettings, resolveApiKey } from './_lib/supabase.js';
+import {
+  getServerSupabase, getUserId, getSettings, resolveApiKey, saveModelConfig,
+  AI_TASK_IDS, OFFERED_MODELS, type AiTask,
+} from './_lib/supabase.js';
 import { captureException } from './_lib/sentry.js';
 import { getGeminiClient } from './_lib/gemini.js';
 import { configReport, reasoningReport, runLiveCheck, EXPECTED_SCHEMA, type UsageRow } from './_lib/systemCheck.js';
 
 const ADMIN_EMAIL = process.env.VITE_ADMIN_EMAIL ?? '';
 const MAX_PAGE_SIZE = 100;
+
+/**
+ * POST /api/account?action=models — the admin's model choice for everyone.
+ * Only ids the app offers: a typo here would fail every AI call in the app,
+ * and nothing else stands between this body and the global settings row.
+ * Kept here rather than in _lib/schemas.ts because it is built from
+ * supabase.ts's constants, and every endpoint test mocks that module.
+ */
+const offeredModel = z.enum(OFFERED_MODELS as [string, ...string[]], { error: 'Not a model this app offers' });
+
+export const modelConfigSchema = z.object({
+  gemini_model: offeredModel,
+  task_models: z.partialRecord(z.enum(AI_TASK_IDS as [AiTask, ...AiTask[]]), offeredModel),
+}).strict();
 
 class HttpError extends Error {
   status: number;
@@ -281,6 +299,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const apiKey = resolveApiKey(await getSettings(supabase, adminId));
       const report = await runLiveCheck({ supabase, client: apiKey ? getGeminiClient(apiKey) : null, userId: adminId });
       return res.status(200).json(report);
+    }
+
+    // ── POST /api/account?action=models — admin: the models everyone runs on ──
+    // The only way to change them. Users read the result from the global
+    // settings row (RLS lets them select it, never write it) to see which model
+    // each task runs on; getSettings() reads nothing else for models.
+    if (req.method === 'POST' && queryParam(req, 'action') === 'models') {
+      await assertAdmin(auth);
+      const parsed = modelConfigSchema.safeParse(req.body ?? {});
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid model configuration' });
+      }
+      const saved = await saveModelConfig(getServerSupabase(), parsed.data);
+      return res.status(200).json(saved);
     }
 
     // ── PATCH /api/account?recipeId=… — admin: edit any user's recipe ─────────
