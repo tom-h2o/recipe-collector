@@ -11,6 +11,7 @@ import App from './App.tsx'
 import { initSentry } from './lib/sentry'
 import { registerServiceWorker } from './lib/registerServiceWorker'
 import { recoverFromStaleChunks } from './lib/recoverFromStaleChunks'
+import { initPressFeedback } from './lib/pressFeedback'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { LoadFailure } from './components/LoadFailure'
 
@@ -24,6 +25,9 @@ recoverFromStaleChunks()
 // re-checked for a new worker on an installed PWA and never reloaded the page
 // when one took over. See registerServiceWorker.ts.
 registerServiceWorker()
+
+// Touch feedback for everything tappable; the styles are in index.css.
+initPressFeedback()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

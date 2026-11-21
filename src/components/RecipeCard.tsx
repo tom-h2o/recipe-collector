@@ -22,6 +22,7 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, translation, tr
   return (
     <div
       onClick={() => onOpen(recipe)}
+      data-pressable="surface"
       className="cursor-pointer overflow-hidden flex flex-col group rounded-xl bg-white dark:bg-card hover:shadow-ambient transition-all duration-300"
       style={{ boxShadow: '0 2px 12px rgba(47, 49, 46, 0.04)' }}
     >
@@ -52,7 +53,7 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, translation, tr
         {/* Favourite button */}
         <button
           onClick={(e) => onToggleFavourite(recipe, e)}
-          className="absolute top-2 right-2 p-2 rounded-full bg-white/85 dark:bg-card/85 backdrop-blur-sm shadow-sm transition-transform hover:scale-110"
+          className="absolute top-2 right-2 p-2 rounded-full glass glass-control transition-transform hover:scale-110"
           title={recipe.is_favourite ? 'Unfavourite' : 'Favourite'}
         >
           <Star className={`w-4 h-4 ${recipe.is_favourite ? 'fill-sk-primary text-sk-primary dark:fill-primary dark:text-primary' : 'text-sk-outline dark:text-muted-foreground'}`} />
