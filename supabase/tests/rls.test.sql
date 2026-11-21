@@ -12,7 +12,7 @@ create extension if not exists pgtap with schema extensions;
 create schema if not exists tests;
 
 begin;
-select plan(41);
+select plan(44);
 
 -- ── Fixtures ────────────────────────────────────────────────────────────────
 -- Three accounts: two that will be linked, and a third that must stay isolated.
@@ -189,6 +189,14 @@ select is(
   (select count(*)::int from public.settings where user_id = '22222222-2222-2222-2222-222222222222'),
   0,
   'linking shares recipes, not settings — a linked account''s settings row stays hidden'
+);
+
+-- Settings shows every user which model each task runs on, read from the
+-- global row (migration 0068). Reading it is all a user may do with it.
+select is(
+  (select task_models->>'tag' from public.settings where id = 1),
+  'gemini-3.5-flash-lite',
+  'every user can read the AI models the admin chose for everyone'
 );
 
 update public.settings set gemini_model = 'tampered' where id = 1;
@@ -445,6 +453,17 @@ select ok(
 select ok(
   (public.system_health()->>'latest_migration') >= '0067',
   'system_health reads the newest applied migration as its file-name prefix'
+);
+
+-- Only the global row's models run (0068), so only they are probed. The
+-- linked account's row above still names gemini-flash-latest.
+select ok(
+  (public.system_health()->'configured_models') ? 'gemini-3.5-flash-lite',
+  'system_health lists the models the global row assigns'
+);
+select ok(
+  not ((public.system_health()->'configured_models') ? 'gemini-flash-latest'),
+  'a model left on someone''s own settings row is not reported as configured'
 );
 
 select * from finish();

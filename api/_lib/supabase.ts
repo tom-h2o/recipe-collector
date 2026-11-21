@@ -21,7 +21,7 @@ export interface Settings {
 /**
  * The model a given task should run on.
  *
- * Falls back to `gemini_model` for any task the user has not assigned, which is
+ * Falls back to `gemini_model` for any task the admin has not assigned, which is
  * what makes the column safe to add to existing rows: an empty map behaves
  * exactly like the single-model setup it replaced.
  */
@@ -48,7 +48,7 @@ export function thinkingFor(task: AiTask): boolean {
 }
 
 /**
- * The model ids offered in Settings, in tier order. A copy of the ids in
+ * The model ids the admin can choose from in Settings, in tier order. A copy of the ids in
  * MODEL_OPTIONS (src/lib/constants.ts), because src and api do not import from
  * each other; tests/unit/reasoningConfig.test.ts asserts the two match. The
  * System tab probes every one of these, whether or not anyone has chosen it.
@@ -66,39 +66,84 @@ export function getServerSupabase(): SupabaseClient {
   return createClient(url, key);
 }
 
-const SETTINGS_SELECT = 'gemini_model, task_models, temperature_unit';
+/**
+ * The settings row that holds the AI models for everyone. Models are chosen by
+ * the admin (POST /api/account?action=models), never per person: since
+ * migration 0068 a user's own row contributes only temperature_unit, and any
+ * gemini_model or task_models left on it is ignored.
+ */
+export const GLOBAL_SETTINGS_ID = 1;
 
-function rowToSettings(data: Record<string, unknown>, defaults: Settings): Settings {
-  return {
-    gemini_model: (data.gemini_model as string) || defaults.gemini_model,
-    // jsonb comes back as an object; guard against null and against a value that
-    // is not an object, since neither should silently become a valid map.
-    task_models:
-      data.task_models && typeof data.task_models === 'object' && !Array.isArray(data.task_models)
-        ? (data.task_models as Partial<Record<AiTask, string>>)
-        : {},
-    temperature_unit: ((data.temperature_unit as string) as 'C' | 'F') || defaults.temperature_unit,
-  };
+const MODEL_SELECT = 'gemini_model, task_models';
+
+function isTaskMap(value: unknown): value is Partial<Record<AiTask, string>> {
+  // jsonb comes back as an object; guard against null and against a value that
+  // is not an object, since neither should silently become a valid map.
+  return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
+function asUnit(value: unknown): 'C' | 'F' | null {
+  return value === 'C' || value === 'F' ? value : null;
+}
+
+/**
+ * What an AI call needs to know: the models (the global row) and the caller's
+ * temperature unit (their own row). The two reads are independent, so one
+ * failing leaves the other's answer intact; anything missing falls back to the
+ * code defaults, which is also what the app shows when the row is absent.
+ */
 export async function getSettings(supabase: SupabaseClient, userId?: string | null): Promise<Settings> {
   const defaults: Settings = {
     gemini_model: DEFAULT_MODEL,
     task_models: {},
     temperature_unit: 'C',
   };
-  try {
-    // Prefer the user's own settings row; fall back to the global id=1 row
-    if (userId) {
-      const { data } = await supabase.from('settings').select(SETTINGS_SELECT).eq('user_id', userId).single();
-      if (data) return rowToSettings(data, defaults);
+  const read = async (q: () => PromiseLike<{ data: Record<string, unknown> | null }>) => {
+    try {
+      return (await q()).data ?? null;
+    } catch {
+      return null;
     }
-    const { data } = await supabase.from('settings').select(SETTINGS_SELECT).eq('id', 1).single();
-    if (!data) return defaults;
-    return rowToSettings(data, defaults);
-  } catch {
-    return defaults;
-  }
+  };
+  const [models, own] = await Promise.all([
+    read(() => supabase.from('settings').select(MODEL_SELECT).eq('id', GLOBAL_SETTINGS_ID).single()),
+    userId
+      ? read(() => supabase.from('settings').select('temperature_unit').eq('user_id', userId).single())
+      : Promise.resolve(null),
+  ]);
+  return {
+    gemini_model: (models?.gemini_model as string) || defaults.gemini_model,
+    task_models: isTaskMap(models?.task_models) ? models.task_models : {},
+    temperature_unit: asUnit(own?.temperature_unit) ?? defaults.temperature_unit,
+  };
+}
+
+/** The admin's model choice, as written to the global row. */
+export interface ModelConfig {
+  gemini_model: string;
+  task_models: Partial<Record<AiTask, string>>;
+}
+
+/**
+ * Writes the models everyone's AI calls run on. Service key only: RLS keeps
+ * every user off the global row (settings_update, migration 0020), which is
+ * what makes this admin-only rather than a matter of hiding a control.
+ * The caller has already checked the ids against OFFERED_MODELS.
+ */
+export async function saveModelConfig(supabase: SupabaseClient, config: ModelConfig): Promise<ModelConfig> {
+  const { data, error } = await supabase
+    .from('settings')
+    .upsert(
+      { id: GLOBAL_SETTINGS_ID, user_id: null, gemini_model: config.gemini_model, task_models: config.task_models },
+      { onConflict: 'id' },
+    )
+    .select(MODEL_SELECT)
+    .single();
+  if (error) throw error;
+  return {
+    gemini_model: (data?.gemini_model as string) || config.gemini_model,
+    task_models: isTaskMap(data?.task_models) ? data.task_models : config.task_models,
+  };
 }
 
 export async function getUserId(authHeader: string | undefined): Promise<string | null> {

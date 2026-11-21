@@ -44,6 +44,7 @@ function ViewFallback() {
 
 export default function App() {
   const { user, signOut } = useAuth();
+  const isAdmin = !!ADMIN_EMAIL && user?.email === ADMIN_EMAIL;
   const { recipes, loading, processingIds, hasMore, fetchRecipes, loadMore, saveRecipe, deleteRecipe, toggleFavourite, updateRecipe } = useRecipes(user?.id);
   const { mealPlans, fetchMealPlans, addMealPlan, removeMealPlan } = useMealPlans(user?.id);
   const { shoppingList, pantryItems, isGeneratingShopping, fetchShoppingList, fetchPantryItems, generateShoppingList, toggleItem, deleteItem, clearAll, moveItemToPantry, moveItemToShopping, deletePantryItem, addToPantry } = useShoppingList(user?.id);
@@ -291,7 +292,7 @@ export default function App() {
         <Layout
           activeView={activeView}
           user={user}
-          isAdmin={!!ADMIN_EMAIL && user?.email === ADMIN_EMAIL}
+          isAdmin={isAdmin}
           onOpenWhatsNew={changelog.open}
           hasUnreadReleases={changelog.hasUnread}
           recipeCount={recipes.length}
@@ -448,6 +449,7 @@ export default function App() {
             isSaving={isSavingSettings}
             onClose={() => setIsSettingsOpen(false)}
             onSave={saveSettings}
+            isAdmin={isAdmin}
             userEmail={user?.email}
             userId={user?.id}
           />

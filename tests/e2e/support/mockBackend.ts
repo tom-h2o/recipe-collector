@@ -86,17 +86,23 @@ interface Options {
   verbose?: boolean;
   /** Colour theme to seed before the app boots. */
   theme?: 'light' | 'dark';
+  /**
+   * Who is signed in. Defaults to MOCK_USER, whose email playwright.config.ts
+   * makes the admin's; pass another email to see the app as everyone else does.
+   */
+  email?: string;
 }
 
-export async function installMockBackend(page: Page, { verbose = false, theme }: Options = {}) {
+export async function installMockBackend(page: Page, { verbose = false, theme, email }: Options = {}) {
   const log = (...args: unknown[]) => { if (verbose) console.log(...args); };
+  const user = email ? { ...MOCK_USER, email } : MOCK_USER;
 
   await page.route('**/auth/v1/**', async (route) => {
     const url = route.request().url();
     log('Auth intercept:', url);
     const body = url.includes('/user')
-      ? MOCK_USER
-      : { access_token: 'mock-token-123', user: { id: MOCK_USER.id, email: MOCK_USER.email } };
+      ? user
+      : { access_token: 'mock-token-123', user: { id: user.id, email: user.email } };
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
 
@@ -146,6 +152,6 @@ export async function installMockBackend(page: Page, { verbose = false, theme }:
       );
       if (themeChoice) window.localStorage.setItem('theme', themeChoice);
     },
-    { storageKey: authStorageKey, user: MOCK_USER, themeChoice: theme ?? null },
+    { storageKey: authStorageKey, user, themeChoice: theme ?? null },
   );
 }

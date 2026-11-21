@@ -20,11 +20,59 @@ interface Props {
   isSaving: boolean;
   onClose: () => void;
   onSave: (settings: AppSettings) => void;
+  /**
+   * The admin chooses the AI models for everyone; anyone else sees which model
+   * each task runs on, read-only. Hiding the controls is the courtesy, not the
+   * guard: the server refuses a model change from anyone but the admin.
+   */
+  isAdmin?: boolean;
   userId?: string | null;
   userEmail?: string | null;
 }
 
-export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, userId, userEmail }: Props) {
+/**
+ * What each model id has actually been running as. An alias hides the real
+ * model, and Google moves them without notice — the only trustworthy answer
+ * comes from calls that happened.
+ */
+function ModelResolutionList({ ids, resolutionFor }: { ids: string[]; resolutionFor: ReturnType<typeof useModelResolution>['resolutionFor'] }) {
+  return (
+    <>
+      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800 mt-3">
+        {ids.map((id) => {
+          const r = resolutionFor(id);
+          const isAlias = id.endsWith('-latest');
+          return (
+            <div key={id} className="px-3 py-2 flex items-baseline justify-between gap-3 text-xs">
+              <span className="font-mono text-zinc-600 dark:text-zinc-400 truncate">
+                {id}
+                {isAlias && (
+                  <span className="ml-1.5 text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-500">alias</span>
+                )}
+              </span>
+              {r ? (
+                <span className="text-right shrink-0">
+                  <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-200">{r.servedBy}</span>
+                  <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">
+                    last run {new Date(r.at).toLocaleDateString()}
+                  </span>
+                </span>
+              ) : (
+                <span className="shrink-0 text-zinc-500 dark:text-zinc-400">not used yet</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+        What each model actually ran as, taken from your own recent AI calls — an
+        alias can point somewhere different without warning.
+      </p>
+    </>
+  );
+}
+
+export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, isAdmin = false, userId, userEmail }: Props) {
   const {
     connected, pendingIncoming, pendingOutgoing, busy: linksBusy,
     fetchLinks, invite, accept, disconnect, rename,
@@ -65,6 +113,8 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, use
   const overrideCount = Object.keys(local.task_models ?? {}).length;
   const usingRecommended =
     JSON.stringify(local.task_models ?? {}) === JSON.stringify(RECOMMENDED_TASK_MODELS);
+  const modelOf = (task: AiTask) => local.task_models?.[task] || local.gemini_model;
+  const modelsInUse = [...new Set(AI_TASKS.map((t) => modelOf(t.task)))];
 
   return (
     <Dialog open={isOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -74,7 +124,7 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, use
           <DialogTitle className="text-2xl font-bold flex items-center gap-2">
             <Settings className="w-6 h-6 text-sk-primary" /> Settings
           </DialogTitle>
-          <DialogDescription>Configure the Gemini AI model used for recipe extraction.</DialogDescription>
+          <DialogDescription>Your preferences, linked accounts and AI usage.</DialogDescription>
         </DialogHeader>
 
         {/* Tab switcher — fixed position, never moves */}
@@ -123,151 +173,149 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, use
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">All temperatures in recipes will be displayed in your preferred unit.</p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Gemini Model</Label>
-                  <Select value={local.gemini_model} onValueChange={(v) => { if (v) setLocal((p) => ({ ...p, gemini_model: v })); }}>
-                    <SelectTrigger aria-label="Gemini model" className="w-full h-auto min-h-9 py-1.5">
-                      {/* An explicit label: without it the trigger renders the
-                          selected item's entire block — description and price
-                          included — inside a fixed-height, nowrap box. */}
-                      <SelectValue placeholder="Select model">
-                        {(value: string) => {
-                          const m = MODEL_OPTIONS.find((o) => o.id === value);
-                          if (!m) return 'Select model';
-                          return (
-                            <span className="flex items-center gap-2 min-w-0">
-                              <span className="font-semibold shrink-0">{m.name}</span>
-                              <span className="text-xs text-zinc-600 dark:text-zinc-400 truncate">{m.id}</span>
-                            </span>
-                          );
-                        }}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MODEL_OPTIONS.map((m) => (
-                        <SelectItem key={m.id} value={m.id}>
-                          <div className="flex flex-col gap-0.5 py-0.5 max-w-[26rem]">
-                            <span className="flex items-center gap-2 font-semibold">
-                              {m.name}
-                              {m.badge && (
-                                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-sk-surface-high dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground">
-                                  {m.badge}
-                                </span>
-                              )}
-                              <span className="text-[11px] font-normal text-zinc-600 dark:text-zinc-400">{m.id}</span>
-                            </span>
-                            <span className="text-xs font-normal text-zinc-600 dark:text-zinc-400 whitespace-normal">{m.description}</span>
-                            <span className="text-[11px] font-normal text-zinc-600 dark:text-zinc-400">{m.price}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                    Used by every task that has no model of its own below.
-                  </p>
-
-                  {/* What each id has actually been running as. An alias hides
-                      the real model, and Google moves them without notice — the
-                      only trustworthy answer comes from calls that happened. */}
-                  <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800 mt-3">
-                    {MODEL_OPTIONS.map((m) => {
-                      const r = resolutionFor(m.id);
-                      const isAlias = m.id.endsWith('-latest');
-                      return (
-                        <div key={m.id} className="px-3 py-2 flex items-baseline justify-between gap-3 text-xs">
-                          <span className="font-mono text-zinc-600 dark:text-zinc-400 truncate">
-                            {m.id}
-                            {isAlias && (
-                              <span className="ml-1.5 text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-500">alias</span>
-                            )}
-                          </span>
-                          {r ? (
-                            <span className="text-right shrink-0">
-                              <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-200">{r.servedBy}</span>
-                              <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">
-                                last run {new Date(r.at).toLocaleDateString()}
+                {isAdmin ? (
+                  <>
+                    <p className="text-xs rounded-xl px-3 py-2 bg-sk-surface-high dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground">
+                      You are the admin: the AI models below apply to everyone using the app. Nobody else can change them.
+                    </p>
+                  <div className="space-y-2">
+                    <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Gemini Model</Label>
+                    <Select value={local.gemini_model} onValueChange={(v) => { if (v) setLocal((p) => ({ ...p, gemini_model: v })); }}>
+                      <SelectTrigger aria-label="Gemini model" className="w-full h-auto min-h-9 py-1.5">
+                        {/* An explicit label: without it the trigger renders the
+                            selected item's entire block — description and price
+                            included — inside a fixed-height, nowrap box. */}
+                        <SelectValue placeholder="Select model">
+                          {(value: string) => {
+                            const m = MODEL_OPTIONS.find((o) => o.id === value);
+                            if (!m) return 'Select model';
+                            return (
+                              <span className="flex items-center gap-2 min-w-0">
+                                <span className="font-semibold shrink-0">{m.name}</span>
+                                <span className="text-xs text-zinc-600 dark:text-zinc-400 truncate">{m.id}</span>
                               </span>
-                            </span>
-                          ) : (
-                            <span className="shrink-0 text-zinc-500 dark:text-zinc-400">not used yet</span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    What each model actually ran as, taken from your own recent AI calls — an
-                    alias can point somewhere different without warning.
-                  </p>
-                </div>
+                            );
+                          }}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MODEL_OPTIONS.map((m) => (
+                          <SelectItem key={m.id} value={m.id}>
+                            <div className="flex flex-col gap-0.5 py-0.5 max-w-[26rem]">
+                              <span className="flex items-center gap-2 font-semibold">
+                                {m.name}
+                                {m.badge && (
+                                  <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-sk-surface-high dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground">
+                                    {m.badge}
+                                  </span>
+                                )}
+                                <span className="text-[11px] font-normal text-zinc-600 dark:text-zinc-400">{m.id}</span>
+                              </span>
+                              <span className="text-xs font-normal text-zinc-600 dark:text-zinc-400 whitespace-normal">{m.description}</span>
+                              <span className="text-[11px] font-normal text-zinc-600 dark:text-zinc-400">{m.price}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                      Used by every task that has no model of its own below.
+                    </p>
 
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Model per task</Label>
-                      <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-                        Reading a photographed page is far harder than tagging a recipe you already have.
-                        Put the cheap tasks on Lite and keep extraction on a stronger model.
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      onClick={() => setLocal((p) => ({ ...p, task_models: { ...RECOMMENDED_TASK_MODELS } }))}
-                      disabled={usingRecommended}
-                      className="shrink-0 h-8 px-3 text-xs rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border-0 disabled:opacity-40"
-                    >
-                      Use recommended
-                    </Button>
+                    <ModelResolutionList ids={MODEL_OPTIONS.map((m) => m.id)} resolutionFor={resolutionFor} />
                   </div>
 
-                  <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800">
-                    {AI_TASKS.map((t) => (
-                      <div key={t.task} className="p-3 flex items-start gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{t.label}</p>
-                          <p className="text-xs text-zinc-600 dark:text-zinc-400">{t.description}</p>
-                        </div>
-                        <Select
-                          value={local.task_models?.[t.task] ?? ''}
-                          onValueChange={(v) => setTaskModel(t.task, v === '' ? null : (v as string))}
-                        >
-                          <SelectTrigger aria-label={`Model for ${t.label}`} className="w-[11rem] shrink-0">
-                            <SelectValue placeholder="Same as main">
-                              {(value: string) => (
-                                <span className="truncate">
-                                  {value ? (MODEL_OPTIONS.find((o) => o.id === value)?.name ?? value) : 'Same as main'}
-                                </span>
-                              )}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="">
-                              <span className="text-sm">Same as main ({mainModelName})</span>
-                            </SelectItem>
-                            {MODEL_OPTIONS.map((m) => (
-                              <SelectItem key={m.id} value={m.id}>
-                                <span className="text-sm">
-                                  {m.name}
-                                  {m.id === t.recommended && (
-                                    <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wider text-sk-on-surface-variant dark:text-muted-foreground">
-                                      suggested
-                                    </span>
-                                  )}
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Model per task</Label>
+                        <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
+                          Reading a photographed page is far harder than tagging a recipe you already have.
+                          Put the cheap tasks on Lite and keep extraction on a stronger model.
+                        </p>
                       </div>
-                    ))}
+                      <Button
+                        type="button"
+                        onClick={() => setLocal((p) => ({ ...p, task_models: { ...RECOMMENDED_TASK_MODELS } }))}
+                        disabled={usingRecommended}
+                        className="shrink-0 h-8 px-3 text-xs rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border-0 disabled:opacity-40"
+                      >
+                        Use recommended
+                      </Button>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800">
+                      {AI_TASKS.map((t) => (
+                        <div key={t.task} className="p-3 flex items-start gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{t.label}</p>
+                            <p className="text-xs text-zinc-600 dark:text-zinc-400">{t.description}</p>
+                          </div>
+                          <Select
+                            value={local.task_models?.[t.task] ?? ''}
+                            onValueChange={(v) => setTaskModel(t.task, v === '' ? null : (v as string))}
+                          >
+                            <SelectTrigger aria-label={`Model for ${t.label}`} className="w-[11rem] shrink-0">
+                              <SelectValue placeholder="Same as main">
+                                {(value: string) => (
+                                  <span className="truncate">
+                                    {value ? (MODEL_OPTIONS.find((o) => o.id === value)?.name ?? value) : 'Same as main'}
+                                  </span>
+                                )}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">
+                                <span className="text-sm">Same as main ({mainModelName})</span>
+                              </SelectItem>
+                              {MODEL_OPTIONS.map((m) => (
+                                <SelectItem key={m.id} value={m.id}>
+                                  <span className="text-sm">
+                                    {m.name}
+                                    {m.id === t.recommended && (
+                                      <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wider text-sk-on-surface-variant dark:text-muted-foreground">
+                                        suggested
+                                      </span>
+                                    )}
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {overrideCount === 0
+                        ? `Every task uses the main model (${mainModelName}).`
+                        : `${overrideCount} of ${AI_TASKS.length} tasks have their own model.`}
+                    </p>
                   </div>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    {overrideCount === 0
-                      ? `Every task uses the main model (${mainModelName}).`
-                      : `${overrideCount} of ${AI_TASKS.length} tasks have their own model.`}
-                  </p>
-                </div>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <Label className="font-semibold text-zinc-700 dark:text-zinc-300">AI models</Label>
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                      Chosen by the app's admin for everyone. This is the model each task runs on.
+                    </p>
+                    <div aria-label="AI model per task" role="list" className="rounded-xl border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800">
+                      {AI_TASKS.map((t) => {
+                        const id = modelOf(t.task);
+                        const option = MODEL_OPTIONS.find((m) => m.id === id);
+                        return (
+                          <div key={t.task} role="listitem" className="px-3 py-2.5 flex items-baseline justify-between gap-3">
+                            <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 min-w-0">{t.label}</span>
+                            <span className="text-right shrink-0">
+                              <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{option?.name ?? id}</span>
+                              <span className="block font-mono text-[11px] text-zinc-500 dark:text-zinc-400">{id}</span>
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <ModelResolutionList ids={modelsInUse} resolutionFor={resolutionFor} />
+                  </div>
+                )}
               </div>
             )}
 

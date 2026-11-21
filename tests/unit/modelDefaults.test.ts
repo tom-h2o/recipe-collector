@@ -52,9 +52,10 @@ describe('alias resolution is recorded', () => {
 });
 
 /**
- * Policy: when DEFAULT_MODEL changes, every user moves with it.
+ * Policy: when DEFAULT_MODEL changes, what runs moves with it. Since 0068 that
+ * is the global settings row (id = 1) alone; the admin chooses for everyone.
  *
- * That only happens if a migration syncs the settings rows, and a constant can
+ * That only happens if a migration updates that row, and a constant can
  * be edited without anyone remembering to write one. This asserts the newest
  * migration that sets gemini_model targets the current default, so changing the
  * constant alone fails the build.
