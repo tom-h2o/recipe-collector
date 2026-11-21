@@ -1,8 +1,9 @@
 # Liquid glass: before and after
 
 The same six screens taken from the commit before the glass design (`551a6e7`)
-and from the commit that merged it (`8195f34`, PR #65). Each file holds the
-pair: "Before" first, "After" second.
+and from the commit that merged the iPhone fixes on top of it (`797903c`,
+PR #66; the glass itself came in PR #65). Each file holds the pair: "Before"
+first, "After" second.
 
 | File | Screen |
 | --- | --- |
@@ -10,9 +11,18 @@ pair: "Before" first, "After" second.
 | `phone-recipe-light.png`, `phone-recipe-dark.png` | A recipe open at 390 x 844 (the close button on the photo) |
 | `desktop-menu-light.png`, `desktop-menu-dark.png` | Vault at 1280 x 800 with the account menu open |
 
-What to look for: the header and the tab bar let the content show through,
-blurred; the phone tab bar floats as a capsule with a pill under the current
-tab; the star and close buttons on photos are glass; the account menu is glass.
+What to look for:
+
+- The phone tab bar floats as a glass capsule, with a pill under the current
+  tab, and lets the content show through, blurred.
+- The header is glass too, but denser, so a photo scrolling underneath stays a
+  tint rather than a smear behind its buttons.
+- Each recipe card has a fine edge and a resting shadow, with more room between
+  cards, so it is clear where one recipe ends and the next begins.
+- The star and close buttons on photos are glass; so is the account menu.
+
+The iPhone fix in PR #66 (nothing tappable under the status bar or the home
+indicator) does not show here: these are taken without a phone's insets.
 
 ## How they were taken
 
