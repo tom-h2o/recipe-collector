@@ -11,9 +11,19 @@ const LOOK: Record<ThinkingState, { label: string; title: string; className: str
     title: 'Ran without reasoning, as configured for this task',
     className: 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
   },
+  minimal: {
+    label: 'minimal',
+    title: 'Ran at the lowest reasoning level, minimal. From Gemini 3 on, reasoning can be lowered but not switched off',
+    className: 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
+  },
+  low: {
+    label: 'low',
+    title: 'Ran at low reasoning, the lowest this model offers',
+    className: 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
+  },
   refused: {
     label: 'refused',
-    title: 'Reasoning was meant to be off, but this model only runs with it, so it ran with reasoning',
+    title: 'Reasoning was meant to be lowered, but this model refused every lower setting, so it ran at its default',
     className: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
   },
 };

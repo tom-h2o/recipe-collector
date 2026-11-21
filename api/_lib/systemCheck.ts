@@ -14,7 +14,8 @@
  */
 import type { GoogleGenAI } from '@google/genai';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { EMBEDDING_MODEL, errorCodeAndStatus, insertGeminiLog, rejectsDisabledThinking, type ThinkingState } from './gemini.js';
+import type { ThinkingConfig } from '@google/genai';
+import { EMBEDDING_MODEL, errorCodeAndStatus, insertGeminiLog, withReducedReasoning, type ThinkingState } from './gemini.js';
 import { AI_TASK_IDS, OFFERED_MODELS, modelFor, thinkingFor, type AiTask, type Settings } from './supabase.js';
 
 /**
@@ -92,6 +93,8 @@ export interface ReasoningUsage {
   model: string;
   on: number;
   off: number;
+  minimal: number;
+  low: number;
   refused: number;
   /** Calls logged before migration 0067 recorded this. */
   unrecorded: number;
@@ -113,8 +116,8 @@ export function reasoningReport(settings: Settings, rows: UsageRow[] | null): Re
     const task = taskForEndpoint(row.endpoint);
     if (!task) continue;
     const models = byTask.get(task) ?? new Map<string, ReasoningUsage>();
-    const usage = models.get(row.model) ?? { model: row.model, on: 0, off: 0, refused: 0, unrecorded: 0 };
-    const key = (['on', 'off', 'refused'] as const).find((k) => k === row.thinking) ?? 'unrecorded';
+    const usage = models.get(row.model) ?? { model: row.model, on: 0, off: 0, minimal: 0, low: 0, refused: 0, unrecorded: 0 };
+    const key = (['on', 'off', 'minimal', 'low', 'refused'] as const).find((k) => k === row.thinking) ?? 'unrecorded';
     usage[key] += Number(row.call_count) || 0;
     models.set(row.model, usage);
     byTask.set(task, models);
@@ -235,8 +238,12 @@ export interface ModelProbe {
   latency_ms: number | null;
   /** What Google says actually answered, when the id is an alias. */
   model_version: string | null;
-  /** Whether the model accepts reasoning switched off. */
-  reasoning_off: 'accepted' | 'refused' | 'unknown' | 'n/a';
+  /**
+   * The lowest reasoning setting the model accepted: off (Gemini 2.5),
+   * minimal or low (Gemini 3 and later), or refused, meaning tasks set to run
+   * without reasoning run at the model's default on it.
+   */
+  reasoning: ThinkingState | 'unknown' | 'n/a';
 }
 
 function isAbort(err: unknown): boolean {
@@ -285,22 +292,30 @@ interface ProbeContext {
 
 const PROBE_PROMPT = 'System check. Reply with exactly this JSON and nothing else: {"ok": true}';
 
+const REASONING_DETAIL: Partial<Record<ThinkingState, string>> = {
+  off: 'Answers, and accepts reasoning switched off.',
+  minimal: 'Answers at the lowest reasoning level, minimal. From Gemini 3 on, reasoning can be lowered but not switched off.',
+  low: 'Answers. The lowest reasoning level this model offers is low.',
+  refused: 'Answers, but refused every lower reasoning setting: tasks meant to run without reasoning run at its default on this model.',
+};
+
 /**
- * One tiny request to a model, asking for reasoning off — which is also the
- * test of whether the model accepts that. A model that only runs in thinking
- * mode is asked again with it on, as generateJson does for real tasks.
+ * One tiny request to a model, with reasoning as low as it accepts — the same
+ * steps a real task takes (withReducedReasoning), started afresh so the result
+ * is what the model says today rather than what this instance remembered.
  * Writes exactly one gemini_logs row, as generateJson does.
  */
 export async function probeModel(client: GoogleGenAI, model: string, ctx: ProbeContext): Promise<ModelProbe> {
   const started = Date.now();
   let attempts = 0;
-  let reasoningOff: ModelProbe['reasoning_off'] = 'unknown';
+  let reasoning: ModelProbe['reasoning'] = 'unknown';
   let thinking: ThinkingState = 'off';
+  let refused: string[] = [];
   let modelVersion: string | null = null;
   let text: string | undefined;
   let failure: unknown;
 
-  const ask = async (off: boolean) => {
+  const ask = async (thinkingConfig: ThinkingConfig | undefined) => {
     attempts += 1;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
@@ -312,7 +327,7 @@ export async function probeModel(client: GoogleGenAI, model: string, ctx: ProbeC
           responseMimeType: 'application/json',
           temperature: 0,
           abortSignal: controller.signal,
-          ...(off ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+          ...(thinkingConfig ? { thinkingConfig } : {}),
         },
       });
     } finally {
@@ -321,18 +336,11 @@ export async function probeModel(client: GoogleGenAI, model: string, ctx: ProbeC
   };
 
   try {
-    let response;
-    try {
-      response = await ask(true);
-      reasoningOff = 'accepted';
-    } catch (err) {
-      if (!rejectsDisabledThinking(err)) throw err;
-      reasoningOff = 'refused';
-      thinking = 'refused';
-      response = await ask(false);
-    }
-    modelVersion = response.modelVersion ?? null;
-    text = response.text ?? '';
+    const result = await withReducedReasoning(model, ask, { fresh: true, onStep: (state) => { thinking = state; } });
+    reasoning = result.state;
+    refused = result.refused;
+    modelVersion = result.value.modelVersion ?? null;
+    text = result.value.text ?? '';
   } catch (err) {
     failure = err;
   }
@@ -354,17 +362,19 @@ export async function probeModel(client: GoogleGenAI, model: string, ctx: ProbeC
     thinking,
   });
 
-  const base = { model, kind: 'chat' as const, latency_ms: latency, model_version: modelVersion, reasoning_off: reasoningOff };
-  if (failure) return { ...base, ...describeProbeFailure(failure) };
+  const triedNote = refused.length ? ` Refused: ${refused.join(', ')}.` : '';
+  const base = { model, kind: 'chat' as const, latency_ms: latency, model_version: modelVersion, reasoning };
+  if (failure) {
+    const described = describeProbeFailure(failure);
+    return { ...base, ...described, detail: `${described.detail}${triedNote}` };
+  }
   if (!/"ok"\s*:\s*true/.test(text ?? '')) {
     return { ...base, status: 'warn', detail: `Answered, but not with the JSON asked for: ${(text ?? '').slice(0, 120) || '(empty)'}` };
   }
   return {
     ...base,
-    status: 'ok',
-    detail: reasoningOff === 'refused'
-      ? 'Answers. Refuses reasoning off: tasks set to run without it run with it on this model.'
-      : 'Answers, and accepts reasoning off.',
+    status: reasoning === 'refused' ? 'warn' : 'ok',
+    detail: `${REASONING_DETAIL[reasoning as ThinkingState] ?? 'Answers.'}${triedNote}`,
   };
 }
 
@@ -400,7 +410,7 @@ export async function probeEmbedding(client: GoogleGenAI, ctx: ProbeContext): Pr
     error_message: failure ? messageOf(failure).slice(0, 2000) : null,
     user_id: ctx.userId,
   });
-  const base = { model: EMBEDDING_MODEL, kind: 'embedding' as const, latency_ms: latency, model_version: null, reasoning_off: 'n/a' as const };
+  const base = { model: EMBEDDING_MODEL, kind: 'embedding' as const, latency_ms: latency, model_version: null, reasoning: 'n/a' as const };
   if (failure) return { ...base, ...describeProbeFailure(failure) };
   if (values?.length !== 768) {
     return { ...base, status: 'fail', detail: `Answered with ${values?.length ?? 0} values instead of 768, which recipes.embedding cannot store.` };
@@ -437,7 +447,7 @@ export async function runLiveCheck(opts: {
 
   const models = modelsToProbe(health?.configured_models);
   const noKey = (model: string, kind: ModelProbe['kind']): ModelProbe => ({
-    model, kind, status: 'skipped', detail: 'No Gemini key is set.', latency_ms: null, model_version: null, reasoning_off: kind === 'embedding' ? 'n/a' : 'unknown',
+    model, kind, status: 'skipped', detail: 'No Gemini key is set.', latency_ms: null, model_version: null, reasoning: kind === 'embedding' ? 'n/a' : 'unknown',
   });
 
   const [database, auth, storage, unsplash, ...probes] = await Promise.all([
