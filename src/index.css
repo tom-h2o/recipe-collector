@@ -77,6 +77,10 @@
     --glass-blur: blur(18px) saturate(190%);
     --pill-tint: 49 95 59;
     --pill-tint-alpha: 0.13;
+    /* The edge and lift of a recipe card (.recipe-card). */
+    --card-edge: 191 202 186;
+    --card-edge-alpha: 0.55;
+    --card-lift-alpha: 0.16;
   }
 
   .dark {
@@ -138,6 +142,9 @@
     --glass-shade: 0.2;
     --pill-tint: 165 214 167;
     --pill-tint-alpha: 0.18;
+    --card-edge: 255 255 255;
+    --card-edge-alpha: 0.08;
+    --card-lift-alpha: 0.5;
   }
 
   * {
@@ -180,6 +187,31 @@
   .border-ghost {
     border: 1px solid rgba(191, 202, 186, 0.15);
   }
+}
+
+/*
+ * ── Safe areas ──────────────────────────────────────────────────────────────
+ *
+ * index.html asks for `viewport-fit=cover`, so on an iPhone the page runs up
+ * under the status bar and down under the home indicator (and, turned
+ * sideways, under the notch). Taps in those strips go to the system, not the
+ * page: a button drawn there is visible, sits blurred behind the clock, and
+ * does nothing. That is what the header did.
+ *
+ * Anything pinned to an edge of the screen keeps its controls inside these
+ * insets. Its background may run out to the edge; its buttons may not.
+ * tests/e2e/safeArea.spec.ts gives the browser an iPhone's insets and checks.
+ */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  /* A centred dialog is centred in the space between the two strips, and is
+     never taller than that space. dvh, not vh: in Safari 100vh is the height
+     with the toolbars hidden, so a 92vh dialog ran off the visible screen. */
+  --dialog-top: calc(50% + (var(--safe-top) - var(--safe-bottom)) / 2);
+  --dialog-max-h: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 3rem);
 }
 
 /*
@@ -239,8 +271,14 @@
   --glass-shade: 0.2;
 }
 
-/* The header is a bar, not a floating shape: one edge, no drop shadow. */
+/*
+ * The header is a bar, not a floating shape: one edge, no drop shadow. It is
+ * denser than the tab bar, for the reason menus are: it carries the name and
+ * the buttons, and at 0.5 a photo scrolling underneath turned it into a smear
+ * of colour behind them.
+ */
 .glass-bar {
+  --glass-alpha: 0.82;
   background-color: rgb(var(--glass-surface) / var(--glass-alpha));
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
@@ -309,6 +347,30 @@
 .tab-bar-fade {
   height: calc(env(safe-area-inset-bottom, 0px) + 84px);
   background: linear-gradient(to top, oklch(var(--background) / 0.85) 0%, oklch(var(--background) / 0.35) 55%, transparent);
+}
+
+/*
+ * ── Recipe cards ────────────────────────────────────────────────────────────
+ *
+ * A card is a sheet lying on the page: a hairline edge and a resting shadow,
+ * so where one recipe ends is visible while scrolling. It used to have
+ * neither until hovered, and a phone never hovers: its pale footer met the
+ * pale page and the next photo began 16px later, so the recipes ran into one
+ * another. Hovering (desktop) only lifts it further.
+ */
+.recipe-card {
+  box-shadow:
+    0 0 0 1px rgb(var(--card-edge) / var(--card-edge-alpha)),
+    0 1px 2px rgb(var(--glass-shadow) / calc(var(--card-lift-alpha) * 0.5)),
+    0 12px 28px -16px rgb(var(--glass-shadow) / var(--card-lift-alpha));
+}
+@media (hover: hover) {
+  .recipe-card:hover {
+    box-shadow:
+      0 0 0 1px rgb(var(--card-edge) / var(--card-edge-alpha)),
+      0 2px 4px rgb(var(--glass-shadow) / calc(var(--card-lift-alpha) * 0.5)),
+      0 20px 40px -18px rgb(var(--glass-shadow) / calc(var(--card-lift-alpha) * 1.6));
+  }
 }
 
 /*

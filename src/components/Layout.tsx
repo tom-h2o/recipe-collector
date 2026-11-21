@@ -41,7 +41,7 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
   return (
     <>
       {/* Sticky header — full-width, independent of content padding */}
-      <header className="sticky top-0 z-40 w-full glass-bar print:static print:border-0">
+      <header className="sticky top-0 z-40 w-full glass-bar pt-[var(--safe-top)] pl-[var(--safe-left)] pr-[var(--safe-right)] print:static print:border-0 print:p-0">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-10 h-16 sm:h-[4.5rem] grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:gap-4">
 
           {/* Branding */}
@@ -157,20 +157,23 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
         </div>
       </header>
 
-      {/* Content */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-10 pt-6 sm:pt-8 pb-32 lg:pb-12 space-y-6 print:hidden">
-        {children}
+      {/* Content. The outer padding keeps it clear of the notch when a phone
+          is turned sideways; the inner one is the page margin. */}
+      <div className="pl-[var(--safe-left)] pr-[var(--safe-right)] print:hidden">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-10 pt-6 sm:pt-8 pb-32 lg:pb-12 space-y-6">
+          {children}
 
-        <footer className="pt-4 pb-2 flex justify-center">
-          <span className="flex items-center gap-1.5 text-xs font-sans text-sk-outline dark:text-muted-foreground">
-            <svg className="w-3.5 h-3.5 text-sk-primary" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <circle cx="5" cy="5" r="3" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-              <circle cx="5" cy="5" r="1.2" fill="currentColor"/>
-              <line x1="7.5" y1="6.5" x2="13" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-            Speisekammer · <span className="font-semibold text-sk-on-surface-variant dark:text-foreground">Magical Apps</span>
-          </span>
-        </footer>
+          <footer className="pt-4 pb-2 flex justify-center">
+            <span className="flex items-center gap-1.5 text-xs font-sans text-sk-outline dark:text-muted-foreground">
+              <svg className="w-3.5 h-3.5 text-sk-primary" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle cx="5" cy="5" r="3" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+                <circle cx="5" cy="5" r="1.2" fill="currentColor"/>
+                <line x1="7.5" y1="6.5" x2="13" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              Speisekammer · <span className="font-semibold text-sk-on-surface-variant dark:text-foreground">Magical Apps</span>
+            </span>
+          </footer>
+        </div>
       </div>
 
       {/* Content runs out softly under the floating tab bar instead of being

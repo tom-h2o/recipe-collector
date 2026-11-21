@@ -540,7 +540,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
         >
           <X className="w-4 h-4" />
         </button>
-        <div className="overflow-y-auto max-h-[92vh]">
+        <div className="overflow-y-auto max-h-[var(--dialog-max-h)]">
         <div className="flex flex-col">
           <div className="w-full h-32 sm:h-44 md:h-64 overflow-hidden shrink-0 rounded-t-3xl relative">
             {recipe.image_url ? (

@@ -19,6 +19,15 @@ export interface ReleaseNote {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    id: '2026-11-29',
+    title: 'Fixed for iPhone, and clearer recipe cards',
+    items: [
+      'On an iPhone the header sat behind the clock and the camera, where a tap goes to the phone instead of the app. That is why its buttons did nothing and looked blurred. It now starts just below them, and so do the close buttons of a recipe, cook mode and the photo viewer, and the notices that pop up. The buttons at the foot of cook mode no longer sit on the home bar.',
+      'The header is also more solid, so a photo scrolling underneath no longer smears behind its buttons.',
+      'Each recipe now has a fine edge and a soft shadow, with more room between them, so it is clear where one recipe ends and the next begins.',
+    ],
+  },
+  {
     id: '2026-11-28',
     title: 'A new look: glass',
     items: [

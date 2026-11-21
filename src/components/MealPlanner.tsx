@@ -253,7 +253,7 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
         role="presentation"
       >
         <div
-          className="bg-white dark:bg-zinc-900 rounded-t-3xl lg:rounded-3xl p-5 space-y-4 max-h-[80vh] lg:max-h-[70vh] lg:w-full lg:max-w-md flex flex-col"
+          className="bg-white dark:bg-zinc-900 rounded-t-3xl lg:rounded-3xl p-5 pb-[calc(var(--safe-bottom)+1.25rem)] lg:pb-5 space-y-4 max-h-[80vh] lg:max-h-[70vh] lg:w-full lg:max-w-md flex flex-col"
           onClick={(e) => e.stopPropagation()}
           role="dialog"
           aria-modal="true"

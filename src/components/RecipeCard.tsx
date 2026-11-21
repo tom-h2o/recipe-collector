@@ -23,8 +23,7 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, translation, tr
     <div
       onClick={() => onOpen(recipe)}
       data-pressable="surface"
-      className="cursor-pointer overflow-hidden flex flex-col group rounded-xl bg-white dark:bg-card hover:shadow-ambient transition-all duration-300"
-      style={{ boxShadow: '0 2px 12px rgba(47, 49, 46, 0.04)' }}
+      className="recipe-card cursor-pointer overflow-hidden flex flex-col group rounded-xl bg-white dark:bg-card transition-shadow duration-300"
     >
       {/* Image — 40% of card height */}
       <div className="aspect-[4/3] w-full overflow-hidden bg-sk-surface-low dark:bg-muted relative rounded-xl">

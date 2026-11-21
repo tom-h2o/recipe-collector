@@ -230,7 +230,7 @@ export function AuthGate({ children }: Props) {
       <div className="min-h-screen bg-sk-surface dark:bg-background flex items-start justify-center p-6 pt-24">
         <button
           onClick={toggleDark}
-          className="fixed top-4 right-4 p-2 rounded-full hover:bg-sk-surface-low dark:hover:bg-muted text-sk-outline dark:text-muted-foreground transition-colors"
+          className="fixed top-[calc(var(--safe-top)+1rem)] right-[calc(var(--safe-right)+1rem)] p-2 rounded-full hover:bg-sk-surface-low dark:hover:bg-muted text-sk-outline dark:text-muted-foreground transition-colors"
           aria-label="Toggle dark mode"
         >
           {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}

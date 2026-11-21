@@ -367,7 +367,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
   return (
     <Dialog open={isOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogTrigger className="hidden" />
-      <DialogContent showCloseButton={false} className="sm:max-w-[580px] overflow-hidden rounded-2xl w-[95vw] sm:w-full bg-white dark:bg-zinc-900 shadow-2xl border border-zinc-200 dark:border-zinc-800 p-0 flex flex-col max-h-[90vh]">
+      <DialogContent showCloseButton={false} className="sm:max-w-[580px] overflow-hidden rounded-2xl w-[95vw] sm:w-full bg-white dark:bg-zinc-900 shadow-2xl border border-zinc-200 dark:border-zinc-800 p-0 flex flex-col max-h-[var(--dialog-max-h)]">
         <button
           type="button"
           onClick={onClose}

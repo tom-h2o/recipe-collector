@@ -145,7 +145,7 @@ export function RecipeGallery({ images, coverUrl, busy, onAdd, onDelete, onSetCo
             type="button"
             onClick={() => setLightboxIndex(null)}
             aria-label="Close photo"
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            className="absolute top-[calc(var(--safe-top)+1rem)] right-[calc(var(--safe-right)+1rem)] p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
