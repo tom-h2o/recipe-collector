@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
 import { apiFetch } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 import { convertTemperaturesInText } from '@/lib/temperatureUtils';
 import { MEAL_TYPES, DEFAULT_MEAL_TYPE, LANGUAGES, AVAILABLE_TAGS } from '@/lib/constants';
 import type { Recipe, RecipeTranslation, Collection, LinkedPerson } from '@/types';
@@ -177,7 +178,13 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
 
   // Names the saved PDF after the recipe, in whichever language is shown.
   usePrintTitle((typeof translation?.title === 'string' ? translation.title : null) || recipe?.title);
-  const [isTranslating, setIsTranslating] = useState(false);
+  /**
+   * The language a translation is being made for, if any. While it is set the
+   * recipe goes on showing what it showed before: the display language only
+   * changes once a translation exists.
+   */
+  const [pendingLanguage, setPendingLanguage] = useState<string | null>(null);
+  const translateRequest = useRef<AbortController | null>(null);
   const [showAddPlan, setShowAddPlan] = useState(false);
   const [planMeal, setPlanMeal] = useState<string>(DEFAULT_MEAL_TYPE);
   const [isAddingToPlan, setIsAddingToPlan] = useState(false);
@@ -191,55 +198,56 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
   // Sync notes when a different recipe is opened
   useEffect(() => { setNotesValue(recipe?.notes || ''); }, [recipe?.id, recipe?.notes]);
 
-  // Auto-translate when recipe opens or preferred language changes
+  /**
+   * Shows the stored translation for the recipe's display language.
+   *
+   * This never makes a translation. It used to: opening a recipe whose display
+   * language had no stored translation started one by itself, on every open,
+   * and locked the whole language picker until it came back. A recipe got into
+   * that state whenever a translation failed or was deleted, because the
+   * display language was saved *before* the translation existed. The result
+   * was a recipe that spent an AI call each time it was opened and, while the
+   * call ran, offered no way back to a language that worked.
+   *
+   * Now: a stored translation is shown; a display language with nothing behind
+   * it is quietly put back to the original. Making a translation takes a
+   * click (see handleTranslate).
+   */
   useEffect(() => {
     if (!recipe || !preferredLanguage) { setTranslation(null); return; }
     const origLang = recipe.original_language ?? 'en';
     if (preferredLanguage === origLang) { setTranslation(null); return; }
 
-    // Use cached translation immediately if available — avoids flash of original language
+    // In memory already: no flash of the original language.
     const cached = translationsCache?.[`${recipe.id}:${preferredLanguage}`];
     if (cached) { setTranslation(cached); return; }
 
     let cancelled = false;
-    setIsTranslating(true);
-    apiFetch('/api/translate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        recipeId: recipe.id,
-        targetLanguage: preferredLanguage,
-        title: recipe.title,
-        description: recipe.description ?? '',
-        instructions: recipe.instructions,
-        ingredients: parseIngredients(recipe.ingredients),
-      }),
-    })
-      .then(async (res) => {
-        const data = await res.json().catch(() => null);
-        if (!res.ok) throw new Error(data?.error ?? 'Translation failed.');
-        return data;
-      })
-      .then((data: RecipeTranslation & { cached: boolean; detectedSourceLanguage?: string }) => {
+    void supabase
+      .from('recipe_translations')
+      .select('*')
+      .eq('recipe_id', recipe.id)
+      .eq('language_code', preferredLanguage)
+      .maybeSingle()
+      .then(({ data }) => {
         if (cancelled) return;
-        setTranslation(data);
-        onTranslationCached(recipe.id, preferredLanguage, data);
-        // The picker's "already translated" ticks come from the table, so a
-        // freshly created translation has to be picked up here too.
-        refreshTranslations();
-        if (!data.cached) toast.success('Recipe translated!');
-        if (data.detectedSourceLanguage && !recipe.original_language) {
-          onUpdateRecipe(recipe.id, { original_language: data.detectedSourceLanguage });
+        if (data) {
+          setTranslation(data as RecipeTranslation);
+          onTranslationCached(recipe.id, preferredLanguage, data as RecipeTranslation);
+        } else {
+          setTranslation(null);
+          // Only the owner can change the saved language; for anyone else the
+          // original is simply what is shown.
+          if (!isLinkedRecipe(recipe, userId)) onLanguageChange(null);
         }
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) toast.error(err instanceof Error ? err.message : 'Translation failed.');
-      })
-      .finally(() => { if (!cancelled) setIsTranslating(false); });
+      });
 
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recipe?.id, preferredLanguage]);
+
+  // A translation still on its way when the drawer closes has nowhere to land.
+  useEffect(() => () => { translateRequest.current?.abort(); }, []);
 
   const planDates = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
@@ -333,17 +341,85 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
     toast.success(`${label} translation deleted. Choose the language again for a fresh one.`);
   }
 
+  /** Stops a translation that is being made, if there is one. */
+  function cancelPendingTranslation() {
+    translateRequest.current?.abort();
+    translateRequest.current = null;
+    setPendingLanguage(null);
+  }
+
+  /**
+   * A language chip was chosen.
+   *
+   * Every chip stays usable while a translation is being made, and choosing
+   * any of them abandons it. There must always be a way back to a language
+   * that works: translating can take a minute or more, and the picker used to
+   * be disabled for the whole of it.
+   */
   function handleTranslate(langCode: string) {
     if (!recipe) return;
     const origLang = recipe.original_language ?? 'en';
-    // Clicking active language or original → restore original
-    if (preferredLanguage === langCode || langCode === origLang) {
-      onLanguageChange(null);
+    cancelPendingTranslation();
+
+    // The original, or the language already on screen: back to the original.
+    if (langCode === origLang || preferredLanguage === langCode) {
       setTranslation(null);
+      if (preferredLanguage) onLanguageChange(null);
       return;
     }
-    onLanguageChange(langCode);
-    // The useEffect above will fire and fetch the translation
+
+    // Already translated: switching is free and immediate.
+    if (translationsCache?.[`${recipe.id}:${langCode}`] || cachedLanguages.includes(langCode)) {
+      onLanguageChange(langCode);
+      return;
+    }
+
+    // Needs making. The display language is saved only when it succeeds, so a
+    // failed or abandoned translation leaves the recipe as it was.
+    const request = new AbortController();
+    translateRequest.current = request;
+    setPendingLanguage(langCode);
+
+    apiFetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: request.signal,
+      body: JSON.stringify({
+        recipeId: recipe.id,
+        targetLanguage: langCode,
+        title: recipe.title,
+        description: recipe.description ?? '',
+        instructions: recipe.instructions,
+        ingredients: parseIngredients(recipe.ingredients),
+      }),
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error ?? 'Translation failed.');
+        return data as RecipeTranslation & { cached: boolean; detectedSourceLanguage?: string };
+      })
+      .then((data) => {
+        if (request.signal.aborted) return;
+        onTranslationCached(recipe.id, langCode, data);
+        // The picker's "already translated" ticks come from the table, so a
+        // freshly created translation has to be picked up here too.
+        refreshTranslations();
+        onLanguageChange(langCode);
+        if (!data.cached) toast.success('Recipe translated!');
+        if (data.detectedSourceLanguage && !recipe.original_language) {
+          onUpdateRecipe(recipe.id, { original_language: data.detectedSourceLanguage });
+        }
+      })
+      .catch((err: unknown) => {
+        if (request.signal.aborted) return;
+        toast.error(err instanceof Error ? err.message : 'Translation failed.');
+      })
+      .finally(() => {
+        if (translateRequest.current === request) {
+          translateRequest.current = null;
+          setPendingLanguage(null);
+        }
+      });
   }
 
   async function handleRegenerateTags() {
@@ -690,21 +766,27 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                       >
                         <button
                           onClick={() => handleTranslate(lang.code)}
-                          disabled={isTranslating || removingLanguage === lang.code}
+                          disabled={removingLanguage === lang.code}
+                          aria-busy={pendingLanguage === lang.code}
                           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
                             isActive ? '' : 'hover:text-sk-primary dark:hover:text-primary'
                           } disabled:opacity-50 transition-colors`}
                           title={
                             isOriginal
                               ? 'Original language'
-                              : isCached
-                                ? `${lang.name} — already translated, opens instantly`
-                                : `Translate to ${lang.name} (uses one AI call)`
+                              : pendingLanguage === lang.code
+                                ? `Translating to ${lang.name}… choose any language to stop`
+                                : isCached
+                                  ? `${lang.name} — already translated, opens instantly`
+                                  : `Translate to ${lang.name} (uses one AI call)`
                           }
                         >
                           <span>{lang.flag}</span>
                           <span>{lang.label}</span>
                           {isOriginal && <span className="opacity-60 text-[10px] ml-0.5">orig</span>}
+                          {pendingLanguage === lang.code && (
+                            <Loader2 className="w-3 h-3 ml-0.5 shrink-0 animate-spin" aria-label="Translating" />
+                          )}
                           {isCached && (
                             <Check
                               className={`w-3 h-3 ml-0.5 shrink-0 ${isActive ? 'text-white/90 dark:text-primary-foreground/90' : 'text-sk-primary dark:text-primary'}`}
@@ -715,7 +797,23 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                       </span>
                     );
                   })}
-                  {isTranslating && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />}
+                  {/* Where a faulty translation gets noticed is while reading
+                      it, so the way to throw it away is offered here, and only
+                      then. The options menu lists every stored translation,
+                      including any that is never on screen. */}
+                  {!isLinked && preferredLanguage && preferredLanguage !== (recipe.original_language ?? 'en') && cachedLanguages.includes(preferredLanguage) && (() => {
+                    const shown = LANGUAGES.find((l) => l.code === preferredLanguage);
+                    const name = shown?.name ?? preferredLanguage.toUpperCase();
+                    return (
+                      <button
+                        onClick={() => handleRemoveTranslation(preferredLanguage, name)}
+                        disabled={removingLanguage !== null}
+                        className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-sans text-sk-outline dark:text-muted-foreground hover:text-destructive underline underline-offset-2 disabled:opacity-50 transition-colors"
+                      >
+                        Delete this translation
+                      </button>
+                    );
+                  })()}
                 </div>
               )}
 
