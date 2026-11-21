@@ -7,6 +7,9 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
  */
 export type AiTask = 'extract' | 'tag' | 'nutrition' | 'translate' | 'suggest' | 'scale' | 'shopping';
 
+/** The same list as a value, for code that walks every task (the System tab). */
+export const AI_TASK_IDS: readonly AiTask[] = ['extract', 'tag', 'nutrition', 'translate', 'suggest', 'scale', 'shopping'];
+
 export interface Settings {
   /** Model for any task without its own entry in `task_models`. */
   gemini_model: string;
@@ -25,6 +28,32 @@ export interface Settings {
 export function modelFor(settings: Settings, task: AiTask): string {
   return settings.task_models?.[task] || settings.gemini_model;
 }
+
+/**
+ * The tasks that run with reasoning switched off. The one place this is
+ * decided: every endpoint passes `thinking: thinkingFor(task)` to
+ * generateJson, and the admin System tab shows this same list, so what it
+ * says cannot drift from what runs. tests/unit/reasoningConfig.test.ts fails
+ * an endpoint that hard-codes the value instead.
+ *
+ * Off where the work is rewriting or classifying text the app already has;
+ * each endpoint says why at its call. A model may refuse "off" — some only
+ * run in thinking mode — and generateJson then runs it with reasoning on and
+ * records `thinking = 'refused'` on that call's gemini_logs row.
+ */
+export const REASONING_OFF_TASKS: readonly AiTask[] = ['translate', 'tag', 'nutrition'];
+
+export function thinkingFor(task: AiTask): boolean {
+  return !REASONING_OFF_TASKS.includes(task);
+}
+
+/**
+ * The model ids offered in Settings, in tier order. A copy of the ids in
+ * MODEL_OPTIONS (src/lib/constants.ts), because src and api do not import from
+ * each other; tests/unit/reasoningConfig.test.ts asserts the two match. The
+ * System tab probes every one of these, whether or not anyone has chosen it.
+ */
+export const OFFERED_MODELS: readonly string[] = ['gemini-3.5-flash-lite', 'gemini-4-hydrogen', 'gemini-4-carbon'];
 
 // An alias Google keeps pointed at the current Flash release. Kept equal to
 // DEFAULT_MODEL in src/lib/constants.ts — enforced by modelDefaults.test.ts.

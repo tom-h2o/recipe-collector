@@ -178,3 +178,68 @@ describe('a model that cannot switch reasoning off', () => {
     expect(generateContent).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('the log row records whether reasoning was off', () => {
+  // gemini_logs.thinking (migration 0067) is what the admin System tab counts.
+  // Without it nothing shows that a model refused "off" and quietly reasoned.
+  const thinkingOnly = new Error('{"error":{"code":400,"message":"Budget 0 is invalid. This model only works in thinking mode.","status":"INVALID_ARGUMENT"}}');
+
+  function setup(...responses: ({ text: string } | Error)[]) {
+    const generateContent = vi.fn();
+    for (const r of responses) {
+      if (r instanceof Error) generateContent.mockRejectedValueOnce(r);
+      else generateContent.mockResolvedValueOnce(r);
+    }
+    const insert = vi.fn<(row: Record<string, unknown>) => Promise<{ error: null | { message: string } }>>(() => Promise.resolve({ error: null }));
+    const supabase = { from: vi.fn(() => ({ insert })) };
+    return {
+      client: { models: { generateContent } } as never,
+      insert,
+      logCtx: { supabase: supabase as never, endpoint: 'tag', userId: 'user-1' },
+    };
+  }
+  const rows = (insert: { mock: { calls: unknown[][] } }) => insert.mock.calls.map((c) => c[0] as Record<string, unknown>);
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+
+  it("'on' by default", async () => {
+    const { client, insert, logCtx } = setup({ text: '{"ok":true}' });
+    await generateJson(client, 'm', 'p', logCtx);
+    await settle();
+    expect(rows(insert)[0].thinking).toBe('on');
+  });
+
+  it("'off' when switched off and the model accepts it", async () => {
+    const { client, insert, logCtx } = setup({ text: '{"ok":true}' });
+    await generateJson(client, 'm', 'p', logCtx, { thinking: false });
+    await settle();
+    expect(rows(insert)[0].thinking).toBe('off');
+  });
+
+  it("'refused' when the model will only run with it on", async () => {
+    const { client, insert, logCtx } = setup(thinkingOnly, { text: '{"ok":true}' });
+    await generateJson(client, 'm', 'p', logCtx, { thinking: false });
+    await settle();
+    expect(rows(insert)).toHaveLength(1);
+    expect(rows(insert)[0].thinking).toBe('refused');
+  });
+
+  it('still writes the row before the column exists, without it', async () => {
+    // Code reaches production minutes before the migration job runs. A lost
+    // row is a free call against the daily allowance, which counts rows.
+    const { client, insert, logCtx } = setup({ text: '{"ok":true}' });
+    insert.mockResolvedValueOnce({ error: { message: "Could not find the 'thinking' column of 'gemini_logs' in the schema cache" } });
+    await generateJson(client, 'm', 'p', logCtx, { thinking: false });
+    await settle();
+    expect(rows(insert)).toHaveLength(2);
+    expect(rows(insert)[1]).not.toHaveProperty('thinking');
+    expect(rows(insert)[1]).toMatchObject({ endpoint: 'tag', status: 'success' });
+  });
+
+  it('does not write twice for any other refusal', async () => {
+    const { client, insert, logCtx } = setup({ text: '{"ok":true}' });
+    insert.mockResolvedValueOnce({ error: { message: 'new row violates row-level security policy' } });
+    await generateJson(client, 'm', 'p', logCtx);
+    await settle();
+    expect(rows(insert)).toHaveLength(1);
+  });
+});

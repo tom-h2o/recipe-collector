@@ -2,9 +2,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey, getUserId, getVisibleUserIds, modelFor } from './_lib/supabase.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId, getVisibleUserIds, modelFor, thinkingFor } from './_lib/supabase.js';
 import { suggestResponseSchema } from './_lib/responseSchemas.js';
-import { getGeminiClient, generateJson, describeGeminiError } from './_lib/gemini.js';
+import { getGeminiClient, generateJson, describeGeminiError, EMBEDDING_MODEL } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { suggestResultSchema, suggestSchema } from './_lib/schemas.js';
 import { makeCacheKey, getCached, setCached } from './_lib/cache.js';
@@ -37,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let vectorRecipes: any[] = [];
     try {
       const client = getGeminiClient(apiKey);
-      const embedResponse = await client.models.embedContent({ model: 'gemini-embedding-2', contents: `Available ingredients: ${userIngredients.join(', ')}`, config: { outputDimensionality: 768 } });
+      const embedResponse = await client.models.embedContent({ model: EMBEDDING_MODEL, contents: `Available ingredients: ${userIngredients.join(', ')}`, config: { outputDimensionality: 768 } });
       if (embedResponse.embeddings?.[0]?.values) queryEmbedding = embedResponse.embeddings[0].values;
       if (queryEmbedding) {
         const { data: matchedVector } = await supabase.rpc('match_recipes', { query_embedding: queryEmbedding, match_threshold: 0.1, match_count: 30, filter_user_id: userId });
@@ -81,7 +81,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const rl = await checkRateLimit(supabase, userId);
       if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
       const client = getGeminiClient(apiKey);
-      const suggestedIds = parseSuggestResult(await generateJson(client, modelFor(settings, 'suggest'), prompt, { supabase, endpoint: 'suggest', userId }, { responseSchema: suggestResponseSchema }));
+      const suggestedIds = parseSuggestResult(await generateJson(client, modelFor(settings, 'suggest'), prompt, { supabase, endpoint: 'suggest', userId }, { responseSchema: suggestResponseSchema, thinking: thinkingFor('suggest') }));
       const candidateIds = new Set(topCandidates.map((c) => String(c.recipe.id)));
       validIds = suggestedIds.filter((id) => candidateIds.has(id));
       setCached(supabase, cacheKey, 'suggest', validIds, 1);

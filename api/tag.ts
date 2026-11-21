@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey, getUserId, canEditRecipe, modelFor } from './_lib/supabase.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId, canEditRecipe, modelFor, thinkingFor } from './_lib/supabase.js';
 import { tagResponseSchema } from './_lib/responseSchemas.js';
-import { getGeminiClient, generateJson, describeGeminiError } from './_lib/gemini.js';
+import { getGeminiClient, generateJson, describeGeminiError, EMBEDDING_MODEL } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { tagResultSchema, tagSchema } from './_lib/schemas.js';
 import { makeCacheKey, getCached, setCached } from './_lib/cache.js';
@@ -64,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         const client = getGeminiClient(apiKey);
         const embedResponse = await client.models.embedContent({
-          model: 'gemini-embedding-2',
+          model: EMBEDDING_MODEL,
           contents: `Title: ${title}\nDescription: ${description || ''}\nIngredients: ${ingredientText}\nInstructions: ${instructions || ''}`,
           config: { outputDimensionality: 768 },
         });
@@ -88,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Picking from a fixed list of 23 tags is classification, and this call
       // runs after every save: it is half of what the spinner on a new card
       // waits for.
-      thinking: false,
+      thinking: thinkingFor('tag'),
     }));
     const validTags = tags.filter((t) => AVAILABLE_TAGS.includes(t));
     if (validTags.length === 0) throw new Error('Gemini returned no supported tags.');
@@ -96,7 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let embedding: number[] | null = null;
     try {
       const embedResponse = await client.models.embedContent({
-        model: 'gemini-embedding-2',
+        model: EMBEDDING_MODEL,
         contents: `Title: ${title}\nDescription: ${description || ''}\nIngredients: ${ingredientText}\nInstructions: ${instructions || ''}`,
         config: { outputDimensionality: 768 },
       });

@@ -9,6 +9,38 @@ export interface GeminiLogContext {
   userId?: string | null;
 }
 
+/** The model behind recipes.embedding (768 values). Not user-selectable. */
+export const EMBEDDING_MODEL = 'gemini-embedding-2';
+
+/**
+ * Whether one AI call ran with reasoning, as recorded in gemini_logs.thinking
+ * (migration 0067). 'refused': the caller asked for it off, the model only runs
+ * in thinking mode, and the call was made again with it on.
+ */
+export type ThinkingState = 'on' | 'off' | 'refused';
+
+/**
+ * Writes one gemini_logs row. Never throws, and resolves once written.
+ *
+ * Code reaches production minutes before the migration job adds a column, and
+ * an insert naming a column the table does not have yet is refused whole —
+ * silently, since callers do not wait for it. The daily allowance is counted
+ * from these rows, so losing them would hand out free calls. A row refused
+ * for the `thinking` column is therefore written again without it.
+ */
+export async function insertGeminiLog(supabase: SupabaseClient, row: Record<string, unknown>): Promise<void> {
+  try {
+    const { error } = await supabase.from('gemini_logs').insert(row);
+    if (error && 'thinking' in row && /thinking/i.test(`${error.message ?? ''} ${error.details ?? ''}`)) {
+      const { thinking: _unrecorded, ...rest } = row;
+      void _unrecorded;
+      await supabase.from('gemini_logs').insert(rest);
+    }
+  } catch {
+    // Logging must never fail the call it describes.
+  }
+}
+
 export function getGeminiClient(apiKey: string): GoogleGenAI {
   return new GoogleGenAI({ apiKey });
 }
@@ -176,7 +208,7 @@ export interface DescribedError {
   retryable: boolean;
 }
 
-function errorCodeAndStatus(err: unknown): { code?: number; status?: string } {
+export function errorCodeAndStatus(err: unknown): { code?: number; status?: string } {
   const out: { code?: number; status?: string } = {};
   // This runs inside a catch block. Throwing here would turn a handled failure
   // into an unhandled one, so a null or non-object `err` must fall straight
@@ -335,6 +367,8 @@ export async function generateJson<T = unknown>(
   let attempts = 0;
   /** Cleared for the rest of this call if the model turns out to require reasoning. */
   let thinkingOff = !thinking;
+  /** Recorded on the log row: reasoning was asked off and the model refused. */
+  let thinkingRefused = false;
 
   /** One request to the model, with transient failures retried. */
   const ask = async (contents: string, temperature: number) => {
@@ -353,6 +387,7 @@ export async function generateJson<T = unknown>(
       if (!thinkingOff || !rejectsDisabledThinking(err)) throw err;
       // Remembered, so the repair and re-ask below do not walk into the same 400.
       thinkingOff = false;
+      thinkingRefused = true;
       response = (await run()).value;
     }
     modelVersion = response.modelVersion ?? modelVersion;
@@ -396,24 +431,23 @@ export async function generateJson<T = unknown>(
     throw err;
   } finally {
     if (logCtx) {
-      logCtx.supabase
-        .from('gemini_logs')
-        .insert({
-          endpoint: logCtx.endpoint,
-          model,
-          model_version: modelVersion ?? null,
-          attempts,
-          status,
-          latency_ms: Date.now() - startTime,
-          input: prompt,
-          output: outputPreview ?? null,
-          input_preview: prompt.substring(0, 300),
-          output_preview: outputPreview ? outputPreview.substring(0, 300) : null,
-          error_message: errorMessage ?? null,
-          recipe_id: logCtx.recipeId ?? null,
-          user_id: logCtx.userId ?? null,
-        })
-        .then(() => {}, () => {});
+      const thinkingState: ThinkingState = thinking ? 'on' : thinkingRefused ? 'refused' : 'off';
+      void insertGeminiLog(logCtx.supabase, {
+        endpoint: logCtx.endpoint,
+        model,
+        model_version: modelVersion ?? null,
+        attempts,
+        status,
+        latency_ms: Date.now() - startTime,
+        input: prompt,
+        output: outputPreview ?? null,
+        input_preview: prompt.substring(0, 300),
+        output_preview: outputPreview ? outputPreview.substring(0, 300) : null,
+        error_message: errorMessage ?? null,
+        recipe_id: logCtx.recipeId ?? null,
+        user_id: logCtx.userId ?? null,
+        thinking: thinkingState,
+      });
     }
   }
 }

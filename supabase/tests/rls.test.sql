@@ -12,7 +12,7 @@ create extension if not exists pgtap with schema extensions;
 create schema if not exists tests;
 
 begin;
-select plan(35);
+select plan(41);
 
 -- ── Fixtures ────────────────────────────────────────────────────────────────
 -- Three accounts: two that will be linked, and a third that must stay isolated.
@@ -394,6 +394,57 @@ select ok(
 select ok(
   has_function_privilege('service_role', 'public.gemini_model_usage()', 'execute'),
   'the service key, which the admin endpoint uses, may'
+);
+
+-- ── System check (migration 0067) ────────────────────────────────────────────
+-- Whether reasoning was off, counted per endpoint, model and state for the
+-- admin System tab; and what only the database can say about its own health.
+insert into public.gemini_logs (endpoint, model, status, thinking)
+values
+  ('translate', 'tap-think', 'success', 'off'),
+  ('translate', 'tap-think', 'success', 'off'),
+  ('translate', 'tap-think', 'success', 'refused'),
+  ('extract',   'tap-think', 'success', 'on'),
+  ('extract',   'tap-think', 'success', null);
+
+select results_eq(
+  $$ select endpoint, thinking, call_count::int
+       from public.gemini_thinking_usage(now() - interval '1 hour')
+      where model = 'tap-think' order by endpoint, thinking $$,
+  $$ values ('extract', 'on', 1), ('extract', 'unrecorded', 1), ('translate', 'off', 2), ('translate', 'refused', 1) $$,
+  'reasoning usage counts each state per endpoint, and rows from before 0067 as unrecorded'
+);
+
+select ok(
+  not has_function_privilege('anon', 'public.gemini_thinking_usage(timestamptz)', 'execute')
+  and not has_function_privilege('authenticated', 'public.gemini_thinking_usage(timestamptz)', 'execute'),
+  'neither anon nor a signed-in user may call the reasoning usage function'
+);
+
+select ok(
+  has_function_privilege('service_role', 'public.gemini_thinking_usage(timestamptz)', 'execute'),
+  'the service key may'
+);
+
+-- security definer, so it can read supabase_migrations; all the more reason
+-- that nobody but the service key may call it.
+select ok(
+  not has_function_privilege('anon', 'public.system_health()', 'execute')
+  and not has_function_privilege('authenticated', 'public.system_health()', 'execute')
+  and has_function_privilege('service_role', 'public.system_health()', 'execute'),
+  'only the service key may call system_health'
+);
+
+select ok(
+  public.system_health() ?& array['postgres_version', 'pgvector_version', 'realtime_recipes', 'latest_migration', 'configured_models'],
+  'system_health reports every fact the System tab shows'
+);
+
+-- The tab compares this with the migration the deployed code expects, so it
+-- must be the file-name prefix the CLI recorded: '0067', not 67 or a timestamp.
+select ok(
+  (public.system_health()->>'latest_migration') >= '0067',
+  'system_health reads the newest applied migration as its file-name prefix'
 );
 
 select * from finish();

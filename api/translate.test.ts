@@ -81,6 +81,8 @@ async function loadHandler(options: { upsertError?: Error; answers?: unknown[] }
     // Kept in the mock rather than importOriginal so these stay unit tests.
     modelFor: (s: { task_models?: Record<string, string>; gemini_model: string }, task: string) =>
       s.task_models?.[task] || s.gemini_model,
+    // Mirrors REASONING_OFF_TASKS.
+    thinkingFor: (task: string) => !['translate', 'tag', 'nutrition'].includes(task),
     getSettings: vi.fn().mockResolvedValue({
       gemini_model: 'gemini-test',
       temperature_unit: 'C',
@@ -196,7 +198,9 @@ describe('/api/translate: latency', () => {
     const { readFileSync } = await import('node:fs');
     const { join } = await import('node:path');
     const src = readFileSync(join(process.cwd(), 'api', 'translate.ts'), 'utf8');
-    expect(src).toMatch(/thinking:\s*false/);
+    expect(src).toMatch(/thinking:\s*thinkingFor\('translate'\)/);
+    const { thinkingFor } = await import('./_lib/supabase.js');
+    expect(thinkingFor('translate')).toBe(false);
   });
 });
 

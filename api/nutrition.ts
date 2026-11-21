@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey, getUserId, canEditRecipe, modelFor } from './_lib/supabase.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId, canEditRecipe, modelFor, thinkingFor } from './_lib/supabase.js';
 import { nutritionResponseSchema } from './_lib/responseSchemas.js';
 import { getGeminiClient, generateJson, describeGeminiError } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
@@ -80,8 +80,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // The other half of the wait after a save. Unlike tagging this one is a
       // trade: the figures are an estimate either way and the prompt carries
       // its own calibration anchors, but reasoning may make them a little
-      // steadier. If the values drift, this line is the thing to remove.
-      thinking: false,
+      // steadier. If the values drift, take 'nutrition' out of REASONING_OFF_TASKS.
+      thinking: thinkingFor('nutrition'),
     }));
 
     const { error: updateError } = await supabase.from('recipes').update({ nutrition }).eq('id', recipeId).eq('user_id', userId);
