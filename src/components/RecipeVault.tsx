@@ -247,9 +247,9 @@ export function RecipeVault({
       {/* Recipe Grid */}
       <main>
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-7 sm:gap-6 lg:gap-8">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse rounded-xl overflow-hidden bg-white dark:bg-card" style={{ boxShadow: '0 2px 12px rgba(47,49,46,0.04)' }}>
+              <div key={i} className="recipe-card animate-pulse rounded-xl overflow-hidden bg-white dark:bg-card">
                 <div className="aspect-[4/3] bg-sk-surface-low dark:bg-muted" />
                 <div className="px-4 pt-4 pb-3 space-y-3">
                   <div className="h-5 bg-sk-surface-low dark:bg-muted rounded-full w-3/4" />
@@ -304,7 +304,7 @@ export function RecipeVault({
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-7 sm:gap-6 lg:gap-8">
               {filteredRecipes.map((recipe) => (
                 <RecipeCard
                   key={recipe.id}

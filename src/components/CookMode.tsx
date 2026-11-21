@@ -68,14 +68,15 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
       */}
       <DialogContent
         showCloseButton={false}
-        className="max-w-none sm:max-w-none w-screen h-screen max-h-screen rounded-none border-0 bg-zinc-950 text-white p-0 overflow-hidden"
+        className="inset-0 translate-x-0 translate-y-0 max-w-none sm:max-w-none w-screen h-dvh max-h-dvh rounded-none border-0 bg-zinc-950 text-white p-0 overflow-hidden"
       >
-        {/* Root: full-screen flex row */}
-        <div className="flex w-full h-full overflow-hidden">
+        {/* Root: full-screen flex row. The black runs to every edge; the
+            controls stay off the status bar, the home indicator and the notch. */}
+        <div className="flex w-full h-full overflow-hidden pt-[var(--safe-top)] pb-[var(--safe-bottom)] pl-[var(--safe-left)] pr-[var(--safe-right)]">
 
           {/* Ingredients side panel — overlays on mobile, side panel on desktop */}
           {showIngredients && (
-            <div className="fixed inset-0 z-10 sm:static sm:inset-auto sm:z-auto w-full sm:w-64 shrink-0 border-r border-white/10 flex flex-col overflow-hidden bg-zinc-950 sm:bg-transparent">
+            <div className="fixed inset-0 z-10 pt-[var(--safe-top)] pb-[var(--safe-bottom)] sm:static sm:inset-auto sm:z-auto sm:pt-0 sm:pb-0 w-full sm:w-64 shrink-0 border-r border-white/10 flex flex-col overflow-hidden bg-zinc-950 sm:bg-transparent">
               <div className="shrink-0 px-4 py-4 border-b border-white/10 flex items-center justify-between">
                 <span className="font-bold text-sm text-white/80 uppercase tracking-wider">Ingredients</span>
                 <div className="flex items-center gap-2">

@@ -278,7 +278,15 @@ export default function App() {
   return (
     <AuthGate>
       <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans print:p-0 print:bg-white text-zinc-900 dark:text-zinc-50">
-        <Toaster richColors position="top-right" className="print:hidden" />
+        <Toaster
+          richColors
+          position="top-right"
+          className="print:hidden"
+          // Sonner's own offsets (24px, 16px on a phone) start at the top of the
+          // screen, which on an iPhone is behind the clock.
+          offset={{ top: 'calc(var(--safe-top) + 24px)', right: 'calc(var(--safe-right) + 24px)' }}
+          mobileOffset={{ top: 'calc(var(--safe-top) + 16px)' }}
+        />
 
         <Layout
           activeView={activeView}
