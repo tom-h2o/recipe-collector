@@ -196,11 +196,12 @@ export interface AdminLog {
 }
 
 /**
- * Whether one AI call ran with reasoning, from gemini_logs.thinking.
- * 'refused': reasoning was asked off, the model only runs with it, and the
- * call was made again with it on. Mirrors ThinkingState in api/_lib/gemini.ts.
+ * How much one AI call reasoned, from gemini_logs.thinking. Mirrors
+ * ThinkingState in api/_lib/gemini.ts: 'off' (Gemini 2.5 only), 'minimal' or
+ * 'low' (the lowest a Gemini 3 or 4 model offers), 'refused' (every lower
+ * setting was refused, so it ran at the default), 'on' (the default, asked for).
  */
-export type ThinkingState = 'on' | 'off' | 'refused';
+export type ThinkingState = 'on' | 'off' | 'minimal' | 'low' | 'refused';
 
 export interface Collection {
   id: string;

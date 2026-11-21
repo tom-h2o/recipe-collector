@@ -19,6 +19,13 @@ export interface ReleaseNote {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    id: '2026-11-30',
+    title: 'Tags, nutrition and translations on the Lite model',
+    items: [
+      'If you chose the Lite model for tagging, nutrition or translation, those failed every time: the app asked the model to switch its reasoning off in a way newer Gemini models no longer accept. It now asks each model for the lowest reasoning it offers, and falls back to its default if it refuses.',
+    ],
+  },
+  {
     id: '2026-11-29',
     title: 'Fixed for iPhone, and clearer recipe cards',
     items: [

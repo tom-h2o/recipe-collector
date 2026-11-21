@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel, type ThinkingConfig } from '@google/genai';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { captureException } from './sentry.js';
 
@@ -13,11 +13,96 @@ export interface GeminiLogContext {
 export const EMBEDDING_MODEL = 'gemini-embedding-2';
 
 /**
- * Whether one AI call ran with reasoning, as recorded in gemini_logs.thinking
- * (migration 0067). 'refused': the caller asked for it off, the model only runs
- * in thinking mode, and the call was made again with it on.
+ * How much one AI call reasoned, as recorded in gemini_logs.thinking
+ * (migration 0067):
+ *   on       the model's default; the task did not ask for less
+ *   off      switched off (thinkingBudget 0, Gemini 2.5 only)
+ *   minimal  the lowest level a Gemini 3 model offers; not guaranteed to be none
+ *   low      the lowest level this model offers (every Gemini 4 model)
+ *   refused  every lower setting was refused, so it ran at the default
  */
-export type ThinkingState = 'on' | 'off' | 'refused';
+export type ThinkingState = 'on' | 'off' | 'minimal' | 'low' | 'refused';
+
+export interface ReasoningStep {
+  config: ThinkingConfig;
+  state: ThinkingState;
+}
+
+/**
+ * The settings that lower a model's reasoning, most reduced first.
+ *
+ * Only Gemini 2.5 can switch reasoning off, with a zero thinkingBudget. From
+ * Gemini 3 on the numeric budget is legacy and reasoning can only be lowered,
+ * by thinkingLevel; gemini-3.5-flash-lite answered a zero budget with a bare
+ * "400 Request contains an invalid argument", which is what the System tab
+ * caught. Google's table (aistudio.google.com/docs/thinking) lists `minimal`
+ * for most Gemini 3 models but not for any Gemini 4 model, gemini-3.8-flash or
+ * the Pro models, whose lowest level is `low`. An id this does not recognise
+ * gets `minimal` first and steps down to `low` if refused.
+ */
+export function reducedReasoningSteps(model: string): ReasoningStep[] {
+  if (/^gemini-2[.-]/.test(model)) return [{ config: { thinkingBudget: 0 }, state: 'off' }];
+  const low: ReasoningStep = { config: { thinkingLevel: ThinkingLevel.LOW }, state: 'low' };
+  if (/^gemini-4-|^gemini-3\.8-|-pro(-|$)/.test(model)) return [low];
+  return [{ config: { thinkingLevel: ThinkingLevel.MINIMAL }, state: 'minimal' }, low];
+}
+
+/**
+ * Which step each model accepted, so a warm function does not walk into the
+ * same 400 on every call. steps.length means none was accepted.
+ */
+const acceptedStep = new Map<string, number>();
+
+/** For tests: forget what each model accepted. */
+export function forgetReasoningSteps(): void {
+  acceptedStep.clear();
+}
+
+/**
+ * Whether the provider refused the request as invalid, which while a lower
+ * reasoning setting is being sent is most likely that setting. Deliberately
+ * any 400: the refusal of a zero budget by gemini-3.5-flash-lite does not
+ * mention thinking at all. A request wrong for some other reason costs one
+ * fast failing call per remaining step and then fails as before.
+ */
+export function refusesReasoningSetting(err: unknown): boolean {
+  const { code, status } = errorCodeAndStatus(err);
+  return code === 400 || status === 'INVALID_ARGUMENT';
+}
+
+function describeStep(step: ReasoningStep): string {
+  return step.config.thinkingBudget === 0 ? 'thinking budget 0' : `level ${String(step.config.thinkingLevel).toLowerCase()}`;
+}
+
+/**
+ * Sends a request with reasoning as low as the model accepts: each step in
+ * turn, the next on a 400, and finally with no reasoning setting at all
+ * ('refused'). `send` is called with the thinkingConfig to use.
+ */
+export async function withReducedReasoning<T>(
+  model: string,
+  send: (thinkingConfig: ThinkingConfig | undefined) => Promise<T>,
+  options: { fresh?: boolean; onStep?: (state: ThinkingState) => void } = {},
+): Promise<{ value: T; state: ThinkingState; config: ThinkingConfig | undefined; refused: string[] }> {
+  const steps = reducedReasoningSteps(model);
+  const from = options.fresh ? 0 : Math.min(acceptedStep.get(model) ?? 0, steps.length);
+  const refused: string[] = [];
+  for (let i = from; i < steps.length; i++) {
+    options.onStep?.(steps[i].state);
+    try {
+      const value = await send(steps[i].config);
+      acceptedStep.set(model, i);
+      return { value, state: steps[i].state, config: steps[i].config, refused };
+    } catch (err) {
+      if (!refusesReasoningSetting(err)) throw err;
+      refused.push(describeStep(steps[i]));
+    }
+  }
+  options.onStep?.('refused');
+  const value = await send(undefined);
+  acceptedStep.set(model, steps.length);
+  return { value, state: 'refused', config: undefined, refused };
+}
 
 /**
  * Writes one gemini_logs row. Never throws, and resolves once written.
@@ -302,7 +387,8 @@ export interface GenerateOptions extends RetryOptions {
    */
   responseSchema?: unknown;
   /**
-   * Whether the model may spend time reasoning before answering.
+   * Whether the model may reason at its default level before answering.
+   * False asks for the lowest level it accepts (reducedReasoningSteps).
    *
    * Gemini 4 thinks by default, which is paid for twice: in latency, and in
    * the chance that the reasoning leaks into the answer — a recipe title came
@@ -328,23 +414,6 @@ export interface GenerateOptions extends RetryOptions {
   validate?: (value: unknown) => void;
 }
 
-/**
- * Whether the provider refused the request because reasoning was switched off.
- *
- * Some models only run in thinking mode and answer a zero budget with a 400
- * ("Budget 0 is invalid. This model only works in thinking mode."). Which
- * model a task runs on is the user's choice (`settings.task_models`), so an
- * endpoint that opts out of reasoning cannot know it will be accepted. A 400
- * is permanent and never retried — without this, picking such a model would
- * fail that task on every call.
- */
-export function rejectsDisabledThinking(err: unknown): boolean {
-  const { code, status } = errorCodeAndStatus(err);
-  if (code !== 400 && status !== 'INVALID_ARGUMENT') return false;
-  const message = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
-  return /thinking/i.test(message);
-}
-
 export async function generateJson<T = unknown>(
   client: GoogleGenAI,
   model: string,
@@ -365,30 +434,31 @@ export async function generateJson<T = unknown>(
   let modelVersion: string | undefined;
   /** Model calls made, including retries. Recorded on the one log row below. */
   let attempts = 0;
-  /** Cleared for the rest of this call if the model turns out to require reasoning. */
-  let thinkingOff = !thinking;
-  /** Recorded on the log row: reasoning was asked off and the model refused. */
-  let thinkingRefused = false;
+  /** What the log row records; updated as lower reasoning settings are tried. */
+  let thinkingState: ThinkingState = thinking ? 'on' : 'off';
+  /**
+   * The reasoning setting settled on by the first request, reused by the
+   * repair and the re-ask so they do not walk into the same 400 again.
+   */
+  let settled: { config: ThinkingConfig | undefined } | null = thinking ? { config: undefined } : null;
 
   /** One request to the model, with transient failures retried. */
   const ask = async (contents: string, temperature: number) => {
-    const run = () => callWithRetry(
+    const send = async (thinkingConfig: ThinkingConfig | undefined) => (await callWithRetry(
       () => client.models.generateContent({
         model,
         contents,
-        config: { responseMimeType: 'application/json', temperature, ...(responseSchema ? { responseSchema } : {}), ...(thinkingOff ? { thinkingConfig: { thinkingBudget: 0 } } : {}) },
+        config: { responseMimeType: 'application/json', temperature, ...(responseSchema ? { responseSchema } : {}), ...(thinkingConfig ? { thinkingConfig } : {}) },
       }),
       { ...retry, onAttempt: () => { attempts += 1; } },
-    );
+    )).value;
     let response;
-    try {
-      response = (await run()).value;
-    } catch (err) {
-      if (!thinkingOff || !rejectsDisabledThinking(err)) throw err;
-      // Remembered, so the repair and re-ask below do not walk into the same 400.
-      thinkingOff = false;
-      thinkingRefused = true;
-      response = (await run()).value;
+    if (settled) {
+      response = await send(settled.config);
+    } else {
+      const result = await withReducedReasoning(model, send, { onStep: (state) => { thinkingState = state; } });
+      response = result.value;
+      settled = { config: result.config };
     }
     modelVersion = response.modelVersion ?? modelVersion;
     return response.text;
@@ -431,7 +501,6 @@ export async function generateJson<T = unknown>(
     throw err;
   } finally {
     if (logCtx) {
-      const thinkingState: ThinkingState = thinking ? 'on' : thinkingRefused ? 'refused' : 'off';
       void insertGeminiLog(logCtx.supabase, {
         endpoint: logCtx.endpoint,
         model,

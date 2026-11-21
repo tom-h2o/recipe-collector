@@ -1,12 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   EXPECTED_SCHEMA, HEALTH_ENDPOINT, checkUnsplash, configReport, describeProbeFailure, modelsToProbe,
   probeEmbedding, probeModel, reasoningReport, runLiveCheck, schemaCheck, taskForEndpoint,
 } from './systemCheck';
 import { NON_AI_ENDPOINTS } from '../../shared/usage';
 import { OFFERED_MODELS } from './supabase';
+import { forgetReasoningSteps } from './gemini';
+
+beforeEach(() => forgetReasoningSteps());
 
 const settings = { gemini_model: 'gemini-4-hydrogen', task_models: { tag: 'gemini-3.5-flash-lite' }, temperature_unit: 'C' as const };
 
@@ -48,6 +51,8 @@ describe('reasoning per task', () => {
   it('shows every task, how it is configured, and what the logs recorded', () => {
     const rows = reasoningReport(settings, [
       { endpoint: 'translate', model: 'gemini-4-hydrogen', thinking: 'off', call_count: '12' },
+      { endpoint: 'tag', model: 'gemini-3.5-flash-lite', thinking: 'minimal', call_count: 4 },
+      { endpoint: 'nutrition', model: 'gemini-4-hydrogen', thinking: 'low', call_count: 2 },
       { endpoint: 'translate', model: 'gemini-4-argon', thinking: 'refused', call_count: 1 },
       { endpoint: 'extract-text', model: 'gemini-4-hydrogen', thinking: 'on', call_count: 2 },
       { endpoint: 'extract-photo', model: 'gemini-4-hydrogen', thinking: 'unrecorded', call_count: 3 },
@@ -60,13 +65,15 @@ describe('reasoning per task', () => {
     expect(byTask.tag).toMatchObject({ reasoning: 'off', model: 'gemini-3.5-flash-lite' });
     expect(byTask.extract).toMatchObject({ reasoning: 'on', model: 'gemini-4-hydrogen' });
     expect(byTask.translate.usage).toEqual([
-      { model: 'gemini-4-argon', on: 0, off: 0, refused: 1, unrecorded: 0 },
-      { model: 'gemini-4-hydrogen', on: 0, off: 12, refused: 0, unrecorded: 0 },
+      { model: 'gemini-4-argon', on: 0, off: 0, minimal: 0, low: 0, refused: 1, unrecorded: 0 },
+      { model: 'gemini-4-hydrogen', on: 0, off: 12, minimal: 0, low: 0, refused: 0, unrecorded: 0 },
     ]);
     // Every source of extraction counts as the one task.
-    expect(byTask.extract.usage).toEqual([{ model: 'gemini-4-hydrogen', on: 2, off: 0, refused: 0, unrecorded: 3 }]);
+    expect(byTask.extract.usage).toEqual([{ model: 'gemini-4-hydrogen', on: 2, off: 0, minimal: 0, low: 0, refused: 0, unrecorded: 3 }]);
     // The check's own probes and the image search are no task's.
-    expect(rows.flatMap((r) => r.usage).reduce((n, u) => n + u.on + u.off + u.refused + u.unrecorded, 0)).toBe(18);
+    expect(rows.flatMap((r) => r.usage).reduce((n, u) => n + u.on + u.off + u.minimal + u.low + u.refused + u.unrecorded, 0)).toBe(24);
+    expect(byTask.tag.usage).toEqual([{ model: 'gemini-3.5-flash-lite', on: 0, off: 0, minimal: 4, low: 0, refused: 0, unrecorded: 0 }]);
+    expect(byTask.nutrition.usage[0].low).toBe(2);
   });
 
   it('still lists the configuration when the logs cannot be read', () => {
@@ -109,6 +116,8 @@ describe('database schema', () => {
 
 describe('a Gemini model', () => {
   const thinkingOnly = new Error('{"error":{"code":400,"message":"Budget 0 is invalid. This model only works in thinking mode.","status":"INVALID_ARGUMENT"}}');
+  // What gemini-3.5-flash-lite answered a zero budget in production.
+  const invalid = new Error('{"error":{"code":400,"message":"Request contains an invalid argument.","status":"INVALID_ARGUMENT"}}');
 
   function client(...responses: ({ text: string; modelVersion?: string } | Error)[]) {
     const generateContent = vi.fn();
@@ -119,26 +128,44 @@ describe('a Gemini model', () => {
     return { client: { models: { generateContent } } as never, generateContent };
   }
 
-  it('answers and accepts reasoning off: one call, one log row', async () => {
+  it('answers at the lowest level it accepts: one call, one log row', async () => {
     const { client: c, generateContent } = client({ text: '{"ok": true}', modelVersion: 'gemini-4-hydrogen-001' });
     const { supabase, insert } = logTable();
     const probe = await probeModel(c, 'gemini-4-hydrogen', { supabase, userId: 'admin' });
-    expect(probe).toMatchObject({ status: 'ok', reasoning_off: 'accepted', model_version: 'gemini-4-hydrogen-001' });
+    expect(probe).toMatchObject({ status: 'ok', reasoning: 'low', model_version: 'gemini-4-hydrogen-001' });
     expect(generateContent).toHaveBeenCalledTimes(1);
-    expect(generateContent.mock.calls[0][0].config.thinkingConfig).toEqual({ thinkingBudget: 0 });
+    expect(generateContent.mock.calls[0][0].config.thinkingConfig).toEqual({ thinkingLevel: 'LOW' });
     expect(insert).toHaveBeenCalledTimes(1);
-    expect(insert.mock.calls[0][0]).toMatchObject({ endpoint: 'health-check', status: 'success', thinking: 'off', attempts: 1, user_id: 'admin' });
+    expect(insert.mock.calls[0][0]).toMatchObject({ endpoint: 'health-check', status: 'success', thinking: 'low', attempts: 1, user_id: 'admin' });
   });
 
-  it('answers but refuses reasoning off: asked again with it on, still one row', async () => {
+  it('steps past a bare 400, as the Lite model answered a zero budget, and says so', async () => {
+    const { client: c, generateContent } = client(invalid, { text: '{"ok":true}' });
+    const { supabase, insert } = logTable();
+    const probe = await probeModel(c, 'gemini-3.5-flash-lite', { supabase, userId: 'admin' });
+    expect(probe).toMatchObject({ status: 'ok', reasoning: 'low' });
+    expect(probe.detail).toMatch(/Refused: level minimal/);
+    expect(generateContent.mock.calls.map((call) => call[0].config.thinkingConfig)).toEqual([{ thinkingLevel: 'MINIMAL' }, { thinkingLevel: 'LOW' }]);
+    expect(insert.mock.calls[0][0]).toMatchObject({ thinking: 'low', attempts: 2 });
+  });
+
+  it('warns when the model refuses every lower setting, still one row', async () => {
     const { client: c, generateContent } = client(thinkingOnly, { text: '{"ok":true}' });
     const { supabase, insert } = logTable();
     const probe = await probeModel(c, 'gemini-4-argon', { supabase, userId: 'admin' });
-    expect(probe).toMatchObject({ status: 'ok', reasoning_off: 'refused' });
-    expect(probe.detail).toMatch(/Refuses reasoning off/);
+    expect(probe).toMatchObject({ status: 'warn', reasoning: 'refused' });
+    expect(probe.detail).toMatch(/refused every lower reasoning setting/);
     expect(generateContent.mock.calls[1][0].config.thinkingConfig).toBeUndefined();
     expect(insert).toHaveBeenCalledTimes(1);
     expect(insert.mock.calls[0][0]).toMatchObject({ thinking: 'refused', attempts: 2 });
+  });
+
+  it('tests afresh rather than trusting what this instance remembered', async () => {
+    const first = client(invalid, { text: '{"ok":true}' });
+    await probeModel(first.client, 'gemini-3.5-flash-lite', { ...logTable(), userId: null });
+    const second = client({ text: '{"ok":true}' });
+    await probeModel(second.client, 'gemini-3.5-flash-lite', { ...logTable(), userId: null });
+    expect(second.generateContent.mock.calls[0][0].config.thinkingConfig).toEqual({ thinkingLevel: 'MINIMAL' });
   });
 
   it('reports a model Google does not serve', async () => {

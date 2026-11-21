@@ -17,10 +17,10 @@ const OVERVIEW = {
     since: '2026-11-14T00:00:00Z',
     usage_available: true,
     tasks: [
-      { task: 'extract', reasoning: 'on', model: 'gemini-4-hydrogen', usage: [{ model: 'gemini-4-hydrogen', on: 4, off: 0, refused: 0, unrecorded: 0 }] },
+      { task: 'extract', reasoning: 'on', model: 'gemini-4-hydrogen', usage: [{ model: 'gemini-4-hydrogen', on: 4, off: 0, minimal: 0, low: 0, refused: 0, unrecorded: 0 }] },
       { task: 'translate', reasoning: 'off', model: 'gemini-4-hydrogen', usage: [
-        { model: 'gemini-4-argon', on: 0, off: 0, refused: 1, unrecorded: 0 },
-        { model: 'gemini-4-hydrogen', on: 0, off: 12, refused: 0, unrecorded: 0 },
+        { model: 'gemini-4-argon', on: 0, off: 0, minimal: 0, low: 0, refused: 1, unrecorded: 0 },
+        { model: 'gemini-4-hydrogen', on: 0, off: 0, minimal: 0, low: 12, refused: 0, unrecorded: 0 },
       ] },
       { task: 'tag', reasoning: 'off', model: 'gemini-3.5-flash-lite', usage: [] },
     ],
@@ -35,9 +35,9 @@ const LIVE = {
     { id: 'unsplash', label: 'Image search (Unsplash)', status: 'skipped', detail: 'No key is set, so image search is off.' },
   ],
   models: [
-    { model: 'gemini-3.5-flash-lite', kind: 'chat', status: 'ok', detail: 'Answers, and accepts reasoning off.', latency_ms: 800, model_version: 'gemini-3.5-flash-lite-001', reasoning_off: 'accepted' },
-    { model: 'gemini-4-carbon', kind: 'chat', status: 'warn', detail: 'Quota used up (429). On a free-tier key a model may have no allowance at all and need billing.', latency_ms: 300, model_version: null, reasoning_off: 'unknown' },
-    { model: 'gemini-embedding-2', kind: 'embedding', status: 'ok', detail: 'Answers with 768 values, as recipe search needs.', latency_ms: 200, model_version: null, reasoning_off: 'n/a' },
+    { model: 'gemini-3.5-flash-lite', kind: 'chat', status: 'ok', detail: 'Answers at the lowest reasoning level, minimal.', latency_ms: 800, model_version: 'gemini-3.5-flash-lite-001', reasoning: 'minimal' },
+    { model: 'gemini-4-carbon', kind: 'chat', status: 'warn', detail: 'Quota used up (429). On a free-tier key a model may have no allowance at all and need billing.', latency_ms: 300, model_version: null, reasoning: 'unknown' },
+    { model: 'gemini-embedding-2', kind: 'embedding', status: 'ok', detail: 'Answers with 768 values, as recipe search needs.', latency_ms: 200, model_version: null, reasoning: 'n/a' },
   ],
 };
 
@@ -72,10 +72,10 @@ test('shows which tasks run without reasoning, and where a model refused', async
   const reasoning = page.getByRole('region', { name: 'Reasoning per task' });
   const translate = reasoning.locator('tr[data-task="translate"]');
   await expect(translate).toContainText('Translation');
-  await expect(translate.getByText('off', { exact: true })).toBeVisible();
-  await expect(translate).toContainText('12 off');
+  await expect(translate.getByText('lowest', { exact: true })).toBeVisible();
+  await expect(translate).toContainText('12 low');
   await expect(translate).toContainText('1 refused');
-  await expect(reasoning.locator('tr[data-task="extract"]').getByText('on', { exact: true })).toBeVisible();
+  await expect(reasoning.locator('tr[data-task="extract"]').getByText('default', { exact: true })).toBeVisible();
   await expect(reasoning.locator('tr[data-task="tag"]')).toContainText('No calls');
   await expect(page.getByRole('region', { name: 'Configuration' })).toContainText('Image search is off');
 });
@@ -85,7 +85,7 @@ test('"Run check" runs the live checks once and shows every model', async ({ pag
   await page.getByRole('button', { name: 'Run check' }).click();
   const models = page.getByRole('region', { name: 'Gemini models' });
   await expect(models).toContainText('Lite');
-  await expect(models).toContainText('Reasoning off: accepted');
+  await expect(models).toContainText('Lowest reasoning: minimal');
   await expect(models).toContainText('Answered as gemini-3.5-flash-lite-001');
   await expect(models).toContainText('Frontier');
   await expect(models).toContainText('Quota used up');

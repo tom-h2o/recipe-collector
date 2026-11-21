@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2, Loader2, MinusCircle, Play, XCircle } from
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { AI_TASKS, MODEL_OPTIONS } from '@/lib/constants';
-import type { AiTask } from '@/types';
+import type { AiTask, ThinkingState } from '@/types';
 
 /**
  * The admin System tab. Shapes mirror api/_lib/systemCheck.ts.
@@ -27,6 +27,8 @@ interface ReasoningUsage {
   model: string;
   on: number;
   off: number;
+  minimal: number;
+  low: number;
   refused: number;
   unrecorded: number;
 }
@@ -51,7 +53,8 @@ interface ModelProbe {
   detail: string;
   latency_ms: number | null;
   model_version: string | null;
-  reasoning_off: 'accepted' | 'refused' | 'unknown' | 'n/a';
+  /** The lowest reasoning setting the model accepted. */
+  reasoning: ThinkingState | 'unknown' | 'n/a';
 }
 
 interface LiveReport {
@@ -134,6 +137,8 @@ function UsageSummary({ usage, available }: { usage: ReasoningUsage[]; available
       {usage.map((u) => {
         const parts = [
           u.off ? `${u.off} off` : null,
+          u.minimal ? `${u.minimal} minimal` : null,
+          u.low ? `${u.low} low` : null,
           u.on ? `${u.on} on` : null,
           u.unrecorded ? `${u.unrecorded} before recording` : null,
         ].filter(Boolean).join(' · ');
@@ -142,7 +147,7 @@ function UsageSummary({ usage, available }: { usage: ReasoningUsage[]; available
             <span className="font-mono text-zinc-500 dark:text-zinc-400">{u.model}</span>{' '}
             <span className="text-zinc-600 dark:text-zinc-300">{parts}</span>
             {u.refused > 0 && (
-              <span className="text-amber-600 dark:text-amber-400 font-semibold" title="Reasoning was meant to be off, but this model only runs with it">
+              <span className="text-amber-600 dark:text-amber-400 font-semibold" title="Reasoning was meant to be lowered, but this model refused every lower setting">
                 {parts ? ' · ' : ''}{u.refused} refused
               </span>
             )}
@@ -245,8 +250,8 @@ export function SystemCheck() {
                 subtitle={m.model}
                 detail={m.detail}
                 meta={<>
-                  {m.reasoning_off === 'accepted' && <span>Reasoning off: accepted</span>}
-                  {m.reasoning_off === 'refused' && <span className="text-amber-600 dark:text-amber-400 font-semibold">Reasoning off: refused</span>}
+                  {(m.reasoning === 'off' || m.reasoning === 'minimal' || m.reasoning === 'low') && <span>Lowest reasoning: {m.reasoning}</span>}
+                  {m.reasoning === 'refused' && <span className="text-amber-600 dark:text-amber-400 font-semibold">Lowest reasoning: refused</span>}
                   {m.model_version && m.model_version !== m.model && <span>Answered as <span className="font-mono">{m.model_version}</span></span>}
                   {ms(m.latency_ms) && <span>{ms(m.latency_ms)}</span>}
                 </>}
@@ -280,10 +285,15 @@ export function SystemCheck() {
                 <tr key={t.task} data-task={t.task} className="block sm:table-row px-5 py-3 sm:p-0">
                   <td className="inline sm:table-cell sm:px-5 sm:py-2.5 font-medium text-zinc-800 dark:text-zinc-200 sm:whitespace-nowrap">{TASK_LABEL[t.task] ?? t.task}</td>
                   <td className="inline sm:table-cell ml-2 sm:ml-0 sm:px-3 sm:py-2.5">
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${t.reasoning === 'off'
-                      ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300'
-                      : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'}`}>
-                      {t.reasoning}
+                    <span
+                      title={t.reasoning === 'off'
+                        ? 'Runs at the lowest reasoning the model accepts: off on Gemini 2.5, minimal or low on Gemini 3 and later'
+                        : 'Runs at the model\'s default reasoning'}
+                      className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${t.reasoning === 'off'
+                        ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300'
+                        : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'}`}
+                    >
+                      {t.reasoning === 'off' ? 'lowest' : 'default'}
                     </span>
                   </td>
                   <td className="block sm:table-cell mt-1 sm:mt-0 sm:px-3 sm:py-2.5 font-mono text-xs text-zinc-500 dark:text-zinc-400 sm:whitespace-nowrap break-all">
