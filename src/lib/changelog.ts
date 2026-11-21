@@ -19,6 +19,16 @@ export interface ReleaseNote {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    // After 2026-11-30, not today's date: ids are compared as strings, and an
+    // earlier one would count as already read for anyone who saw that release.
+    id: '2026-12-01',
+    title: 'Fewer failed imports when Gemini is busy',
+    items: [
+      'Importing a recipe from a photo or a PDF now waits and tries again when the AI model is busy, as every other AI feature already did. Before, a single busy moment made the import fail straight away.',
+      'If the chosen model stays busy or has used up its daily allowance, the app now asks the other model instead of giving up. This works for every AI feature.',
+    ],
+  },
+  {
     id: '2026-11-30',
     title: 'Tags, nutrition and translations on the Lite model',
     items: [

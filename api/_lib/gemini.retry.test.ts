@@ -155,7 +155,9 @@ describe('generateJson logging under retry', () => {
     expect(inserted[0]).toMatchObject({ attempts: 1 });
   });
 
-  it('still writes one row when every retry fails', async () => {
+  it('still writes one row when every retry fails, on both models', async () => {
+    // Three attempts on the chosen model, then three on its fallback: six calls,
+    // one row, one unit of the daily allowance.
     const { inserted, ctx } = fakeLogCtx();
     const generateContent = vi.fn().mockRejectedValue({ status: 503, message: 'overloaded' });
 
@@ -165,6 +167,6 @@ describe('generateJson logging under retry', () => {
     ).rejects.toBeTruthy();
 
     expect(inserted).toHaveLength(1);
-    expect(inserted[0]).toMatchObject({ status: 'error', attempts: 3 });
+    expect(inserted[0]).toMatchObject({ status: 'error', attempts: 6 });
   });
 });

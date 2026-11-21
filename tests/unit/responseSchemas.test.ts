@@ -75,11 +75,13 @@ describe('no AI endpoint sends an unconstrained request', () => {
   }
 
   it('extract constrains the photo and PDF branches too, not just the URL one', () => {
-    // Those two call generateContent directly rather than through generateJson,
-    // which is how they missed the modelVersion logging in #23.
+    // Those two do not go through generateJson, which is how they missed the
+    // modelVersion logging in #23 — and, until they moved onto
+    // generateFromParts, every retry: a 503 failed a photo on the first try.
     const src = fs.readFileSync(path.join(apiDir, 'extract.ts'), 'utf8');
-    const direct = src.match(/generateContent\(\{[\s\S]*?\}\)/g) ?? [];
-    expect(direct.length).toBeGreaterThanOrEqual(2);
-    for (const call of direct) expect(call).toMatch(/responseSchema:/);
+    expect(src, 'extract.ts calls Gemini directly, skipping retry and fallback').not.toMatch(/\.generateContent\(/);
+    const calls = src.match(/generateFromParts\([^;]*\);/g) ?? [];
+    expect(calls.length).toBeGreaterThanOrEqual(2);
+    for (const call of calls) expect(call).toMatch(/responseSchema:/);
   });
 });
