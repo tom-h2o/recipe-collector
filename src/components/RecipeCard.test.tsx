@@ -29,7 +29,7 @@ const baseRecipe: Recipe = {
 describe('RecipeCard', () => {
   const defaults = {
     isProcessing: false,
-    activeFilter: null,
+    activeFilters: [],
     onOpen: vi.fn(),
     onToggleFavourite: vi.fn(),
     onFilterChange: vi.fn(),
@@ -124,7 +124,7 @@ describe('RecipeCard', () => {
 describe('RecipeCard: the shared badge', () => {
   const defaults = {
     isProcessing: false,
-    activeFilter: null,
+    activeFilters: [],
     onOpen: vi.fn(),
     onToggleFavourite: vi.fn(),
     onFilterChange: vi.fn(),

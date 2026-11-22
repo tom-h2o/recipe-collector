@@ -1,3 +1,4 @@
+import { AVAILABLE_TAGS } from '../../shared/tags';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Type, type Schema } from '@google/genai';
 import * as responseSchemas from './responseSchemas';
@@ -56,8 +57,9 @@ describe('the answer formats sent to Claude', () => {
   });
 
   it('wraps a bare list in an object, and leaves an object alone', () => {
+    // The tag list travels as an enum: Claude can answer only with tags on it.
     expect(claudeFormat(responseSchemas.tagResponseSchema)).toEqual({
-      schema: { type: 'object', properties: { result: { type: 'array', items: { type: 'string' } } }, required: ['result'], additionalProperties: false },
+      schema: { type: 'object', properties: { result: { type: 'array', items: { type: 'string', enum: [...AVAILABLE_TAGS] } } }, required: ['result'], additionalProperties: false },
       wrapped: true,
     });
     expect(claudeFormat(responseSchemas.nutritionResponseSchema).wrapped).toBe(false);

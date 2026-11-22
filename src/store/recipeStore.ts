@@ -20,7 +20,7 @@ interface RecipeState {
   
   // Cache filters for loadMore
   currentSearchQuery: string;
-  currentTagFilter: string | null;
+  currentTagFilter: string | readonly string[] | null;
   currentCollectionId: string | null;
   currentMemberships: any[];
   currentSortBy: string;
@@ -41,7 +41,8 @@ interface RecipeState {
   // Recipes Actions
   fetchRecipes: (
     searchQuery?: string,
-    tagFilter?: string | null,
+    /** Filter chips in use: tags (combined, all must match) and row properties. */
+    tagFilter?: string | readonly string[] | null,
     collectionId?: string | null,
     memberships?: any[],
     sortBy?: string,
@@ -93,7 +94,10 @@ interface RecipeState {
  * so had to be edited in lockstep: a chip added to one but not the other
  * filters the first page and then loads an unfiltered second page.
  *
- * Most chips are tags; the two that are not are properties of the row.
+ * Most chips are tags; the ones that are not are properties of the row.
+ * Several can be on at once (one per tag group, chosen in the vault), and
+ * they combine: every tag must be on the recipe (`contains`), and every row
+ * property must hold.
  */
 type RecipeQuery = ReturnType<ReturnType<typeof supabase.from>['select']>;
 
@@ -106,11 +110,21 @@ export const NEW_FROM_IPHONE = '\ud83c\udd95 New from iPhone';
 /** Matches no row: `in` with an empty list is not valid PostgREST. */
 const NO_RECIPE = '00000000-0000-0000-0000-000000000000';
 
-function applyTagFilter<T extends RecipeQuery>(query: T, tagFilter: string, newImportIds: string[] = []): T {
-  if (tagFilter === NEW_FROM_IPHONE) return query.in('id', newImportIds.length ? newImportIds : [NO_RECIPE]) as T;
-  if (tagFilter === '\u2b50 Favourites') return query.eq('is_favourite', true) as T;
-  if (tagFilter === '\ud83d\udd17 Shared') return query.not('public_share_token', 'is', null) as T;
-  return query.contains('tags', [tagFilter]) as T;
+function applyTagFilter<T extends RecipeQuery>(query: T, filters: string | readonly string[], newImportIds: string[] = []): T {
+  let q = query;
+  const tags: string[] = [];
+  for (const filter of typeof filters === 'string' ? [filters] : filters) {
+    if (filter === NEW_FROM_IPHONE) q = q.in('id', newImportIds.length ? newImportIds : [NO_RECIPE]) as T;
+    else if (filter === '\u2b50 Favourites') q = q.eq('is_favourite', true) as T;
+    else if (filter === '\ud83d\udd17 Shared') q = q.not('public_share_token', 'is', null) as T;
+    else tags.push(filter);
+  }
+  return (tags.length ? q.contains('tags', tags) : q) as T;
+}
+
+/** Whether any filter chip is in use. */
+function hasFilters(filters: string | readonly string[] | null | undefined): filters is string | readonly string[] {
+  return typeof filters === 'string' ? filters.length > 0 : !!filters && filters.length > 0;
 }
 
 async function getAdoptedOriginalIds(): Promise<string[]> {
@@ -185,7 +199,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       query = query.textSearch('search_vector', searchQuery.trim());
     }
 
-    if (tagFilter) {
+    if (hasFilters(tagFilter)) {
       query = applyTagFilter(query, tagFilter, get().newImportIds);
     }
 
@@ -228,7 +242,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
     if (currentSearchQuery) {
       query = query.textSearch('search_vector', currentSearchQuery);
     }
-    if (currentTagFilter) {
+    if (hasFilters(currentTagFilter)) {
       query = applyTagFilter(query, currentTagFilter, get().newImportIds);
     }
     if (currentCollectionId) {

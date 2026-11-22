@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Search, X, ArrowUpDown, FolderOpen, Plus, Trash2, Pencil, Check, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RecipeCard } from './RecipeCard';
-import { FILTERS, SORT_OPTIONS, type SortOption } from '@/lib/constants';
+import { SORT_OPTIONS, type SortOption } from '@/lib/constants';
 import { NEW_FROM_IPHONE } from '@/store/recipeStore';
-import { TagIcon, addChipClass, chipClass, tagLabel } from '@/lib/tags';
+import { addChipClass, chipClass, toggleFilter } from '@/lib/tags';
+import { FilterBar } from './FilterBar';
 import type { Recipe, RecipeTranslation, Collection, RecipeCollection, LinkedPerson } from '@/types';
 
 interface Props {
@@ -12,7 +13,8 @@ interface Props {
   loading: boolean;
   processingIds: Set<string>;
   searchQuery: string;
-  activeFilter: string | null;
+  /** Filter chips in use; they combine. */
+  activeFilters: string[];
   hasMore: boolean;
   recipeLanguages: Record<string, string>;
   translationsCache: Record<string, RecipeTranslation>;
@@ -27,7 +29,7 @@ interface Props {
   currentUserId?: string | null;
   onOwnerChange?: (userId: string | null) => void;
   onSearchChange: (q: string) => void;
-  onFilterChange: (tag: string | null) => void;
+  onFiltersChange: (next: string[]) => void;
   onCollectionChange: (id: string | null) => void;
   onCreateCollection: (name: string) => Promise<void>;
   onDeleteCollection: (id: string) => Promise<void>;
@@ -44,12 +46,12 @@ interface Props {
 }
 
 export function RecipeVault({
-  recipes, loading, processingIds, searchQuery, activeFilter, hasMore,
+  recipes, loading, processingIds, searchQuery, activeFilters, hasMore,
   recipeLanguages, translationsCache, translationsLoading,
   collections, memberships, activeCollectionId,
   linkedPeople = [], activeOwnerId = null, currentUserId = null, onOwnerChange,
   sortBy, onSortChange,
-  onSearchChange, onFilterChange, onCollectionChange, onCreateCollection, onDeleteCollection, onRenameCollection,
+  onSearchChange, onFiltersChange, onCollectionChange, onCreateCollection, onDeleteCollection, onRenameCollection,
   onLoadMore, onOpenRecipe, onToggleFavourite,
   banner, newRecipeIds,
 }: Props) {
@@ -219,31 +221,13 @@ export function RecipeVault({
           )}
         </div>
 
-        {/* Filter chips: one row that scrolls sideways on a phone (it wrapped
-            into three rows), wrapping from sm up. Clear comes first, so it is
-            never scrolled out of sight. */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible">
-          {(searchQuery || activeFilter) && (
-            <button
-              onClick={() => { onSearchChange(''); onFilterChange(null); }}
-              className={chipClass(false)}
-            >
-              <X className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> Clear
-            </button>
-          )}
-          {/* Only while there is something new, or while it is the filter in use. */}
-          {((newRecipeIds?.size ?? 0) > 0 || activeFilter === NEW_FROM_IPHONE) && (
-            <FilterChip
-              filter={NEW_FROM_IPHONE}
-              active={activeFilter === NEW_FROM_IPHONE}
-              highlight
-              onClick={() => onFilterChange(activeFilter === NEW_FROM_IPHONE ? null : NEW_FROM_IPHONE)}
-            />
-          )}
-          {FILTERS.map((f) => (
-            <FilterChip key={f} filter={f} active={activeFilter === f} onClick={() => onFilterChange(activeFilter === f ? null : f)} />
-          ))}
-        </div>
+        <FilterBar
+          active={activeFilters}
+          onChange={onFiltersChange}
+          showNew={(newRecipeIds?.size ?? 0) > 0 || activeFilters.includes(NEW_FROM_IPHONE)}
+          searching={!!searchQuery}
+          onClearAll={() => { onSearchChange(''); onFiltersChange([]); }}
+        />
       </div>
 
       {/* Recipe Grid */}
@@ -286,7 +270,7 @@ export function RecipeVault({
           </div>
         ) : filteredRecipes.length === 0 ? (
           <div className="text-center py-24 bg-white dark:bg-card rounded-3xl shadow-ambient">
-            {activeCollectionId && !searchQuery && !activeFilter ? (
+            {activeCollectionId && !searchQuery && activeFilters.length === 0 ? (
               <>
                 <FolderOpen className="w-14 h-14 mx-auto mb-4 text-sk-primary-fixed dark:text-muted" />
                 <p className="font-serif text-xl font-normal text-sk-on-surface dark:text-foreground mb-1">
@@ -313,7 +297,7 @@ export function RecipeVault({
                   recipe={recipe}
                   isProcessing={processingIds.has(recipe.id)}
                   isNew={newRecipeIds?.has(recipe.id) ?? false}
-                  activeFilter={activeFilter}
+                  activeFilters={activeFilters}
                   translation={recipeLanguages[recipe.id] ? translationsCache[`${recipe.id}:${recipeLanguages[recipe.id]}`] : null}
                   translationLoading={
                     translationsLoading &&
@@ -322,7 +306,7 @@ export function RecipeVault({
                   }
                   onOpen={onOpenRecipe}
                   onToggleFavourite={onToggleFavourite}
-                  onFilterChange={(tag) => onFilterChange(activeFilter === tag ? null : tag)}
+                  onFilterChange={(tag) => onFiltersChange(toggleFilter(activeFilters, tag))}
                 />
               ))}
             </div>
@@ -341,17 +325,5 @@ export function RecipeVault({
         )}
       </main>
     </>
-  );
-}
-
-/** A filter in the vault: its icon and plain label, pressed while in use. */
-function FilterChip({ filter, active, highlight = false, onClick }: { filter: string; active: boolean; highlight?: boolean; onClick: () => void }) {
-  // Recipes just sent from the iPhone: the one chip that asks to be noticed.
-  const className = chipClass(active, highlight ? 'highlight' : 'default');
-  return (
-    <button type="button" onClick={onClick} aria-pressed={active} className={className}>
-      <TagIcon tag={filter} className="w-3.5 h-3.5 shrink-0" />
-      {tagLabel(filter)}
-    </button>
   );
 }

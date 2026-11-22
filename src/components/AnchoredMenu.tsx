@@ -10,6 +10,8 @@ interface Props {
   /** Distance from the viewport edge the menu refuses to cross. */
   margin?: number;
   className?: string;
+  /** Which edge of the button the menu lines up with: the right (a ⋯ button) or the left (a filter chip). */
+  align?: 'start' | 'end';
 }
 
 /**
@@ -26,7 +28,7 @@ interface Props {
  * ancestor can clip it, and clamping its position to the viewport so it cannot
  * leave the screen on its own.
  */
-export function AnchoredMenu({ open, onClose, anchorRef, children, margin = 8, className = '' }: Props) {
+export function AnchoredMenu({ open, onClose, anchorRef, children, margin = 8, className = '', align = 'end' }: Props) {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -48,7 +50,8 @@ export function AnchoredMenu({ open, onClose, anchorRef, children, margin = 8, c
       // Right-aligned to the button by preference, then pulled back inside the
       // viewport. max() last so a menu wider than the screen starts at the
       // left edge rather than off it.
-      const left = Math.max(margin, Math.min(a.right - width, vw - width - margin));
+      const preferred = align === 'start' ? a.left : a.right - width;
+      const left = Math.max(margin, Math.min(preferred, vw - width - margin));
 
       // Below the button, unless there is more room above it.
       const below = a.bottom + 4;
@@ -82,7 +85,7 @@ export function AnchoredMenu({ open, onClose, anchorRef, children, margin = 8, c
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('mousedown', onPointer);
     };
-  }, [open, onClose, anchorRef, margin]);
+  }, [open, onClose, anchorRef, margin, align]);
 
   if (!open) return null;
 

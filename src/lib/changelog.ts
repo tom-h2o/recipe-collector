@@ -20,6 +20,15 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-09',
+    title: 'Filter by more, and combine filters',
+    items: [
+      'Above the vault: Diet, Cuisine, Meal, Main ingredient and More each open a menu, so every tag can be filtered by. Pick from several to combine them, for example Vegetarian and Italian.',
+      'New tags: German, Chicken, Meat, Fish & Seafood, Pasta, Salad, Casserole and Meal Prep. New recipes get them automatically; for an older one, use ⋯ → Regenerate tags.',
+    ],
+  },
+  {
+    // Ids must increase with each release (see 2026-12-02 below).
     id: '2026-12-08',
     title: 'A calmer way to add recipes',
     items: [

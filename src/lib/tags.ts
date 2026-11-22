@@ -1,9 +1,11 @@
 import { createElement } from 'react';
 import {
-  CakeSlice, Coffee, CookingPot, Cookie, Croissant, Dumbbell, Flame, Heart, Leaf, Link2, MilkOff,
-  Salad, Sandwich, Smartphone, Soup, Sprout, Star, Timer, UtensilsCrossed, WheatOff,
+  Beef, CakeSlice, Carrot, Coffee, CookingPot, Cookie, Croissant, Drumstick, Dumbbell, Fish, Flame, Heart,
+  Layers, Leaf, Link2, MilkOff, Refrigerator, Salad, Sandwich, Smartphone, Soup, Sprout, Star, Timer,
+  UtensilsCrossed, Wheat, WheatOff,
   type LucideIcon,
 } from 'lucide-react';
+import { QUICK_TAG, TAG_GROUPS, groupOfTag, type TagGroupId } from '../../shared/tags';
 
 /**
  * How filters and tags are shown: a plain label and, where one fits, an icon.
@@ -33,7 +35,7 @@ const ICONS: Record<string, LucideIcon> = {
   'Gluten-Free': WheatOff,
   'Dairy-Free': MilkOff,
   'High Protein': Dumbbell,
-  'Low Carb': Salad,
+  'Low Carb': Carrot,
   'Comfort Food': Heart,
   Breakfast: Coffee,
   Lunch: Sandwich,
@@ -41,9 +43,16 @@ const ICONS: Record<string, LucideIcon> = {
   Dessert: CakeSlice,
   Snack: Cookie,
   Soup,
+  Salad,
+  Pasta: Wheat,
+  Casserole: Layers,
+  Chicken: Drumstick,
+  Meat: Beef,
+  'Fish & Seafood': Fish,
   Baking: Croissant,
   Grilling: Flame,
   'One-Pot': CookingPot,
+  'Meal Prep': Refrigerator,
 };
 
 /** What a filter or tag reads as on screen. */
@@ -59,6 +68,44 @@ export function TagIcon({ tag, className }: { tag: string; className?: string })
   const icon = ICONS[tag];
   return icon ? createElement(icon, { className, 'aria-hidden': true }) : null;
 }
+
+/*
+ * Filters in use are a list, and they combine (every tag must be on the
+ * recipe). One per tag group, chosen from that group's menu; the direct chips
+ * (Favourites, Shared, Under 30 min, New from iPhone) are each a slot of their
+ * own, so any of them goes with anything else.
+ */
+
+/** Which slot a filter takes: its tag group, or itself for a direct chip. */
+export function filterSlot(key: string): string {
+  if (key === QUICK_TAG) return key;
+  return groupOfTag(key) ?? key;
+}
+
+/** Turns a filter on, replacing whatever held its slot, or off if it was on. */
+export function toggleFilter(active: readonly string[], key: string): string[] {
+  if (active.includes(key)) return active.filter((k) => k !== key);
+  const slot = filterSlot(key);
+  return [...active.filter((k) => filterSlot(k) !== slot), key];
+}
+
+/** The tag chosen in a group's menu, if any. */
+export function chosenInGroup(active: readonly string[], group: TagGroupId): string | null {
+  return active.find((k) => k !== QUICK_TAG && groupOfTag(k) === group) ?? null;
+}
+
+/** Sets (or, with null, clears) a group's choice, leaving every other filter as it was. */
+export function setGroupFilter(active: readonly string[], group: TagGroupId, tag: string | null): string[] {
+  const rest = active.filter((k) => k === QUICK_TAG || groupOfTag(k) !== group);
+  return tag ? [...rest, tag] : rest;
+}
+
+/** The groups offered as menus in the vault: every tag but the direct chip. */
+export const MENU_GROUPS = TAG_GROUPS.map((g) => ({
+  id: g.id as TagGroupId,
+  label: g.label,
+  tags: (g.tags as readonly string[]).filter((t) => t !== QUICK_TAG),
+}));
 
 /**
  * The one chip used for every choice in the vault (filters, people,

@@ -185,7 +185,7 @@ test.describe('touch feedback', () => {
 
   test('a filter chip fades and gives way while held, and recovers after', async ({ page }) => {
     await open(page);
-    const chip = 'button:has-text("Vegetarian")';
+    const chip = 'button:has-text("Favourites")';
     await hold(page, chip);
 
     const held = await style(page, chip, ['opacity', 'scale']);
@@ -230,7 +230,7 @@ test.describe('touch feedback', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await open(page);
 
-    const chip = 'button:has-text("Vegetarian")';
+    const chip = 'button:has-text("Favourites")';
     await hold(page, chip);
     const held = await style(page, chip, ['opacity', 'scale']);
     // No giving way…
