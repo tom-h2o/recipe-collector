@@ -19,6 +19,9 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 import { supabase } from '@/lib/supabase';
 import { useTranslationCache } from '@/hooks/useTranslationCache';
+import { useRecipeImports } from '@/hooks/useRecipeImports';
+import { ImportBanner } from '@/components/ImportBanner';
+import { NEW_FROM_PHOTOS, useRecipeStore } from '@/store/recipeStore';
 import type { ActiveView, Recipe } from '@/types';
 import type { SortOption } from '@/lib/constants';
 
@@ -164,6 +167,26 @@ export default function App() {
   const membershipsRef = useRef(memberships);
   useEffect(() => { membershipsRef.current = memberships; }, [memberships]);
 
+  // What the iPhone Shortcut sent and nobody has opened yet. A recipe that
+  // finishes being read while the app is open bumps vaultRefresh, so it
+  // appears without a reload.
+  const [vaultRefresh, setVaultRefresh] = useState(0);
+  const recipeImports = useRecipeImports(user?.id, () => setVaultRefresh((n) => n + 1));
+  const newImportKey = [...recipeImports.newRecipeIds].sort().join(',');
+  useEffect(() => {
+    useRecipeStore.getState().setNewImportIds(newImportKey ? newImportKey.split(',') : []);
+  }, [newImportKey]);
+  // Once the last new recipe has been opened the filter has nothing to show.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!newImportKey && activeFilter === NEW_FROM_PHOTOS) setActiveFilter(null);
+  }, [newImportKey, activeFilter]);
+  const newImportsShown = activeFilter === NEW_FROM_PHOTOS ? newImportKey : '';
+  const openRecipe = (recipe: Recipe) => {
+    setSelectedRecipe(recipe);
+    void recipeImports.markSeen(recipe.id);
+  };
+
   useEffect(() => {
     // A guest on a share link has no vault to search, and the query would come
     // back empty under RLS anyway — so skip the round trip entirely.
@@ -173,7 +196,9 @@ export default function App() {
       fetchRecipes(searchQuery, activeFilter, activeCollectionId, membershipsRef.current, sortBy, activeOwnerId);
     }, 300);
     return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
-  }, [isPublicSharePath, isAboutPath, searchQuery, activeFilter, activeCollectionId, membershipKey, sortBy, activeOwnerId, fetchRecipes]);
+    // newImportKey: the New-from-photos filter reads the ids from the store,
+    // so a change to them must refetch while that filter is on.
+  }, [isPublicSharePath, isAboutPath, searchQuery, activeFilter, activeCollectionId, membershipKey, sortBy, activeOwnerId, fetchRecipes, vaultRefresh, newImportsShown]);
 
   function openForm(recipe?: Recipe) {
     setEditingRecipe(recipe ?? null);
@@ -331,8 +356,19 @@ export default function App() {
               onDeleteCollection={deleteCollection}
               onRenameCollection={renameCollection}
               onLoadMore={loadMore}
-              onOpenRecipe={setSelectedRecipe}
+              onOpenRecipe={openRecipe}
               onToggleFavourite={(r, e) => { e.stopPropagation(); toggleFavourite(r); }}
+              newRecipeIds={recipeImports.newRecipeIds}
+              banner={(
+                <ImportBanner
+                  newCount={recipeImports.newRecipeIds.size}
+                  processing={recipeImports.processing}
+                  failed={recipeImports.failed}
+                  showingNew={activeFilter === NEW_FROM_PHOTOS}
+                  onShowNew={() => setActiveFilter(NEW_FROM_PHOTOS)}
+                  onDismiss={(id) => { void recipeImports.dismiss(id); }}
+                />
+              )}
             />
           )}
 
@@ -344,7 +380,7 @@ export default function App() {
               onAddMealPlan={addMealPlan}
               onRemoveMealPlan={removeMealPlan}
               onRefreshMealPlans={fetchMealPlans}
-              onOpenRecipe={setSelectedRecipe}
+              onOpenRecipe={openRecipe}
             />
           )}
 
@@ -459,7 +495,7 @@ export default function App() {
           <SuggestModal
             isOpen={isSuggestOpen}
             onClose={() => setIsSuggestOpen(false)}
-            onSelectRecipe={setSelectedRecipe}
+            onSelectRecipe={openRecipe}
           />
         )}
 

@@ -3,6 +3,7 @@ import { Search, X, ArrowUpDown, FolderOpen, Plus, Trash2, Pencil, Check, Users 
 import { Button } from '@/components/ui/button';
 import { RecipeCard } from './RecipeCard';
 import { FILTERS, SORT_OPTIONS, type SortOption } from '@/lib/constants';
+import { NEW_FROM_PHOTOS } from '@/store/recipeStore';
 import type { Recipe, RecipeTranslation, Collection, RecipeCollection, LinkedPerson } from '@/types';
 
 interface Props {
@@ -35,6 +36,10 @@ interface Props {
   onToggleFavourite: (r: Recipe, e: React.MouseEvent) => void;
   sortBy: SortOption;
   onSortChange: (sort: SortOption) => void;
+  /** Shown above the search: what the iPhone Shortcut sent (ImportBanner). */
+  banner?: React.ReactNode;
+  /** Recipes sent from the iPhone Shortcut and not opened yet: New badge and chip. */
+  newRecipeIds?: Set<string>;
 }
 
 export function RecipeVault({
@@ -45,6 +50,7 @@ export function RecipeVault({
   sortBy, onSortChange,
   onSearchChange, onFilterChange, onCollectionChange, onCreateCollection, onDeleteCollection, onRenameCollection,
   onLoadMore, onOpenRecipe, onToggleFavourite,
+  banner, newRecipeIds,
 }: Props) {
   const searchRef = useRef<HTMLInputElement>(null);
   const [newCollectionName, setNewCollectionName] = useState('');
@@ -68,6 +74,7 @@ export function RecipeVault({
 
   return (
     <>
+      {banner}
       {/* Search, Sort & Filter */}
       <div className="space-y-3">
         <div className="flex gap-2">
@@ -220,6 +227,19 @@ export function RecipeVault({
 
         {/* Filter chips */}
         <div className="flex flex-wrap gap-2">
+          {/* Only while there is something new, or while it is the filter in use. */}
+          {((newRecipeIds?.size ?? 0) > 0 || activeFilter === NEW_FROM_PHOTOS) && (
+            <button
+              onClick={() => onFilterChange(activeFilter === NEW_FROM_PHOTOS ? null : NEW_FROM_PHOTOS)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold font-sans transition-all ${
+                activeFilter === NEW_FROM_PHOTOS
+                  ? 'bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground shadow-ambient'
+                  : 'bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200 hover:bg-amber-200/70'
+              }`}
+            >
+              {NEW_FROM_PHOTOS}
+            </button>
+          )}
           {FILTERS.map((f) => (
             <button
               key={f}
@@ -310,6 +330,7 @@ export function RecipeVault({
                   key={recipe.id}
                   recipe={recipe}
                   isProcessing={processingIds.has(recipe.id)}
+                  isNew={newRecipeIds?.has(recipe.id) ?? false}
                   activeFilter={activeFilter}
                   translation={recipeLanguages[recipe.id] ? translationsCache[`${recipe.id}:${recipeLanguages[recipe.id]}`] : null}
                   translationLoading={

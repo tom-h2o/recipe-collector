@@ -12,7 +12,7 @@ create extension if not exists pgtap with schema extensions;
 create schema if not exists tests;
 
 begin;
-select plan(44);
+select plan(51);
 
 -- ── Fixtures ────────────────────────────────────────────────────────────────
 -- Three accounts: two that will be linked, and a third that must stay isolated.
@@ -465,6 +465,59 @@ select ok(
 select ok(
   not ((public.system_health()->'configured_models') ? 'gemini-flash-latest'),
   'a model left on someone''s own settings row is not reported as configured'
+);
+
+-- ── Shortcut imports (migration 0070) ───────────────────────────────────────
+-- Keys are hashes nobody reads through the API; imports are each person's own,
+-- and the only thing they may change about one is when they saw it.
+insert into public.shortcut_keys (user_id, key_hash)
+values ('11111111-1111-1111-1111-111111111111', 'sha256-of-anas-key');
+
+insert into public.recipe_imports (id, user_id, status, page_count, recipe_id)
+values
+  ('dddddddd-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'saved', 2, 'aaaaaaaa-0000-0000-0000-000000000001'),
+  ('dddddddd-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222', 'failed', 1, null);
+
+select tests.as_user('11111111-1111-1111-1111-111111111111');
+select is(
+  (select count(*)::int from public.recipe_imports),
+  1,
+  'a person sees only their own imports'
+);
+select throws_ok(
+  $$ select count(*) from public.shortcut_keys $$,
+  '42501', null,
+  'nobody reads shortcut keys through the API, not even their own'
+);
+update public.recipe_imports set seen_at = now() where id = 'dddddddd-0000-0000-0000-000000000001';
+select isnt(
+  (select seen_at from public.recipe_imports where id = 'dddddddd-0000-0000-0000-000000000001'),
+  null,
+  'a person can mark their own import as seen'
+);
+select throws_ok(
+  $$ update public.recipe_imports set status = 'failed' where id = 'dddddddd-0000-0000-0000-000000000001' $$,
+  '42501', null,
+  'but cannot change anything else about it'
+);
+select throws_ok(
+  $$ insert into public.recipe_imports (user_id, status) values ('11111111-1111-1111-1111-111111111111', 'saved') $$,
+  '42501', null,
+  'nor create one: only the server does'
+);
+update public.recipe_imports set seen_at = now() where id = 'dddddddd-0000-0000-0000-000000000002';
+reset role;
+select is(
+  (select seen_at from public.recipe_imports where id = 'dddddddd-0000-0000-0000-000000000002'),
+  null,
+  'nor mark someone else''s import as seen'
+);
+
+delete from public.recipes where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+select is(
+  (select count(*)::int from public.recipe_imports where id = 'dddddddd-0000-0000-0000-000000000001'),
+  0,
+  'deleting a recipe deletes its import row, so no banner or badge outlives it'
 );
 
 select * from finish();

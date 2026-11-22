@@ -20,6 +20,15 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-04',
+    title: 'Send recipes straight from your photos',
+    items: [
+      'With an iPhone Shortcut you can now send recipes from the Photos app: select one or more pictures, tap Share, then Send to Speisekammer. Several pages become one recipe, or one recipe per picture if you prefer. Set it up once under Settings → iPhone Shortcut.',
+      'Recipes sent this way are saved straight away. The next time you open the app a banner shows what arrived, each new recipe carries a New badge until you open it, and anything that could not be read is listed with the reason.',
+    ],
+  },
+  {
+    // Ids must increase with each release (see 2026-12-02 below).
     id: '2026-12-03',
     title: 'Claude does the AI work now, with Gemini standing by',
     items: [

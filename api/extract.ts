@@ -9,6 +9,8 @@ import { getGeminiClient, generateJson, generateFromParts, describeGeminiError }
 import { captureException } from './_lib/sentry.js';
 import { extractedRecipeSchema, extractSchema, extractPhotoSchema, extractPdfSchema, extractTextSchema, normaliseExtractPhotoBody } from './_lib/schemas.js';
 import { EXTRACT_TEMPLATE } from './_lib/prompts.js';
+import { LANGUAGE_DIRECTIVE, LANGUAGE_RULE, extractRecipeFromImages } from './_lib/photoExtraction.js';
+import { handleShortcutImport } from './_lib/shortcutImport.js';
 import { checkRateLimit } from './_lib/rateLimit.js';
 import { getCached, makeCacheKey, setCached } from './_lib/cache.js';
 import { fetchPublicUrl } from './_lib/publicUrl.js';
@@ -198,66 +200,6 @@ function validateExtractedRecipe(value: unknown): ExtractedRecipe {
   return extractedRecipeSchema.parse(value);
 }
 
-/**
- * Without this, Gemini reports the source language correctly in
- * "original_language" but still writes the recipe itself in English.
- * The JSON skeletons below use English sample values, which biases it further,
- * so the rule has to be stated explicitly and repeated in the rule list.
- */
-const LANGUAGE_DIRECTIVE = `CRITICAL — LANGUAGE:
-First detect the language of the text in the source. Then write the ENTIRE response IN THAT LANGUAGE.
-"title", "description", "instructions", and every ingredient "name" and "details" MUST be written in the detected source language — do NOT translate them into English.
-For example, if the source is in Polish, "title", "description", "instructions" and all ingredient names must be Polish. If it is in German, they must be German.
-The English words in the JSON example below illustrate the STRUCTURE ONLY — never copy their language.`;
-
-const LANGUAGE_RULE = `- Write "title", "description", "instructions", and all ingredient "name"/"details" values in the detected source language, matching "original_language". Never translate the recipe into English unless the source itself is English.`;
-
-function photoPrompt(unit: 'C' | 'F', imageCount: number) {
-  const multi = imageCount > 1;
-  const intro = multi
-    ? `You are a culinary assistant that extracts recipes from food photos or handwritten recipe cards.
-You are given ${imageCount} images that are pages or photos of ONE SINGLE recipe, provided in reading order.
-Read all ${imageCount} images together and combine them into one complete recipe.`
-    : `You are a culinary assistant that extracts recipes from food photos or handwritten recipe cards.
-Look at the image carefully and extract any recipe information visible.`;
-
-  return `${intro}
-
-${LANGUAGE_DIRECTIVE}
-
-Return ONLY a JSON object with this exact structure:
-{
-  "title": "Recipe Title",
-  "description": "Short, enticing summary of the dish (1-2 sentences)",
-  "original_language": "en",
-  "servings": 4,
-  "prep_time_mins": 15,
-  "cook_time_mins": 30,
-  "ingredients": [
-    { "amount": "200g", "name": "pasta", "details": "" },
-    { "amount": "2", "name": "eggs", "details": "beaten" },
-    { "amount": "", "name": "salt", "details": "to taste" }
-  ],
-  "instructions": "Step 1: Do this.\\nStep 2: Do that.",
-  "image_url": "",
-  "source_name": ""
-}
-
-Rules:
-- "original_language" MUST ALWAYS be a 2-letter ISO 639-1 language code detected from the text visible in the image${multi ? 's' : ''}.
-${LANGUAGE_RULE}
-- If this is a photo of a finished dish with no readable text, infer a likely recipe and write it in the language of any text visible in the image; if there is none, use English and set "original_language" to "en".${multi ? `
-- Treat the ${imageCount} images as ONE recipe, not ${imageCount} separate recipes. Return a single recipe object.
-- Merge content across images in the order given: ingredients from every image belong to the same list, and instructions continue from one image to the next.
-- If a list or a step is cut off at the edge of one image and continues on the next, join it into a single entry rather than repeating it.
-- Do not output the same ingredient or step twice when it appears on more than one image (e.g. a repeated header or an overlapping photo).` : ''}
-- "ingredients" MUST be an array of objects with "amount", "name", and "details".
-- "servings", "prep_time_mins", "cook_time_mins" must be integers or null if unknown.
-- Express all temperatures in °${unit} (${unit === 'C' ? 'Celsius' : 'Fahrenheit'}). Convert any other unit found.
-- "instructions" should use newlines to separate steps. Remove any existing step numbering.
-- "image_url" and "source_name" should always be empty string.`;
-}
-
 function pdfPrompt(unit: 'C' | 'F') {
   return `You are a culinary assistant that extracts recipes from PDF documents.
 Read the document carefully and extract any recipe information present.
@@ -345,6 +287,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  // The iPhone Shortcut: authenticated by its own key rather than a session,
+  // and it saves the recipe instead of returning it (_lib/shortcutImport.ts).
+  // A branch here rather than a new function: the Hobby plan allows 12.
+  if (req.query?.via === 'shortcut') return handleShortcutImport(req, res);
+
   const supabase = getServerSupabase();
   const userId = await getUserId(req.headers.authorization as string | undefined);
   if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -360,33 +307,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const rl = await checkRateLimit(supabase, userId);
       if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
       const { images, kind } = extractPhotoSchema.parse(normaliseExtractPhotoBody(body));
-      // A camera photo is the hardest thing to read and has its own task (and
-      // model); a screenshot holds clean digital text, like a web page.
-      const task = kind === 'screenshot' ? 'extract' : 'photo';
-      const endpoint = kind === 'screenshot' ? 'extract-screenshot' : 'extract-photo';
-      const client = getGeminiClient(apiKey);
-      const startTime = Date.now();
-      // All pages go into a single request so Gemini sees the whole recipe at once.
-      const parts = [
-        ...images.map((img) => ({ inlineData: { mimeType: img.mimeType, data: img.data } })),
-        { text: photoPrompt(settings.temperature_unit, images.length) },
-      ];
-      const inputPreview = `[${images.length} image${images.length === 1 ? '' : 's'}: ${images.map((i) => i.mimeType).join(', ')}]`;
-      // Retried, and moved to the other free model if this one cannot serve;
-      // progress says which model answered and how many calls it took.
-      const progress = { attempts: 0, model: modelFor(settings, task) };
-      try {
-        const response = await generateFromParts(client, progress.model, parts, { responseSchema: extractedRecipeResponseSchema }, progress);
-        const text = response.text;
-        if (!text) throw new Error('The AI returned an empty response.');
-        const recipeData = validateExtractedRecipe(JSON.parse(text));
-        supabase.from('gemini_logs').insert({ endpoint, model: progress.model, model_version: response.modelVersion ?? null, attempts: progress.attempts, status: 'success', latency_ms: Date.now() - startTime, input_preview: inputPreview, output_preview: text.substring(0, 300), user_id: userId }).then(() => {}, () => {});
-        return res.status(200).json(recipeData);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        supabase.from('gemini_logs').insert({ endpoint, model: progress.model, attempts: progress.attempts, status: 'error', latency_ms: Date.now() - startTime, input_preview: inputPreview, error_message: errorMessage, user_id: userId }).then(() => {}, () => {});
-        throw err;
-      }
+      // Shared with the iPhone Shortcut import: same prompt, same task per kind
+      // (a camera photo runs as `photo`, a screenshot as `extract`), same log row.
+      const recipeData = await extractRecipeFromImages({ supabase, client: getGeminiClient(apiKey), settings, userId, images, kind });
+      return res.status(200).json(recipeData);
     }
 
     // ── PDF extraction ─────────────────────────────────────────────────────────
