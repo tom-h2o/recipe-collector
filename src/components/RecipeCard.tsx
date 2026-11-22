@@ -67,7 +67,7 @@ export function RecipeCard({ recipe, isProcessing, isNew = false, activeFilter, 
         <div className="absolute top-2 left-2 flex flex-col items-start gap-1">
           {isNew && (
             <div
-              title="Sent from your photos and not opened yet"
+              title="Sent from your iPhone and not opened yet"
               className="flex items-center gap-1 bg-amber-500/95 text-white text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full font-sans"
             >
               New

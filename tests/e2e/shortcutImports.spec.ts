@@ -1,11 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
 import { installMockBackend } from './support/mockBackend';
+import { SAFARI_SHORTCUT_SCRIPT } from '../../shared/safariShortcut';
 
 /**
- * Recipes sent from the iPhone Shortcut are saved straight away and announced
- * the next time the app is opened: a banner (new, still being read, could not
- * be read), a New badge on each card, a way to show only those, and the badge
- * gone once the recipe has been opened. Settings makes and shows the key.
+ * Recipes sent from the iPhone Shortcuts (Photos and Safari) are saved straight
+ * away and announced the next time the app is opened: a banner (new, still
+ * being read, could not be read), a New badge on each card, a way to show only
+ * those, and the badge gone once the recipe has been opened. Settings makes
+ * and shows the key, and offers both Shortcuts.
  */
 
 const IMPORTS = [
@@ -39,8 +41,8 @@ test('announces what the Shortcut sent, shows just those, and forgets each once 
   const { patches, recipeQueries } = await serveImports(page);
   await page.goto('/');
 
-  const banner = page.getByRole('region', { name: 'Recipes from your photos' });
-  await expect(banner).toContainText('2 new recipes from your photos');
+  const banner = page.getByRole('region', { name: 'Recipes from your iPhone' });
+  await expect(banner).toContainText('2 new recipes from your iPhone');
   await expect(banner).toContainText('Reading a picture from your photos');
   await expect(banner).toContainText('No recipe could be read from this picture.');
 
@@ -50,7 +52,7 @@ test('announces what the Shortcut sent, shows just those, and forgets each once 
   await expect(toast.getByText('New', { exact: true })).toBeVisible();
 
   await banner.getByRole('button', { name: 'Show' }).click();
-  await expect(page.getByRole('button', { name: '🆕 New from photos' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '🆕 New from iPhone' })).toBeVisible();
   await expect.poll(() => recipeQueries.some((q) => q.includes('id=in.(recipe-a,recipe-b)'))).toBe(true);
 
   // Opening a recipe counts as having seen it.
@@ -60,7 +62,7 @@ test('announces what the Shortcut sent, shows just those, and forgets each once 
   await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(pizza.getByText('New', { exact: true })).toHaveCount(0);
-  await expect(banner).toContainText('1 new recipe from your photos');
+  await expect(banner).toContainText('1 new recipe from your iPhone');
 
   // A failure is closed by hand.
   await banner.getByRole('button', { name: 'Dismiss' }).click();
@@ -68,13 +70,28 @@ test('announces what the Shortcut sent, shows just those, and forgets each once 
   await expect.poll(() => patches.some((p) => p.url.includes('id=eq.imp-4'))).toBe(true);
 });
 
+test('a page sent from Safari is spoken of as a page', async ({ page }) => {
+  await installMockBackend(page);
+  await page.route('**/rest/v1/recipe_imports*', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify([
+      { id: 'imp-p1', status: 'processing', source: 'page', recipe_id: null, error: null, page_count: 1, created_at: '2026-11-22T11:00:00Z' },
+      { id: 'imp-p2', status: 'failed', source: 'page', recipe_id: null, error: 'No recipe was found on this page.', page_count: 1, created_at: '2026-11-22T11:01:00Z' },
+    ]),
+  }));
+  await page.goto('/');
+  const banner = page.getByRole('region', { name: 'Recipes from your iPhone' });
+  await expect(banner).toContainText('Reading a page from Safari');
+  await expect(banner).toContainText('A page from Safari could not be read. No recipe was found on this page.');
+  await expect(banner).not.toContainText('picture');
+});
+
 test('shows nothing when nothing new arrived', async ({ page }) => {
   await installMockBackend(page);
   await page.route('**/rest/v1/recipe_imports*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
   await page.goto('/');
   await expect(page.locator('.recipe-card').first()).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Recipes from your photos' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '🆕 New from photos' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Recipes from your iPhone' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '🆕 New from iPhone' })).toHaveCount(0);
   await expect(page.locator('.recipe-card').getByText('New', { exact: true })).toHaveCount(0);
 });
 
@@ -98,17 +115,18 @@ test('Settings makes a Shortcut key and shows it once', async ({ page }) => {
   await expect(page.getByTestId('shortcut-key')).toHaveText('spk_test-key-shown-once');
   await expect(section).toContainText('shown only this once');
   await expect(section).toContainText('not used yet');
-  await section.getByText('How to set up the Shortcut').click();
-  await expect(section.getByText(/\/api\/extract\?via=shortcut$/)).toBeVisible();
+  const photos = section.getByRole('region', { name: 'From the Photos app' });
+  await photos.getByText('How to set up the Shortcut').click();
+  await expect(photos.getByText(/\/api\/extract\?via=shortcut$/)).toBeVisible();
 });
 
 const LINK = 'https://www.icloud.com/shortcuts/5f2b0c3a9e4d4b8f8c2a1d6e7f9a0b1c';
 
-async function serveSettingsRow(page: Page, shortcutUrl: string | null) {
+async function serveSettingsRow(page: Page, shortcutUrl: string | null, safariUrl: string | null = null) {
   await page.route('**/rest/v1/settings*', (route) => {
     const url = route.request().url();
     const body = url.includes('id=eq.1')
-      ? { gemini_model: 'claude-sonnet-5-5', task_models: {}, shortcut_url: shortcutUrl }
+      ? { gemini_model: 'claude-sonnet-5-5', task_models: {}, shortcut_url: shortcutUrl, safari_shortcut_url: safariUrl }
       : { temperature_unit: 'C' };
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
@@ -123,12 +141,17 @@ test('once the admin has shared the Shortcut, everyone gets an Add to Shortcuts 
   await page.goto('/');
   await page.getByTitle('Settings').click();
 
-  const section = page.getByRole('region', { name: 'iPhone Shortcut' });
-  await expect(section.getByRole('link', { name: 'Add to Shortcuts' })).toHaveAttribute('href', LINK);
+  const section = page.getByRole('region', { name: 'iPhone Shortcuts' });
+  const photos = section.getByRole('region', { name: 'From the Photos app' });
+  await expect(photos.getByRole('link', { name: 'Add to Shortcuts' })).toHaveAttribute('href', LINK);
   // The build steps stay, folded away as the fallback.
-  await expect(section.getByText('Build the Shortcut yourself instead')).toBeVisible();
-  // Only the admin can set the link.
-  await expect(section.getByRole('form', { name: 'Shared Shortcut link' })).toHaveCount(0);
+  await expect(photos.getByText('Build the Shortcut yourself instead')).toBeVisible();
+  // Only the admin can set the links.
+  await expect(section.getByRole('form')).toHaveCount(0);
+  // The Safari one is not shared yet: its build steps, no button.
+  const safari = section.getByRole('region', { name: 'From Safari' });
+  await expect(safari.getByRole('link', { name: 'Add to Shortcuts' })).toHaveCount(0);
+  await expect(safari.getByText('How to set up the Shortcut')).toBeVisible();
 });
 
 test('without a shared link there is no button, only the build steps', async ({ page }) => {
@@ -136,8 +159,8 @@ test('without a shared link there is no button, only the build steps', async ({ 
   await serveSettingsRow(page, null);
   await page.goto('/');
   await page.getByTitle('Settings').click();
-  const section = page.getByRole('region', { name: 'iPhone Shortcut' });
-  await expect(section.getByText('How to set up the Shortcut')).toBeVisible();
+  const section = page.getByRole('region', { name: 'iPhone Shortcuts' });
+  await expect(section.getByText('How to set up the Shortcut')).toHaveCount(2);
   await expect(section.getByRole('link', { name: 'Add to Shortcuts' })).toHaveCount(0);
 });
 
@@ -155,14 +178,62 @@ test('the admin pastes the iCloud link, and the server is what checks it', async
   await page.goto('/');
   await page.getByTitle('Settings').click();
 
-  const form = page.getByRole('form', { name: 'Shared Shortcut link' });
+  const form = page.getByRole('form', { name: 'Shared Shortcut link', exact: true });
   await form.getByRole('textbox').fill('https://example.com/not-a-shortcut');
   await form.getByRole('button', { name: 'Save link' }).click();
   await expect(form.getByRole('alert')).toContainText('iCloud link');
 
   await form.getByRole('textbox').fill(LINK);
   await form.getByRole('button', { name: 'Save link' }).click();
-  const section = page.getByRole('region', { name: 'iPhone Shortcut' });
-  await expect(section.getByRole('link', { name: 'Add to Shortcuts' })).toHaveAttribute('href', LINK);
-  expect(posted).toEqual([{ url: 'https://example.com/not-a-shortcut' }, { url: LINK }]);
+  const photos = page.getByRole('region', { name: 'From the Photos app' });
+  await expect(photos.getByRole('link', { name: 'Add to Shortcuts' })).toHaveAttribute('href', LINK);
+
+  // The Safari Shortcut's link is its own.
+  const SAFARI_LINK = 'https://www.icloud.com/shortcuts/0a1b2c3d4e5f60718293a4b5c6d7e8f9';
+  const safariForm = page.getByRole('form', { name: 'Shared Safari Shortcut link' });
+  await safariForm.getByRole('textbox').fill(SAFARI_LINK);
+  await safariForm.getByRole('button', { name: 'Save link' }).click();
+  await expect(page.getByRole('region', { name: 'From Safari' }).getByRole('link', { name: 'Add to Shortcuts' })).toHaveAttribute('href', SAFARI_LINK);
+
+  expect(posted).toEqual([
+    { url: 'https://example.com/not-a-shortcut', kind: 'photos' },
+    { url: LINK, kind: 'photos' },
+    { url: SAFARI_LINK, kind: 'safari' },
+  ]);
+});
+
+test('the Safari Shortcut: its button, the one setting it needs, and the script to paste', async ({ page }) => {
+  const SAFARI_LINK = 'https://www.icloud.com/shortcuts/0a1b2c3d4e5f60718293a4b5c6d7e8f9';
+  await installMockBackend(page, { email: 'cook@example.com' });
+  await serveSettingsRow(page, null, SAFARI_LINK);
+  await page.goto('/');
+  await page.getByTitle('Settings').click();
+
+  const safari = page.getByRole('region', { name: 'From Safari' });
+  await expect(safari.getByRole('link', { name: 'Add to Shortcuts' })).toHaveAttribute('href', SAFARI_LINK);
+  await expect(safari).toContainText('Allow Running Scripts');
+  await safari.getByText('Build the Shortcut yourself instead').click();
+  await expect(safari.getByTestId('safari-script')).toHaveText(SAFARI_SHORTCUT_SCRIPT);
+  await expect(safari.getByRole('button', { name: 'Copy script' })).toBeVisible();
+});
+
+test('the Safari script, run in a real browser, sends the recipe data and the address', async ({ page }) => {
+  await page.route('https://recipes.example/kuerbissuppe', (route) => route.fulfill({
+    status: 200, contentType: 'text/html; charset=utf-8',
+    body: `<html lang="de"><head><title>Kürbissuppe</title><style>body{color:red}</style>
+      <script>window.tracking = 1;</script>
+      <script type="application/ld+json">{"@type":"Recipe","name":"Kürbissuppe","recipeIngredient":["1 Hokkaido"]}</script>
+      </head><body style="margin:0"><h1>Kürbissuppe</h1><p>1 Hokkaido</p></body></html>`,
+  }));
+  await page.goto('https://recipes.example/kuerbissuppe');
+  const sent = await page.evaluate((script) => new Promise<string>((resolve) => {
+    new Function('completion', script)(resolve);
+  }), SAFARI_SHORTCUT_SCRIPT);
+  const { url, html } = JSON.parse(sent) as { url: string; html: string };
+  expect(url).toBe('https://recipes.example/kuerbissuppe');
+  expect(html).toContain('"@type":"Recipe"');
+  expect(html).toContain('<h1>Kürbissuppe</h1>');
+  expect(html).not.toContain('window.tracking');
+  expect(html).not.toContain('color:red');
+  expect(html).not.toContain('margin:0');
 });

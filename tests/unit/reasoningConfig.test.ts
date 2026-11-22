@@ -20,17 +20,20 @@ describe('reasoning per task', () => {
 
   const apiDir = path.resolve(process.cwd(), 'api');
   // The endpoints, plus _lib/enrich.ts, where tagging and nutrition run for
-  // both their endpoints and the iPhone Shortcut import.
+  // both their endpoints and the iPhone Shortcut import, and
+  // _lib/pageExtraction.ts, where a web page is read for a link and for the
+  // Safari Shortcut.
   const endpoints = [
     ...fs.readdirSync(apiDir).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts')),
     '_lib/enrich.ts',
+    '_lib/pageExtraction.ts',
   ]
     .map((f) => ({ file: f, src: fs.readFileSync(path.join(apiDir, f), 'utf8') }))
     .filter(({ src }) => src.includes('generateJson('));
 
   it('finds the AI endpoints (guards the scan itself)', () => {
     expect(endpoints.map((e) => e.file).sort()).toEqual(
-      ['_lib/enrich.ts', 'extract.ts', 'scale.ts', 'shopping.ts', 'suggest.ts', 'translate.ts'],
+      ['_lib/enrich.ts', '_lib/pageExtraction.ts', 'extract.ts', 'scale.ts', 'shopping.ts', 'suggest.ts', 'translate.ts'],
     );
   });
 

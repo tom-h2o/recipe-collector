@@ -1,6 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import * as cheerio from 'cheerio';
-import type { CheerioAPI } from 'cheerio';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
 import { getServerSupabase, getSettings, resolveApiKey, getUserId, modelFor, thinkingFor } from './_lib/supabase.js';
@@ -8,197 +6,13 @@ import { extractedRecipeResponseSchema } from './_lib/responseSchemas.js';
 import { getGeminiClient, generateJson, generateFromParts, describeGeminiError } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { extractedRecipeSchema, extractSchema, extractPhotoSchema, extractPdfSchema, extractTextSchema, normaliseExtractPhotoBody } from './_lib/schemas.js';
-import { EXTRACT_TEMPLATE } from './_lib/prompts.js';
 import { LANGUAGE_DIRECTIVE, LANGUAGE_RULE, extractRecipeFromImages } from './_lib/photoExtraction.js';
 import { handleShortcutImport } from './_lib/shortcutImport.js';
+import { extractRecipeFromHtml, validateExtractedRecipe } from './_lib/pageExtraction.js';
+import { DailyLimitError } from './_lib/enrich.js';
 import { checkRateLimit } from './_lib/rateLimit.js';
 import { getCached, makeCacheKey, setCached } from './_lib/cache.js';
 import { fetchPublicUrl } from './_lib/publicUrl.js';
-
-export interface ExtractedIngredient {
-  amount: string;
-  name: string;
-  details: string;
-}
-
-export interface ExtractedRecipe {
-  title: string;
-  description: string;
-  original_language: string;
-  servings: number | null;
-  prep_time_mins: number | null;
-  cook_time_mins: number | null;
-  ingredients: ExtractedIngredient[];
-  instructions: string;
-  image_url: string;
-  source_name: string;
-}
-
-type JsonRecord = Record<string, unknown>;
-
-const INGREDIENT_AMOUNT_RE =
-  /^((?:\d+\s*[-–]?\s*)?(?:\d+\/\d+|[\d.,]+|[½¼¾⅓⅔⅛⅜⅝⅞])?\s*(?:Pck\.?|Packung(?:en)?|TL|EL|g|kg|ml|l|Liter|Tasse(?:n)?|Prise(?:n)?|Stück|Scheibe(?:n)?|Becher|Dose(?:n)?|Bund)?(?:\s|$))/i;
-
-function asRecord(value: unknown): JsonRecord | null {
-  return typeof value === 'object' && value !== null ? value as JsonRecord : null;
-}
-
-function stringValue(value: unknown): string {
-  if (typeof value === 'string') return value.trim();
-  if (typeof value === 'number') return String(value);
-  const record = asRecord(value);
-  if (record) return stringValue(record.name ?? record.text ?? record.url);
-  return '';
-}
-
-function stringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return stringValue(value) ? [stringValue(value)] : [];
-  return value.map(stringValue).filter(Boolean);
-}
-
-function includesRecipeType(value: unknown): boolean {
-  if (typeof value === 'string') return value.toLowerCase() === 'recipe';
-  return Array.isArray(value) && value.some(includesRecipeType);
-}
-
-function findRecipeNode(value: unknown): JsonRecord | null {
-  const record = asRecord(value);
-  if (record) {
-    if (includesRecipeType(record['@type'])) return record;
-    for (const key of ['@graph', 'mainEntity', 'mainEntityOfPage', 'itemListElement']) {
-      const found = findRecipeNode(record[key]);
-      if (found) return found;
-    }
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const found = findRecipeNode(item);
-      if (found) return found;
-    }
-  }
-  return null;
-}
-
-function parseIsoDuration(value: unknown): number | null {
-  const text = stringValue(value);
-  if (!text) return null;
-  const match = text.match(/^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/i);
-  if (!match) return null;
-  const days = Number(match[1] ?? 0);
-  const hours = Number(match[2] ?? 0);
-  const minutes = Number(match[3] ?? 0);
-  const seconds = Number(match[4] ?? 0);
-  return days * 24 * 60 + hours * 60 + minutes + Math.round(seconds / 60);
-}
-
-function parseServings(value: unknown): number | null {
-  const text = stringArray(value).join(' ');
-  const match = text.match(/\d+/);
-  return match ? Number(match[0]) : null;
-}
-
-function parseIngredient(value: string): ExtractedIngredient {
-  const cleaned = value.replace(/\s+/g, ' ').trim();
-  const [main, ...detailParts] = cleaned.split(/\s+-\s+|,\s+/);
-  const match = main.match(INGREDIENT_AMOUNT_RE);
-  const rawAmount = match?.[0].trim() ?? '';
-  const name = (rawAmount ? main.slice(rawAmount.length) : main).trim();
-  return {
-    amount: rawAmount,
-    name,
-    details: detailParts.join(', ').trim(),
-  };
-}
-
-function instructionText(value: unknown): string[] {
-  if (typeof value === 'string') return [value.trim()].filter(Boolean);
-  if (Array.isArray(value)) return value.flatMap(instructionText);
-  const record = asRecord(value);
-  if (!record) return [];
-  const nested = instructionText(record.itemListElement);
-  const text = stringValue(record.text ?? record.name);
-  return [...(text ? [text] : []), ...nested];
-}
-
-function imageUrl(value: unknown): string {
-  const direct = stringValue(value);
-  if (direct) return direct;
-  if (Array.isArray(value)) return value.map(imageUrl).find(Boolean) ?? '';
-  const record = asRecord(value);
-  return record ? stringValue(record.url ?? record.contentUrl) : '';
-}
-
-export function extractStructuredRecipe($: CheerioAPI, pageDescription: string, ogImage: string): ExtractedRecipe | null {
-  const htmlLanguage = ($('html').attr('lang') ?? '').slice(0, 2).toLowerCase() || 'en';
-  const scripts = $('script[type="application/ld+json"]').toArray();
-
-  for (const script of scripts) {
-    const raw = $(script).contents().text();
-    if (!raw.trim()) continue;
-
-    try {
-      const recipe = findRecipeNode(JSON.parse(raw));
-      if (!recipe) continue;
-
-      const title = stringValue(recipe.name);
-      const ingredients = stringArray(recipe.recipeIngredient).map(parseIngredient).filter((i) => i.name);
-      const instructions = instructionText(recipe.recipeInstructions).join('\n');
-      if (!title || ingredients.length === 0 || !instructions) continue;
-
-      return {
-        title,
-        description: stringValue(recipe.description) || pageDescription,
-        original_language: htmlLanguage,
-        servings: parseServings(recipe.recipeYield ?? recipe.yield),
-        prep_time_mins: parseIsoDuration(recipe.prepTime),
-        cook_time_mins: parseIsoDuration(recipe.cookTime),
-        ingredients,
-        instructions,
-        image_url: imageUrl(recipe.image) || ogImage,
-        source_name: stringValue(recipe.author) || stringValue(recipe.publisher),
-      };
-    } catch {
-      // Ignore malformed structured data and continue with AI extraction.
-    }
-  }
-
-  return null;
-}
-
-function buildUrlExtractionPrompt(
-  promptTemplate: string,
-  pageTitle: string,
-  pageDescription: string,
-  ogImage: string,
-  bodyText: string,
-  structuredRecipe: ExtractedRecipe | null,
-): string {
-  const structuredBlock = structuredRecipe
-    ? `\n\nMachine-readable Recipe data found on the page.
-Use this as the primary source, but verify it against the visible webpage text before returning the final recipe.
-If the structured data and visible text conflict, prefer the visible recipe card/instructions.
-
-Structured Recipe JSON:
-${JSON.stringify(structuredRecipe, null, 2)}`
-    : '';
-
-  return `${promptTemplate}
-
-Return the final result in the app recipe JSON format. Verify the extracted recipe content before responding.
-${structuredBlock}
-
-Webpage Text to Verify Against:
-Title: ${pageTitle}
-Description: ${pageDescription}
-OG Image: ${ogImage}
-
-Body Text:
-${bodyText}`;
-}
-
-function validateExtractedRecipe(value: unknown): ExtractedRecipe {
-  return extractedRecipeSchema.parse(value);
-}
 
 function pdfPrompt(unit: 'C' | 'F') {
   return `You are a culinary assistant that extracts recipes from PDF documents.
@@ -400,8 +214,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ── URL extraction ─────────────────────────────────────────────────────────
     const { url } = extractSchema.parse(body);
-    const tempNote = `\n- Express all temperatures in °${settings.temperature_unit} (${settings.temperature_unit === 'C' ? 'Celsius' : 'Fahrenheit'}). Convert any other unit found.`;
-    const promptTemplate = EXTRACT_TEMPLATE + tempNote;
 
     const fetchRes = await fetchPublicUrl(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RecipeCollector/1.0)' } });
     if (!fetchRes.ok) {
@@ -410,32 +222,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(422).json(refusal);
     }
     const html = await fetchRes.text();
-    const $ = cheerio.load(html);
-    const pageTitle = $('title').text() || $('meta[property="og:title"]').attr('content') || '';
-    const pageDescription = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '';
-    const ogImage = $('meta[property="og:image"]').attr('content') || '';
-    const structuredRecipe = extractStructuredRecipe($, pageDescription, ogImage);
-
-    $('script, style, nav, footer, iframe, svg').remove();
-    const bodyText = $('body').text().replace(/\s+/g, ' ').substring(0, 20000);
-
-    const finalPrompt = buildUrlExtractionPrompt(promptTemplate, pageTitle, pageDescription, ogImage, bodyText, structuredRecipe);
-    const cacheKey = makeCacheKey('extract', { model: modelFor(settings, 'extract'), prompt: finalPrompt });
-    const cachedRecipe = await getCached(supabase, cacheKey);
-    if (cachedRecipe) {
-      console.info('extract cache hit', { url, structuredDataFound: !!structuredRecipe });
-      return res.status(200).json({ ...validateExtractedRecipe(cachedRecipe), cached: true, structured_data_found: !!structuredRecipe });
+    try {
+      const { recipe, cached, structuredDataFound } = await extractRecipeFromHtml({ supabase, client: getGeminiClient(apiKey), settings, userId, endpoint: 'extract' }, html);
+      console.info(cached ? 'extract cache hit' : 'extract gemini verified', { url, structuredDataFound });
+      return res.status(200).json({ ...recipe, cached, structured_data_found: structuredDataFound });
+    } catch (err) {
+      if (err instanceof DailyLimitError) return res.status(429).json({ error: err.message });
+      throw err;
     }
-
-    const rl = await checkRateLimit(supabase, userId);
-    if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
-
-    const client = getGeminiClient(apiKey);
-    const recipeData = validateExtractedRecipe(await generateJson(client, modelFor(settings, 'extract'), finalPrompt, { supabase, endpoint: 'extract', userId }, { responseSchema: extractedRecipeResponseSchema, thinking: thinkingFor('extract') }));
-
-    setCached(supabase, cacheKey, 'extract', recipeData, 24 * 7);
-    console.info('extract gemini verified', { url, structuredDataFound: !!structuredRecipe });
-    return res.status(200).json({ ...recipeData, cached: false, structured_data_found: !!structuredRecipe });
 
   } catch (err: unknown) {
     if (err instanceof ZodError) return res.status(400).json({ error: err.issues[0]?.message ?? 'Invalid request' });

@@ -41,7 +41,12 @@ export const shortcutUrlSchema = z.object({
     z.null(),
     z.string().trim().regex(SHORTCUT_URL_PATTERN, 'Paste the iCloud link from the Shortcuts app (it starts with https://www.icloud.com/shortcuts/).'),
   ]),
+  /** photos: "Send to Speisekammer" (0071). safari: "Save page to Speisekammer" (0072). */
+  kind: z.enum(['photos', 'safari']).default('photos'),
 }).strict();
+
+/** The global settings column each shared Shortcut's link is kept in. */
+export const SHORTCUT_URL_COLUMNS = { photos: 'shortcut_url', safari: 'safari_shortcut_url' } as const;
 
 class HttpError extends Error {
   status: number;
@@ -366,9 +371,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(saved);
     }
 
-    // ── POST /api/account?action=shortcut-url — admin: the shared Shortcut ────
-    // Stored on the global settings row (migration 0071), which every user
-    // reads to show an "Add to Shortcuts" button.
+    // ── POST /api/account?action=shortcut-url — admin: a shared Shortcut ──────
+    // Stored on the global settings row (migrations 0071, 0072), which every
+    // user reads to show an "Add to Shortcuts" button for each Shortcut.
     if (req.method === 'POST' && queryParam(req, 'action') === 'shortcut-url') {
       await assertAdmin(auth);
       const parsed = shortcutUrlSchema.safeParse(req.body ?? {});
@@ -376,11 +381,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid link' });
       }
       const url = parsed.data.url ? parsed.data.url.trim() : null;
+      const { kind } = parsed.data;
       const { error } = await getServerSupabase()
         .from('settings')
-        .upsert({ id: GLOBAL_SETTINGS_ID, user_id: null, shortcut_url: url }, { onConflict: 'id' });
+        .upsert({ id: GLOBAL_SETTINGS_ID, user_id: null, [SHORTCUT_URL_COLUMNS[kind]]: url }, { onConflict: 'id' });
       if (error) throw error;
-      return res.status(200).json({ url });
+      return res.status(200).json({ url, kind });
     }
 
     // ── PATCH /api/account?recipeId=… — admin: edit any user's recipe ─────────

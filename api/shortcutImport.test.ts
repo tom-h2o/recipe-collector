@@ -74,6 +74,7 @@ const h = vi.hoisted(() => {
     db,
     supabase,
     extract: vi.fn(),
+    generateJson: vi.fn(),
     tag: vi.fn(),
     nutrition: vi.fn(),
     rateAllowed: { value: true },
@@ -82,13 +83,17 @@ const h = vi.hoisted(() => {
 
 vi.mock('./_lib/supabase.js', () => ({
   getServerSupabase: () => h.supabase,
+  modelFor: (s: { task_models?: Record<string, string>; gemini_model: string }, task: string) => s.task_models?.[task] || s.gemini_model,
+  thinkingFor: () => true,
   getSettings: vi.fn().mockResolvedValue({ gemini_model: 'claude-sonnet-5-5', task_models: {}, temperature_unit: 'C' }),
   resolveApiKey: () => 'key',
 }));
 vi.mock('./_lib/gemini.js', () => ({
   getGeminiClient: () => ({}),
   describeGeminiError: (_err: unknown, fallback: string) => ({ status: 500, message: fallback, retryable: true }),
+  generateJson: h.generateJson,
 }));
+vi.mock('./_lib/cache.js', () => ({ getCached: async () => null, setCached: vi.fn(), makeCacheKey: () => 'k' }));
 vi.mock('./_lib/sentry.js', () => ({ captureException: vi.fn() }));
 vi.mock('./_lib/rateLimit.js', () => ({
   checkRateLimit: vi.fn(async () => ({ allowed: h.rateAllowed.value, used: 0, limit: 100, remaining: 100 })),
@@ -99,7 +104,7 @@ vi.mock('./_lib/enrich.js', async (importOriginal) => {
   return { ...real, tagRecipe: h.tag, estimateNutrition: h.nutrition };
 });
 
-import { handleShortcutImport, hashShortcutKey, newShortcutKey, summarise } from './_lib/shortcutImport';
+import { handleShortcutImport, hashShortcutKey, newShortcutKey, readSharedPage, summarise } from './_lib/shortcutImport';
 
 const KEY = newShortcutKey();
 const recipe = (title: string) => ({
@@ -134,6 +139,8 @@ beforeEach(() => {
   h.rateAllowed.value = true;
   h.extract.mockReset();
   h.extract.mockImplementation(async ({ images }: { images: unknown[] }) => recipe(images.length > 1 ? 'Grandma\'s soup' : 'Pancakes'));
+  h.generateJson.mockReset();
+  h.generateJson.mockImplementation(async () => ({ ...recipe('Klassische Kürbissuppe'), image_url: '/images/kuerbissuppe.jpg', source_name: 'REWE' }));
   h.tag.mockReset().mockResolvedValue(['Vegetarian']);
   h.nutrition.mockReset().mockResolvedValue({ calories: 300 });
 });
@@ -264,5 +271,97 @@ describe('summarise', () => {
     expect(summarise([{ status: 'saved', title: 'Soup', recipeId: 'r' }])).toBe('Saved: Soup');
     expect(summarise([{ status: 'failed', error: 'No recipe could be read from this picture.' }])).toBe('No recipe could be read from this picture.');
     expect(summarise([{ status: 'failed', error: 'x' }, { status: 'failed', error: 'x' }])).toBe('No recipe could be saved. x');
+  });
+});
+
+describe('a web page from the Safari Shortcut', () => {
+  const REWE = 'https://www.rewe.de/rezepte/klassische-kuerbissuppe/';
+  const HTML = `<html lang="de"><head><title>Klassische Kürbissuppe</title>
+    <meta property="og:image" content="/images/kuerbissuppe.jpg">
+    <script type="application/ld+json">{"@type":"Recipe","name":"Klassische Kürbissuppe","recipeIngredient":["1 Hokkaido"],"recipeInstructions":"Kochen."}</script>
+    </head><body><main>Klassische Kürbissuppe. 1 Hokkaido. Kochen.</main></body></html>`;
+  const page = JSON.stringify({ url: REWE, html: HTML });
+
+  it('reads the page the person has open, and saves the recipe with its address', async () => {
+    const { res } = await send({ page });
+    expect(res.statusCode).toBe(200);
+    expect(res.body?.message).toBe('Saved: Klassische Kürbissuppe');
+
+    // Read like a pasted link, with the page's structured data, logged as a page.
+    expect(h.generateJson).toHaveBeenCalledTimes(1);
+    const [, model, prompt, log] = h.generateJson.mock.calls[0] as [unknown, string, string, { endpoint: string; userId: string }];
+    expect(model).toBe('claude-sonnet-5-5');
+    expect(prompt).toContain('Structured Recipe JSON');
+    expect(prompt).toContain('1 Hokkaido');
+    expect(log).toMatchObject({ endpoint: 'extract-page', userId: 'user-1' });
+    expect(h.extract).not.toHaveBeenCalled();
+
+    expect(h.db.recipes).toHaveLength(1);
+    expect(h.db.recipes[0]).toMatchObject({
+      title: 'Klassische Kürbissuppe',
+      user_id: 'user-1',
+      source_url: REWE,
+      source_name: 'REWE',
+      // Made absolute against the page.
+      image_url: 'https://www.rewe.de/images/kuerbissuppe.jpg',
+    });
+    expect(h.db.uploads).toHaveLength(0);
+    expect(h.tag).toHaveBeenCalledTimes(1);
+    expect(h.nutrition).toHaveBeenCalledTimes(1);
+    expect(h.db.imports).toEqual([expect.objectContaining({ user_id: 'user-1', status: 'saved', page_count: 1, source: 'page', recipe_id: 'recipe-1' })]);
+  });
+
+  it('takes the page however Shortcuts sends it', async () => {
+    await send({ page: { url: REWE, html: HTML } });
+    await send({ url: REWE, html: HTML });
+    expect(h.db.recipes.map((r) => r.source_url)).toEqual([REWE, REWE]);
+  });
+
+  it('names the site when the recipe has no author', async () => {
+    h.generateJson.mockResolvedValue(recipe('Suppe'));
+    await send({ page });
+    expect(h.db.recipes[0]).toMatchObject({ source_name: 'rewe.de', image_url: '' });
+  });
+
+  it('refuses what is not a page before reading anything', () => {
+    expect(readSharedPage({ page: '{not json' })).toContain('could not be read');
+    expect(readSharedPage({ page: JSON.stringify({ url: 'javascript:alert(1)', html: HTML }) })).toContain('Share a recipe page from Safari');
+    expect(readSharedPage({ page: JSON.stringify({ html: HTML }) })).toContain('Share a recipe page from Safari');
+    expect(readSharedPage({ page: JSON.stringify({ url: REWE, html: '' }) })).toContain('empty');
+    expect(readSharedPage({ page: JSON.stringify({ url: REWE, html: 'x'.repeat(3_000_001) }) })).toContain('too large');
+  });
+
+  it('answers a refused page with its reason, and starts nothing', async () => {
+    const { res } = await send({ page: '{not json' });
+    expect(res.statusCode).toBe(400);
+    expect(h.db.imports).toHaveLength(0);
+    expect(h.generateJson).not.toHaveBeenCalled();
+  });
+
+  it('records a page without a recipe as failed, in words about a page', async () => {
+    h.generateJson.mockResolvedValue({ ...recipe(''), ingredients: [], instructions: '' });
+    const { res } = await send({ page: JSON.stringify({ url: 'https://example.com/about', html: '<html><body>About us, our team and our story.</body></html>' }) });
+    expect(res.statusCode).toBe(422);
+    expect(res.body?.message).toBe('No recipe was found on this page.');
+    expect(h.db.recipes).toHaveLength(0);
+    expect(h.db.imports[0]).toMatchObject({ status: 'failed', source: 'page', error: 'No recipe was found on this page.' });
+  });
+
+  it('respects the daily allowance', async () => {
+    h.rateAllowed.value = false;
+    const { res } = await send({ page });
+    expect(res.body?.message).toContain('allowance');
+    expect(h.generateJson).not.toHaveBeenCalled();
+  });
+
+  it('answers "Got it" when reading takes longer, and finishes in the background', async () => {
+    let finishReading: (v: unknown) => void = () => {};
+    h.generateJson.mockImplementation(() => new Promise((resolve) => { finishReading = resolve; }));
+    const { res, waitUntil } = await send({ page }, { replyWithinMs: 10 });
+    expect(res.statusCode).toBe(202);
+    expect(res.body?.message).toBe('Got it. Reading the page; the recipe will be in Speisekammer in a minute.');
+    finishReading(recipe('Kürbissuppe'));
+    await waitUntil.mock.calls[0][0];
+    expect(h.db.imports[0]).toMatchObject({ status: 'saved' });
   });
 });
