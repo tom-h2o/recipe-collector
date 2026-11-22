@@ -65,7 +65,7 @@ test('announces what the Shortcut sent, shows just those, and forgets each once 
   // A failure is closed by hand.
   await banner.getByRole('button', { name: 'Dismiss' }).click();
   await expect(banner).not.toContainText('could not be read');
-  expect(patches.some((p) => p.url.includes('id=eq.imp-4'))).toBe(true);
+  await expect.poll(() => patches.some((p) => p.url.includes('id=eq.imp-4'))).toBe(true);
 });
 
 test('shows nothing when nothing new arrived', async ({ page }) => {
@@ -100,4 +100,69 @@ test('Settings makes a Shortcut key and shows it once', async ({ page }) => {
   await expect(section).toContainText('not used yet');
   await section.getByText('How to set up the Shortcut').click();
   await expect(section.getByText(/\/api\/extract\?via=shortcut$/)).toBeVisible();
+});
+
+const LINK = 'https://www.icloud.com/shortcuts/5f2b0c3a9e4d4b8f8c2a1d6e7f9a0b1c';
+
+async function serveSettingsRow(page: Page, shortcutUrl: string | null) {
+  await page.route('**/rest/v1/settings*', (route) => {
+    const url = route.request().url();
+    const body = url.includes('id=eq.1')
+      ? { gemini_model: 'claude-sonnet-5-5', task_models: {}, shortcut_url: shortcutUrl }
+      : { temperature_unit: 'C' };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  });
+  await page.route('**/api/account?tab=shortcut-key', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ hasKey: true, created_at: '2026-11-22T10:00:00Z', last_used_at: null }),
+  }));
+}
+
+test('once the admin has shared the Shortcut, everyone gets an Add to Shortcuts button', async ({ page }) => {
+  await installMockBackend(page, { email: 'cook@example.com' });
+  await serveSettingsRow(page, LINK);
+  await page.goto('/');
+  await page.getByTitle('Settings').click();
+
+  const section = page.getByRole('region', { name: 'iPhone Shortcut' });
+  await expect(section.getByRole('link', { name: 'Add to Shortcuts' })).toHaveAttribute('href', LINK);
+  // The build steps stay, folded away as the fallback.
+  await expect(section.getByText('Build the Shortcut yourself instead')).toBeVisible();
+  // Only the admin can set the link.
+  await expect(section.getByRole('form', { name: 'Shared Shortcut link' })).toHaveCount(0);
+});
+
+test('without a shared link there is no button, only the build steps', async ({ page }) => {
+  await installMockBackend(page, { email: 'cook@example.com' });
+  await serveSettingsRow(page, null);
+  await page.goto('/');
+  await page.getByTitle('Settings').click();
+  const section = page.getByRole('region', { name: 'iPhone Shortcut' });
+  await expect(section.getByText('How to set up the Shortcut')).toBeVisible();
+  await expect(section.getByRole('link', { name: 'Add to Shortcuts' })).toHaveCount(0);
+});
+
+test('the admin pastes the iCloud link, and the server is what checks it', async ({ page }) => {
+  await installMockBackend(page);
+  await serveSettingsRow(page, null);
+  const posted: unknown[] = [];
+  await page.route('**/api/account?action=shortcut-url', (route) => {
+    const body = route.request().postDataJSON() as { url: string };
+    posted.push(body);
+    return body.url.startsWith('https://www.icloud.com/shortcuts/')
+      ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: body.url }) })
+      : route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Paste the iCloud link from the Shortcuts app (it starts with https://www.icloud.com/shortcuts/).' }) });
+  });
+  await page.goto('/');
+  await page.getByTitle('Settings').click();
+
+  const form = page.getByRole('form', { name: 'Shared Shortcut link' });
+  await form.getByRole('textbox').fill('https://example.com/not-a-shortcut');
+  await form.getByRole('button', { name: 'Save link' }).click();
+  await expect(form.getByRole('alert')).toContainText('iCloud link');
+
+  await form.getByRole('textbox').fill(LINK);
+  await form.getByRole('button', { name: 'Save link' }).click();
+  const section = page.getByRole('region', { name: 'iPhone Shortcut' });
+  await expect(section.getByRole('link', { name: 'Add to Shortcuts' })).toHaveAttribute('href', LINK);
+  expect(posted).toEqual([{ url: 'https://example.com/not-a-shortcut' }, { url: LINK }]);
 });

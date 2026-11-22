@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
 import {
-  getServerSupabase, getUserId, getSettings, resolveApiKey, saveModelConfig,
+  getServerSupabase, getUserId, getSettings, resolveApiKey, saveModelConfig, GLOBAL_SETTINGS_ID,
   AI_TASK_IDS, OFFERED_MODELS, type AiTask,
 } from './_lib/supabase.js';
 import { captureException } from './_lib/sentry.js';
@@ -26,6 +26,21 @@ const offeredModel = z.enum(OFFERED_MODELS as [string, ...string[]], { error: 'N
 export const modelConfigSchema = z.object({
   gemini_model: offeredModel,
   task_models: z.partialRecord(z.enum(AI_TASK_IDS as [AiTask, ...AiTask[]]), offeredModel),
+}).strict();
+
+/**
+ * The iCloud link Apple's Shortcuts app makes with "Copy iCloud Link". Only
+ * that: every user gets a button that opens this address, so it must not be
+ * able to point anywhere else. An empty value removes the link.
+ */
+export const SHORTCUT_URL_PATTERN = /^https:\/\/(www\.)?icloud\.com\/shortcuts\/[A-Za-z0-9]{8,64}\/?$/;
+
+export const shortcutUrlSchema = z.object({
+  url: z.union([
+    z.literal(''),
+    z.null(),
+    z.string().trim().regex(SHORTCUT_URL_PATTERN, 'Paste the iCloud link from the Shortcuts app (it starts with https://www.icloud.com/shortcuts/).'),
+  ]),
 }).strict();
 
 class HttpError extends Error {
@@ -349,6 +364,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       const saved = await saveModelConfig(getServerSupabase(), parsed.data);
       return res.status(200).json(saved);
+    }
+
+    // ── POST /api/account?action=shortcut-url — admin: the shared Shortcut ────
+    // Stored on the global settings row (migration 0071), which every user
+    // reads to show an "Add to Shortcuts" button.
+    if (req.method === 'POST' && queryParam(req, 'action') === 'shortcut-url') {
+      await assertAdmin(auth);
+      const parsed = shortcutUrlSchema.safeParse(req.body ?? {});
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid link' });
+      }
+      const url = parsed.data.url ? parsed.data.url.trim() : null;
+      const { error } = await getServerSupabase()
+        .from('settings')
+        .upsert({ id: GLOBAL_SETTINGS_ID, user_id: null, shortcut_url: url }, { onConflict: 'id' });
+      if (error) throw error;
+      return res.status(200).json({ url });
     }
 
     // ── PATCH /api/account?recipeId=… — admin: edit any user's recipe ─────────
