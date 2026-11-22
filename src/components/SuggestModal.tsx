@@ -23,7 +23,7 @@ export function SuggestModal({ isOpen, onClose, onSelectRecipe }: Props) {
     e.preventDefault();
     if (!ingredientInput.trim()) return;
     setIsSuggesting(true);
-    const id = toast.loading('Finding matches with Gemini AI...');
+    const id = toast.loading('Finding matches with AI...');
     try {
       const ingredientsList = ingredientInput.split(',').map((s) => s.trim()).filter(Boolean);
       const res = await apiFetch('/api/suggest', {
@@ -57,7 +57,7 @@ export function SuggestModal({ isOpen, onClose, onSelectRecipe }: Props) {
             <Wand2 className="w-6 h-6 text-purple-500" /> What can I cook?
           </DialogTitle>
           <DialogDescription>
-            Enter the ingredients you have available, separated by commas. We'll ask Gemini to find the best matching recipes from your vault.
+            Enter the ingredients you have available, separated by commas. We'll ask the AI to find the best matching recipes from your vault.
           </DialogDescription>
         </DialogHeader>
 

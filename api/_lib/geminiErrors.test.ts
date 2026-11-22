@@ -46,10 +46,10 @@ describe('describeGeminiError', () => {
     // Zod messages about the model's output are ours and are genuinely useful;
     // sanitising them too would have thrown away information for no gain.
     const out = describeGeminiError(
-      new Error('Invalid Gemini nutrition output: expected number, received NaN'),
+      new Error('Invalid AI nutrition output: expected number, received NaN'),
       'Failed to estimate nutrition',
     );
-    expect(out.message).toBe('Invalid Gemini nutrition output: expected number, received NaN');
+    expect(out.message).toBe('Invalid AI nutrition output: expected number, received NaN');
     expect(out.status).toBe(500);
   });
 

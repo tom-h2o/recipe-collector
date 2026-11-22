@@ -14,7 +14,7 @@ async function openSettings(page: import('@playwright/test').Page, logs: unknown
   });
   await page.goto('/');
   await page.getByTitle('Settings').click();
-  await page.getByText('Gemini Model').waitFor();
+  await page.getByText('Main model', { exact: true }).waitFor();
 }
 
 test('shows what a configured id actually ran as', async ({ page }) => {

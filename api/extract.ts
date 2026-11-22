@@ -359,7 +359,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (body.imageBase64 !== undefined || body.images !== undefined) {
       const rl = await checkRateLimit(supabase, userId);
       if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
-      const { images } = extractPhotoSchema.parse(normaliseExtractPhotoBody(body));
+      const { images, kind } = extractPhotoSchema.parse(normaliseExtractPhotoBody(body));
+      // A camera photo is the hardest thing to read and has its own task (and
+      // model); a screenshot holds clean digital text, like a web page.
+      const task = kind === 'screenshot' ? 'extract' : 'photo';
+      const endpoint = kind === 'screenshot' ? 'extract-screenshot' : 'extract-photo';
       const client = getGeminiClient(apiKey);
       const startTime = Date.now();
       // All pages go into a single request so Gemini sees the whole recipe at once.
@@ -370,17 +374,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const inputPreview = `[${images.length} image${images.length === 1 ? '' : 's'}: ${images.map((i) => i.mimeType).join(', ')}]`;
       // Retried, and moved to the other free model if this one cannot serve;
       // progress says which model answered and how many calls it took.
-      const progress = { attempts: 0, model: modelFor(settings, 'extract') };
+      const progress = { attempts: 0, model: modelFor(settings, task) };
       try {
         const response = await generateFromParts(client, progress.model, parts, { responseSchema: extractedRecipeResponseSchema }, progress);
         const text = response.text;
-        if (!text) throw new Error('Gemini returned an empty response.');
+        if (!text) throw new Error('The AI returned an empty response.');
         const recipeData = validateExtractedRecipe(JSON.parse(text));
-        supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: progress.model, model_version: response.modelVersion ?? null, attempts: progress.attempts, status: 'success', latency_ms: Date.now() - startTime, input_preview: inputPreview, output_preview: text.substring(0, 300), user_id: userId }).then(() => {}, () => {});
+        supabase.from('gemini_logs').insert({ endpoint, model: progress.model, model_version: response.modelVersion ?? null, attempts: progress.attempts, status: 'success', latency_ms: Date.now() - startTime, input_preview: inputPreview, output_preview: text.substring(0, 300), user_id: userId }).then(() => {}, () => {});
         return res.status(200).json(recipeData);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
-        supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: progress.model, attempts: progress.attempts, status: 'error', latency_ms: Date.now() - startTime, input_preview: inputPreview, error_message: errorMessage, user_id: userId }).then(() => {}, () => {});
+        supabase.from('gemini_logs').insert({ endpoint, model: progress.model, attempts: progress.attempts, status: 'error', latency_ms: Date.now() - startTime, input_preview: inputPreview, error_message: errorMessage, user_id: userId }).then(() => {}, () => {});
         throw err;
       }
     }
@@ -396,7 +400,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         const response = await generateFromParts(client, progress.model, [{ inlineData: { mimeType: 'application/pdf', data: pdfBase64 } }, { text: pdfPrompt(settings.temperature_unit) }], { responseSchema: extractedRecipeResponseSchema }, progress);
         const text = response.text;
-        if (!text) throw new Error('Gemini returned an empty response.');
+        if (!text) throw new Error('The AI returned an empty response.');
         const recipeData = validateExtractedRecipe(JSON.parse(text));
         supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: progress.model, model_version: response.modelVersion ?? null, attempts: progress.attempts, status: 'success', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', output_preview: text.substring(0, 300), user_id: userId }).then(() => {}, () => {});
         return res.status(200).json(recipeData);

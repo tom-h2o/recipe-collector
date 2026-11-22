@@ -93,7 +93,7 @@ describe('/api/tag', () => {
     await handler({ method: 'POST', headers: {}, body: { recipeId: '550e8400-e29b-41d4-a716-446655440000', title: 'Cake', ingredients: ['cream'] } } as VercelRequest, res);
 
     expect(res.statusCode).toBe(500);
-    expect(res.body).toEqual({ error: 'Gemini returned no supported tags.' });
+    expect(res.body).toEqual({ error: 'The AI returned no supported tags.' });
   });
 
   it('asks the model not to spend time reasoning', async () => {

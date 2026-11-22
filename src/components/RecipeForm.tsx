@@ -11,6 +11,7 @@ import { parseIngredients } from '@/lib/recipeUtils';
 import { apiFetch } from '@/lib/api';
 import { LANGUAGES } from '@/lib/constants';
 import { MAX_EXTRACT_PHOTOS, encodePhotosForExtraction } from '@/lib/imageUtils';
+import { imageKind } from '@/lib/imageKind';
 import { uploadRecipeImage, attachRecipeImages } from '@/hooks/useRecipeImages';
 import type { RecipeImageSource } from '@/types';
 import type { Recipe, Ingredient } from '@/types';
@@ -154,15 +155,16 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
     setIsExtractingPhoto(true);
     const id = toast.loading(
       photoFiles.length === 1
-        ? 'Analysing photo with Gemini AI...'
-        : `Analysing ${photoFiles.length} photos with Gemini AI...`,
+        ? 'Analysing the photo with AI...'
+        : `Analysing ${photoFiles.length} photos with AI...`,
     );
     try {
-      const images = await encodePhotosForExtraction(photoFiles);
+      // The kind is read from the files as picked: encoding turns them all into JPEG.
+      const [images, kind] = await Promise.all([encodePhotosForExtraction(photoFiles), imageKind(photoFiles)]);
       const res = await apiFetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images }),
+        body: JSON.stringify({ images, kind }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to extract recipe');
@@ -195,7 +197,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
   async function handlePdfExtract() {
     if (!pdfFile) return;
     setIsExtractingPdf(true);
-    const id = toast.loading('Reading PDF with Gemini AI...');
+    const id = toast.loading('Reading the PDF with AI...');
     try {
       const base64 = await fileToBase64(pdfFile);
       const res = await apiFetch('/api/extract', {
@@ -227,7 +229,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
     const text = pastedText.trim();
     if (text.length < MIN_PASTE_LENGTH) return;
     setIsExtractingText(true);
-    const id = toast.loading('Reading your text with Gemini AI...');
+    const id = toast.loading('Reading your text with AI...');
     try {
       const res = await apiFetch('/api/extract', {
         method: 'POST',
@@ -269,7 +271,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
     e.preventDefault();
     if (!extractUrl) return;
     setIsExtracting(true);
-    const id = toast.loading('Extracting recipe with Gemini AI...');
+    const id = toast.loading('Extracting the recipe with AI...');
     try {
       const res = await apiFetch('/api/extract', {
         method: 'POST',
@@ -456,7 +458,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
                   {isExtractingPhoto ? (photoFiles.length > 1 ? 'Reading your photos...' : 'Reading your photo...') : isExtractingPdf ? 'Reading your PDF...' : isExtractingText ? 'Reading your text...' : 'Casting spell...'}
                 </p>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  {isExtractingPhoto ? (photoFiles.length > 1 ? `Gemini is combining ${photoFiles.length} pages into one recipe` : 'Gemini is analysing the image') : isExtractingPdf ? 'Gemini is reading the document' : isExtractingText ? 'Gemini is sorting it into ingredients and steps' : 'Gemini is extracting the recipe'}
+                  {isExtractingPhoto ? (photoFiles.length > 1 ? `Combining ${photoFiles.length} pages into one recipe` : 'Analysing the image') : isExtractingPdf ? 'Reading the document' : isExtractingText ? 'Sorting it into ingredients and steps' : 'Extracting the recipe'}
                 </p>
               </div>
             </div>

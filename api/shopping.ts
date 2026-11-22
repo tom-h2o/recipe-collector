@@ -12,7 +12,7 @@ import { checkRateLimit } from './_lib/rateLimit.js';
 
 function parseShoppingResult(value: unknown) {
   const parsed = shoppingResultSchema.safeParse(value);
-  if (!parsed.success) throw new Error(`Invalid Gemini shopping output: ${parsed.error.issues[0]?.message ?? 'Invalid response'}`);
+  if (!parsed.success) throw new Error(`Invalid AI shopping output: ${parsed.error.issues[0]?.message ?? 'Invalid response'}`);
   return parsed.data;
 }
 

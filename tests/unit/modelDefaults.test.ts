@@ -12,18 +12,16 @@ import { DEFAULT_MODEL as SERVER_DEFAULT } from '../../api/_lib/supabase';
  * Lives here rather than under src/ because api/_lib/supabase.ts uses `process`,
  * which is not typed in the browser-facing tsconfig.
  */
-describe('default Gemini model', () => {
+describe('default AI model', () => {
   it('is identical on the client and the server', () => {
     expect(SERVER_DEFAULT).toBe(CLIENT_DEFAULT);
   });
 
-  it('is a Gemini model id that has been verified against generateContent', () => {
-    // No longer required to be a -latest alias. Aliases track releases inside a
-    // tier but not across a generation: Google left gemini-flash-latest on the
-    // 3.x Flash tier when it shipped Gemini 4 under new names. What actually
-    // matters is that the id serves generateContent — ListModels advertises both
-    // retired models and models a free-tier key cannot call.
-    expect(CLIENT_DEFAULT).toMatch(/^gemini-/);
+  it('is Claude Sonnet, the main model since migration 0069', () => {
+    // Gemini stays as the automatic backup (fallbackModelFor). The id is exact,
+    // from Anthropic's model list: a guessed one would fail every call and fall
+    // back to Gemini, which hides the mistake instead of surfacing it.
+    expect(CLIENT_DEFAULT).toBe('claude-sonnet-5-5');
   });
 });
 

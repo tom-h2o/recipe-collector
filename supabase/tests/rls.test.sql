@@ -192,10 +192,11 @@ select is(
 );
 
 -- Settings shows every user which model each task runs on, read from the
--- global row (migration 0068). Reading it is all a user may do with it.
+-- global row (migration 0068; Claude since 0069). Reading it is all a user
+-- may do with it.
 select is(
   (select task_models->>'tag' from public.settings where id = 1),
-  'gemini-3.5-flash-lite',
+  'claude-haiku-5-5',
   'every user can read the AI models the admin chose for everyone'
 );
 
@@ -458,7 +459,7 @@ select ok(
 -- Only the global row's models run (0068), so only they are probed. The
 -- linked account's row above still names gemini-flash-latest.
 select ok(
-  (public.system_health()->'configured_models') ? 'gemini-3.5-flash-lite',
+  (public.system_health()->'configured_models') ? 'claude-haiku-5-5',
   'system_health lists the models the global row assigns'
 );
 select ok(

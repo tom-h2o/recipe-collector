@@ -12,16 +12,18 @@ import { installMockBackend } from './support/mockBackend';
  * than into their own settings row, which nothing reads models from any more.
  */
 
+// As migration 0069 leaves the global row.
 const GLOBAL = {
-  gemini_model: 'gemini-4-hydrogen',
+  gemini_model: 'claude-sonnet-5-5',
   task_models: {
-    extract: 'gemini-3.5-flash-lite',
-    translate: 'gemini-4-hydrogen',
-    suggest: 'gemini-3.5-flash-lite',
-    tag: 'gemini-3.5-flash-lite',
-    nutrition: 'gemini-3.5-flash-lite',
-    scale: 'gemini-3.5-flash-lite',
-    shopping: 'gemini-3.5-flash-lite',
+    extract: 'claude-sonnet-5-5',
+    photo: 'claude-opus-5-5',
+    translate: 'claude-sonnet-5-5',
+    suggest: 'claude-haiku-5-5',
+    tag: 'claude-haiku-5-5',
+    nutrition: 'claude-sonnet-5-5',
+    scale: 'claude-haiku-5-5',
+    shopping: 'claude-haiku-5-5',
   },
 };
 
@@ -56,14 +58,14 @@ test('everyone else sees the model per task, and nothing to change it with', asy
 
   const list = page.getByRole('list', { name: 'AI model per task' });
   await expect(list).toBeVisible();
-  await expect(list.getByRole('listitem').filter({ hasText: 'Translation' })).toContainText('Standard');
-  await expect(list.getByRole('listitem').filter({ hasText: 'Tagging' })).toContainText('Lite');
-  await expect(list.getByRole('listitem')).toHaveCount(7);
+  await expect(list.getByRole('listitem').filter({ hasText: 'Translation' })).toContainText('Claude Sonnet');
+  await expect(list.getByRole('listitem').filter({ hasText: 'Tagging' })).toContainText('Claude Haiku');
+  await expect(list.getByRole('listitem')).toHaveCount(8);
 
-  await expect(page.getByLabel('Gemini model')).toHaveCount(0);
+  await expect(page.getByLabel('Main model')).toHaveCount(0);
   await expect(page.getByLabel(/^Model for /)).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Use recommended' })).toHaveCount(0);
-  // The Frontier tier is not mentioned at all when nothing runs on it.
+  // A model nothing runs on is not mentioned at all.
   await expect(page.getByRole('dialog')).not.toContainText('gemini-4-carbon');
 });
 
@@ -75,17 +77,17 @@ test('the admin changes a task\'s model for everyone through the admin endpoint'
 
   await expect(page.getByText('apply to everyone using the app')).toBeVisible();
   const tagging = page.getByLabel('Model for Tagging');
-  await expect(tagging).toContainText('Lite');
+  await expect(tagging).toContainText('Claude Haiku');
 
   await tagging.click();
-  await page.getByRole('option', { name: /^Standard/ }).click();
-  await expect(tagging).toContainText('Standard');
+  await page.getByRole('option', { name: /^Claude Sonnet/ }).click();
+  await expect(tagging).toContainText('Claude Sonnet');
   await page.getByRole('button', { name: 'Save Settings' }).click();
 
   await expect.poll(() => modelPosts.length).toBe(1);
   expect(modelPosts[0]).toEqual({
     gemini_model: GLOBAL.gemini_model,
-    task_models: { ...GLOBAL.task_models, tag: 'gemini-4-hydrogen' },
+    task_models: { ...GLOBAL.task_models, tag: 'claude-sonnet-5-5' },
   });
   // The admin's own row gets the unit only — no models.
   for (const write of rowWrites) {

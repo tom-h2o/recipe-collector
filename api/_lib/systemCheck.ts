@@ -17,6 +17,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ThinkingConfig } from '@google/genai';
 import { EMBEDDING_MODEL, errorCodeAndStatus, insertGeminiLog, withReducedReasoning, type ThinkingState } from './gemini.js';
 import { AI_TASK_IDS, OFFERED_MODELS, modelFor, thinkingFor, type AiTask, type Settings } from './supabase.js';
+import { ClaudeNotConfiguredError, askClaude, isClaudeModel } from './claude.js';
+import { extractedRecipeResponseSchema } from './responseSchemas.js';
 
 /**
  * The newest migration this code expects the database to have. Compared with
@@ -24,7 +26,7 @@ import { AI_TASK_IDS, OFFERED_MODELS, modelFor, thinkingFor, type AiTask, type S
  * migration job failed shows up here instead of as odd errors elsewhere.
  * tests/unit/systemCheck.test.ts fails when a newer migration file exists.
  */
-export const EXPECTED_SCHEMA = '0068';
+export const EXPECTED_SCHEMA = '0069';
 
 /** How long one probe may take. A healthy call answers in a second or two. */
 export const PROBE_TIMEOUT_MS = 25_000;
@@ -58,7 +60,8 @@ const CONFIG: ConfigItem[] = [
   { id: 'supabase-url', label: 'Supabase URL', names: ['VITE_SUPABASE_URL'], required: true, missing: 'Nothing can reach the database.' },
   { id: 'supabase-anon-key', label: 'Supabase public key', names: ['VITE_SUPABASE_ANON_KEY'], required: true, missing: 'The app cannot sign anyone in.' },
   { id: 'supabase-service-key', label: 'Supabase service key', names: ['SUPABASE_SERVICE_KEY'], required: true, missing: 'The server functions fall back to the public key, and row-level security refuses most of what they do.' },
-  { id: 'gemini-key', label: 'Gemini API key', names: ['GEMINI_API_KEY_1', 'GEMINI_API_KEY'], required: true, missing: 'Every AI feature fails.' },
+  { id: 'claude-key', label: 'Claude API key', names: ['ANTHROPIC_API_KEY'], required: true, missing: 'Claude is the main AI provider. Without its key every task runs on Gemini, the backup, and Claude models show as skipped below.' },
+  { id: 'gemini-key', label: 'Gemini API key', names: ['GEMINI_API_KEY_1', 'GEMINI_API_KEY'], required: true, missing: 'Recipe search and the backup for every task stop working, and every task on a Gemini model fails.' },
   { id: 'admin-email', label: 'Admin email', names: ['VITE_ADMIN_EMAIL'], required: true, missing: 'Nobody can open this panel.' },
   { id: 'unsplash-key', label: 'Unsplash key', names: ['UNSPLASH_ACCESS_KEY'], required: false, missing: 'Image search is off.' },
   { id: 'sentry-server', label: 'Sentry, server', names: ['SENTRY_DSN'], required: false, missing: 'Errors in the server functions are not reported anywhere.' },
@@ -78,6 +81,8 @@ export function configReport(env: Record<string, string | undefined> = process.e
 
 /** gemini_logs endpoints are task names, except extraction, which logs its source. */
 export function taskForEndpoint(endpoint: string): AiTask | null {
+  // Camera photos have their own task; screenshots, PDFs, text and pages are extraction.
+  if (endpoint === 'extract-photo') return 'photo';
   if (endpoint === 'extract' || endpoint.startsWith('extract-')) return 'extract';
   return (AI_TASK_IDS as readonly string[]).includes(endpoint) ? (endpoint as AiTask) : null;
 }
@@ -254,7 +259,9 @@ function isAbort(err: unknown): boolean {
 function providerMessage(err: unknown): string {
   const raw = messageOf(err);
   try {
-    const parsed = JSON.parse(raw) as { error?: { message?: string } };
+    // Gemini's message is the JSON envelope; Anthropic's SDK puts the status
+    // code in front of it ("529 {...}").
+    const parsed = JSON.parse(raw.replace(/^\d{3}\s+/, '')) as { error?: { message?: string } };
     if (parsed.error?.message) return parsed.error.message.slice(0, 200);
   } catch {
     // not an envelope
@@ -266,23 +273,31 @@ function providerMessage(err: unknown): string {
  * What a failed probe means, for the admin. Deliberately more specific than
  * describeGeminiError(), which speaks to a cook and hides the provider.
  */
-export function describeProbeFailure(err: unknown): { status: CheckStatus; detail: string } {
+export function describeProbeFailure(err: unknown, provider: 'Google' | 'Anthropic' = 'Google'): { status: CheckStatus; detail: string } {
   if (isAbort(err)) return { status: 'warn', detail: `No answer within ${PROBE_TIMEOUT_MS / 1000} seconds.` };
   const { code, status } = errorCodeAndStatus(err);
   const said = providerMessage(err);
+  const backup = provider === 'Anthropic' ? ' Tasks on this model run on Gemini instead.' : '';
   if (code === 401 || code === 403 || status === 'PERMISSION_DENIED' || status === 'UNAUTHENTICATED') {
-    return { status: 'fail', detail: `The key or the Google Cloud project was refused (${code ?? status}). Every task on this model fails. Google said: ${said}` };
+    const what = provider === 'Anthropic' ? 'The Claude key was refused' : 'The key or the Google Cloud project was refused';
+    return { status: 'fail', detail: `${what} (${code ?? status}). Every task on this model fails.${backup} ${provider} said: ${said}` };
+  }
+  if (code === 402) {
+    return { status: 'fail', detail: `The Claude account is out of credit (402).${backup} The plan's monthly credit refreshes each billing cycle. Anthropic said: ${said}` };
   }
   if (code === 404 || status === 'NOT_FOUND') {
-    return { status: 'fail', detail: `Google does not serve this model id (404): retired or misspelt. Google said: ${said}` };
+    return { status: 'fail', detail: `${provider} does not serve this model id (404): retired or misspelt.${backup} ${provider} said: ${said}` };
   }
   if (code === 429 || status === 'RESOURCE_EXHAUSTED') {
-    return { status: 'warn', detail: `Quota used up (429). On a free-tier key a model may have no allowance at all and need billing. Google said: ${said}` };
+    const why = provider === 'Anthropic'
+      ? 'Rate limit reached (429); this clears within a minute.'
+      : 'Quota used up (429). On a free-tier key a model may have no allowance at all and need billing.';
+    return { status: 'warn', detail: `${why}${backup} ${provider} said: ${said}` };
   }
   if ((code && code >= 500) || status === 'UNAVAILABLE' || status === 'INTERNAL' || status === 'DEADLINE_EXCEEDED') {
-    return { status: 'warn', detail: `Google is overloaded or failing right now (${code ?? status}); this usually clears within minutes. Google said: ${said}` };
+    return { status: 'warn', detail: `${provider} is overloaded or failing right now (${code ?? status}); this usually clears within minutes.${backup} ${provider} said: ${said}` };
   }
-  return { status: 'fail', detail: `The request failed${code ? ` (${code})` : ''}: ${said}` };
+  return { status: 'fail', detail: `The request failed${code ? ` (${code})` : ''}:${backup ? `${backup}` : ''} ${said}` };
 }
 
 interface ProbeContext {
@@ -305,7 +320,72 @@ const REASONING_DETAIL: Partial<Record<ThinkingState, string>> = {
  * is what the model says today rather than what this instance remembered.
  * Writes exactly one gemini_logs row, as generateJson does.
  */
-export async function probeModel(client: GoogleGenAI, model: string, ctx: ProbeContext): Promise<ModelProbe> {
+/**
+ * Asks for a recipe in the app's own extraction format, the most involved one
+ * it sends (nullable numbers, a list of objects). A Claude request whose format
+ * Anthropic rejects fails with a 400 and falls back to Gemini in real use,
+ * where nothing would show it; here it shows.
+ */
+const CLAUDE_PROBE_PROMPT = 'System check. Return a recipe titled "System check" with no ingredients, empty strings for the other text fields, "en" as original_language and null for servings and times.';
+
+/**
+ * One Claude model, asked directly and without the Gemini fallback, since the
+ * point is to see whether Claude itself answers. Low effort, as the tasks that
+ * skip reasoning run, and in the recipe format (CLAUDE_PROBE_PROMPT).
+ */
+async function probeClaude(model: string, ctx: ProbeContext): Promise<ModelProbe> {
+  const started = Date.now();
+  let text: string | undefined;
+  let modelVersion: string | null = null;
+  let failure: unknown;
+  try {
+    const answer = await askClaude({ model, content: CLAUDE_PROBE_PROMPT, schema: extractedRecipeResponseSchema, reasoning: false, timeoutMs: PROBE_TIMEOUT_MS });
+    text = answer.text;
+    modelVersion = answer.modelVersion;
+  } catch (err) {
+    failure = err;
+  }
+  const latency = Date.now() - started;
+  const base = { model, kind: 'chat' as const, latency_ms: latency, model_version: modelVersion, reasoning: 'low' as const };
+
+  // No key: nothing was sent, so nothing is logged.
+  if (failure instanceof ClaudeNotConfiguredError) {
+    return { ...base, latency_ms: null, reasoning: 'unknown', status: 'skipped', detail: 'No Claude key is set (ANTHROPIC_API_KEY). Tasks on this model run on Gemini instead.' };
+  }
+
+  await insertGeminiLog(ctx.supabase, {
+    endpoint: HEALTH_ENDPOINT,
+    model,
+    model_version: modelVersion,
+    attempts: 1,
+    status: failure ? 'error' : 'success',
+    latency_ms: latency,
+    input: CLAUDE_PROBE_PROMPT,
+    output: text ?? null,
+    input_preview: CLAUDE_PROBE_PROMPT,
+    output_preview: text ? text.slice(0, 300) : null,
+    error_message: failure ? messageOf(failure).slice(0, 2000) : null,
+    user_id: ctx.userId,
+    thinking: 'low',
+  });
+
+  if (failure) return { ...base, ...describeProbeFailure(failure, 'Anthropic') };
+  type ProbeRecipe = { title?: unknown; ingredients?: unknown };
+  let recipe: ProbeRecipe | null;
+  try {
+    recipe = JSON.parse(text ?? '') as ProbeRecipe | null;
+  } catch {
+    recipe = null;
+  }
+  if (!recipe || typeof recipe.title !== 'string' || !Array.isArray(recipe.ingredients)) {
+    return { ...base, status: 'warn', detail: `Answered, but not in the recipe format asked for: ${(text ?? '').slice(0, 120) || '(empty)'}` };
+  }
+  return { ...base, status: 'ok', detail: 'Answers in the app\'s recipe format, at low effort, which is how tasks that skip reasoning run on Claude.' };
+}
+
+export async function probeModel(client: GoogleGenAI | null, model: string, ctx: ProbeContext): Promise<ModelProbe> {
+  if (isClaudeModel(model)) return probeClaude(model, ctx);
+  if (!client) throw new Error('probeModel needs a Gemini client for a Gemini model.');
   const started = Date.now();
   let attempts = 0;
   let reasoning: ModelProbe['reasoning'] = 'unknown';
@@ -455,7 +535,8 @@ export async function runLiveCheck(opts: {
     checkAuth(supabase),
     checkStorage(supabase),
     checkUnsplash(env, fetchImpl),
-    ...models.map((m) => (client ? probeModel(client, m, ctx) : Promise.resolve(noKey(m, 'chat')))),
+    // Claude models are probed with their own key, whether or not Gemini has one.
+    ...models.map((m) => (isClaudeModel(m) || client ? probeModel(client, m, ctx) : Promise.resolve(noKey(m, 'chat')))),
     client ? probeEmbedding(client, ctx) : Promise.resolve(noKey(EMBEDDING_MODEL, 'embedding')),
   ]);
 

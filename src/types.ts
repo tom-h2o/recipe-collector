@@ -131,7 +131,7 @@ export interface LinkedPerson {
  * enormously in difficulty, so one setting for all of them means either
  * overpaying for the easy ones or losing quality on the hard ones.
  */
-export type AiTask = 'extract' | 'tag' | 'nutrition' | 'translate' | 'suggest' | 'scale' | 'shopping';
+export type AiTask = 'extract' | 'photo' | 'tag' | 'nutrition' | 'translate' | 'suggest' | 'scale' | 'shopping';
 
 export interface AppSettings {
   /** The model used by any task without its own entry in `task_models`. */

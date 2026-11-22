@@ -9,7 +9,7 @@ import type { AiTask, ThinkingState } from '@/types';
  * The admin System tab. Shapes mirror api/_lib/systemCheck.ts.
  *
  * Configuration and reasoning load with the tab and call nothing outside the
- * app. The live checks cost a little — one small Gemini request per model, an
+ * app. The live checks cost a little — one small request per model (Claude or Gemini), an
  * embedding, an Unsplash search — so they run only when "Run check" is pressed.
  */
 
@@ -208,7 +208,7 @@ export function SystemCheck() {
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-2xl">
           Configuration and reasoning are read without calling anything outside the app.
-          {' '}<strong className="font-semibold text-zinc-700 dark:text-zinc-200">Run check</strong> also sends one small request to every Gemini model,
+          {' '}<strong className="font-semibold text-zinc-700 dark:text-zinc-200">Run check</strong> also sends one small request to every AI model, Claude and Gemini,
           an embedding and an Unsplash search. Those calls appear in the AI logs as <code className="font-mono text-xs">health-check</code> and
           do not count against the daily limit.
         </p>
@@ -239,7 +239,7 @@ export function SystemCheck() {
         )}
       </Card>
 
-      <Card title="Gemini models" aside={live ? <Summary items={live.models} /> : null}>
+      <Card title="AI models" aside={live ? <Summary items={live.models} /> : null}>
         {live ? (
           <ul className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
             {live.models.map((m) => (
@@ -287,7 +287,7 @@ export function SystemCheck() {
                   <td className="inline sm:table-cell ml-2 sm:ml-0 sm:px-3 sm:py-2.5">
                     <span
                       title={t.reasoning === 'off'
-                        ? 'Runs at the lowest reasoning the model accepts: off on Gemini 2.5, minimal or low on Gemini 3 and later'
+                        ? 'Runs at the lowest reasoning the model accepts: low effort on Claude; off on Gemini 2.5, minimal or low on Gemini 3 and later'
                         : 'Runs at the model\'s default reasoning'}
                       className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${t.reasoning === 'off'
                         ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300'

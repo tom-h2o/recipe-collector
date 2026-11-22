@@ -16,7 +16,7 @@ test('no settings dropdown overflows its trigger', async ({ page }) => {
   await installMockBackend(page);
   await page.goto('/');
   await page.getByTitle('Settings').click();
-  await page.getByText('Gemini Model').waitFor();
+  await page.getByText('Main model', { exact: true }).waitFor();
 
   const overflowing = await page.evaluate(() => {
     const out: string[] = [];
@@ -44,7 +44,7 @@ test('the model trigger shows the tier, not the whole option block', async ({ pa
   // name rather than the whole option block, and it broke on a tier rename
   // ("Flash" -> "Standard") that was not a regression in what it guards.
   const tier = MODEL_OPTIONS.find((m) => m.id === DEFAULT_MODEL)?.name ?? '';
-  const trigger = page.getByLabel('Gemini model');
+  const trigger = page.getByLabel('Main model');
   await expect(trigger).toContainText(tier);
   // The description and price belong in the open list, never in the trigger.
   await expect(trigger).not.toContainText('per 1M tokens');
