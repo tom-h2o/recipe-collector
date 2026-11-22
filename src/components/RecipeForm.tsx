@@ -159,11 +159,12 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
         : `Analysing ${photoFiles.length} photos with AI...`,
     );
     try {
-      const images = await encodePhotosForExtraction(photoFiles);
+      // The kind is read from the files as picked: encoding turns them all into JPEG.
+      const [images, kind] = await Promise.all([encodePhotosForExtraction(photoFiles), imageKind(photoFiles)]);
       const res = await apiFetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images, kind: imageKind(photoFiles) }),
+        body: JSON.stringify({ images, kind }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to extract recipe');
