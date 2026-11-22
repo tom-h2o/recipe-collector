@@ -52,7 +52,7 @@ test('announces what the Shortcut sent, shows just those, and forgets each once 
   await expect(toast.getByText('New', { exact: true })).toBeVisible();
 
   await banner.getByRole('button', { name: 'Show' }).click();
-  await expect(page.getByRole('button', { name: '🆕 New from iPhone' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'New from iPhone' })).toBeVisible();
   await expect.poll(() => recipeQueries.some((q) => q.includes('id=in.(recipe-a,recipe-b)'))).toBe(true);
 
   // Opening a recipe counts as having seen it.
@@ -91,7 +91,7 @@ test('shows nothing when nothing new arrived', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.recipe-card').first()).toBeVisible();
   await expect(page.getByRole('region', { name: 'Recipes from your iPhone' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '🆕 New from iPhone' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'New from iPhone' })).toHaveCount(0);
   await expect(page.locator('.recipe-card').getByText('New', { exact: true })).toHaveCount(0);
 });
 

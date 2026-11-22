@@ -28,11 +28,15 @@ const EXTRACTED = {
   cached: false,
 };
 
-async function openTextTab(page: Page) {
+async function openAddRecipe(page: Page) {
   await page.goto('/');
   await page.getByRole('button', { name: /add recipe/i }).click();
-  await expect(page.getByText('Add New Recipe')).toBeVisible();
-  await page.getByRole('button', { name: 'From Text', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Add a recipe' })).toBeVisible();
+}
+
+async function openTextTab(page: Page) {
+  await openAddRecipe(page);
+  await page.getByRole('button', { name: /^From text/ }).click();
 }
 
 test.describe('pasting a recipe as text', () => {
@@ -49,7 +53,7 @@ test.describe('pasting a recipe as text', () => {
     });
 
     await openTextTab(page);
-    const extract = page.getByRole('button', { name: 'Extract Recipe from Text' });
+    const extract = page.getByRole('button', { name: 'Read recipe' });
     // Nothing to read yet, and a few words are not a recipe.
     await expect(extract).toBeDisabled();
     await page.getByLabel('Recipe text').fill('Pfannkuchen');
@@ -75,12 +79,14 @@ test.describe('pasting a recipe as text', () => {
     await openTextTab(page);
     const chatter = 'Hallo Anna, bis Samstag dann! Bringst du den Wein mit?';
     await page.getByLabel('Recipe text').fill(chatter);
-    await page.getByRole('button', { name: 'Extract Recipe from Text' }).click();
+    await page.getByRole('button', { name: 'Read recipe' }).click();
 
-    await expect(page.getByText(message)).toBeVisible();
-    // Still there to correct, and nothing was written into the form.
+    // Said in the step itself, not in a toast; still there to correct, and the
+    // editor was not opened.
+    await expect(page.getByRole('dialog').getByRole('alert')).toHaveText(message);
     await expect(page.getByLabel('Recipe text')).toHaveValue(chatter);
-    await expect(page.getByLabel('Title')).toHaveValue('');
+    await expect(page.getByLabel('Title')).toHaveCount(0);
+    await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
   });
 
   test('a site that blocks the link says so and leads to the text tab, keeping the link', async ({ page }) => {
@@ -99,10 +105,10 @@ test.describe('pasting a recipe as text', () => {
         : route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(EXTRACTED) });
     });
 
-    await page.goto('/');
-    await page.getByRole('button', { name: /add recipe/i }).click();
+    await openAddRecipe(page);
+    await page.getByRole('button', { name: /^From a website/ }).click();
     await page.getByLabel('Recipe link').fill(REWE);
-    await page.getByRole('button', { name: 'Auto-Fill' }).click();
+    await page.getByRole('button', { name: 'Read recipe' }).click();
 
     const alert = page.getByRole('dialog').getByRole('alert');
     await expect(alert).toContainText('rewe.de does not let apps read its pages');
@@ -110,7 +116,7 @@ test.describe('pasting a recipe as text', () => {
     await alert.getByRole('button', { name: 'Paste text' }).click();
 
     await page.getByLabel('Recipe text').fill(PASTED);
-    await page.getByRole('button', { name: 'Extract Recipe from Text' }).click();
+    await page.getByRole('button', { name: 'Read recipe' }).click();
     await expect(page.getByLabel('Title')).toHaveValue('Omas Pfannkuchen');
     // The recipe still points back to where it came from.
     await expect(page.locator('#source-url')).toHaveValue(REWE);
@@ -119,30 +125,94 @@ test.describe('pasting a recipe as text', () => {
   });
 
   for (const width of [320, 390]) {
-    test(`all four import tabs fit at ${width}px`, async ({ page }) => {
+    test(`the choices fit at ${width}px, each on one row`, async ({ page }) => {
       await page.setViewportSize({ width, height: 800 });
-      await openTextTab(page);
-      // The dialog scales in. Measured mid-animation every box is transformed,
-      // which puts the tabs somewhere they never rest.
+      await openAddRecipe(page);
+      // The dialog scales in. Measured mid-animation every box is transformed.
       await page.evaluate(() =>
         Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined))).then(() => undefined));
 
-      const tabs = ['From URL', 'From Photo', 'From PDF', 'From Text'].map((name) =>
-        // Exact: "From Text" is also the tail of "Extract Recipe from Text".
-        page.getByRole('button', { name, exact: true }));
-      const boxes = [];
-      for (const tab of tabs) {
-        await expect(tab).toBeVisible();
-        boxes.push((await tab.boundingBox())!);
-        // The label is not cut off inside its tab.
-        expect(await tab.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
-      }
-      // One row, left to right, none pushed off the edge.
-      for (const box of boxes) {
-        expect(Math.abs(box.y - boxes[0].y)).toBeLessThan(1);
+      const choices = [/^From a website/, /^From photos/, /^From a PDF/, /^From text/, /^Enter it manually/]
+        .map((name) => page.getByRole('button', { name }));
+      for (const choice of choices) {
+        await expect(choice).toBeVisible();
+        const box = (await choice.boundingBox())!;
+        expect(box.x).toBeGreaterThanOrEqual(0);
         expect(box.x + box.width).toBeLessThanOrEqual(width);
       }
-      expect(boxes[3].x).toBeGreaterThan(boxes[2].x);
+      // Nothing in the dialog scrolls sideways.
+      expect(await page.getByRole('dialog').evaluate((d) => d.scrollWidth <= d.clientWidth)).toBe(true);
     });
   }
+
+});
+
+/**
+ * The dialog's shape: a choice first (four ways to import, one button for the
+ * editor), the editor only after that, and one progress indicator while a
+ * recipe is read: the vault animation, not that plus a toast.
+ */
+test.describe('adding a recipe', () => {
+  test.beforeEach(async ({ page }) => {
+    await installMockBackend(page);
+  });
+
+  test('opens on the choices; "Enter it manually" opens the empty editor, and Back returns', async ({ page }) => {
+    await openAddRecipe(page);
+    // No editor fields yet: the choice comes first.
+    await expect(page.getByLabel('Title')).toHaveCount(0);
+    await page.getByRole('button', { name: /^Enter it manually/ }).click();
+    await expect(page.getByRole('heading', { name: 'New recipe' })).toBeVisible();
+    await expect(page.getByLabel('Title')).toHaveValue('');
+    await expect(page.getByRole('button', { name: 'Save Recipe' })).toBeVisible();
+    await page.getByRole('dialog').getByRole('button', { name: 'Back' }).click();
+    await expect(page.getByRole('heading', { name: 'Add a recipe' })).toBeVisible();
+  });
+
+  test('while reading, the vault animation is the only progress, and Cancel goes back with the link kept', async ({ page }) => {
+    let release: () => void = () => {};
+    await page.route('**/api/extract', async (route) => {
+      await new Promise<void>((resolve) => { release = resolve; });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(EXTRACTED) }).catch(() => {});
+    });
+    await openAddRecipe(page);
+    await page.getByRole('button', { name: /^From a website/ }).click();
+    await page.getByLabel('Recipe link').fill('https://example.com/pfannkuchen');
+    await page.getByRole('button', { name: 'Read recipe' }).click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('status')).toHaveText('Reading the recipe');
+    await expect(dialog.locator('.vault-anim svg')).toBeVisible();
+    await expect(dialog).toContainText('Opening example.com');
+    await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
+
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByLabel('Recipe link')).toHaveValue('https://example.com/pfannkuchen');
+    release();
+  });
+
+  test('a finished read shows the closed vault, then the editor with where it came from', async ({ page }) => {
+    await page.route('**/api/extract', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...EXTRACTED, source_name: '' }) }));
+    await openAddRecipe(page);
+    await page.getByRole('button', { name: /^From a website/ }).click();
+    await page.getByLabel('Recipe link').fill('https://www.example.com/pfannkuchen');
+    await page.getByRole('button', { name: 'Read recipe' }).click();
+
+    await expect(page.getByRole('dialog').getByRole('status')).toHaveText('Got it');
+    await expect(page.getByLabel('Title')).toHaveValue('Omas Pfannkuchen');
+    await expect(page.getByRole('dialog')).toContainText('Read from example.com. Check it over, then save.');
+    await expect(page.locator('#source-url')).toHaveValue('https://www.example.com/pfannkuchen');
+    await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
+  });
+
+  test('editing a recipe opens straight on the editor, with no way back to the choices', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.recipe-card', { hasText: 'Classic Margherita Pizza' }).click();
+    await page.getByRole('dialog').getByTitle('More options').click();
+    await page.getByRole('menu').getByRole('button', { name: /edit recipe/i }).click();
+    await expect(page.getByRole('heading', { name: 'Edit recipe' })).toBeVisible();
+    await expect(page.getByLabel('Title')).toHaveValue('Classic Margherita Pizza');
+    await expect(page.getByRole('button', { name: 'Back' })).toHaveCount(0);
+  });
 });

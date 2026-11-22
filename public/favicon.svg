@@ -1,11 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <rect width="64" height="64" fill="#315f3b"/>
-  <g transform="translate(10.239999999999998 10.239999999999998) scale(1.208888888888889) translate(0.5 3)" fill="none" stroke="#ffffff">
-    <circle cx="11" cy="11" r="7" stroke-width="2.5"/>
-    <circle cx="11" cy="11" r="3" fill="#ffffff" stroke="none"/>
-    <line x1="16.5" y1="14.5" x2="30" y2="28" stroke-width="2.5" stroke-linecap="round"/>
-    <line x1="23" y1="21.5" x2="26" y2="24.5" stroke-width="2" stroke-linecap="round"/>
-    <line x1="26" y1="24.5" x2="29" y2="21.5" stroke-width="2" stroke-linecap="round"/>
-    <path d="M7 4 Q11 1 15 5 Q11 8 7 4Z" fill="#ffffff" stroke="none" opacity="0.45"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#315f3b"/>
+  <g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-width="3.2">
+    <circle cx="11" cy="11" r="5.6"/>
+    <path d="M15.2 15.2 26.4 26.4"/>
+    <path d="M22.4 22.4 25.6 19.2"/>
   </g>
+  <circle cx="11" cy="11" r="1.7" fill="#ffffff"/>
 </svg>

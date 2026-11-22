@@ -64,15 +64,24 @@ test('add recipe dialog', async ({ page }) => {
   await installMockBackend(page);
   await page.goto('/');
   await page.getByRole('button', { name: /add recipe/i }).click();
-  await expect(page.getByText('Add New Recipe')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Add a recipe' })).toBeVisible();
   expect(await auditSerious(page, 'add recipe')).toEqual([]);
+});
+
+test('add recipe dialog, the editor', async ({ page }) => {
+  await installMockBackend(page);
+  await page.goto('/');
+  await page.getByRole('button', { name: /add recipe/i }).click();
+  await page.getByRole('button', { name: /^Enter it manually/ }).click();
+  await expect(page.getByLabel('Title')).toBeVisible();
+  expect(await auditSerious(page, 'add recipe: editor')).toEqual([]);
 });
 
 test('add recipe dialog, pasting text', async ({ page }) => {
   await installMockBackend(page);
   await page.goto('/');
   await page.getByRole('button', { name: /add recipe/i }).click();
-  await page.getByRole('button', { name: 'From Text', exact: true }).click();
+  await page.getByRole('button', { name: /^From text/ }).click();
   await expect(page.getByLabel('Recipe text')).toBeVisible();
   expect(await auditSerious(page, 'add recipe: text')).toEqual([]);
 });

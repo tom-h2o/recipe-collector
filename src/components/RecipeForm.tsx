@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { ChefHat, Link, Camera, ImagePlus, X, Plus, ChevronUp, ChevronDown, Wand2, Sparkles, FileText, ClipboardPaste } from 'lucide-react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { Link, Camera, ImagePlus, X, Plus, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, FileText, ClipboardPaste, Globe, PenLine, CircleCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -13,11 +13,22 @@ import { LANGUAGES } from '@/lib/constants';
 import { MAX_EXTRACT_PHOTOS, encodePhotosForExtraction } from '@/lib/imageUtils';
 import { imageKind } from '@/lib/imageKind';
 import { uploadRecipeImage, attachRecipeImages } from '@/hooks/useRecipeImages';
+import { VaultAnimation } from '@/components/VaultAnimation';
 import type { RecipeImageSource } from '@/types';
 import type { Recipe, Ingredient } from '@/types';
 
 type RecipePayload = Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>;
-type ImportTab = 'url' | 'photo' | 'pdf' | 'text';
+type ImportKind = 'url' | 'photo' | 'pdf' | 'text';
+
+/**
+ * The dialog moves through steps rather than showing everything at once:
+ * `choose` (the four ways to import, and one button to type a recipe in), one
+ * step per way of importing, and `edit`, the full editor. While a recipe is
+ * being read the step's content gives way to VaultAnimation; that is the only
+ * progress shown (there used to be an overlay and a toast at the same time).
+ * Editing an existing recipe opens straight on `edit`.
+ */
+type Step = 'choose' | ImportKind | 'edit';
 
 /**
  * Mirrors MIN_EXTRACT_TEXT / MAX_EXTRACT_TEXT in api/_lib/schemas.ts, which is
@@ -27,12 +38,19 @@ type ImportTab = 'url' | 'photo' | 'pdf' | 'text';
 const MIN_PASTE_LENGTH = 30;
 const MAX_PASTE_LENGTH = 20000;
 
-const IMPORT_TABS: { id: ImportTab; label: string; icon: typeof ChefHat }[] = [
-  { id: 'url', label: 'URL', icon: ChefHat },
-  { id: 'photo', label: 'Photo', icon: Camera },
-  { id: 'pdf', label: 'PDF', icon: FileText },
-  { id: 'text', label: 'Text', icon: ClipboardPaste },
+const IMPORT_OPTIONS: { id: ImportKind; title: string; hint: string; icon: typeof Globe }[] = [
+  { id: 'url', title: 'From a website', hint: 'Paste the link to a recipe page', icon: Globe },
+  { id: 'photo', title: 'From photos', hint: 'Cookbook pages, recipe cards or screenshots', icon: Camera },
+  { id: 'pdf', title: 'From a PDF', hint: 'A saved or scanned recipe', icon: FileText },
+  { id: 'text', title: 'From text', hint: 'A recipe from a message or a note', icon: ClipboardPaste },
 ];
+
+const STEP_COPY: Record<ImportKind, { title: string; description: string }> = {
+  url: { title: 'From a website', description: 'Paste the link to the recipe page.' },
+  photo: { title: 'From photos', description: `Up to ${MAX_EXTRACT_PHOTOS} pages of the same recipe, in order.` },
+  pdf: { title: 'From a PDF', description: 'One recipe per PDF.' },
+  text: { title: 'From text', description: 'Paste the ingredients and the steps, in any order.' },
+};
 
 interface Props {
   isOpen: boolean;
@@ -45,33 +63,58 @@ interface Props {
 
 type UrlProblem = { code: 'site_blocked' | 'page_unavailable'; site: string; error: string };
 
+/** What /api/extract answers with, whichever way the recipe came in. */
+interface Extracted {
+  title?: string;
+  description?: string;
+  servings?: number | null;
+  prep_time_mins?: number | null;
+  cook_time_mins?: number | null;
+  instructions?: string;
+  original_language?: string;
+  ingredients?: unknown;
+  image_url?: string;
+  source_name?: string;
+}
+
 function domainFrom(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
 }
 
+function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+}
+
+/** How long the closed door and its tick stay before the editor opens. */
+const DONE_PAUSE_MS = 900;
+
 export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: Props) {
-  const [importTab, setImportTab] = useState<ImportTab>('url');
+  const [step, setStep] = useState<Step>(editingRecipe ? 'edit' : 'choose');
   const [extractUrl, setExtractUrl] = useState('');
-  const [isExtracting, setIsExtracting] = useState(false);
   // A site that would not hand its page over (see describePageRefusal in
   // api/extract.ts). Shown under the link, with the ways in that do work.
   const [urlProblem, setUrlProblem] = useState<UrlProblem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Reading in progress (which way), its finish, and what went wrong last time.
+  const [reading, setReading] = useState<ImportKind | null>(null);
+  const [readDone, setReadDone] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  /** Where the editor's contents were read from, for the note above it. */
+  const [filledFrom, setFilledFrom] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
   // Photo import state — a recipe may span several pages, so this is a list
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
-  const [isExtractingPhoto, setIsExtractingPhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // PDF import state
   const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [isExtractingPdf, setIsExtractingPdf] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
   // Pasted-text import state
   const [pastedText, setPastedText] = useState('');
-  const [isExtractingText, setIsExtractingText] = useState(false);
 
   // Image upload state
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -92,6 +135,11 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
   const [originalLanguage, setOriginalLanguage] = useState<string | null>(null);
 
   useEffect(() => {
+    // A read still running belongs to the dialog as it was: stop it.
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setReading(null); setReadDone(false); setImportError(null); setFilledFrom(null);
+    setStep(editingRecipe ? 'edit' : 'choose');
     if (editingRecipe) {
       setTitle(editingRecipe.title);
       setDescription(editingRecipe.description || '');
@@ -118,6 +166,18 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
     }
   }, [editingRecipe, isOpen]);
 
+  function goTo(next: Step) {
+    setImportError(null);
+    setStep(next);
+  }
+
+  /** Choosing photos or a PDF opens the picker at once: that is the next thing anyone does. */
+  function choose(kind: ImportKind) {
+    goTo(kind);
+    if (kind === 'photo' && photoFiles.length === 0) fileInputRef.current?.click();
+    if (kind === 'pdf' && !pdfFile) pdfInputRef.current?.click();
+  }
+
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files ?? []);
     // Allow re-picking the same file after a removal
@@ -126,13 +186,13 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
 
     const room = MAX_EXTRACT_PHOTOS - photoFiles.length;
     if (room <= 0) {
-      toast.error(`You can add at most ${MAX_EXTRACT_PHOTOS} photos.`);
+      setImportError(`You can add at most ${MAX_EXTRACT_PHOTOS} photos.`);
       return;
     }
     const accepted = selected.slice(0, room);
-    if (accepted.length < selected.length) {
-      toast.error(`Only the first ${accepted.length} of ${selected.length} photos were added (max ${MAX_EXTRACT_PHOTOS}).`);
-    }
+    setImportError(accepted.length < selected.length
+      ? `Only the first ${accepted.length} of ${selected.length} photos were added (at most ${MAX_EXTRACT_PHOTOS}).`
+      : null);
     setPhotoFiles((prev) => [...prev, ...accepted]);
     setPhotoPreviews((prev) => [...prev, ...accepted.map((f) => URL.createObjectURL(f))]);
   }
@@ -155,112 +215,121 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
     setPhotoPreviews(swap);
   }
 
-  async function handlePhotoExtract() {
+  /** Writes what was read into the editor's fields. */
+  function applyExtracted(data: Extracted) {
+    setTitle(data.title || '');
+    setDescription(data.description || '');
+    setServings(data.servings ? String(data.servings) : '');
+    setPrepTime(data.prep_time_mins ? String(data.prep_time_mins) : '');
+    setCookTime(data.cook_time_mins ? String(data.cook_time_mins) : '');
+    setInstructions(data.instructions || '');
+    setOriginalLanguage(data.original_language && data.original_language.length === 2 ? data.original_language : null);
+    if (Array.isArray(data.ingredients)) setIngredients(parseIngredients(data.ingredients));
+  }
+
+  /**
+   * One read, whichever way in: the animation while it runs, the editor when it
+   * is done, and the reason inline in the step when it is not. Cancel aborts.
+   */
+  async function readRecipe(kind: ImportKind, makeBody: () => Promise<Record<string, unknown>>, onRead: (data: Extracted) => void, from: string) {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setImportError(null);
+    setUrlProblem(null);
+    setReadDone(false);
+    setReading(kind);
+    try {
+      const body = await makeBody();
+      if (controller.signal.aborted) return;
+      const res = await apiFetch('/api/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      const data = await res.json().catch(() => ({})) as Extracted & { error?: string; code?: string; site?: string };
+      if (controller.signal.aborted) return;
+      if (!res.ok) {
+        if (kind === 'url' && (data.code === 'site_blocked' || data.code === 'page_unavailable')) {
+          setUrlProblem({ code: data.code, site: data.site || domainFrom(extractUrl), error: data.error ?? '' });
+          if (data.code === 'site_blocked') {
+            // Whichever way the recipe comes in instead, it keeps its link.
+            setSourceUrl(extractUrl);
+            setSourceName((prev) => prev || domainFrom(extractUrl));
+          }
+          return;
+        }
+        throw new Error(data.error || 'The recipe could not be read. Please try again.');
+      }
+      applyExtracted(data);
+      onRead(data);
+      setFilledFrom(from);
+      setReadDone(true);
+      await new Promise((resolve) => setTimeout(resolve, prefersReducedMotion() ? DONE_PAUSE_MS / 3 : DONE_PAUSE_MS));
+      if (controller.signal.aborted) return;
+      setStep('edit');
+    } catch (err: unknown) {
+      if (controller.signal.aborted) return;
+      setImportError(err instanceof Error ? err.message : 'The recipe could not be read. Please try again.');
+    } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        setReading(null);
+        setReadDone(false);
+      }
+    }
+  }
+
+  function cancelReading() {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setReading(null);
+    setReadDone(false);
+  }
+
+  function close() {
+    abortRef.current?.abort();
+    onClose();
+  }
+
+  function handleExtractUrl() {
+    if (!extractUrl) return;
+    const url = extractUrl;
+    return readRecipe('url', async () => ({ url }), (data) => {
+      setImageUrl(data.image_url || '');
+      setSourceUrl(url);
+      setSourceName((prev) => prev || data.source_name || domainFrom(url));
+    }, domainFrom(url) || 'the website');
+  }
+
+  function handlePhotoExtract() {
     if (!photoFiles.length) return;
-    setIsExtractingPhoto(true);
-    const id = toast.loading(
-      photoFiles.length === 1
-        ? 'Analysing the photo with AI...'
-        : `Analysing ${photoFiles.length} photos with AI...`,
-    );
-    try {
-      // The kind is read from the files as picked: encoding turns them all into JPEG.
-      const [images, kind] = await Promise.all([encodePhotosForExtraction(photoFiles), imageKind(photoFiles)]);
-      const res = await apiFetch('/api/extract', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images, kind }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to extract recipe');
-      setTitle(data.title || '');
-      setDescription(data.description || '');
-      setServings(data.servings ? String(data.servings) : '');
-      setPrepTime(data.prep_time_mins ? String(data.prep_time_mins) : '');
-      setCookTime(data.cook_time_mins ? String(data.cook_time_mins) : '');
-      setInstructions(data.instructions || '');
-      setOriginalLanguage(data.original_language && data.original_language.length === 2 ? data.original_language : null);
-      if (Array.isArray(data.ingredients)) {
-        setIngredients(parseIngredients(data.ingredients));
-      }
-      // Use the first photo as the recipe image
-      setImagePreview(photoPreviews[0] ?? null);
-      setImageFile(photoFiles[0] ?? null);
-      toast.success(
-        photoFiles.length === 1
-          ? 'Recipe extracted from photo!'
-          : `Recipe extracted from ${photoFiles.length} photos!`,
-        { id },
-      );
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Couldn't extract recipe.", { id });
-    } finally {
-      setIsExtractingPhoto(false);
-    }
+    const files = photoFiles;
+    const previews = photoPreviews;
+    // The kind is read from the files as picked: encoding turns them all into JPEG.
+    return readRecipe('photo', async () => {
+      const [images, kind] = await Promise.all([encodePhotosForExtraction(files), imageKind(files)]);
+      return { images, kind };
+    }, () => {
+      // The first photo becomes the recipe's picture.
+      setImagePreview(previews[0] ?? null);
+      setImageFile(files[0] ?? null);
+    }, files.length === 1 ? 'your photo' : `your ${files.length} photos`);
   }
 
-  async function handlePdfExtract() {
+  function handlePdfExtract() {
     if (!pdfFile) return;
-    setIsExtractingPdf(true);
-    const id = toast.loading('Reading the PDF with AI...');
-    try {
-      const base64 = await fileToBase64(pdfFile);
-      const res = await apiFetch('/api/extract', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pdfBase64: base64 }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to extract recipe');
-      setTitle(data.title || '');
-      setDescription(data.description || '');
-      setServings(data.servings ? String(data.servings) : '');
-      setPrepTime(data.prep_time_mins ? String(data.prep_time_mins) : '');
-      setCookTime(data.cook_time_mins ? String(data.cook_time_mins) : '');
-      setInstructions(data.instructions || '');
-      setOriginalLanguage(data.original_language && data.original_language.length === 2 ? data.original_language : null);
-      if (Array.isArray(data.ingredients)) {
-        setIngredients(parseIngredients(data.ingredients));
-      }
-      toast.success('Recipe extracted from PDF!', { id });
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Couldn't extract recipe.", { id });
-    } finally {
-      setIsExtractingPdf(false);
-    }
+    const file = pdfFile;
+    return readRecipe('pdf', async () => ({ pdfBase64: await fileToBase64(file) }), () => {}, file.name);
   }
 
-  async function handleTextExtract() {
+  function handleTextExtract() {
     const text = pastedText.trim();
     if (text.length < MIN_PASTE_LENGTH) return;
-    setIsExtractingText(true);
-    const id = toast.loading('Reading your text with AI...');
-    try {
-      const res = await apiFetch('/api/extract', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to extract recipe');
-      setTitle(data.title || '');
-      setDescription(data.description || '');
-      setServings(data.servings ? String(data.servings) : '');
-      setPrepTime(data.prep_time_mins ? String(data.prep_time_mins) : '');
-      setCookTime(data.cook_time_mins ? String(data.cook_time_mins) : '');
-      setInstructions(data.instructions || '');
-      setOriginalLanguage(data.original_language && data.original_language.length === 2 ? data.original_language : null);
-      if (Array.isArray(data.ingredients)) {
-        setIngredients(parseIngredients(data.ingredients));
-      }
-      toast.success('Recipe filled in from your text. Review the details below.', { id });
-    } catch (err: unknown) {
-      // The pasted text is deliberately left in the box: after a failure the
-      // person fixes it or tries again, and should not have to find it twice.
-      toast.error(err instanceof Error ? err.message : "Couldn't extract recipe.", { id });
-    } finally {
-      setIsExtractingText(false);
-    }
+    // The pasted text stays in the box: after a failure the person fixes it or
+    // tries again, and should not have to find it twice.
+    return readRecipe('text', async () => ({ text }), () => {}, 'your text');
   }
 
   function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -271,51 +340,6 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
     setImageUrl('');
   }
 
-
-  async function handleExtractUrl(e: React.MouseEvent) {
-    e.preventDefault();
-    if (!extractUrl) return;
-    setIsExtracting(true);
-    setUrlProblem(null);
-    const id = toast.loading('Extracting the recipe with AI...');
-    try {
-      const res = await apiFetch('/api/extract', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: extractUrl }),
-      });
-      const data = await res.json();
-      if (!res.ok && (data.code === 'site_blocked' || data.code === 'page_unavailable')) {
-        toast.dismiss(id);
-        setUrlProblem({ code: data.code, site: data.site || domainFrom(extractUrl), error: data.error });
-        if (data.code === 'site_blocked') {
-          // Whichever way the recipe comes in instead, it keeps its link.
-          setSourceUrl(extractUrl);
-          setSourceName((prev) => prev || domainFrom(extractUrl));
-        }
-        return;
-      }
-      if (!res.ok) throw new Error(data.error || 'Failed to extract recipe');
-      setTitle(data.title || '');
-      setDescription(data.description || '');
-      setServings(data.servings ? String(data.servings) : '');
-      setPrepTime(data.prep_time_mins ? String(data.prep_time_mins) : '');
-      setCookTime(data.cook_time_mins ? String(data.cook_time_mins) : '');
-      setImageUrl(data.image_url || '');
-      setInstructions(data.instructions || '');
-      setSourceUrl(extractUrl);
-      setSourceName((prev) => prev || data.source_name || domainFrom(extractUrl));
-      setOriginalLanguage(data.original_language && data.original_language.length === 2 ? data.original_language : null);
-      if (Array.isArray(data.ingredients)) {
-        setIngredients(parseIngredients(data.ingredients));
-      }
-      toast.success('Recipe auto-filled! Review the details below.', { id });
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Couldn't extract recipe.", { id });
-    } finally {
-      setIsExtracting(false);
-    }
-  }
 
   async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
@@ -382,332 +406,110 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
 
   const savingLabel = isUploadingImage ? 'Uploading image...' : isSaving ? 'Saving...' : editingRecipe ? 'Update Recipe' : 'Save Recipe';
 
-  return (
-    <Dialog open={isOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogTrigger className="hidden" />
-      <DialogContent showCloseButton={false} className="sm:max-w-[580px] overflow-hidden rounded-2xl w-[95vw] sm:w-full bg-white dark:bg-zinc-900 shadow-2xl border border-zinc-200 dark:border-zinc-800 p-0 flex flex-col max-h-[var(--dialog-max-h)]">
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-3 right-3 z-20 p-2.5 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white transition-colors shadow-md ring-1 ring-white/20"
-          title="Close"
-        ><X className="w-4 h-4" /></button>
+  const readingPhases: Record<ImportKind, string[]> = {
+    url: [`Opening ${domainFrom(extractUrl) || 'the page'}…`, 'Finding the ingredients…', 'Writing down the steps…', 'Almost there…'],
+    photo: [photoFiles.length > 1 ? `Looking at ${photoFiles.length} pages…` : 'Looking at the picture…', 'Reading the ingredients…', 'Writing down the steps…', 'Almost there…'],
+    pdf: ['Opening the PDF…', 'Reading the ingredients…', 'Writing down the steps…', 'Almost there…'],
+    text: ['Reading your text…', 'Sorting ingredients and steps…', 'Almost there…'],
+  };
 
-        {/* Magic extraction overlay */}
-        {(isExtracting || isExtractingPhoto || isExtractingPdf || isExtractingText) && (
-          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center rounded-2xl overflow-hidden">
-            {/* Blurred background */}
-            <div className="absolute inset-0 backdrop-blur-md bg-white/70 dark:bg-zinc-900/70" />
+  const back = (to: Step) => (
+    <button
+      type="button"
+      onClick={() => goTo(to)}
+      className="-ml-2 mb-1 inline-flex items-center gap-0.5 px-2 py-1 rounded-full text-sm font-semibold text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-surface-container dark:hover:bg-muted transition-colors"
+    >
+      <ChevronLeft className="w-4 h-4" /> Back
+    </button>
+  );
 
-            {/* Animated content */}
-            <div className="relative flex flex-col items-center gap-6 px-8 text-center">
-              {/* Orbiting sparkles */}
-              <div className="relative w-28 h-28">
-                {/* Orbit ring */}
-                <div className="absolute inset-0 rounded-full border-2 border-dashed border-sk-primary/30 dark:border-sk-primary/20 animate-spin" style={{ animationDuration: '6s' }} />
+  const primary = 'w-full h-11 rounded-full font-semibold text-base bg-sk-primary hover:bg-sk-primary-container text-white dark:text-primary-foreground border-0';
 
-                {/* Orbiting dots */}
-                {[0, 60, 120, 180, 240, 300].map((deg, i) => (
-                  <div
-                    key={i}
-                    className="absolute w-2 h-2 rounded-full"
-                    style={{
-                      top: '50%',
-                      left: '50%',
-                      transform: `rotate(${deg}deg) translateX(52px) translateY(-50%)`,
-                      background: `hsl(${20 + i * 12}, 90%, 60%)`,
-                      animation: `pulse 1.4s ease-in-out ${i * 0.2}s infinite`,
-                    }}
-                  />
-                ))}
+  const importError_ = importError && (
+    <p role="alert" className="rounded-xl bg-destructive/10 px-3 py-2.5 text-sm text-destructive">{importError}</p>
+  );
 
-                {/* Center chef hat */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="relative">
-                    <div
-                      className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg shadow-sk-primary/20"
-                      style={{
-                        background: 'linear-gradient(135deg, #315f3b, #497851)',
-                        animation: 'pulse 2s ease-in-out infinite',
-                      }}
-                    >
-                      <ChefHat className="w-8 h-8 text-white" strokeWidth={1.5} />
-                    </div>
-                    {/* Wand badge */}
-                    <div
-                      className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center shadow-md"
-                      style={{ background: 'linear-gradient(135deg, #a855f7, #ec4899)' }}
-                    >
-                      <Wand2 className="w-3 h-3 text-white" strokeWidth={2} />
-                    </div>
-                  </div>
-                </div>
-              </div>
+  /** The frame every non-editor step shares: header, scrolling body, footer. */
+  const frame = (header: ReactNode, body: ReactNode, footer?: ReactNode, onSubmit?: () => void) => (
+    <form
+      onSubmit={(e) => { e.preventDefault(); onSubmit?.(); }}
+      className="flex flex-col flex-1 overflow-hidden"
+    >
+      <div className="overflow-y-auto flex-1 p-6 pb-4">
+        {header}
+        <div className="space-y-3 pt-4">{body}</div>
+      </div>
+      {footer && <div className="shrink-0 border-t border-zinc-200 dark:border-zinc-800 px-6 py-4">{footer}</div>}
+    </form>
+  );
 
-              {/* Floating sparkle icons */}
-              <div className="absolute inset-0 pointer-events-none">
-                {[
-                  { top: '10%', left: '15%', delay: '0s', size: 'w-4 h-4' },
-                  { top: '20%', right: '12%', delay: '0.5s', size: 'w-3 h-3' },
-                  { bottom: '30%', left: '10%', delay: '0.8s', size: 'w-3 h-3' },
-                  { bottom: '20%', right: '15%', delay: '0.3s', size: 'w-4 h-4' },
-                  { top: '50%', left: '5%', delay: '1.1s', size: 'w-2 h-2' },
-                  { top: '40%', right: '5%', delay: '0.7s', size: 'w-2 h-2' },
-                ].map((s, i) => (
-                  <Sparkles
-                    key={i}
-                    className={`${s.size} text-sk-primary/60 absolute`}
-                    style={{
-                      top: s.top,
-                      left: (s as { left?: string }).left,
-                      right: (s as { right?: string }).right,
-                      bottom: s.bottom,
-                      animation: `pulse 1.8s ease-in-out ${s.delay} infinite`,
-                    }}
-                  />
-                ))}
-              </div>
+  const heading = (titleText: string, descriptionText?: string) => (
+    <DialogHeader>
+      <DialogTitle className="text-2xl font-bold pr-10">{titleText}</DialogTitle>
+      {descriptionText && <DialogDescription className="text-zinc-500">{descriptionText}</DialogDescription>}
+    </DialogHeader>
+  );
 
-              {/* Text */}
-              <div className="space-y-1">
-                <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                  {isExtractingPhoto ? (photoFiles.length > 1 ? 'Reading your photos...' : 'Reading your photo...') : isExtractingPdf ? 'Reading your PDF...' : isExtractingText ? 'Reading your text...' : 'Casting spell...'}
-                </p>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  {isExtractingPhoto ? (photoFiles.length > 1 ? `Combining ${photoFiles.length} pages into one recipe` : 'Analysing the image') : isExtractingPdf ? 'Reading the document' : isExtractingText ? 'Sorting it into ingredients and steps' : 'Extracting the recipe'}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+  let content: ReactNode;
+  if (reading) {
+    content = (
+      <div className="flex-1 flex flex-col items-center justify-center py-14 min-h-[26rem]">
+        <DialogTitle className="sr-only">Reading the recipe</DialogTitle>
+        <VaultAnimation
+          title={readDone ? 'Got it' : 'Reading the recipe'}
+          phases={readingPhases[reading]}
+          done={readDone}
+          doneText="Have a look before you save it."
+          onCancel={cancelReading}
+        />
+      </div>
+    );
+  } else if (step === 'choose') {
+    content = frame(
+      heading('Add a recipe', 'Let Speisekammer read it for you, or type it in yourself.'),
+      <>
+        <div className="space-y-2.5">
+          {IMPORT_OPTIONS.map(({ id, title: optionTitle, hint, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => choose(id)}
+              className="w-full flex items-center gap-3.5 p-3.5 rounded-2xl text-left bg-sk-surface-low dark:bg-muted/50 ring-1 ring-inset ring-sk-outline-variant/40 dark:ring-white/5 hover:bg-sk-surface-container dark:hover:bg-muted transition-colors"
+            >
+              <span className="w-10 h-10 shrink-0 rounded-xl bg-sk-primary/10 dark:bg-primary/15 text-sk-primary dark:text-primary flex items-center justify-center">
+                <Icon className="w-5 h-5" aria-hidden="true" />
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-semibold text-sk-on-surface dark:text-foreground">{optionTitle}</span>
+                <span className="block text-xs text-sk-on-surface-variant dark:text-muted-foreground">{hint}</span>
+              </span>
+              <ChevronRight className="w-4 h-4 shrink-0 text-sk-outline dark:text-muted-foreground" aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3 py-1 text-xs font-medium text-sk-outline dark:text-muted-foreground" aria-hidden="true">
+          <span className="h-px flex-1 bg-sk-outline-variant/60 dark:bg-border" /> or <span className="h-px flex-1 bg-sk-outline-variant/60 dark:bg-border" />
+        </div>
+        <Button type="button" variant="outline" onClick={() => goTo('edit')} className="w-full h-11 rounded-full font-semibold">
+          <PenLine className="w-4 h-4 mr-1.5" aria-hidden="true" /> Enter it manually
+        </Button>
+      </>,
+    );
+  } else if (step === 'edit') {
+    content = (
+      <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
         <div className="overflow-y-auto flex-1 p-6 pb-2">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">
-            {editingRecipe ? 'Edit Recipe' : 'Add New Recipe'}
-          </DialogTitle>
-          <DialogDescription className="text-zinc-500">
-            {editingRecipe ? 'Update the details of your recipe.' : 'Import from a URL, a photo, a PDF or pasted text, or enter details manually.'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-
-          {/* Import section */}
-          {!editingRecipe && (
-            <div className="bg-zinc-100 dark:bg-zinc-800/60 p-4 rounded-xl space-y-3 border border-zinc-200 dark:border-zinc-700/50">
-              {/* Tab switcher. Four tabs do not fit a narrow phone with "From" on
-                  each, so the word is dropped below the sm breakpoint, and on
-                  the narrowest screens (320px) the icon goes as well: "Photo"
-                  overflowed its tab by 4px there. */}
-              <div className="flex gap-1 bg-zinc-200 dark:bg-zinc-700/50 rounded-lg p-0.5">
-                {IMPORT_TABS.map(({ id, label, icon: Icon }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setImportTab(id)}
-                    aria-pressed={importTab === id}
-                    aria-label={`From ${label}`}
-                    className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all ${importTab === id ? 'bg-white dark:bg-zinc-800 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
-                  >
-                    <Icon className="w-3.5 h-3.5 shrink-0 max-[359px]:hidden" />
-                    <span><span className="hidden sm:inline">From </span>{label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {importTab === 'url' && (
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <Input
-                      type="url"
-                      aria-label="Recipe link"
-                      value={extractUrl}
-                      onChange={(e) => { setExtractUrl(e.target.value); setUrlProblem(null); }}
-                      placeholder="https://..."
-                      className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700"
-                    />
-                    <Button onClick={handleExtractUrl} disabled={isExtracting || !extractUrl} type="button" variant="default" className="whitespace-nowrap px-4 font-medium bg-sk-primary hover:bg-sk-primary-container shadow-ambient border-0">
-                      {isExtracting ? 'Extracting...' : 'Auto-Fill'}
-                    </Button>
-                  </div>
-                  {urlProblem && (
-                    <div role="alert" className="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2 text-xs text-amber-950 dark:text-amber-100">
-                      <p className="font-semibold">{urlProblem.error}</p>
-                      {urlProblem.code === 'site_blocked' && (
-                        <>
-                          <p>Open the page in your browser and bring the recipe in another way. The link is kept as the recipe's source.</p>
-                          <ul className="list-disc pl-4 space-y-1">
-                            <li><b>iPhone:</b> open the page in Safari, tap Share, then <b>Save page to Speisekammer</b> (set it up once under Settings → iPhone Shortcuts).</li>
-                            <li><b>Text:</b> select the recipe on the page, copy it and paste it.</li>
-                            <li><b>PDF</b> on an iPhone: take a screenshot in Safari, choose <b>Full Page</b>, and save it as a PDF to Files.</li>
-                            <li><b>Photo:</b> screenshots of the recipe, several if it is long.</li>
-                          </ul>
-                          <div className="flex flex-wrap gap-2 pt-1">
-                            <Button type="button" variant="outline" className="h-8 rounded-full text-xs" onClick={() => setImportTab('text')}>Paste text</Button>
-                            <Button type="button" variant="outline" className="h-8 rounded-full text-xs" onClick={() => setImportTab('pdf')}>Upload PDF</Button>
-                            <Button type="button" variant="outline" className="h-8 rounded-full text-xs" onClick={() => setImportTab('photo')}>Screenshots</Button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {importTab === 'photo' && (
-                <div className="space-y-2">
-                  <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={handlePhotoSelect} />
-                  {!photoPreviews.length ? (
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-full h-28 border-2 border-dashed border-sk-outline-variant dark:border-border rounded-xl flex flex-col items-center justify-center gap-2 text-sk-outline hover:border-sk-primary hover:text-sk-primary transition-colors"
-                    >
-                      <Camera className="w-7 h-7" />
-                      <span className="text-xs font-semibold">Tap to upload photos or recipe cards</span>
-                      <span className="text-[11px]">Add up to {MAX_EXTRACT_PHOTOS} pages of the same recipe</span>
-                    </button>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-3 gap-2">
-                        {photoPreviews.map((preview, i) => (
-                          <div key={preview} className="relative group/photo aspect-[4/3]">
-                            <img src={preview} alt={`Recipe page ${i + 1}`} className="w-full h-full object-cover rounded-lg" />
-                            <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-bold leading-none">
-                              {i + 1}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => removePhoto(i)}
-                              aria-label={`Remove page ${i + 1}`}
-                              className="absolute top-1 right-1 p-1 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                            {photoPreviews.length > 1 && (
-                              <div className="absolute bottom-1 right-1 flex gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => movePhoto(i, -1)}
-                                  disabled={i === 0}
-                                  aria-label={`Move page ${i + 1} earlier`}
-                                  className="p-1 rounded-full bg-black/50 text-white hover:bg-black/70 disabled:opacity-30 transition-colors"
-                                >
-                                  <ChevronUp className="w-3 h-3 -rotate-90" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => movePhoto(i, 1)}
-                                  disabled={i === photoPreviews.length - 1}
-                                  aria-label={`Move page ${i + 1} later`}
-                                  className="p-1 rounded-full bg-black/50 text-white hover:bg-black/70 disabled:opacity-30 transition-colors"
-                                >
-                                  <ChevronDown className="w-3 h-3 -rotate-90" />
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                        {photoPreviews.length < MAX_EXTRACT_PHOTOS && (
-                          <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            className="aspect-[4/3] border-2 border-dashed border-sk-outline-variant dark:border-border rounded-lg flex flex-col items-center justify-center gap-1 text-sk-outline hover:border-sk-primary hover:text-sk-primary transition-colors"
-                          >
-                            <Plus className="w-5 h-5" />
-                            <span className="text-[11px] font-semibold">Add page</span>
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-sk-outline">
-                        {photoPreviews.length === 1
-                          ? 'Add more pages if this recipe continues on another page.'
-                          : `${photoPreviews.length} pages will be read together as one recipe, in this order.`}
-                      </p>
-                    </>
-                  )}
-                  {photoFiles.length > 0 && (
-                    <Button
-                      type="button"
-                      onClick={handlePhotoExtract}
-                      disabled={isExtractingPhoto}
-                      variant="default"
-                      className="w-full font-medium bg-sk-primary hover:bg-sk-primary-container shadow-ambient border-0"
-                    >
-                      {isExtractingPhoto
-                        ? 'Analysing photos...'
-                        : photoFiles.length === 1
-                          ? 'Extract Recipe from Photo'
-                          : `Extract Recipe from ${photoFiles.length} Photos`}
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              {importTab === 'pdf' && (
-                <div className="space-y-2">
-                  <input ref={pdfInputRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)} />
-                  {!pdfFile ? (
-                    <button
-                      type="button"
-                      onClick={() => pdfInputRef.current?.click()}
-                      className="w-full h-28 border-2 border-dashed border-sk-outline-variant dark:border-border rounded-xl flex flex-col items-center justify-center gap-2 text-sk-outline hover:border-sk-primary hover:text-sk-primary transition-colors"
-                    >
-                      <FileText className="w-7 h-7" />
-                      <span className="text-xs font-semibold">Tap to upload a PDF recipe</span>
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                      <FileText className="w-5 h-5 text-sk-primary shrink-0" />
-                      <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex-1 truncate">{pdfFile.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => setPdfFile(null)}
-                        className="shrink-0 p-1 rounded-full text-zinc-400 hover:text-red-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
-                  {pdfFile && (
-                    <Button
-                      type="button"
-                      onClick={handlePdfExtract}
-                      disabled={isExtractingPdf}
-                      variant="default"
-                      className="w-full font-medium bg-sk-primary hover:bg-sk-primary-container shadow-ambient border-0"
-                    >
-                      {isExtractingPdf ? 'Reading PDF...' : 'Extract Recipe from PDF'}
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              {importTab === 'text' && (
-                <div className="space-y-2">
-                  <Label htmlFor="paste-recipe" className="sr-only">Recipe text</Label>
-                  <Textarea
-                    id="paste-recipe"
-                    value={pastedText}
-                    onChange={(e) => setPastedText(e.target.value)}
-                    maxLength={MAX_PASTE_LENGTH}
-                    rows={6}
-                    placeholder="Paste a recipe from a message, a note or another app — ingredients and steps, in any order."
-                    className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 min-h-32 max-h-64 overflow-y-auto"
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleTextExtract}
-                    disabled={isExtractingText || pastedText.trim().length < MIN_PASTE_LENGTH}
-                    variant="default"
-                    className="w-full font-medium bg-sk-primary hover:bg-sk-primary-container shadow-ambient border-0"
-                  >
-                    {isExtractingText ? 'Reading text...' : 'Extract Recipe from Text'}
-                  </Button>
-                </div>
-              )}
-            </div>
+          {!editingRecipe && back('choose')}
+          {heading(
+            editingRecipe ? 'Edit recipe' : 'New recipe',
+            editingRecipe ? 'Update the details of your recipe.' : filledFrom ? undefined : 'Fill in the details by hand.',
+          )}
+          <div className="space-y-4 py-2">
+          {filledFrom && (
+            <p className="flex items-start gap-2 rounded-xl bg-sk-primary-fixed/40 dark:bg-primary/15 px-3 py-2.5 text-sm text-sk-on-surface dark:text-foreground">
+              <CircleCheck className="w-4 h-4 mt-0.5 shrink-0 text-sk-primary dark:text-primary" aria-hidden="true" />
+              <span>Read from <b>{filledFrom}</b>. Check it over, then save.</span>
+            </p>
           )}
 
           <div className="space-y-2">
@@ -809,12 +611,17 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
                       <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  <Input
-                    value={ing.details || ''}
-                    onChange={(e) => setIngredients((prev) => prev.map((x, j) => j === i ? { ...x, details: e.target.value } : x))}
-                    placeholder="prep notes (optional)"
-                    className="ml-9 text-sm text-zinc-500 dark:text-zinc-400"
-                  />
+                  {/* Indented under the name, inside the row: a margin on a
+                      full-width input pushed it past the dialog's edge. */}
+                  <div className="pl-9 pr-8">
+                    <Input
+                      value={ing.details || ''}
+                      onChange={(e) => setIngredients((prev) => prev.map((x, j) => j === i ? { ...x, details: e.target.value } : x))}
+                      placeholder="prep notes (optional)"
+                      aria-label={`Prep notes for ingredient ${i + 1}`}
+                      className="text-sm text-zinc-500 dark:text-zinc-400"
+                    />
+                  </div>
                 </div>
               ))}
               {ingredients.length === 0 && (
@@ -867,17 +674,209 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
               </div>
             </div>
           </div>
-
-        </div>
+          </div>
         </div>
 
         {/* Sticky save footer */}
         <div className="shrink-0 border-t border-zinc-200 dark:border-zinc-800 px-6 py-4">
-          <Button type="submit" disabled={isSaving || isUploadingImage} className="w-full bg-sk-primary hover:bg-sk-primary-container rounded-full text-white dark:text-primary-foreground font-semibold text-base h-11 border-0">
+          <Button type="submit" disabled={isSaving || isUploadingImage} className={primary}>
             {savingLabel}
           </Button>
         </div>
-        </form>
+      </form>
+    );
+  } else if (step === 'url') {
+    content = frame(
+      <>{back('choose')}{heading(STEP_COPY.url.title, STEP_COPY.url.description)}</>,
+      <>
+        <Label htmlFor="recipe-link" className="sr-only">Recipe link</Label>
+        <Input
+          id="recipe-link"
+          type="url"
+          inputMode="url"
+          autoFocus
+          value={extractUrl}
+          onChange={(e) => { setExtractUrl(e.target.value); setUrlProblem(null); }}
+          placeholder="https://…"
+          className="h-11"
+        />
+        {importError_}
+        {urlProblem && (
+          <div role="alert" className="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2 text-xs text-amber-950 dark:text-amber-100">
+            <p className="font-semibold">{urlProblem.error}</p>
+            {urlProblem.code === 'site_blocked' && (
+              <>
+                <p>Open the page in your browser and bring the recipe in another way. The link is kept as the recipe's source.</p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li><b>iPhone:</b> open the page in Safari, tap Share, then <b>Save page to Speisekammer</b> (set it up once under Settings → iPhone Shortcuts).</li>
+                  <li><b>Text:</b> select the recipe on the page, copy it and paste it.</li>
+                  <li><b>PDF</b> on an iPhone: take a screenshot in Safari, choose <b>Full Page</b>, and save it as a PDF to Files.</li>
+                  <li><b>Photo:</b> screenshots of the recipe, several if it is long.</li>
+                </ul>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button type="button" variant="outline" className="h-8 rounded-full text-xs" onClick={() => goTo('text')}>Paste text</Button>
+                  <Button type="button" variant="outline" className="h-8 rounded-full text-xs" onClick={() => goTo('pdf')}>Upload PDF</Button>
+                  <Button type="button" variant="outline" className="h-8 rounded-full text-xs" onClick={() => goTo('photo')}>Screenshots</Button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </>,
+      <Button type="submit" disabled={!extractUrl} className={primary}>Read recipe</Button>,
+      () => { void handleExtractUrl(); },
+    );
+  } else if (step === 'photo') {
+    content = frame(
+      <>{back('choose')}{heading(STEP_COPY.photo.title, STEP_COPY.photo.description)}</>,
+      <>
+        {!photoPreviews.length ? (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full h-36 border-2 border-dashed border-sk-outline-variant dark:border-border rounded-2xl flex flex-col items-center justify-center gap-2 text-sk-outline hover:border-sk-primary hover:text-sk-primary transition-colors"
+          >
+            <Camera className="w-7 h-7" />
+            <span className="text-sm font-semibold">Choose photos or screenshots</span>
+            <span className="text-xs">Up to {MAX_EXTRACT_PHOTOS} pages of the same recipe</span>
+          </button>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-2">
+              {photoPreviews.map((preview, i) => (
+                <div key={preview} className="relative group/photo aspect-[4/3]">
+                  <img src={preview} alt={`Recipe page ${i + 1}`} className="w-full h-full object-cover rounded-lg" />
+                  <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-bold leading-none">
+                    {i + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(i)}
+                    aria-label={`Remove page ${i + 1}`}
+                    className="absolute top-1 right-1 p-1 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                  {photoPreviews.length > 1 && (
+                    <div className="absolute bottom-1 right-1 flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => movePhoto(i, -1)}
+                        disabled={i === 0}
+                        aria-label={`Move page ${i + 1} earlier`}
+                        className="p-1 rounded-full bg-black/50 text-white hover:bg-black/70 disabled:opacity-30 transition-colors"
+                      >
+                        <ChevronUp className="w-3 h-3 -rotate-90" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => movePhoto(i, 1)}
+                        disabled={i === photoPreviews.length - 1}
+                        aria-label={`Move page ${i + 1} later`}
+                        className="p-1 rounded-full bg-black/50 text-white hover:bg-black/70 disabled:opacity-30 transition-colors"
+                      >
+                        <ChevronDown className="w-3 h-3 -rotate-90" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {photoPreviews.length < MAX_EXTRACT_PHOTOS && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="aspect-[4/3] border-2 border-dashed border-sk-outline-variant dark:border-border rounded-lg flex flex-col items-center justify-center gap-1 text-sk-outline hover:border-sk-primary hover:text-sk-primary transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span className="text-[11px] font-semibold">Add page</span>
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-sk-outline">
+              {photoPreviews.length === 1
+                ? 'Add more pages if this recipe continues on another page.'
+                : `${photoPreviews.length} pages will be read together as one recipe, in this order.`}
+            </p>
+          </>
+        )}
+        {importError_}
+      </>,
+      <Button type="submit" disabled={photoFiles.length === 0} className={primary}>
+        {photoFiles.length > 1 ? `Read recipe from ${photoFiles.length} pages` : 'Read recipe'}
+      </Button>,
+      () => { void handlePhotoExtract(); },
+    );
+  } else if (step === 'pdf') {
+    content = frame(
+      <>{back('choose')}{heading(STEP_COPY.pdf.title, STEP_COPY.pdf.description)}</>,
+      <>
+        {!pdfFile ? (
+          <button
+            type="button"
+            onClick={() => pdfInputRef.current?.click()}
+            className="w-full h-36 border-2 border-dashed border-sk-outline-variant dark:border-border rounded-2xl flex flex-col items-center justify-center gap-2 text-sk-outline hover:border-sk-primary hover:text-sk-primary transition-colors"
+          >
+            <FileText className="w-7 h-7" />
+            <span className="text-sm font-semibold">Choose a PDF</span>
+          </button>
+        ) : (
+          <div className="flex items-center gap-3 px-3 py-3 bg-sk-surface-low dark:bg-muted/50 rounded-xl ring-1 ring-inset ring-sk-outline-variant/40 dark:ring-white/5">
+            <FileText className="w-5 h-5 text-sk-primary shrink-0" />
+            <span className="text-sm font-medium text-sk-on-surface dark:text-foreground flex-1 truncate">{pdfFile.name}</span>
+            <button
+              type="button"
+              onClick={() => setPdfFile(null)}
+              aria-label="Remove the PDF"
+              className="shrink-0 p-1 rounded-full text-zinc-400 hover:text-red-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+        {importError_}
+      </>,
+      <Button type="submit" disabled={!pdfFile} className={primary}>Read recipe</Button>,
+      () => { void handlePdfExtract(); },
+    );
+  } else {
+    content = frame(
+      <>{back('choose')}{heading(STEP_COPY.text.title, STEP_COPY.text.description)}</>,
+      <>
+        <Label htmlFor="paste-recipe" className="sr-only">Recipe text</Label>
+        <Textarea
+          id="paste-recipe"
+          autoFocus
+          value={pastedText}
+          onChange={(e) => setPastedText(e.target.value)}
+          maxLength={MAX_PASTE_LENGTH}
+          rows={8}
+          placeholder="Paste a recipe from a message, a note or another app."
+          className="min-h-40 max-h-72 overflow-y-auto"
+        />
+        {importError_}
+      </>,
+      <Button type="submit" disabled={pastedText.trim().length < MIN_PASTE_LENGTH} className={primary}>Read recipe</Button>,
+      () => { void handleTextExtract(); },
+    );
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(v) => { if (!v) close(); }}>
+      <DialogTrigger className="hidden" />
+      <DialogContent showCloseButton={false} className="sm:max-w-[580px] overflow-hidden rounded-2xl w-[95vw] sm:w-full bg-white dark:bg-zinc-900 shadow-2xl border border-zinc-200 dark:border-zinc-800 p-0 flex flex-col max-h-[var(--dialog-max-h)]">
+        <button
+          type="button"
+          onClick={close}
+          className="absolute top-3 right-3 z-20 p-2.5 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white transition-colors shadow-md ring-1 ring-white/20"
+          title="Close"
+          aria-label="Close"
+        ><X className="w-4 h-4" /></button>
+
+        {/* Always mounted, so choosing photos or a PDF can open the picker in the same tap. */}
+        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={handlePhotoSelect} aria-hidden="true" tabIndex={-1} />
+        <input ref={pdfInputRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => { setPdfFile(e.target.files?.[0] ?? null); setImportError(null); }} aria-hidden="true" tabIndex={-1} />
+
+        {content}
       </DialogContent>
     </Dialog>
   );

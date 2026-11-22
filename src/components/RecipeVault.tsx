@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { RecipeCard } from './RecipeCard';
 import { FILTERS, SORT_OPTIONS, type SortOption } from '@/lib/constants';
 import { NEW_FROM_IPHONE } from '@/store/recipeStore';
+import { TagIcon, addChipClass, chipClass, tagLabel } from '@/lib/tags';
 import type { Recipe, RecipeTranslation, Collection, RecipeCollection, LinkedPerson } from '@/types';
 
 interface Props {
@@ -115,7 +116,7 @@ export function RecipeVault({
         {/* Whose recipes — only worth showing once something is connected */}
         {linkedPeople.length > 0 && onOwnerChange && (
           <div className="flex items-center gap-2 flex-wrap">
-            <Users className="w-3.5 h-3.5 text-sk-outline dark:text-muted-foreground shrink-0" />
+            <Users className="w-4 h-4 text-sk-outline dark:text-muted-foreground shrink-0" aria-label="Whose recipes" />
             {[
               { id: null, label: 'Everyone' },
               { id: currentUserId, label: 'Mine' },
@@ -127,11 +128,7 @@ export function RecipeVault({
                   key={chip.id ?? 'all'}
                   onClick={() => onOwnerChange(chip.id ?? null)}
                   aria-pressed={activeOwnerId === (chip.id ?? null)}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold font-sans transition-colors ${
-                    activeOwnerId === (chip.id ?? null)
-                      ? 'bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground'
-                      : 'bg-sk-surface-low dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary'
-                  }`}
+                  className={chipClass(activeOwnerId === (chip.id ?? null))}
                 >
                   {chip.label}
                 </button>
@@ -141,7 +138,7 @@ export function RecipeVault({
 
         {/* Collections */}
         <div className="flex items-center gap-2 flex-wrap">
-          <FolderOpen className="w-3.5 h-3.5 text-sk-outline dark:text-muted-foreground shrink-0" />
+          <FolderOpen className="w-4 h-4 text-sk-outline dark:text-muted-foreground shrink-0" aria-label="Collections" />
           {collections.map((c) => (
             <div key={c.id} className="inline-flex items-center gap-0.5 group/chip">
               {renamingId === c.id ? (
@@ -160,7 +157,7 @@ export function RecipeVault({
                     onChange={(e) => setRenameValue(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Escape') setRenamingId(null); }}
                     onBlur={() => setRenamingId(null)}
-                    className="px-2 py-1 rounded-full text-xs border-0 bg-sk-surface-highest dark:bg-input focus:outline-none focus:ring-2 focus:ring-sk-primary/25 text-sk-on-surface dark:text-foreground w-28 font-sans"
+                    className="h-8 px-3 rounded-lg text-[13px] border-0 bg-sk-surface-highest dark:bg-input focus:outline-none focus:ring-2 focus:ring-sk-primary/25 text-sk-on-surface dark:text-foreground w-32 font-sans"
                   />
                   <button type="submit" className="p-1 text-sk-primary dark:text-primary">
                     <Check className="w-3 h-3" />
@@ -170,14 +167,11 @@ export function RecipeVault({
                 <>
                   <button
                     onClick={() => onCollectionChange(activeCollectionId === c.id ? null : c.id)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold font-sans transition-all ${
-                      activeCollectionId === c.id
-                        ? 'bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground shadow-ambient'
-                        : 'bg-sk-surface-highest dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary hover:bg-sk-primary-fixed/30'
-                    }`}
+                    aria-pressed={activeCollectionId === c.id}
+                    className={chipClass(activeCollectionId === c.id)}
                   >
                     {c.name}
-                    <span className="text-[10px] opacity-60 font-normal">
+                    <span className="text-[11px] tabular-nums opacity-60">
                       {memberships.filter((m) => m.collection_id === c.id).length}
                     </span>
                   </button>
@@ -210,7 +204,7 @@ export function RecipeVault({
                 onChange={(e) => setNewCollectionName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Escape') { setIsCreating(false); setNewCollectionName(''); } }}
                 placeholder="Collection name"
-                className="px-2 py-1 rounded-full text-xs border-0 bg-sk-surface-highest dark:bg-input focus:outline-none focus:ring-2 focus:ring-sk-primary/25 text-sk-on-surface dark:text-foreground w-32 font-sans"
+                className="h-8 px-3 rounded-lg text-[13px] border-0 bg-sk-surface-highest dark:bg-input focus:outline-none focus:ring-2 focus:ring-sk-primary/25 text-sk-on-surface dark:text-foreground w-40 font-sans"
               />
               <button type="submit" className="text-xs font-semibold text-sk-primary dark:text-primary hover:text-sk-primary-container px-1 font-sans">Save</button>
               <button type="button" onClick={() => { setIsCreating(false); setNewCollectionName(''); }} className="text-xs text-sk-outline hover:text-sk-on-surface-variant px-1 font-sans">Cancel</button>
@@ -218,49 +212,37 @@ export function RecipeVault({
           ) : (
             <button
               onClick={() => setIsCreating(true)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold font-sans border border-dashed border-sk-outline-variant dark:border-border text-sk-outline dark:text-muted-foreground hover:border-sk-primary hover:text-sk-primary dark:hover:text-primary transition-all"
+              className={addChipClass()}
             >
-              <Plus className="w-3 h-3" /> New
+              <Plus className="w-3.5 h-3.5" aria-hidden="true" /> New collection
             </button>
           )}
         </div>
 
-        {/* Filter chips */}
-        <div className="flex flex-wrap gap-2">
-          {/* Only while there is something new, or while it is the filter in use. */}
-          {((newRecipeIds?.size ?? 0) > 0 || activeFilter === NEW_FROM_IPHONE) && (
-            <button
-              onClick={() => onFilterChange(activeFilter === NEW_FROM_IPHONE ? null : NEW_FROM_IPHONE)}
-              className={`px-3 py-1 rounded-full text-xs font-semibold font-sans transition-all ${
-                activeFilter === NEW_FROM_IPHONE
-                  ? 'bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground shadow-ambient'
-                  : 'bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200 hover:bg-amber-200/70'
-              }`}
-            >
-              {NEW_FROM_IPHONE}
-            </button>
-          )}
-          {FILTERS.map((f) => (
-            <button
-              key={f}
-              onClick={() => onFilterChange(activeFilter === f ? null : f)}
-              className={`px-3 py-1 rounded-full text-xs font-semibold font-sans transition-all ${
-                activeFilter === f
-                  ? 'bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground shadow-ambient'
-                  : 'bg-sk-surface-highest dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary hover:bg-sk-primary-fixed/30'
-              }`}
-            >
-              {f}
-            </button>
-          ))}
+        {/* Filter chips: one row that scrolls sideways on a phone (it wrapped
+            into three rows), wrapping from sm up. Clear comes first, so it is
+            never scrolled out of sight. */}
+        <div className="flex gap-2 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible">
           {(searchQuery || activeFilter) && (
             <button
               onClick={() => { onSearchChange(''); onFilterChange(null); }}
-              className="px-3 py-1 rounded-full text-xs font-semibold font-sans border border-dashed border-sk-outline-variant dark:border-border text-sk-outline dark:text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-all flex items-center gap-1"
+              className={chipClass(false)}
             >
-              <X className="w-3 h-3" /> Clear all
+              <X className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> Clear
             </button>
           )}
+          {/* Only while there is something new, or while it is the filter in use. */}
+          {((newRecipeIds?.size ?? 0) > 0 || activeFilter === NEW_FROM_IPHONE) && (
+            <FilterChip
+              filter={NEW_FROM_IPHONE}
+              active={activeFilter === NEW_FROM_IPHONE}
+              highlight
+              onClick={() => onFilterChange(activeFilter === NEW_FROM_IPHONE ? null : NEW_FROM_IPHONE)}
+            />
+          )}
+          {FILTERS.map((f) => (
+            <FilterChip key={f} filter={f} active={activeFilter === f} onClick={() => onFilterChange(activeFilter === f ? null : f)} />
+          ))}
         </div>
       </div>
 
@@ -359,5 +341,17 @@ export function RecipeVault({
         )}
       </main>
     </>
+  );
+}
+
+/** A filter in the vault: its icon and plain label, pressed while in use. */
+function FilterChip({ filter, active, highlight = false, onClick }: { filter: string; active: boolean; highlight?: boolean; onClick: () => void }) {
+  // Recipes just sent from the iPhone: the one chip that asks to be noticed.
+  const className = chipClass(active, highlight ? 'highlight' : 'default');
+  return (
+    <button type="button" onClick={onClick} aria-pressed={active} className={className}>
+      <TagIcon tag={filter} className="w-3.5 h-3.5 shrink-0" />
+      {tagLabel(filter)}
+    </button>
   );
 }

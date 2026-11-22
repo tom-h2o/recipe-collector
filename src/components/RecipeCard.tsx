@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { TagIcon, tagClass, tagLabel } from '@/lib/tags';
 import { Star, Users, Loader2, Clock, ExternalLink, Share2 } from 'lucide-react';
 import { parseIngredients } from '@/lib/recipeUtils';
 import type { Recipe } from '@/types';
@@ -103,43 +104,34 @@ export function RecipeCard({ recipe, isProcessing, isNew = false, activeFilter, 
           </p>
         </div>
 
-        {/* Ingredients */}
-        <div>
-          <p className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground mb-2">
-            {parsed.length} Ingredient{parsed.length !== 1 ? 's' : ''}
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {parsed.slice(0, 5).map((ing, i) => (
-              <span
-                key={i}
-                className="px-2.5 py-1 bg-sk-surface-low dark:bg-muted text-xs font-sans font-medium rounded-full text-sk-on-surface-variant dark:text-muted-foreground max-w-[140px] truncate"
-              >
-                {ing.name}
-              </span>
-            ))}
-            {parsed.length > 5 && (
-              <span className="px-2.5 py-1 bg-sk-primary-fixed/50 dark:bg-primary/15 text-xs font-sans font-medium rounded-full text-sk-primary dark:text-primary">
-                +{parsed.length - 5} more
-              </span>
-            )}
+        {/* Ingredients: one quiet line of text, "+N more" in the same voice.
+            They were grey pills with a green "+N more", which read as a tag. */}
+        {parsed.length > 0 && (
+          <div>
+            <p className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground mb-1">
+              {parsed.length} Ingredient{parsed.length !== 1 ? 's' : ''}
+            </p>
+            <p className="font-sans text-[13px] leading-relaxed text-sk-on-surface-variant dark:text-muted-foreground line-clamp-2">
+              {parsed.slice(0, 5).map((ing) => ing.name).join(' · ')}
+              {parsed.length > 5 && <span className="text-sk-outline dark:text-muted-foreground/80"> · +{parsed.length - 5} more</span>}
+            </p>
           </div>
-        </div>
+        )}
 
-        {/* Tags */}
+        {/* Tags: small labels; tapping one filters the vault by it. */}
         {recipe.tags?.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-2">
+          <div className="flex flex-wrap gap-1.5 mt-auto">
             {recipe.tags.map((tag) => (
-              <span
-                key={tag}
-                onClick={(e) => { e.stopPropagation(); onFilterChange(tag); }}
-                className={`px-2.5 py-1 rounded-full text-[10px] font-bold font-sans cursor-pointer transition-all ${
-                  activeFilter === tag
-                    ? 'bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground'
-                    : 'bg-sk-primary-fixed/40 dark:bg-primary/15 text-sk-primary dark:text-primary hover:bg-sk-primary-fixed/70'
-                }`}
-              >
-                {tag}
-              </span>
+                <button
+                  type="button"
+                  key={tag}
+                  onClick={(e) => { e.stopPropagation(); onFilterChange(tag); }}
+                  aria-pressed={activeFilter === tag}
+                  className={tagClass(activeFilter === tag)}
+                >
+                  <TagIcon tag={tag} className="w-3 h-3 shrink-0" />
+                  {tagLabel(tag)}
+                </button>
             ))}
           </div>
         )}
