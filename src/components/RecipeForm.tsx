@@ -43,6 +43,8 @@ interface Props {
   userId?: string | null;
 }
 
+type UrlProblem = { code: 'site_blocked' | 'page_unavailable'; site: string; error: string };
+
 function domainFrom(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
 }
@@ -51,6 +53,9 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
   const [importTab, setImportTab] = useState<ImportTab>('url');
   const [extractUrl, setExtractUrl] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
+  // A site that would not hand its page over (see describePageRefusal in
+  // api/extract.ts). Shown under the link, with the ways in that do work.
+  const [urlProblem, setUrlProblem] = useState<UrlProblem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   // Photo import state — a recipe may span several pages, so this is a list
@@ -103,7 +108,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
       setTitle(''); setDescription(''); setIngredients([]);
       setInstructions(''); setImageUrl(''); setServings('');
       setPrepTime(''); setCookTime('');
-      setExtractUrl(''); setSourceUrl(''); setSourceName('');
+      setExtractUrl(''); setSourceUrl(''); setSourceName(''); setUrlProblem(null);
       setOriginalLanguage(null);
       setPhotoFiles([]);
       setPhotoPreviews((prev) => { prev.forEach(URL.revokeObjectURL); return []; });
@@ -271,6 +276,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
     e.preventDefault();
     if (!extractUrl) return;
     setIsExtracting(true);
+    setUrlProblem(null);
     const id = toast.loading('Extracting the recipe with AI...');
     try {
       const res = await apiFetch('/api/extract', {
@@ -279,6 +285,16 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
         body: JSON.stringify({ url: extractUrl }),
       });
       const data = await res.json();
+      if (!res.ok && (data.code === 'site_blocked' || data.code === 'page_unavailable')) {
+        toast.dismiss(id);
+        setUrlProblem({ code: data.code, site: data.site || domainFrom(extractUrl), error: data.error });
+        if (data.code === 'site_blocked') {
+          // Whichever way the recipe comes in instead, it keeps its link.
+          setSourceUrl(extractUrl);
+          setSourceName((prev) => prev || domainFrom(extractUrl));
+        }
+        return;
+      }
       if (!res.ok) throw new Error(data.error || 'Failed to extract recipe');
       setTitle(data.title || '');
       setDescription(data.description || '');
@@ -501,17 +517,40 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
               </div>
 
               {importTab === 'url' && (
-                <div className="flex gap-2">
-                  <Input
-                    type="url"
-                    value={extractUrl}
-                    onChange={(e) => setExtractUrl(e.target.value)}
-                    placeholder="https://..."
-                    className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700"
-                  />
-                  <Button onClick={handleExtractUrl} disabled={isExtracting || !extractUrl} type="button" variant="default" className="whitespace-nowrap px-4 font-medium bg-sk-primary hover:bg-sk-primary-container shadow-ambient border-0">
-                    {isExtracting ? 'Extracting...' : 'Auto-Fill'}
-                  </Button>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      type="url"
+                      aria-label="Recipe link"
+                      value={extractUrl}
+                      onChange={(e) => { setExtractUrl(e.target.value); setUrlProblem(null); }}
+                      placeholder="https://..."
+                      className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700"
+                    />
+                    <Button onClick={handleExtractUrl} disabled={isExtracting || !extractUrl} type="button" variant="default" className="whitespace-nowrap px-4 font-medium bg-sk-primary hover:bg-sk-primary-container shadow-ambient border-0">
+                      {isExtracting ? 'Extracting...' : 'Auto-Fill'}
+                    </Button>
+                  </div>
+                  {urlProblem && (
+                    <div role="alert" className="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2 text-xs text-amber-950 dark:text-amber-100">
+                      <p className="font-semibold">{urlProblem.error}</p>
+                      {urlProblem.code === 'site_blocked' && (
+                        <>
+                          <p>Open the page in your browser and bring the recipe in another way. The link is kept as the recipe's source.</p>
+                          <ul className="list-disc pl-4 space-y-1">
+                            <li><b>Text:</b> select the recipe on the page, copy it and paste it.</li>
+                            <li><b>PDF</b> on an iPhone: take a screenshot in Safari, choose <b>Full Page</b>, and save it as a PDF to Files.</li>
+                            <li><b>Photo:</b> screenshots of the recipe, several if it is long.</li>
+                          </ul>
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            <Button type="button" variant="outline" className="h-8 rounded-full text-xs" onClick={() => setImportTab('text')}>Paste text</Button>
+                            <Button type="button" variant="outline" className="h-8 rounded-full text-xs" onClick={() => setImportTab('pdf')}>Upload PDF</Button>
+                            <Button type="button" variant="outline" className="h-8 rounded-full text-xs" onClick={() => setImportTab('photo')}>Screenshots</Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

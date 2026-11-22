@@ -135,6 +135,44 @@ describe('/api/extract', () => {
     expect(generateJson).not.toHaveBeenCalled();
   });
 
+  it('says which site refused the page, without an AI call, when a site blocks servers', async () => {
+    // rewe.de answers every server with Cloudflare's challenge; edeka.de with
+    // Akamai's 403. It used to reach the cook as "Failed to fetch URL: Forbidden".
+    const { handler, generateJson, checkRateLimit } = await loadHandler();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      statusText: 'Forbidden',
+      headers: new Headers({ 'cf-mitigated': 'challenge' }),
+      text: () => Promise.resolve('<html>Just a moment...</html>'),
+    }));
+    const res = createResponse();
+
+    await handler({ method: 'POST', body: { url: 'https://www.rewe.de/rezepte/klassische-kuerbissuppe/' }, headers: {} } as VercelRequest, res);
+
+    expect(res.statusCode).toBe(422);
+    expect(res.body).toEqual({
+      code: 'site_blocked',
+      site: 'rewe.de',
+      error: 'rewe.de does not let apps read its pages, so this recipe cannot be imported from the link.',
+    });
+    expect(generateJson).not.toHaveBeenCalled();
+    expect(checkRateLimit).not.toHaveBeenCalled();
+  });
+
+  it('tells a missing page apart from a blocked one', async () => {
+    const { describePageRefusal } = await import('./extract');
+    expect(describePageRefusal('https://www.edeka.de/x', 403).code).toBe('site_blocked');
+    expect(describePageRefusal('https://example.com/x', 429).code).toBe('site_blocked');
+    expect(describePageRefusal('https://example.com/x', 200, new Headers({ 'cf-mitigated': 'challenge' })).code).toBe('site_blocked');
+    expect(describePageRefusal('https://www.example.com/gone', 404)).toEqual({
+      code: 'page_unavailable',
+      site: 'example.com',
+      error: 'That page does not exist on example.com (any more). Check the link.',
+    });
+    expect(describePageRefusal('https://example.com/x', 500).error).toContain('error 500');
+  });
+
   it('returns 400 for invalid URL extraction bodies', async () => {
     const { handler } = await loadHandler();
     const res = createResponse();
