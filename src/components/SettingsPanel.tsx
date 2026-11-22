@@ -174,7 +174,7 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, isA
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">All temperatures in recipes will be displayed in your preferred unit.</p>
                 </div>
 
-                <ShortcutSettings open={isOpen && tab === 'settings'} />
+                <ShortcutSettings open={isOpen && tab === 'settings'} isAdmin={isAdmin} />
 
                 {isAdmin ? (
                   <>

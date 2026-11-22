@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { Check, Copy, KeyRound, Smartphone } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Check, Copy, KeyRound, Plus, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useShortcutKey } from '@/hooks/useShortcutKey';
+import { useShortcutLink } from '@/hooks/useShortcutLink';
 
 /**
  * Settings → iPhone Shortcut: the personal key the "Send to Speisekammer"
@@ -11,9 +12,17 @@ import { useShortcutKey } from '@/hooks/useShortcutKey';
  * A web app cannot appear in the iPhone's share sheet (Safari has no Web Share
  * Target support), so the Shortcut is what puts Speisekammer there. The key is
  * shown once, right after it is made; the server keeps only its hash.
+ *
+ * Once the admin has shared the Shortcut (an iCloud link with an import
+ * question for the key), everyone gets an "Add to Shortcuts" button and the
+ * build steps become a fallback.
  */
-export function ShortcutSettings({ open }: { open: boolean }) {
+export function ShortcutSettings({ open, isAdmin = false }: { open: boolean; isAdmin?: boolean }) {
   const { status, freshKey, busy, error, create, revoke } = useShortcutKey(open);
+  const link = useShortcutLink(open);
+  const [linkDraft, setLinkDraft] = useState('');
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setLinkDraft(link.url ?? ''); }, [link.url]);
   const [copied, setCopied] = useState<string | null>(null);
   const endpoint = `${window.location.origin}/api/extract?via=shortcut`;
 
@@ -101,8 +110,58 @@ export function ShortcutSettings({ open }: { open: boolean }) {
         {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
       </div>
 
+      {link.url && (
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 space-y-2">
+          <a
+            href={link.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground"
+          >
+            <Plus className="w-4 h-4" aria-hidden="true" /> Add to Shortcuts
+          </a>
+          <p className="text-xs text-zinc-600 dark:text-zinc-400">
+            Opens the Shortcuts app on your iPhone. When it asks for the key, paste the one from above.
+          </p>
+        </div>
+      )}
+
+      {isAdmin && (
+        <form
+          aria-label="Shared Shortcut link"
+          className="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 p-3 space-y-2"
+          onSubmit={(e) => { e.preventDefault(); void link.save(linkDraft); }}
+        >
+          <Label htmlFor="shortcut-link" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+            Shared Shortcut link (admin)
+          </Label>
+          <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+            Build the Shortcut once with the steps below. In its settings, open <b>Setup</b> → <b>Add New Question</b> and
+            pick the key in the header, so each person is asked for their own (Apple clears your key when you share).
+            Then <b>Share</b> → <b>Copy iCloud Link</b> and paste it here: everyone gets the Add to Shortcuts button.
+          </p>
+          <div className="flex gap-2">
+            <input
+              id="shortcut-link"
+              type="url"
+              inputMode="url"
+              placeholder="https://www.icloud.com/shortcuts/…"
+              value={linkDraft}
+              onChange={(e) => setLinkDraft(e.target.value)}
+              className="flex-1 min-w-0 h-8 px-3 rounded-full text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700"
+            />
+            <Button type="submit" disabled={link.saving || linkDraft.trim() === (link.url ?? '')} className="shrink-0 h-8 rounded-full text-xs">
+              {linkDraft.trim() ? 'Save link' : 'Remove link'}
+            </Button>
+          </div>
+          {link.error && <p role="alert" className="text-xs text-destructive">{link.error}</p>}
+        </form>
+      )}
+
       <details className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 text-xs text-zinc-700 dark:text-zinc-300">
-        <summary className="cursor-pointer font-semibold">How to set up the Shortcut (once, about 5 minutes)</summary>
+        <summary className="cursor-pointer font-semibold">
+          {link.url ? 'Build the Shortcut yourself instead' : 'How to set up the Shortcut (once, about 5 minutes)'}
+        </summary>
         <div className="mt-3 space-y-3">
           <div className="flex items-center gap-2">
             <code className="flex-1 min-w-0 break-all font-mono text-[11px]">{endpoint}</code>

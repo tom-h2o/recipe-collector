@@ -20,6 +20,14 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-05',
+    title: 'Add the iPhone Shortcut with one tap',
+    items: [
+      'Settings → iPhone Shortcut now has an Add to Shortcuts button. Make your key, copy it, tap the button, and paste the key when the Shortcuts app asks for it. No need to build the Shortcut yourself any more.',
+    ],
+  },
+  {
+    // Ids must increase with each release (see 2026-12-02 below).
     id: '2026-12-04',
     title: 'Send recipes straight from your photos',
     items: [

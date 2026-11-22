@@ -12,7 +12,7 @@ create extension if not exists pgtap with schema extensions;
 create schema if not exists tests;
 
 begin;
-select plan(51);
+select plan(53);
 
 -- ── Fixtures ────────────────────────────────────────────────────────────────
 -- Three accounts: two that will be linked, and a third that must stay isolated.
@@ -518,6 +518,22 @@ select is(
   (select count(*)::int from public.recipe_imports where id = 'dddddddd-0000-0000-0000-000000000001'),
   0,
   'deleting a recipe deletes its import row, so no banner or badge outlives it'
+);
+
+-- ── The shared Shortcut link (migration 0071) ───────────────────────────────
+update public.settings set shortcut_url = 'https://www.icloud.com/shortcuts/abc123' where id = 1;
+select tests.as_user('33333333-3333-3333-3333-333333333333');
+select is(
+  (select shortcut_url from public.settings where id = 1),
+  'https://www.icloud.com/shortcuts/abc123',
+  'every user can read the shared Shortcut link'
+);
+update public.settings set shortcut_url = 'https://evil.example/shortcut' where id = 1;
+reset role;
+select is(
+  (select shortcut_url from public.settings where id = 1),
+  'https://www.icloud.com/shortcuts/abc123',
+  'and no user can change it: only the admin, through the server'
 );
 
 select * from finish();
