@@ -9,7 +9,8 @@ interface Props {
   isProcessing: boolean;
   /** Sent from the iPhone Shortcut and not opened yet. */
   isNew?: boolean;
-  activeFilter: string | null;
+  /** Filter chips in use, so a tag that is one of them shows as pressed. */
+  activeFilters: readonly string[];
   translation?: { title: string; description: string | null; ingredients?: Array<{ amount: string; name: string; details?: string }> } | null;
   translationLoading?: boolean;
   onOpen: (r: Recipe) => void;
@@ -17,7 +18,7 @@ interface Props {
   onFilterChange: (tag: string) => void;
 }
 
-export function RecipeCard({ recipe, isProcessing, isNew = false, activeFilter, translation, translationLoading, onOpen, onToggleFavourite, onFilterChange }: Props) {
+export function RecipeCard({ recipe, isProcessing, isNew = false, activeFilters, translation, translationLoading, onOpen, onToggleFavourite, onFilterChange }: Props) {
   const parsed = translation?.ingredients ? translation.ingredients : parseIngredients(recipe.ingredients);
   const [imgError, setImgError] = useState(false);
   const totalTime = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
@@ -126,8 +127,8 @@ export function RecipeCard({ recipe, isProcessing, isNew = false, activeFilter, 
                   type="button"
                   key={tag}
                   onClick={(e) => { e.stopPropagation(); onFilterChange(tag); }}
-                  aria-pressed={activeFilter === tag}
-                  className={tagClass(activeFilter === tag)}
+                  aria-pressed={activeFilters.includes(tag)}
+                  className={tagClass(activeFilters.includes(tag))}
                 >
                   <TagIcon tag={tag} className="w-3 h-3 shrink-0" />
                   {tagLabel(tag)}

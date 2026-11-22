@@ -91,7 +91,8 @@ export default function App() {
   const [sendTarget, setSendTarget] = useState<Recipe | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  // Filter chips in use; they combine (src/lib/tags.ts: one per tag group).
+  const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
 
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -179,9 +180,9 @@ export default function App() {
   // Once the last new recipe has been opened the filter has nothing to show.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!newImportKey && activeFilter === NEW_FROM_IPHONE) setActiveFilter(null);
-  }, [newImportKey, activeFilter]);
-  const newImportsShown = activeFilter === NEW_FROM_IPHONE ? newImportKey : '';
+    if (!newImportKey && activeFilters.includes(NEW_FROM_IPHONE)) setActiveFilters((f) => f.filter((k) => k !== NEW_FROM_IPHONE));
+  }, [newImportKey, activeFilters]);
+  const newImportsShown = activeFilters.includes(NEW_FROM_IPHONE) ? newImportKey : '';
   const openRecipe = (recipe: Recipe) => {
     setSelectedRecipe(recipe);
     void recipeImports.markSeen(recipe.id);
@@ -193,12 +194,12 @@ export default function App() {
     if (isPublicSharePath || isAboutPath) return;
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
-      fetchRecipes(searchQuery, activeFilter, activeCollectionId, membershipsRef.current, sortBy, activeOwnerId);
+      fetchRecipes(searchQuery, activeFilters, activeCollectionId, membershipsRef.current, sortBy, activeOwnerId);
     }, 300);
     return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
     // newImportKey: the New-from-photos filter reads the ids from the store,
     // so a change to them must refetch while that filter is on.
-  }, [isPublicSharePath, isAboutPath, searchQuery, activeFilter, activeCollectionId, membershipKey, sortBy, activeOwnerId, fetchRecipes, vaultRefresh, newImportsShown]);
+  }, [isPublicSharePath, isAboutPath, searchQuery, activeFilters, activeCollectionId, membershipKey, sortBy, activeOwnerId, fetchRecipes, vaultRefresh, newImportsShown]);
 
   function openForm(recipe?: Recipe) {
     setEditingRecipe(recipe ?? null);
@@ -335,7 +336,7 @@ export default function App() {
               loading={loading}
               processingIds={processingIds}
               searchQuery={searchQuery}
-              activeFilter={activeFilter}
+              activeFilters={activeFilters}
               hasMore={hasMore}
               linkedPeople={connectedPeople}
               activeOwnerId={activeOwnerId}
@@ -350,7 +351,7 @@ export default function App() {
               sortBy={sortBy}
               onSortChange={setSortBy}
               onSearchChange={setSearchQuery}
-              onFilterChange={setActiveFilter}
+              onFiltersChange={setActiveFilters}
               onCollectionChange={setActiveCollectionId}
               onCreateCollection={createCollection}
               onDeleteCollection={deleteCollection}
@@ -364,8 +365,9 @@ export default function App() {
                   newCount={recipeImports.newRecipeIds.size}
                   processing={recipeImports.processing}
                   failed={recipeImports.failed}
-                  showingNew={activeFilter === NEW_FROM_IPHONE}
-                  onShowNew={() => setActiveFilter(NEW_FROM_IPHONE)}
+                  showingNew={activeFilters.includes(NEW_FROM_IPHONE)}
+                  // Just those: other filters could hide the very recipes asked for.
+                  onShowNew={() => setActiveFilters([NEW_FROM_IPHONE])}
                   onDismiss={(id) => { void recipeImports.dismiss(id); }}
                 />
               )}

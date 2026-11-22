@@ -1,3 +1,4 @@
+import { AVAILABLE_TAGS } from '../../shared/tags.js';
 import { Type } from '@google/genai';
 import type { Schema } from '@google/genai';
 
@@ -57,9 +58,14 @@ export const extractedRecipeResponseSchema: Schema = {
   ],
 };
 
+/**
+ * Only the tags on the list (shared/tags.ts) can be answered at all, so a
+ * made-up tag is impossible rather than filtered out afterwards. enrich.ts
+ * still filters, for cached answers from before this and for safety.
+ */
 export const tagResponseSchema: Schema = {
   type: Type.ARRAY,
-  items: { type: Type.STRING },
+  items: { type: Type.STRING, format: 'enum', enum: [...AVAILABLE_TAGS] },
 };
 
 export const nutritionResponseSchema: Schema = {

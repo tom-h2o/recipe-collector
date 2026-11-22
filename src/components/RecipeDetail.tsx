@@ -7,7 +7,7 @@ import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
 import { apiFetch } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { convertTemperaturesInText } from '@/lib/temperatureUtils';
-import { MEAL_TYPES, DEFAULT_MEAL_TYPE, LANGUAGES, AVAILABLE_TAGS } from '@/lib/constants';
+import { MEAL_TYPES, DEFAULT_MEAL_TYPE, LANGUAGES, TAG_GROUPS } from '@/lib/constants';
 import type { Recipe, RecipeTranslation, Collection, LinkedPerson } from '@/types';
 import { CookMode } from '@/components/CookMode';
 import { Button } from '@/components/ui/button';
@@ -1039,17 +1039,29 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                 )}
               </div>
               {showTagEditor && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {AVAILABLE_TAGS.filter((t) => !(recipe.tags || []).includes(t)).map((tag) => (
-                    <button
-                      key={tag}
-                      onClick={() => onUpdateRecipe(recipe.id, { tags: [...(recipe.tags || []), tag] })}
-                      aria-label={`Add tag ${tagLabel(tag)}`}
-                      className={addChipClass('tag')}
-                    >
-                      <Plus className="w-3 h-3" aria-hidden="true" />{tagLabel(tag)}
-                    </button>
-                  ))}
+                // Grouped like the vault's filter menus, so a tag is found where it is filtered.
+                <div className="mt-3 space-y-2.5">
+                  {TAG_GROUPS.map((group) => {
+                    const missing = (group.tags as readonly string[]).filter((t) => !(recipe.tags || []).includes(t));
+                    if (missing.length === 0) return null;
+                    return (
+                      <div key={group.id}>
+                        <p className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground mb-1.5">{group.label}</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {missing.map((tag) => (
+                            <button
+                              key={tag}
+                              onClick={() => onUpdateRecipe(recipe.id, { tags: [...(recipe.tags || []), tag] })}
+                              aria-label={`Add tag ${tagLabel(tag)}`}
+                              className={addChipClass('tag')}
+                            >
+                              <Plus className="w-3 h-3" aria-hidden="true" />{tagLabel(tag)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

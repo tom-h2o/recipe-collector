@@ -1,3 +1,4 @@
+import { QUICK_TAG } from '../../shared/tags';
 import type { AiTask } from '../types';
 
 /**
@@ -168,25 +169,15 @@ export const RECOMMENDED_TASK_MODELS: Record<AiTask, string> = Object.fromEntrie
 
 export const MODELS = MODEL_OPTIONS.map((m) => m.id);
 
-export const FILTERS = [
-  '⭐ Favourites',
-  '🔗 Shared',
-  'Quick (<30min)',
-  'Vegetarian',
-  'Vegan',
-  'High Protein',
-  'Comfort Food',
-  'Breakfast',
-  'Dessert',
-] as const;
+/**
+ * The vault's direct filter chips: one tap each, independent of one another.
+ * Every other tag is chosen from its group's menu (TAG_GROUPS). Favourites and
+ * Shared are properties of the row, not tags (applyTagFilter in recipeStore).
+ */
+export const DIRECT_FILTERS = ['⭐ Favourites', '🔗 Shared', QUICK_TAG] as const;
 
-export const AVAILABLE_TAGS = [
-  'Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free',
-  'High Protein', 'Low Carb', 'Quick (<30min)', 'Comfort Food',
-  'Italian', 'Asian', 'Mexican', 'Mediterranean', 'Indian', 'American',
-  'Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snack', 'Soup',
-  'Baking', 'Grilling', 'One-Pot',
-] as const;
+/** The one tag list, shared with the server's tagging prompt: shared/tags.ts. */
+export { AVAILABLE_TAGS, TAG_GROUPS } from '../../shared/tags';
 
 export const MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snack'] as const;
 export const DEFAULT_MEAL_TYPE: typeof MEAL_TYPES[number] = 'Dinner';

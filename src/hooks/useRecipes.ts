@@ -15,7 +15,7 @@ export function useRecipes(userId?: string | null) {
   const fetchRecipes = useCallback(
     async (
       searchQuery: string = '',
-      tagFilter: string | null = null,
+      tagFilter: string | readonly string[] | null = null,
       collectionId: string | null = null,
       memberships: any[] = [],
       sortBy: string = 'newest',
