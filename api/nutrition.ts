@@ -12,7 +12,7 @@ import { checkRateLimit } from './_lib/rateLimit.js';
 
 function parseNutritionResult(value: unknown) {
   const parsed = nutritionResultSchema.safeParse(value);
-  if (!parsed.success) throw new Error(`Invalid Gemini nutrition output: ${parsed.error.issues[0]?.message ?? 'Invalid response'}`);
+  if (!parsed.success) throw new Error(`Invalid AI nutrition output: ${parsed.error.issues[0]?.message ?? 'Invalid response'}`);
   return parsed.data;
 }
 

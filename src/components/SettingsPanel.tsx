@@ -179,9 +179,9 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, isA
                       You are the admin: the AI models below apply to everyone using the app. Nobody else can change them.
                     </p>
                   <div className="space-y-2">
-                    <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Gemini Model</Label>
+                    <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Main model</Label>
                     <Select value={local.gemini_model} onValueChange={(v) => { if (v) setLocal((p) => ({ ...p, gemini_model: v })); }}>
-                      <SelectTrigger aria-label="Gemini model" className="w-full h-auto min-h-9 py-1.5">
+                      <SelectTrigger aria-label="Main model" className="w-full h-auto min-h-9 py-1.5">
                         {/* An explicit label: without it the trigger renders the
                             selected item's entire block — description and price
                             included — inside a fixed-height, nowrap box. */}
@@ -231,7 +231,8 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, isA
                         <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Model per task</Label>
                         <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
                           Reading a photographed page is far harder than tagging a recipe you already have.
-                          Put the cheap tasks on Lite and keep extraction on a stronger model.
+                          Put the cheap tasks on Haiku and keep extraction on a stronger model. A Claude model
+                          that fails hands the task to Gemini automatically.
                         </p>
                       </div>
                       <Button

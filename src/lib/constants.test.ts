@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { MODEL_OPTIONS, MODELS, DEFAULT_MODEL } from './constants';
 
-describe('Gemini model list', () => {
+describe('AI model list', () => {
   it('offers the default model, so the dropdown always has a valid selection', () => {
     // If DEFAULT_MODEL is not in MODELS the Select renders with nothing chosen
     // and the user cannot tell which model is actually in use.
@@ -10,9 +10,10 @@ describe('Gemini model list', () => {
 
   it('stays short enough to be a real choice', () => {
     // A dozen ids named gemini-3.x-flash-something is not a decision anyone can
-    // make. Three tiers — cheap, balanced, accurate — cover the useful range.
+    // make. Three tiers — cheap, balanced, accurate — per provider cover the
+    // useful range: Claude as the main provider, Gemini as its backup.
     expect(MODEL_OPTIONS.length).toBeGreaterThanOrEqual(3);
-    expect(MODEL_OPTIONS.length).toBeLessThanOrEqual(5);
+    expect(MODEL_OPTIONS.length).toBeLessThanOrEqual(6);
   });
 
   it('lists every model exactly once', () => {
@@ -20,9 +21,16 @@ describe('Gemini model list', () => {
   });
 
   it('uses plausible model IDs', () => {
+    // Exact Claude ids only: a guessed one fails every call (and then falls
+    // back to Gemini, which would hide the mistake).
+    const claude = new Set(['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5']);
     for (const model of MODELS) {
-      expect(model, `"${model}" is not a gemini-* id`).toMatch(/^gemini-/);
+      expect(claude.has(model) || /^gemini-/.test(model), `"${model}" is neither a known Claude id nor a gemini-* id`).toBe(true);
     }
+  });
+
+  it('names the provider in every tier, so the read-only list in Settings says who runs a task', () => {
+    for (const m of MODEL_OPTIONS) expect(m.name).toMatch(/^(Claude|Gemini) /);
   });
 
   it('uses no alias that does not point at a tier we want', () => {
@@ -68,7 +76,9 @@ describe('Gemini model list', () => {
     // gemini-4-carbon has no free allowance whatsoever: a free-tier key gets
     // "limit: 0 ... Free Tier" every time. Offering it without saying so is
     // offering an option that always fails.
-    for (const m of MODEL_OPTIONS.filter((o) => o.name === 'Frontier')) {
+    const frontier = MODEL_OPTIONS.filter((o) => o.id === 'gemini-4-carbon');
+    expect(frontier, 'the Frontier tier is gone; update this test').toHaveLength(1);
+    for (const m of frontier) {
       expect(
         `${m.badge ?? ''} ${m.description}`.toLowerCase(),
         `${m.id} needs a paid plan but nothing says so`,

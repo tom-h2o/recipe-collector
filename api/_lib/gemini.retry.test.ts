@@ -24,7 +24,7 @@ describe('isTransientGeminiError', () => {
     expect(isTransientGeminiError(new Error('{"error":{"code":404,"status":"NOT_FOUND"}}'))).toBe(false);
     expect(isTransientGeminiError({ status: 400 })).toBe(false);
     expect(isTransientGeminiError({ status: 403 })).toBe(false);
-    expect(isTransientGeminiError(new Error('Gemini returned an empty response.'))).toBe(false);
+    expect(isTransientGeminiError(new Error('The AI returned an empty response.'))).toBe(false);
     expect(isTransientGeminiError(null)).toBe(false);
   });
 });

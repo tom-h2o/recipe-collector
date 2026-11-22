@@ -53,12 +53,14 @@ export function thinkingFor(task: AiTask): boolean {
  * each other; tests/unit/reasoningConfig.test.ts asserts the two match. The
  * System tab probes every one of these, whether or not anyone has chosen it.
  */
-export const OFFERED_MODELS: readonly string[] = ['gemini-3.5-flash-lite', 'gemini-4-hydrogen', 'gemini-4-carbon'];
+export const OFFERED_MODELS: readonly string[] = [
+  'claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5',
+  'gemini-3.5-flash-lite', 'gemini-4-hydrogen', 'gemini-4-carbon',
+];
 
-// An alias Google keeps pointed at the current Flash release. Kept equal to
-// DEFAULT_MODEL in src/lib/constants.ts — enforced by modelDefaults.test.ts.
-// The concrete model behind it is recorded per call in gemini_logs.model_version.
-export const DEFAULT_MODEL = 'gemini-4-hydrogen';
+// The main model since migration 0069 (Claude; Gemini is the backup). Kept
+// equal to DEFAULT_MODEL in src/lib/constants.ts by modelDefaults.test.ts.
+export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 
 export function getServerSupabase(): SupabaseClient {
   const url = process.env.VITE_SUPABASE_URL || '';

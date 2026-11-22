@@ -13,7 +13,7 @@ type ScaledIngredient = { amount: string; name: string; details: string };
 
 function parseScaledIngredientsResult(value: unknown): ScaledIngredient[] {
   const parsed = scaledIngredientsResultSchema.safeParse(value);
-  if (!parsed.success) throw new Error(`Invalid Gemini scale output: ${parsed.error.issues[0]?.message ?? 'Invalid response'}`);
+  if (!parsed.success) throw new Error(`Invalid AI scale output: ${parsed.error.issues[0]?.message ?? 'Invalid response'}`);
   return parsed.data;
 }
 

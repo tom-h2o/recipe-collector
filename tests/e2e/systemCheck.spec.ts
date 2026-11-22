@@ -83,7 +83,7 @@ test('shows which tasks run without reasoning, and where a model refused', async
 test('"Run check" runs the live checks once and shows every model', async ({ page }) => {
   const { posts } = await openSystemTab(page);
   await page.getByRole('button', { name: 'Run check' }).click();
-  const models = page.getByRole('region', { name: 'Gemini models' });
+  const models = page.getByRole('region', { name: 'AI models' });
   await expect(models).toContainText('Lite');
   await expect(models).toContainText('Lowest reasoning: minimal');
   await expect(models).toContainText('Answered as gemini-3.5-flash-lite-001');

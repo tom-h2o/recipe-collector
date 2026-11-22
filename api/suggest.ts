@@ -13,7 +13,7 @@ import { checkRateLimit } from './_lib/rateLimit.js';
 
 function parseSuggestResult(value: unknown): string[] {
   const parsed = suggestResultSchema.safeParse(value);
-  if (!parsed.success) throw new Error(`Invalid Gemini suggest output: ${parsed.error.issues[0]?.message ?? 'Invalid response'}`);
+  if (!parsed.success) throw new Error(`Invalid AI suggest output: ${parsed.error.issues[0]?.message ?? 'Invalid response'}`);
   return parsed.data;
 }
 

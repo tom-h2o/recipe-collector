@@ -514,7 +514,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
 
   generateShoppingList: async (mealPlans, userId) => {
     set({ isGeneratingShopping: true });
-    const toastId = toast.loading('Aggregating ingredients with Gemini AI...');
+    const toastId = toast.loading('Building your shopping list with AI...');
     try {
       const today = new Date();
       const nextWeek = new Date();

@@ -19,6 +19,15 @@ export interface ReleaseNote {
 
 export const RELEASES: ReleaseNote[] = [
   {
+    // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-03',
+    title: 'Claude does the AI work now, with Gemini standing by',
+    items: [
+      'Reading recipes from photos, PDFs and web pages, translating, tagging, nutrition and the rest now run on Anthropic\'s Claude.',
+      'Google\'s Gemini stays ready behind it: if Claude is busy or unavailable, the same request goes to Gemini straight away, so a problem at one of them no longer stops the app.',
+    ],
+  },
+  {
     // Ids are compared as strings and must increase with each release, not
     // follow the calendar: an earlier one would count as already read.
     id: '2026-12-02',

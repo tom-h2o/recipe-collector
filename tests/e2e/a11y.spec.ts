@@ -90,7 +90,7 @@ test('settings dialog', async ({ page }) => {
   await installMockBackend(page);
   await page.goto('/');
   await page.getByTitle('Settings').click();
-  await expect(page.getByText('Gemini Model')).toBeVisible();
+  await expect(page.getByText('Main model', { exact: true })).toBeVisible();
   expect(await auditSerious(page, 'settings')).toEqual([]);
 });
 

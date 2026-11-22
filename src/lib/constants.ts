@@ -1,23 +1,19 @@
 import type { AiTask } from '../types';
 
 /**
- * Gemini 4 Hydrogen: Google's everyday model in the generation that replaced 3.x.
+ * Claude Sonnet 5.5: the main model since migration 0069, and what any task
+ * without a model of its own runs on.
  *
- * A pinned id, not an alias, and that is a deliberate partial reversal of the
- * policy set in PR #23. Aliases track releases *within* a tier — they did move
- * gemini-flash-latest from 3.7 to 3.8 without a code change — but Google shipped
- * Gemini 4 under entirely new names (hydrogen, carbon, argon) and left
- * gemini-flash-latest pointed at the 3.x Flash tier. So an alias does not carry
- * you across a generation, which is what that PR claimed it would.
- *
- * Verified against generateContent, which is the only test that counts here:
- * gemini-4-hydrogen answers 200 while the whole 3.x Flash tier — the alias and
- * gemini-3.8-flash directly — was returning 503 and timing out.
+ * Claude became the main provider because the app's credit comes with the
+ * admin's Claude plan, and because so much of api/_lib/gemini.ts exists to work
+ * around Gemini: per-family reasoning settings, aliases that moved without
+ * notice, an id Google never served. Gemini stays as the automatic backup
+ * (withModelFallback) and for embeddings, which Anthropic does not offer.
  *
  * Must stay equal to DEFAULT_MODEL in api/_lib/supabase.ts; modelDefaults.test.ts
  * asserts that.
  */
-export const DEFAULT_MODEL = 'gemini-4-hydrogen';
+export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 
 /**
  * The models offered in Settings.
@@ -44,6 +40,27 @@ export interface ModelOption {
 
 export const MODEL_OPTIONS: ModelOption[] = [
   {
+    id: 'claude-haiku-5-5',
+    name: 'Claude Haiku',
+    badge: 'Fast',
+    description: 'Anthropic\'s fast, low-cost model. Plenty for tagging, scaling, shopping lists and suggestions. If it fails, the task runs on Gemini Lite instead.',
+    price: '~$0.10 / $0.50 per 1M tokens, paid from the Claude plan\'s monthly API credit',
+  },
+  {
+    id: 'claude-sonnet-5-5',
+    name: 'Claude Sonnet',
+    badge: 'Recommended',
+    description: 'Anthropic\'s everyday model and the main one here. Reads photos, PDFs and messy web pages reliably and translates well. If it fails, the task runs on Gemini Standard instead.',
+    price: '~$2 / $10 per 1M tokens, paid from the Claude plan\'s monthly API credit',
+  },
+  {
+    id: 'claude-opus-5-5',
+    name: 'Claude Opus',
+    badge: 'Strongest',
+    description: 'Anthropic\'s most capable model of the three, for handwriting and awkward scans. Slower and twice the price of Sonnet. If it fails, the task runs on Gemini Standard instead.',
+    price: '~$4 / $20 per 1M tokens, paid from the Claude plan\'s monthly API credit',
+  },
+  {
     // Pinned, not an alias. `gemini-flash-lite-latest` is not a model the API
     // serves — it is absent from Google's own model list, which is why every
     // call on this tier failed. The Gemini 4 family (hydrogen, argon, carbon,
@@ -51,23 +68,26 @@ export const MODEL_OPTIONS: ModelOption[] = [
     // per turn than carbon but nothing like a flash-lite. The cheapest model
     // Google still serves is this one, and the price below was always its.
     id: 'gemini-3.5-flash-lite',
-    name: 'Lite',
-    badge: 'Cheapest',
-    description: 'Fastest and lowest cost. Fine for tagging, nutrition and clean recipe pages. Can miss detail in handwriting or multi-page photos.',
+    name: 'Gemini Lite',
+    badge: 'Backup',
+    description: 'Google\'s fastest and cheapest model, and the backup for Claude Haiku. Fine for tagging, nutrition and clean recipe pages. Can miss detail in handwriting or multi-page photos.',
     price: '~$0.30 / $2.50 per 1M tokens',
   },
   {
+    // Gemini 4 Hydrogen. Pinned rather than an alias: Google shipped Gemini 4
+    // under new names and left gemini-flash-latest on the 3.x tier, so an alias
+    // does not carry across a generation.
     id: 'gemini-4-hydrogen',
-    name: 'Standard',
-    badge: 'Recommended',
-    description: 'Google\'s current everyday model and the one used by default. Handles photo and multi-page extraction reliably.',
+    name: 'Gemini Standard',
+    badge: 'Backup',
+    description: 'Google\'s current everyday model, and the backup for Claude Sonnet and Opus. Handles photo and multi-page extraction reliably.',
     price: '~$1.50 / $7.50 per 1M tokens',
   },
   {
     id: 'gemini-4-carbon',
-    name: 'Frontier',
+    name: 'Gemini Frontier',
     badge: 'Paid plan',
-    description: 'Strongest reasoning, for messy handwriting and awkward scans. Google gives this model no free allowance at all, so it returns a quota error unless billing is enabled on the API key.',
+    description: 'Google\'s strongest reasoning model, for messy handwriting and awkward scans. Google gives this model no free allowance at all, so it returns a quota error unless billing is enabled on the API key.',
     price: '~$2.00 / $10.00 per 1M tokens, rising to ~$4.00 / $20.00 after 30 Nov 2026',
   },
 ];
@@ -94,44 +114,44 @@ export const AI_TASKS: AiTaskInfo[] = [
   {
     task: 'extract',
     label: 'Recipe extraction',
-    description: 'Reading a recipe off a web page, a PDF or photographed pages. Lite handles a normal web page perfectly well and is far quicker; move this to Standard if you mostly extract from photos or handwriting.',
-    recommended: 'gemini-3.5-flash-lite',
+    description: 'Reading a recipe off a web page, a PDF or photographed pages. The hardest job here, and the one people notice when it goes wrong, so it runs on Sonnet; Opus is the step up for handwriting.',
+    recommended: 'claude-sonnet-5-5',
   },
   {
     task: 'translate',
     label: 'Translation',
-    description: 'Rewriting a recipe in another language. Wrong quantities or mistranslated techniques are hard to notice, so this is the one task worth spending on by default.',
-    recommended: 'gemini-4-hydrogen',
+    description: 'Rewriting a recipe in another language. Wrong quantities or mistranslated techniques are hard to notice, so this is worth a stronger model.',
+    recommended: 'claude-sonnet-5-5',
   },
   {
     task: 'suggest',
     label: 'Recipe suggestions',
     description: 'Picking recipes that match the ingredients you have. Most of the work is done by the embedding search; the model only ranks the shortlist.',
-    recommended: 'gemini-3.5-flash-lite',
+    recommended: 'claude-haiku-5-5',
   },
   {
     task: 'tag',
     label: 'Tagging',
     description: 'Assigning tags to a recipe whose text is already available. Short, structured, and forgiving of a cheaper model.',
-    recommended: 'gemini-3.5-flash-lite',
+    recommended: 'claude-haiku-5-5',
   },
   {
     task: 'nutrition',
     label: 'Nutrition estimates',
-    description: 'Estimating calories and macros from the ingredient list. Already an approximation, so a cheaper model changes little.',
-    recommended: 'gemini-3.5-flash-lite',
+    description: 'Estimating calories and macros from the ingredient list. An approximation either way, but quantities and portion sizes need some judgement, so it runs on Sonnet.',
+    recommended: 'claude-sonnet-5-5',
   },
   {
     task: 'scale',
     label: 'Recipe scaling',
     description: 'Adjusting quantities for a different number of servings. Mostly arithmetic with unit conversions.',
-    recommended: 'gemini-3.5-flash-lite',
+    recommended: 'claude-haiku-5-5',
   },
   {
     task: 'shopping',
     label: 'Shopping list',
     description: 'Merging the meal plan into one list and grouping it by aisle. Repetitive and well within a cheap model.',
-    recommended: 'gemini-3.5-flash-lite',
+    recommended: 'claude-haiku-5-5',
   },
 ];
 

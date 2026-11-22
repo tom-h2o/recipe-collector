@@ -12,7 +12,7 @@ import { checkRateLimit } from './_lib/rateLimit.js';
 
 function parseTagResult(value: unknown): string[] {
   const parsed = tagResultSchema.safeParse(value);
-  if (!parsed.success) throw new Error(`Invalid Gemini tag output: ${parsed.error.issues[0]?.message ?? 'Invalid response'}`);
+  if (!parsed.success) throw new Error(`Invalid AI tag output: ${parsed.error.issues[0]?.message ?? 'Invalid response'}`);
   return parsed.data;
 }
 
@@ -91,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       thinking: thinkingFor('tag'),
     }));
     const validTags = tags.filter((t) => AVAILABLE_TAGS.includes(t));
-    if (validTags.length === 0) throw new Error('Gemini returned no supported tags.');
+    if (validTags.length === 0) throw new Error('The AI returned no supported tags.');
 
     let embedding: number[] | null = null;
     try {

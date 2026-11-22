@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fallbackModelFor, forgetReasoningSteps, generateFromParts, generateJson, modelCannotServe, reducedReasoningSteps, refusesReasoningSetting, withModelFallback } from './gemini';
+import { describeGeminiError, fallbackModelFor, forgetReasoningSteps, generateFromParts, generateJson, modelCannotServe, reducedReasoningSteps, refusesReasoningSetting, withModelFallback } from './gemini';
+import { setClaudeClientForTests } from './claude';
 import { OFFERED_MODELS } from './supabase';
 
 // Which reasoning step each model accepted is remembered per instance; every
@@ -336,9 +337,12 @@ describe('falling back to the other free model', () => {
     expect(fallbackModelFor('gemini-3.5-flash-lite')).toBe('gemini-4-hydrogen');
     expect(fallbackModelFor('gemini-4-carbon')).toBe('gemini-4-hydrogen');
     expect(fallbackModelFor('gemini-something-custom')).toBe('gemini-4-hydrogen');
-    // The two ids are copies of OFFERED_MODELS' free tiers.
-    expect(OFFERED_MODELS.slice(0, 2).map(fallbackModelFor).sort()).toEqual([...OFFERED_MODELS.slice(0, 2)].sort());
-    expect(OFFERED_MODELS.map(fallbackModelFor)).not.toContain(OFFERED_MODELS[2]);
+    // Every fallback is an offered Gemini model, and never Frontier.
+    for (const target of OFFERED_MODELS.map(fallbackModelFor)) {
+      expect(OFFERED_MODELS).toContain(target);
+      expect(target).toMatch(/^gemini-/);
+      expect(target).not.toBe('gemini-4-carbon');
+    }
   });
 
   it('counts overload, used-up quota and a missing model as "cannot serve", not a blocked project', () => {
@@ -430,5 +434,127 @@ describe('falling back to the other free model', () => {
     const progress = { attempts: 0, model: '' };
     await expect(generateFromParts(c, 'gemini-4-hydrogen', [{ text: 'read this' }], instant, progress)).rejects.toThrow('overloaded');
     expect(progress).toEqual({ attempts: 6, model: 'gemini-3.5-flash-lite' });
+  });
+});
+
+/**
+ * Claude is the main provider and Gemini the backup (migration 0069). A
+ * `claude-*` id goes to Claude; any Claude failure goes to the Gemini model
+ * fallbackModelFor names, inside the same call and on the same log row. That
+ * includes no key at all, which is what makes deploying before the key exists
+ * safe: every task simply runs on Gemini.
+ */
+describe('Claude first, Gemini as backup', () => {
+  beforeEach(() => { forgetReasoningSteps(); setClaudeClientForTests(undefined); });
+
+  const instant = { sleep: async () => {} };
+  const providerError = (status: number, type: string) =>
+    Object.assign(new Error(`${status} {"type":"error","error":{"type":"${type}","message":"x"}}`), { status });
+
+  function setup(claudeAnswers: (Record<string, unknown> | Error)[], geminiAnswers: ({ text: string; modelVersion?: string } | Error)[] = []) {
+    const create = vi.fn();
+    for (const a of claudeAnswers) {
+      if (a instanceof Error) create.mockRejectedValueOnce(a);
+      else create.mockResolvedValueOnce({ model: 'claude-sonnet-5-5', stop_reason: 'end_turn', ...a });
+    }
+    setClaudeClientForTests({ messages: { create } } as never);
+    const generateContent = vi.fn();
+    for (const a of geminiAnswers) {
+      if (a instanceof Error) generateContent.mockRejectedValueOnce(a);
+      else generateContent.mockResolvedValueOnce(a);
+    }
+    const insert = vi.fn<(row: Record<string, unknown>) => Promise<{ error: null }>>(() => Promise.resolve({ error: null }));
+    return {
+      create,
+      generateContent,
+      insert,
+      client: { models: { generateContent } } as never,
+      logCtx: { supabase: { from: () => ({ insert }) } as never, endpoint: 'nutrition', userId: 'user-1' },
+    };
+  }
+  const answer = (text: string, model = 'claude-sonnet-5-5') => ({ model, content: [{ type: 'text', text }] });
+
+  it('sends a Claude model to Claude and logs what answered', async () => {
+    const { create, generateContent, insert, client, logCtx } = setup([answer('{"ok":true}')]);
+    await expect(generateJson(client, 'claude-sonnet-5-5', 'p', logCtx, { ...instant, thinking: false })).resolves.toEqual({ ok: true });
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(generateContent).not.toHaveBeenCalled();
+    expect(insert.mock.calls[0][0]).toMatchObject({ model: 'claude-sonnet-5-5', model_version: 'claude-sonnet-5-5', attempts: 1, status: 'success', thinking: 'low' });
+  });
+
+  it('records reasoning as on when the task keeps it', async () => {
+    const { insert, client, logCtx } = setup([answer('{"ok":true}')]);
+    await generateJson(client, 'claude-sonnet-5-5', 'p', logCtx, instant);
+    expect(insert.mock.calls[0][0]).toMatchObject({ thinking: 'on' });
+  });
+
+  it('runs on Gemini when no Claude key is set, so deploying before the key exists is safe', async () => {
+    const { generateContent, insert, client, logCtx } = setup([], [{ text: '{"ok":true}', modelVersion: 'hydrogen-001' }]);
+    setClaudeClientForTests(null);
+    await expect(generateJson(client, 'claude-sonnet-5-5', 'p', logCtx, instant)).resolves.toEqual({ ok: true });
+    expect((generateContent.mock.calls[0][0] as { model: string }).model).toBe('gemini-4-hydrogen');
+    expect(insert.mock.calls[0][0]).toMatchObject({ model: 'gemini-4-hydrogen', model_version: 'hydrogen-001', status: 'success' });
+  });
+
+  it('pairs Haiku with Gemini Lite and the larger models with Standard', () => {
+    expect(fallbackModelFor('claude-haiku-5-5')).toBe('gemini-3.5-flash-lite');
+    expect(fallbackModelFor('claude-sonnet-5-5')).toBe('gemini-4-hydrogen');
+    expect(fallbackModelFor('claude-opus-5-5')).toBe('gemini-4-hydrogen');
+  });
+
+  it('retries an overloaded Claude, then hands over to Gemini', async () => {
+    const overloaded = () => providerError(529, 'overloaded_error');
+    const { create, generateContent, insert, client, logCtx } = setup([overloaded(), overloaded(), overloaded()], [{ text: '{"ok":true}' }]);
+    await expect(generateJson(client, 'claude-haiku-5-5', 'p', logCtx, instant)).resolves.toEqual({ ok: true });
+    expect(create).toHaveBeenCalledTimes(3);
+    expect((generateContent.mock.calls[0][0] as { model: string }).model).toBe('gemini-3.5-flash-lite');
+    expect(insert.mock.calls[0][0]).toMatchObject({ model: 'gemini-3.5-flash-lite', attempts: 4 });
+  });
+
+  it('hands over at once on a failure retrying cannot fix: out of credit, a bad key, a rejected request', async () => {
+    for (const err of [providerError(402, 'billing_error'), providerError(401, 'authentication_error'), providerError(400, 'invalid_request_error')]) {
+      const { create, generateContent, client } = setup([err], [{ text: '{"ok":true}' }]);
+      await expect(generateJson(client, 'claude-sonnet-5-5', 'p', undefined, instant)).resolves.toEqual({ ok: true });
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(generateContent).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('hands over when Claude declines or is cut off', async () => {
+    const { generateContent, client } = setup([{ stop_reason: 'refusal', content: [] }], [{ text: '{"ok":true}' }]);
+    await expect(generateJson(client, 'claude-sonnet-5-5', 'p', undefined, instant)).resolves.toEqual({ ok: true });
+    expect(generateContent).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends the repair to Claude when Claude answered first', async () => {
+    const { create, generateContent, client } = setup([answer('{"ok":'), answer('{"ok":true}')]);
+    await expect(generateJson(client, 'claude-sonnet-5-5', 'p', undefined, instant)).resolves.toEqual({ ok: true });
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(generateContent).not.toHaveBeenCalled();
+  });
+
+  it('reads photos and PDFs with Claude, and falls back to Gemini for them too', async () => {
+    const { create, client } = setup([answer('{"title":"x"}')]);
+    const progress = { attempts: 0, model: '' };
+    await expect(generateFromParts(client, 'claude-sonnet-5-5', [{ inlineData: { mimeType: 'image/png', data: 'AAA' } }, { text: 'read' }], instant, progress))
+      .resolves.toEqual({ text: '{"title":"x"}', modelVersion: 'claude-sonnet-5-5' });
+    const body = (create.mock.calls[0] as unknown as [{ messages: { content: unknown[] }[] }])[0];
+    expect(body.messages[0].content).toEqual([
+      { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'AAA' } },
+      { type: 'text', text: 'read' },
+    ]);
+    expect(progress).toEqual({ attempts: 1, model: 'claude-sonnet-5-5' });
+
+    const second = setup([providerError(529, 'overloaded_error'), providerError(529, 'overloaded_error'), providerError(529, 'overloaded_error')], [{ text: '{"title":"y"}' }]);
+    const p2 = { attempts: 0, model: '' };
+    await expect(generateFromParts(second.client, 'claude-sonnet-5-5', [{ text: 'read' }], instant, p2)).resolves.toMatchObject({ text: '{"title":"y"}' });
+    expect(p2).toEqual({ attempts: 4, model: 'gemini-4-hydrogen' });
+  });
+
+  it('never shows a cook the text of an Anthropic error', () => {
+    const fallback = 'Could not do that.';
+    expect(describeGeminiError(providerError(400, 'invalid_request_error'), fallback)).toEqual({ status: 500, message: fallback, retryable: true });
+    expect(describeGeminiError(providerError(529, 'overloaded_error'), fallback)).toMatchObject({ status: 503, retryable: true });
+    expect(describeGeminiError(providerError(402, 'billing_error'), fallback)).toMatchObject({ status: 503, message: expect.stringContaining('usage limit') });
   });
 });

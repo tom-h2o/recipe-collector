@@ -8,8 +8,10 @@ import {
 import { NON_AI_ENDPOINTS } from '../../shared/usage';
 import { OFFERED_MODELS } from './supabase';
 import { forgetReasoningSteps } from './gemini';
+import { claudeFormat, setClaudeClientForTests } from './claude';
+import { extractedRecipeResponseSchema } from './responseSchemas';
 
-beforeEach(() => forgetReasoningSteps());
+beforeEach(() => { forgetReasoningSteps(); setClaudeClientForTests(undefined); });
 
 const settings = { gemini_model: 'gemini-4-hydrogen', task_models: { tag: 'gemini-3.5-flash-lite' }, temperature_unit: 'C' as const };
 
@@ -237,6 +239,7 @@ describe('the live check as a whole', () => {
   }
 
   it('without a Gemini key, makes no Gemini call and says why', async () => {
+    setClaudeClientForTests(null);
     const report = await runLiveCheck({
       supabase: supabaseFor({ latest_migration: EXPECTED_SCHEMA, realtime_recipes: true, configured_models: ['gemini-custom'] }),
       client: null, userId: 'admin', env: {},
@@ -246,5 +249,59 @@ describe('the live check as a whole', () => {
     expect(Object.fromEntries(report.services.map((s) => [s.id, s.status]))).toEqual({
       database: 'ok', schema: 'ok', realtime: 'ok', auth: 'ok', storage: 'ok', unsplash: 'skipped',
     });
+  });
+});
+
+describe('Claude in the System check', () => {
+  const claudeAnswering = (create: ReturnType<typeof vi.fn>) => setClaudeClientForTests({ messages: { create } } as never);
+  const recipe = '{"title":"System check","description":"","original_language":"en","servings":null,"prep_time_mins":null,"cook_time_mins":null,"ingredients":[],"instructions":"","image_url":"","source_name":""}';
+  const ok = (text = recipe) => vi.fn(async () => ({ model: 'claude-haiku-5-5', stop_reason: 'end_turn', content: [{ type: 'text', text }] }));
+
+  it('asks a Claude model directly, at low effort, in the recipe format, and logs one row', async () => {
+    const create = ok();
+    claudeAnswering(create);
+    const { supabase, insert } = logTable();
+    const probe = await probeModel(null, 'claude-haiku-5-5', { supabase, userId: 'admin' });
+    expect(probe).toMatchObject({ model: 'claude-haiku-5-5', status: 'ok', reasoning: 'low', model_version: 'claude-haiku-5-5' });
+    // The real extraction format, so a format Anthropic rejects shows up here
+    // instead of being hidden by the fallback to Gemini.
+    expect((create.mock.calls[0] as unknown as [{ output_config: unknown }])[0].output_config).toEqual({
+      format: { type: 'json_schema', schema: claudeFormat(extractedRecipeResponseSchema).schema },
+      effort: 'low',
+    });
+    expect(insert).toHaveBeenCalledTimes(1);
+    expect(insert.mock.calls[0][0]).toMatchObject({ endpoint: HEALTH_ENDPOINT, model: 'claude-haiku-5-5', status: 'success', thinking: 'low' });
+  });
+
+  it('warns when the answer is not in the recipe format', async () => {
+    claudeAnswering(ok('{"ok": true}'));
+    const { supabase } = logTable();
+    const probe = await probeModel(null, 'claude-sonnet-5-5', { supabase, userId: 'admin' });
+    expect(probe).toMatchObject({ status: 'warn', detail: expect.stringContaining('recipe format') });
+  });
+
+  it('shows a Claude model as skipped, and logs nothing, when no key is set', async () => {
+    setClaudeClientForTests(null);
+    const { supabase, insert } = logTable();
+    const probe = await probeModel(null, 'claude-sonnet-5-5', { supabase, userId: 'admin' });
+    expect(probe).toMatchObject({ status: 'skipped', detail: expect.stringContaining('ANTHROPIC_API_KEY') });
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it('says when the Claude account is out of credit, and that Gemini takes over', async () => {
+    claudeAnswering(vi.fn(async () => { throw Object.assign(new Error('402 {"type":"error","error":{"type":"billing_error","message":"Your credit balance is too low"}}'), { status: 402 }); }));
+    const { supabase } = logTable();
+    const probe = await probeModel(null, 'claude-sonnet-5-5', { supabase, userId: 'admin' });
+    expect(probe.status).toBe('fail');
+    expect(probe.detail).toContain('out of credit');
+    expect(probe.detail).toContain('run on Gemini');
+    expect(probe.detail).toContain('Your credit balance is too low');
+  });
+
+  it('lists the Claude key in the configuration, by name only', () => {
+    const items = configReport({ ANTHROPIC_API_KEY: 'sk-ant-secret' });
+    const claude = items.find((i) => i.id === 'claude-key');
+    expect(claude).toMatchObject({ status: 'ok' });
+    expect(JSON.stringify(items)).not.toContain('sk-ant-secret');
   });
 });

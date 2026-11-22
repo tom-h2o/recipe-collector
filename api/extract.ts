@@ -374,7 +374,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         const response = await generateFromParts(client, progress.model, parts, { responseSchema: extractedRecipeResponseSchema }, progress);
         const text = response.text;
-        if (!text) throw new Error('Gemini returned an empty response.');
+        if (!text) throw new Error('The AI returned an empty response.');
         const recipeData = validateExtractedRecipe(JSON.parse(text));
         supabase.from('gemini_logs').insert({ endpoint: 'extract-photo', model: progress.model, model_version: response.modelVersion ?? null, attempts: progress.attempts, status: 'success', latency_ms: Date.now() - startTime, input_preview: inputPreview, output_preview: text.substring(0, 300), user_id: userId }).then(() => {}, () => {});
         return res.status(200).json(recipeData);
@@ -396,7 +396,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         const response = await generateFromParts(client, progress.model, [{ inlineData: { mimeType: 'application/pdf', data: pdfBase64 } }, { text: pdfPrompt(settings.temperature_unit) }], { responseSchema: extractedRecipeResponseSchema }, progress);
         const text = response.text;
-        if (!text) throw new Error('Gemini returned an empty response.');
+        if (!text) throw new Error('The AI returned an empty response.');
         const recipeData = validateExtractedRecipe(JSON.parse(text));
         supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: progress.model, model_version: response.modelVersion ?? null, attempts: progress.attempts, status: 'success', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', output_preview: text.substring(0, 300), user_id: userId }).then(() => {}, () => {});
         return res.status(200).json(recipeData);

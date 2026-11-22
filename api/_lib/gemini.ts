@@ -1,6 +1,7 @@
 import { GoogleGenAI, ThinkingLevel, type Part, type Schema, type ThinkingConfig } from '@google/genai';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { captureException } from './sentry.js';
+import { askClaude, isClaudeModel, toClaudeContent } from './claude.js';
 
 export interface GeminiLogContext {
   supabase: SupabaseClient;
@@ -161,7 +162,8 @@ function parseJson<T>(text: string): T {
  * will fail identically every time, and retrying them only burns the caller's
  * time before showing the same error.
  */
-const TRANSIENT_HTTP_CODES = new Set([429, 500, 502, 503, 504]);
+// 408 and 529 are Anthropic's: a request timeout and "overloaded".
+const TRANSIENT_HTTP_CODES = new Set([408, 429, 500, 502, 503, 504, 529]);
 const TRANSIENT_STATUSES = new Set([
   'UNAVAILABLE',
   'RESOURCE_EXHAUSTED',
@@ -280,14 +282,30 @@ const STANDARD_MODEL = 'gemini-4-hydrogen';
 /**
  * The model to ask when the chosen one cannot answer right now.
  *
- * Each model has its own capacity and its own free quota, so "Gemini is down"
- * is usually one model: the System tab has shown Standard answering 503 while
- * Lite was fine. Standard and Lite stand in for each other; anything else
- * (Frontier, which has no free allowance, or an id someone typed) falls back
- * to Standard. Never to Frontier: on a key without billing it fails every call.
+ * Claude is the main provider and Gemini the backup, so a Claude model falls
+ * back to a Gemini one: Haiku to Lite, anything else to Standard. That is the
+ * fallback that covers a whole provider being down, out of credit or blocked.
+ *
+ * Between Gemini models, each has its own capacity and its own free quota, so
+ * "Gemini is down" is usually one model: the System tab has shown Standard
+ * answering 503 while Lite was fine. Standard and Lite stand in for each other;
+ * anything else (Frontier, which has no free allowance, or an id someone typed)
+ * falls back to Standard. Never to Frontier: without billing it fails every call.
  */
 export function fallbackModelFor(model: string): string {
+  if (isClaudeModel(model)) return model.startsWith('claude-haiku') ? LITE_MODEL : STANDARD_MODEL;
   return model === STANDARD_MODEL ? LITE_MODEL : STANDARD_MODEL;
+}
+
+/**
+ * Whether a failure on `model` should be retried on its fallback. From Claude,
+ * always: the fallback is another provider, so whatever went wrong (a missing
+ * or exhausted key, an outage, a request Claude rejects) may well not happen
+ * there, and the cost is one fast failure. Within Gemini, only when the model
+ * itself cannot serve (modelCannotServe).
+ */
+export function shouldFallBack(model: string, err: unknown): boolean {
+  return isClaudeModel(model) || modelCannotServe(err);
 }
 
 /**
@@ -325,7 +343,7 @@ export async function withModelFallback<T>(
   } catch (err) {
     const alternative = fallbackModelFor(model);
     const elapsed = Date.now() - startedAt;
-    if (alternative === model || !modelCannotServe(err) || elapsed * 2 > deadlineMs) throw err;
+    if (alternative === model || !shouldFallBack(model, err) || elapsed * 2 > deadlineMs) throw err;
     options.onFallback?.(model, alternative, err);
     return { value: await run(alternative, deadlineMs - elapsed), model: alternative };
   }
@@ -352,14 +370,21 @@ export async function generateFromParts(
   progress.model = model;
   const { value } = await withModelFallback(model, (m, budgetMs) => {
     progress.model = m;
+    const retryOptions = { ...retry, deadlineMs: budgetMs, onAttempt: () => { progress.attempts += 1; } };
+    if (isClaudeModel(m)) {
+      return callWithRetry(
+        () => askClaude({ model: m, content: toClaudeContent(parts), schema: responseSchema, reasoning: true, timeoutMs: budgetMs }),
+        retryOptions,
+      ).then((r) => r.value);
+    }
     return callWithRetry(
       () => client.models.generateContent({
         model: m,
         contents: [{ role: 'user', parts }],
         config: { responseMimeType: 'application/json', temperature, ...(responseSchema ? { responseSchema } : {}) },
       }),
-      { ...retry, deadlineMs: budgetMs, onAttempt: () => { progress.attempts += 1; } },
-    ).then((r) => r.value);
+      retryOptions,
+    ).then((r) => ({ text: r.value.text, modelVersion: r.value.modelVersion }));
   }, { deadlineMs: retry.deadlineMs });
   return { text: value.text, modelVersion: value.modelVersion };
 }
@@ -431,7 +456,8 @@ export function describeGeminiError(err: unknown, fallback: string): DescribedEr
 
   // Google's own quota, distinct from this app's 100/day allowance, which is
   // checked before any call is made and returns its own 429.
-  if (code === 429 || status === 'RESOURCE_EXHAUSTED') {
+  // 402 is Anthropic's billing_error: the account's credit has run out.
+  if (code === 429 || code === 402 || status === 'RESOURCE_EXHAUSTED') {
     return {
       status: 503,
       message: 'The AI service has hit its usage limit for now. Please try again later.',
@@ -440,7 +466,8 @@ export function describeGeminiError(err: unknown, fallback: string): DescribedEr
   }
 
   // Transient and already retried by callWithRetry before reaching here.
-  if (code === 500 || code === 502 || code === 503 || code === 504
+  // 408 and 529 are Anthropic's request timeout and "overloaded".
+  if (code === 408 || code === 500 || code === 502 || code === 503 || code === 504 || code === 529
       || status === 'UNAVAILABLE' || status === 'INTERNAL' || status === 'DEADLINE_EXCEEDED') {
     return {
       status: 503,
@@ -461,17 +488,28 @@ export function describeGeminiError(err: unknown, fallback: string): DescribedEr
 
   // Unrecognised, and no provider code or status was found — so this is one of
   // our own errors, such as a Zod validation failure on the model's output
-  // ("Invalid Gemini nutrition output: expected number, received NaN"). That
+  // ("Invalid AI nutrition output: expected number, received NaN"). That
   // wording was written deliberately and says more than a generic fallback, so
   // it is kept.
   //
   // The one thing never passed through is something shaped like the provider's
   // JSON envelope, whatever this function managed to parse out of it.
+  //
+  // Anything carrying a provider status code is the provider's, whatever its
+  // message looks like: Anthropic's SDK puts the code first ("400 {...}"), so
+  // the brace check alone would have let its envelope through.
   const raw = err instanceof Error ? err.message : '';
+  if (code !== undefined || status !== undefined) return { status: 500, message: fallback, retryable: true };
   if (raw && !raw.trimStart().startsWith('{')) {
     return { status: 500, message: raw, retryable: true };
   }
   return { status: 500, message: fallback, retryable: true };
+}
+
+/** What either provider answered: the text, and the model that gave it. */
+interface Answer {
+  text: string | undefined;
+  modelVersion: string | undefined;
 }
 
 export interface GenerateOptions extends RetryOptions {
@@ -543,30 +581,48 @@ export async function generateJson<T = unknown>(
    */
   let settled: { config: ThinkingConfig | undefined } | null = null;
 
-  /** One request to model `m`, with transient failures retried. */
+  /** One request to Gemini model `m`, with transient failures retried. */
   const send = (m: string, contents: string, temperature: number, deadlineMs?: number) =>
-    async (thinkingConfig: ThinkingConfig | undefined) => (await callWithRetry(
-      () => client.models.generateContent({
-        model: m,
-        contents,
-        config: { responseMimeType: 'application/json', temperature, ...(responseSchema ? { responseSchema } : {}), ...(thinkingConfig ? { thinkingConfig } : {}) },
-      }),
-      { ...retry, ...(deadlineMs !== undefined ? { deadlineMs } : {}), onAttempt: () => { attempts += 1; } },
-    )).value;
+    async (thinkingConfig: ThinkingConfig | undefined): Promise<Answer> => {
+      const { value } = await callWithRetry(
+        () => client.models.generateContent({
+          model: m,
+          contents,
+          config: { responseMimeType: 'application/json', temperature, ...(responseSchema ? { responseSchema } : {}), ...(thinkingConfig ? { thinkingConfig } : {}) },
+        }),
+        { ...retry, ...(deadlineMs !== undefined ? { deadlineMs } : {}), onAttempt: () => { attempts += 1; } },
+      );
+      return { text: value.text, modelVersion: value.modelVersion };
+    };
+
+  /**
+   * One request to Claude model `m`, retried the same way. No temperature
+   * (Claude Haiku 5.5 rejects it); reasoning off is low effort.
+   */
+  const sendClaude = async (m: string, contents: string, deadlineMs?: number): Promise<Answer> => (await callWithRetry(
+    () => askClaude({ model: m, content: contents, schema: responseSchema as Schema | undefined, reasoning: thinking, ...(deadlineMs !== undefined ? { timeoutMs: deadlineMs } : {}) }),
+    { ...retry, ...(deadlineMs !== undefined ? { deadlineMs } : {}), onAttempt: () => { attempts += 1; } },
+  )).value;
 
   /**
    * One request to the model. The first decides the model (falling back if the
    * chosen one cannot serve) and the reasoning setting; later ones reuse both.
    */
   const ask = async (contents: string, temperature: number) => {
-    let response;
+    let response: Answer;
     if (settled) {
-      response = await send(activeModel, contents, temperature)(settled.config);
+      response = isClaudeModel(activeModel)
+        ? await sendClaude(activeModel, contents)
+        : await send(activeModel, contents, temperature)(settled.config);
     } else {
       const first = await withModelFallback(model, async (m, budgetMs) => {
+        if (isClaudeModel(m)) {
+          thinkingState = thinking ? 'on' : 'low';
+          return { response: await sendClaude(m, contents, budgetMs), config: undefined };
+        }
         const sendTo = send(m, contents, temperature, budgetMs);
+        thinkingState = thinking ? 'on' : 'off';
         if (thinking) return { response: await sendTo(undefined), config: undefined };
-        thinkingState = 'off';
         const r = await withReducedReasoning(m, sendTo, { onStep: (state) => { thinkingState = state; } });
         return { response: r.value, config: r.config };
       }, { deadlineMs: retry.deadlineMs });
@@ -581,7 +637,7 @@ export async function generateJson<T = unknown>(
   /** Asks for an answer and parses it, repairing malformed JSON once. */
   const produce = async (): Promise<T> => {
     const text = await ask(prompt, 0.1);
-    if (!text) throw new Error('Gemini returned an empty response.');
+    if (!text) throw new Error('The AI returned an empty response.');
     outputPreview = text;
     try {
       return parseJson<T>(text);
