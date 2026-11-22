@@ -3,56 +3,64 @@ import { supabase } from '@/lib/supabase';
 import { apiFetch } from '@/lib/api';
 
 /**
- * The shared iPhone Shortcut's iCloud link (settings.shortcut_url on the
- * global row, migration 0071). Everyone reads it, to show "Add to Shortcuts";
- * only the admin can change it, through POST /api/account?action=shortcut-url.
+ * The shared iPhone Shortcuts' iCloud links, on the global settings row:
+ * `shortcut_url` for the Photos one (migration 0071) and `safari_shortcut_url`
+ * for the Safari one (0072). Everyone reads them, to show "Add to Shortcuts";
+ * only the admin can change them, through POST /api/account?action=shortcut-url.
  */
 const GLOBAL_SETTINGS_ID = 1;
 
+export type ShortcutKind = 'photos' | 'safari';
+export type ShortcutLinks = Record<ShortcutKind, string | null>;
+
+const NO_LINKS: ShortcutLinks = { photos: null, safari: null };
+
 export function useShortcutLink(enabled: boolean) {
-  const [url, setUrl] = useState<string | null>(null);
+  const [urls, setUrls] = useState<ShortcutLinks>(NO_LINKS);
   const [loaded, setLoaded] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState<ShortcutKind | null>(null);
+  const [error, setError] = useState<{ kind: ShortcutKind; message: string } | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
+    // All columns rather than the two by name: in the minutes after a deploy,
+    // before 0072 has run, naming safari_shortcut_url would fail the whole read.
     void supabase
       .from('settings')
-      .select('shortcut_url')
+      .select('*')
       .eq('id', GLOBAL_SETTINGS_ID)
       .maybeSingle()
       .then(({ data }) => {
         if (cancelled) return;
-        const value = (data as { shortcut_url?: string | null } | null)?.shortcut_url;
-        setUrl(value || null);
+        const row = (data ?? {}) as { shortcut_url?: string | null; safari_shortcut_url?: string | null };
+        setUrls({ photos: row.shortcut_url || null, safari: row.safari_shortcut_url || null });
         setLoaded(true);
       });
     return () => { cancelled = true; };
   }, [enabled]);
 
   /** Admin only. An empty value removes the link. */
-  const save = useCallback(async (value: string) => {
-    setSaving(true);
+  const save = useCallback(async (kind: ShortcutKind, value: string) => {
+    setSaving(kind);
     try {
       const res = await apiFetch('/api/account?action=shortcut-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: value.trim() }),
+        body: JSON.stringify({ url: value.trim(), kind }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((body as { error?: string }).error || `HTTP ${res.status}`);
-      setUrl((body as { url?: string | null }).url || null);
+      setUrls((prev) => ({ ...prev, [kind]: (body as { url?: string | null }).url || null }));
       setError(null);
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'The link could not be saved.');
+      setError({ kind, message: err instanceof Error ? err.message : 'The link could not be saved.' });
       return false;
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
   }, []);
 
-  return { url, loaded, saving, error, save };
+  return { urls, loaded, saving, error, save };
 }

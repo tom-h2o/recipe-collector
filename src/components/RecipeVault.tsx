@@ -3,7 +3,7 @@ import { Search, X, ArrowUpDown, FolderOpen, Plus, Trash2, Pencil, Check, Users 
 import { Button } from '@/components/ui/button';
 import { RecipeCard } from './RecipeCard';
 import { FILTERS, SORT_OPTIONS, type SortOption } from '@/lib/constants';
-import { NEW_FROM_PHOTOS } from '@/store/recipeStore';
+import { NEW_FROM_IPHONE } from '@/store/recipeStore';
 import type { Recipe, RecipeTranslation, Collection, RecipeCollection, LinkedPerson } from '@/types';
 
 interface Props {
@@ -228,16 +228,16 @@ export function RecipeVault({
         {/* Filter chips */}
         <div className="flex flex-wrap gap-2">
           {/* Only while there is something new, or while it is the filter in use. */}
-          {((newRecipeIds?.size ?? 0) > 0 || activeFilter === NEW_FROM_PHOTOS) && (
+          {((newRecipeIds?.size ?? 0) > 0 || activeFilter === NEW_FROM_IPHONE) && (
             <button
-              onClick={() => onFilterChange(activeFilter === NEW_FROM_PHOTOS ? null : NEW_FROM_PHOTOS)}
+              onClick={() => onFilterChange(activeFilter === NEW_FROM_IPHONE ? null : NEW_FROM_IPHONE)}
               className={`px-3 py-1 rounded-full text-xs font-semibold font-sans transition-all ${
-                activeFilter === NEW_FROM_PHOTOS
+                activeFilter === NEW_FROM_IPHONE
                   ? 'bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground shadow-ambient'
                   : 'bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200 hover:bg-amber-200/70'
               }`}
             >
-              {NEW_FROM_PHOTOS}
+              {NEW_FROM_IPHONE}
             </button>
           )}
           {FILTERS.map((f) => (

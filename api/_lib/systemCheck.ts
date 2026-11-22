@@ -26,7 +26,7 @@ import { extractedRecipeResponseSchema } from './responseSchemas.js';
  * migration job failed shows up here instead of as odd errors elsewhere.
  * tests/unit/systemCheck.test.ts fails when a newer migration file exists.
  */
-export const EXPECTED_SCHEMA = '0071';
+export const EXPECTED_SCHEMA = '0072';
 
 /** How long one probe may take. A healthy call answers in a second or two. */
 export const PROBE_TIMEOUT_MS = 25_000;

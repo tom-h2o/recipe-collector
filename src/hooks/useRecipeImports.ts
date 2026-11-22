@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 /**
- * What the iPhone Shortcut sent and the person has not looked at yet: the
+ * What the iPhone Shortcuts sent and the person has not looked at yet: the
  * recipe_imports rows (migration 0070) with no seen_at. Drives the "new
- * recipes from your photos" banner and the New badge on cards.
+ * recipes from your iPhone" banner and the New badge on cards.
  *
  * Read with the person's own session; RLS shows only their rows and lets them
  * set seen_at and nothing else. A failed read (e.g. in the minutes after a
@@ -16,6 +16,8 @@ export interface RecipeImport {
   recipe_id: string | null;
   error: string | null;
   page_count: number;
+  /** Where it came from (0072): pictures from Photos, or a page from Safari. Absent before 0072 ran. */
+  source?: 'photos' | 'page';
   created_at: string;
 }
 
@@ -32,7 +34,8 @@ export function useRecipeImports(userId: string | null | undefined, onSaved?: ()
     if (!userId) { setImports([]); return; }
     const { data, error } = await supabase
       .from('recipe_imports')
-      .select('id, status, recipe_id, error, page_count, created_at')
+      // All columns: naming `source` would fail the read before 0072 has run.
+      .select('*')
       .is('seen_at', null)
       .order('created_at', { ascending: false })
       .limit(50);

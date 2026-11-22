@@ -20,6 +20,15 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-07',
+    title: 'Save recipes straight from Safari',
+    items: [
+      'A second iPhone Shortcut, Save page to Speisekammer: open a recipe in Safari, tap Share and it is saved with its link. It works for sites like REWE and EDEKA that block the link import.',
+      'Set it up under Settings → iPhone Shortcuts. It uses the same key as the Photos Shortcut, and needs Allow Running Scripts turned on once in the Shortcuts settings.',
+    ],
+  },
+  {
+    // Ids must increase with each release (see 2026-12-02 below).
     id: '2026-12-06',
     title: 'When a website will not share its recipe',
     items: [

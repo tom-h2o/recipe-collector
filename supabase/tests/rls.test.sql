@@ -12,7 +12,7 @@ create extension if not exists pgtap with schema extensions;
 create schema if not exists tests;
 
 begin;
-select plan(53);
+select plan(57);
 
 -- ── Fixtures ────────────────────────────────────────────────────────────────
 -- Three accounts: two that will be linked, and a third that must stay isolated.
@@ -534,6 +534,34 @@ select is(
   (select shortcut_url from public.settings where id = 1),
   'https://www.icloud.com/shortcuts/abc123',
   'and no user can change it: only the admin, through the server'
+);
+
+-- ── The Safari Shortcut (migration 0072) ────────────────────────────────────
+update public.settings set safari_shortcut_url = 'https://www.icloud.com/shortcuts/def456' where id = 1;
+insert into public.recipe_imports (id, user_id, status, source)
+values ('dddddddd-0000-0000-0000-000000000003', '33333333-3333-3333-3333-333333333333', 'saved', 'page');
+select tests.as_user('33333333-3333-3333-3333-333333333333');
+select is(
+  (select safari_shortcut_url from public.settings where id = 1),
+  'https://www.icloud.com/shortcuts/def456',
+  'every user can read the Safari Shortcut link'
+);
+update public.settings set safari_shortcut_url = 'https://evil.example/shortcut' where id = 1;
+select is(
+  (select source from public.recipe_imports where id = 'dddddddd-0000-0000-0000-000000000003'),
+  'page',
+  'a person can see where their import came from'
+);
+select throws_ok(
+  $$ update public.recipe_imports set source = 'photos' where id = 'dddddddd-0000-0000-0000-000000000003' $$,
+  '42501', null,
+  'but cannot change it'
+);
+reset role;
+select is(
+  (select safari_shortcut_url from public.settings where id = 1),
+  'https://www.icloud.com/shortcuts/def456',
+  'and no user can change the Safari Shortcut link'
 );
 
 select * from finish();

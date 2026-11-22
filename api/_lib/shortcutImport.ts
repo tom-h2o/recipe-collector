@@ -10,9 +10,10 @@ import { captureException } from './sentry.js';
 import { checkRateLimit } from './rateLimit.js';
 import { MAX_EXTRACT_PHOTOS } from './schemas.js';
 import { extractRecipeFromImages } from './photoExtraction.js';
-import { DailyLimitError, estimateNutrition, tagRecipe } from './enrich.js';
+import { DailyLimitError, estimateNutrition, tagRecipe, type RecipeText } from './enrich.js';
 import { decodeBase64, imageSize, sniffImageType, splitBase64Images, type SupportedImageType } from './imageBytes.js';
 import { decideKind, type ImageKind } from '../../shared/imageKind.js';
+import { extractRecipeFromHtml } from './pageExtraction.js';
 
 /**
  * Recipes sent from the iPhone's Photos app, through an Apple Shortcut.
@@ -29,11 +30,18 @@ import { decideKind, type ImageKind } from '../../shared/imageKind.js';
  * REPLY_WITHIN_MS: "Saved: <title>" if the work is done by then, otherwise
  * "Got it" — and the work finishes in the background (Vercel's waitUntil).
  * Either way each recipe has a recipe_imports row (migration 0070), which the
- * app turns into its "new recipes from your photos" banner and New badges,
+ * app turns into its "new recipes from your iPhone" banner and New badges,
  * including the ones that could not be read.
  *
  * Every answer is `{ message }`, worded for the person: the Shortcut shows it
  * as a notification as it is.
+ *
+ * The same address takes a web page from the Safari Shortcut ("Save page to
+ * Speisekammer", migration 0072): `{ page }`, where page is the JSON text
+ * `{ url, html }` that SAFARI_SHORTCUT_SCRIPT returns from "Run JavaScript on
+ * Web Page". Sites such as rewe.de refuse their pages to servers, so a pasted
+ * link cannot be imported; the page the person has open in Safari can be.
+ * It is read like a link (extractRecipeFromHtml) and saved with its address.
  */
 
 export const SHORTCUT_KEY_HEADER = 'x-speisekammer-key';
@@ -104,11 +112,11 @@ export async function kindOfPictures(pictures: Picture[]): Promise<ImageKind> {
 /** What one recipe came to. */
 export type ImportOutcome = { status: 'saved'; title: string; recipeId: string } | { status: 'failed'; error: string };
 
-function failureMessage(err: unknown): string {
+function failureMessage(err: unknown, what: 'picture' | 'page' = 'picture'): string {
   // extractedRecipeSchema refused the answer: no title, no ingredients or no method.
-  if (err instanceof ZodError) return 'No recipe could be read from this picture.';
+  if (err instanceof ZodError) return what === 'page' ? 'No recipe was found on this page.' : 'No recipe could be read from this picture.';
   if (err instanceof DailyLimitError) return 'Today\'s AI allowance is used up. Send it again tomorrow.';
-  return describeGeminiError(err, 'The picture could not be read just now. Please send it again later.').message;
+  return describeGeminiError(err, `The ${what} could not be read just now. Please send it again later.`).message;
 }
 
 interface ImportContext {
@@ -135,10 +143,19 @@ async function storePictures(supabase: SupabaseClient, pictures: Picture[]): Pro
  * One recipe from one group of pictures: read, saved with its pictures,
  * tagged and estimated, and its import row finished either way.
  */
+function finishImport(supabase: SupabaseClient, importId: string, fields: Record<string, unknown>) {
+  return supabase.from('recipe_imports').update({ ...fields, finished_at: new Date().toISOString() }).eq('id', importId).then(() => {}, () => {});
+}
+
+/** Tags and nutrition, as the app asks for after every save. Neither may undo the import. */
+async function enrichSaved(ctx: ImportContext, recipe: RecipeText): Promise<void> {
+  const enriched = await Promise.allSettled([tagRecipe(ctx, recipe), estimateNutrition(ctx, recipe)]);
+  for (const r of enriched) if (r.status === 'rejected') console.warn('Shortcut import: enrichment failed', r.reason);
+}
+
 export async function importOne(ctx: ImportContext, pictures: Picture[], importId: string): Promise<ImportOutcome> {
   const { supabase, userId } = ctx;
-  const finish = (fields: Record<string, unknown>) =>
-    supabase.from('recipe_imports').update({ ...fields, finished_at: new Date().toISOString() }).eq('id', importId).then(() => {}, () => {});
+  const finish = (fields: Record<string, unknown>) => finishImport(supabase, importId, fields);
   try {
     const rl = await checkRateLimit(supabase, userId);
     if (!rl.allowed) throw new DailyLimitError(rl.limit);
@@ -179,11 +196,7 @@ export async function importOne(ctx: ImportContext, pictures: Picture[], importI
     })));
     if (galleryError) console.warn('Shortcut import: gallery rows not saved', galleryError);
 
-    // Tags and nutrition, as the app asks for after every save. Neither is
-    // allowed to undo the import: the recipe is saved either way.
-    const text = { id: row.id as string, title: recipe.title, description: recipe.description, ingredients: recipe.ingredients, instructions: recipe.instructions, servings: recipe.servings };
-    const enriched = await Promise.allSettled([tagRecipe(ctx, text), estimateNutrition(ctx, text)]);
-    for (const r of enriched) if (r.status === 'rejected') console.warn('Shortcut import: enrichment failed', r.reason);
+    await enrichSaved(ctx, { id: row.id as string, title: recipe.title, description: recipe.description, ingredients: recipe.ingredients, instructions: recipe.instructions, servings: recipe.servings });
 
     await finish({ status: 'saved', recipe_id: row.id });
     return { status: 'saved', title: recipe.title, recipeId: row.id as string };
@@ -191,6 +204,91 @@ export async function importOne(ctx: ImportContext, pictures: Picture[], importI
     if (!(err instanceof ZodError) && !(err instanceof DailyLimitError)) captureException(err);
     const error = failureMessage(err);
     await finish({ status: 'failed', error });
+    return { status: 'failed', error };
+  }
+}
+
+/** A page sent from Safari: its address and its HTML as the person sees it. */
+export interface SharedPage {
+  url: string;
+  html: string;
+}
+
+/** The script trims scripts, styles and pictures away; a recipe page is well under this. */
+export const MAX_PAGE_HTML = 3_000_000;
+
+/**
+ * The page from the Safari Shortcut's body, however Shortcuts sends it: `page`
+ * as the script's JSON text (the normal case), `page` already a dictionary, or
+ * `url` and `html` at the top level. A string is the message for the person.
+ */
+export function readSharedPage(body: Record<string, unknown>): SharedPage | string {
+  let page: unknown = body.page ?? (body.html !== undefined ? { url: body.url, html: body.html } : undefined);
+  if (typeof page === 'string') {
+    try {
+      page = JSON.parse(page);
+    } catch {
+      return 'The page arrived in a form that could not be read. Check that the Shortcut runs the script from Speisekammer\'s Settings.';
+    }
+  }
+  const record = page && typeof page === 'object' ? (page as Record<string, unknown>) : {};
+  const html = typeof record.html === 'string' ? record.html : '';
+  const url = typeof record.url === 'string' ? record.url.trim() : '';
+  let parsed: URL | null = null;
+  try { parsed = new URL(url); } catch { parsed = null; }
+  if (!parsed || (parsed.protocol !== 'https:' && parsed.protocol !== 'http:')) {
+    return 'No web page arrived. Share a recipe page from Safari to the Shortcut.';
+  }
+  if (html.trim().length < 50) return 'The page arrived empty. Wait until it has loaded in Safari, then share it again.';
+  if (html.length > MAX_PAGE_HTML) return 'This page is too large to send. Copy the recipe text into Speisekammer instead.';
+  return { url: parsed.toString(), html };
+}
+
+/** A picture address from the page, made absolute; anything but http(s) is dropped. */
+function absoluteImageUrl(value: string, pageUrl: string): string {
+  if (!value) return '';
+  try {
+    const url = new URL(value, pageUrl);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : '';
+  } catch {
+    return '';
+  }
+}
+
+/** One recipe from one web page: read, saved with its address, tagged and estimated. */
+export async function importPage(ctx: ImportContext, page: SharedPage, importId: string): Promise<ImportOutcome> {
+  const { supabase, userId } = ctx;
+  try {
+    // Checks the allowance itself, after the cache: a page read before is free.
+    const { recipe } = await extractRecipeFromHtml({ ...ctx, endpoint: 'extract-page' }, page.html);
+    const { data: row, error } = await supabase
+      .from('recipes')
+      .insert({
+        title: recipe.title,
+        description: recipe.description,
+        ingredients: recipe.ingredients,
+        instructions: recipe.instructions,
+        image_url: absoluteImageUrl(recipe.image_url, page.url),
+        servings: recipe.servings,
+        original_servings: recipe.servings,
+        prep_time_mins: recipe.prep_time_mins,
+        cook_time_mins: recipe.cook_time_mins,
+        source_url: page.url,
+        source_name: recipe.source_name || new URL(page.url).hostname.replace(/^www\./, ''),
+        original_language: recipe.original_language || null,
+        user_id: userId,
+      })
+      .select('id')
+      .single();
+    if (error || !row) throw error ?? new Error('The recipe could not be saved.');
+
+    await enrichSaved(ctx, { id: row.id as string, title: recipe.title, description: recipe.description, ingredients: recipe.ingredients, instructions: recipe.instructions, servings: recipe.servings });
+    await finishImport(supabase, importId, { status: 'saved', recipe_id: row.id });
+    return { status: 'saved', title: recipe.title, recipeId: row.id as string };
+  } catch (err) {
+    if (!(err instanceof ZodError) && !(err instanceof DailyLimitError)) captureException(err);
+    const error = failureMessage(err, 'page');
+    await finishImport(supabase, importId, { status: 'failed', error });
     return { status: 'failed', error };
   }
 }
@@ -222,6 +320,41 @@ export interface ShortcutDeps {
   replyWithinMs: number;
 }
 
+async function contextFor(supabase: SupabaseClient, userId: string): Promise<ImportContext | null> {
+  const settings = await getSettings(supabase, userId);
+  const apiKey = resolveApiKey(settings);
+  return apiKey ? { supabase, client: getGeminiClient(apiKey), settings, userId } : null;
+}
+
+/** The Safari Shortcut: one web page, one recipe. Same timing rules as pictures. */
+async function handlePageImport(req: VercelRequest, res: VercelResponse, supabase: SupabaseClient, userId: string, deps: ShortcutDeps) {
+  const reply = (status: number, message: string) => res.status(status).json({ message });
+  const page = readSharedPage((req.body ?? {}) as Record<string, unknown>);
+  if (typeof page === 'string') return reply(400, page);
+
+  const ctx = await contextFor(supabase, userId);
+  if (!ctx) return reply(500, 'The AI service is not set up on the server. Nothing was saved.');
+
+  const { data: rows, error } = await supabase
+    .from('recipe_imports')
+    .insert([{ user_id: userId, status: 'processing', page_count: 1, source: 'page' }])
+    .select('id');
+  const row = rows?.[0];
+  if (error || !row) {
+    if (error) captureException(error);
+    return reply(500, 'The import could not be started. Nothing was saved; please try again.');
+  }
+
+  const work = importPage(ctx, page, row.id as string);
+  const done = await Promise.race([
+    work,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), deps.replyWithinMs)),
+  ]);
+  if (done) return reply(done.status === 'failed' ? 422 : 200, summarise([done]));
+  deps.waitUntil(work);
+  return reply(202, 'Got it. Reading the page; the recipe will be in Speisekammer in a minute.');
+}
+
 /** POST /api/extract?via=shortcut */
 export async function handleShortcutImport(req: VercelRequest, res: VercelResponse, deps: ShortcutDeps = { waitUntil: vercelWaitUntil, replyWithinMs: REPLY_WITHIN_MS }) {
   const reply = (status: number, message: string) => res.status(status).json({ message });
@@ -230,9 +363,12 @@ export async function handleShortcutImport(req: VercelRequest, res: VercelRespon
     const key = (Array.isArray(headerValue) ? headerValue[0] : headerValue ?? '').trim();
     const supabase = getServerSupabase();
     const userId = key ? await userForShortcutKey(supabase, key) : null;
-    if (!userId) return reply(401, 'This Shortcut has no valid key. Create one in Speisekammer under Settings → iPhone Shortcut and paste it into the Shortcut.');
+    if (!userId) return reply(401, 'This Shortcut has no valid key. Create one in Speisekammer under Settings → iPhone Shortcuts and paste it into the Shortcut.');
 
-    const body = (req.body ?? {}) as { images?: unknown; mode?: unknown };
+    const body = (req.body ?? {}) as { images?: unknown; mode?: unknown; page?: unknown; html?: unknown };
+    if (body.images === undefined && (body.page !== undefined || body.html !== undefined)) {
+      return handlePageImport(req, res, supabase, userId, deps);
+    }
     const mode = body.mode === 'each' ? 'each' : 'single';
     const encoded = splitBase64Images(body.images);
     if (encoded.length === 0) return reply(400, 'No pictures arrived. Share one or more photos or screenshots to the Shortcut.');
@@ -250,10 +386,8 @@ export async function handleShortcutImport(req: VercelRequest, res: VercelRespon
       pictures.push({ base64, bytes, type });
     }
 
-    const settings = await getSettings(supabase, userId);
-    const apiKey = resolveApiKey(settings);
-    if (!apiKey) return reply(500, 'The AI service is not set up on the server. Nothing was saved.');
-    const ctx: ImportContext = { supabase, client: getGeminiClient(apiKey), settings, userId };
+    const ctx = await contextFor(supabase, userId);
+    if (!ctx) return reply(500, 'The AI service is not set up on the server. Nothing was saved.');
 
     const groups = mode === 'single' ? [pictures] : pictures.map((p) => [p]);
     const { data: rows, error } = await supabase

@@ -21,7 +21,7 @@ import { supabase } from '@/lib/supabase';
 import { useTranslationCache } from '@/hooks/useTranslationCache';
 import { useRecipeImports } from '@/hooks/useRecipeImports';
 import { ImportBanner } from '@/components/ImportBanner';
-import { NEW_FROM_PHOTOS, useRecipeStore } from '@/store/recipeStore';
+import { NEW_FROM_IPHONE, useRecipeStore } from '@/store/recipeStore';
 import type { ActiveView, Recipe } from '@/types';
 import type { SortOption } from '@/lib/constants';
 
@@ -179,9 +179,9 @@ export default function App() {
   // Once the last new recipe has been opened the filter has nothing to show.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!newImportKey && activeFilter === NEW_FROM_PHOTOS) setActiveFilter(null);
+    if (!newImportKey && activeFilter === NEW_FROM_IPHONE) setActiveFilter(null);
   }, [newImportKey, activeFilter]);
-  const newImportsShown = activeFilter === NEW_FROM_PHOTOS ? newImportKey : '';
+  const newImportsShown = activeFilter === NEW_FROM_IPHONE ? newImportKey : '';
   const openRecipe = (recipe: Recipe) => {
     setSelectedRecipe(recipe);
     void recipeImports.markSeen(recipe.id);
@@ -364,8 +364,8 @@ export default function App() {
                   newCount={recipeImports.newRecipeIds.size}
                   processing={recipeImports.processing}
                   failed={recipeImports.failed}
-                  showingNew={activeFilter === NEW_FROM_PHOTOS}
-                  onShowNew={() => setActiveFilter(NEW_FROM_PHOTOS)}
+                  showingNew={activeFilter === NEW_FROM_IPHONE}
+                  onShowNew={() => setActiveFilter(NEW_FROM_IPHONE)}
                   onDismiss={(id) => { void recipeImports.dismiss(id); }}
                 />
               )}

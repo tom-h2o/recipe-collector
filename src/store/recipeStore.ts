@@ -28,7 +28,7 @@ interface RecipeState {
   currentOwnerFilter: string | null;
   /**
    * Recipes the iPhone Shortcut saved that the person has not opened yet
-   * (useRecipeImports). The NEW_FROM_PHOTOS chip filters the vault to these.
+   * (useRecipeImports). The NEW_FROM_IPHONE chip filters the vault to these.
    */
   newImportIds: string[];
   setNewImportIds: (ids: string[]) => void;
@@ -99,15 +99,15 @@ type RecipeQuery = ReturnType<ReturnType<typeof supabase.from>['select']>;
 
 /**
  * Not a tag: the recipes the iPhone Shortcut saved and nobody has opened yet.
- * Offered by the "new recipes from your photos" banner.
+ * Offered by the "new recipes from your iPhone" banner.
  */
-export const NEW_FROM_PHOTOS = '\ud83c\udd95 New from photos';
+export const NEW_FROM_IPHONE = '\ud83c\udd95 New from iPhone';
 
 /** Matches no row: `in` with an empty list is not valid PostgREST. */
 const NO_RECIPE = '00000000-0000-0000-0000-000000000000';
 
 function applyTagFilter<T extends RecipeQuery>(query: T, tagFilter: string, newImportIds: string[] = []): T {
-  if (tagFilter === NEW_FROM_PHOTOS) return query.in('id', newImportIds.length ? newImportIds : [NO_RECIPE]) as T;
+  if (tagFilter === NEW_FROM_IPHONE) return query.in('id', newImportIds.length ? newImportIds : [NO_RECIPE]) as T;
   if (tagFilter === '\u2b50 Favourites') return query.eq('is_favourite', true) as T;
   if (tagFilter === '\ud83d\udd17 Shared') return query.not('public_share_token', 'is', null) as T;
   return query.contains('tags', [tagFilter]) as T;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as cheerio from 'cheerio';
-import { extractStructuredRecipe } from './extract';
+import { extractStructuredRecipe } from './_lib/pageExtraction';
 
 describe('extractStructuredRecipe', () => {
   it('maps schema.org Recipe JSON-LD into the app recipe shape', () => {

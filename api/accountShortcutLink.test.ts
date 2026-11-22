@@ -55,14 +55,23 @@ describe('POST /api/account?action=shortcut-url', () => {
   it('stores the admin\'s iCloud link on the global row', async () => {
     const res = await post({ url: `  ${LINK}  ` });
     expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual({ url: LINK });
+    expect(res.body).toEqual({ url: LINK, kind: 'photos' });
     expect(h.upserts[0]).toEqual([{ id: 1, user_id: null, shortcut_url: LINK }, { onConflict: 'id' }]);
+  });
+
+  it('keeps the Safari Shortcut\'s link in its own column', async () => {
+    const res = await post({ url: LINK, kind: 'safari' });
+    expect(res.body).toEqual({ url: LINK, kind: 'safari' });
+    expect(h.upserts[0]).toEqual([{ id: 1, user_id: null, safari_shortcut_url: LINK }, { onConflict: 'id' }]);
+    // And nothing else can be named as the column to write.
+    expect((await post({ url: LINK, kind: 'gemini_model' })).statusCode).toBe(400);
+    expect(h.upserts).toHaveLength(1);
   });
 
   it('removes the link when it is emptied', async () => {
     for (const url of ['', null]) {
       const res = await post({ url });
-      expect(res.body).toEqual({ url: null });
+      expect(res.body).toEqual({ url: null, kind: 'photos' });
     }
     expect(h.upserts.map((u) => (u[0] as { shortcut_url: unknown }).shortcut_url)).toEqual([null, null]);
   });

@@ -64,7 +64,9 @@ describe('no AI endpoint sends an unconstrained request', () => {
   const apiDir = path.resolve(process.cwd(), 'api');
   // Tagging and nutrition run in _lib/enrich.ts, shared by their endpoints and
   // the iPhone Shortcut import, which saves and enriches on the server.
-  const aiSources = ['_lib/enrich', 'suggest', 'scale', 'shopping', 'translate', 'extract'];
+  // Reading a web page runs in _lib/pageExtraction.ts, shared by a pasted link
+  // and the Safari Shortcut.
+  const aiSources = ['_lib/enrich', '_lib/pageExtraction', 'suggest', 'scale', 'shopping', 'translate', 'extract'];
 
   for (const name of aiSources) {
     it(`${name}.ts constrains its response shape`, () => {
