@@ -5,10 +5,10 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
  * prompts.ts. They used to be per-user overrides, which silently pinned users to
  * whatever prompt text was current when they last saved.
  */
-export type AiTask = 'extract' | 'tag' | 'nutrition' | 'translate' | 'suggest' | 'scale' | 'shopping';
+export type AiTask = 'extract' | 'photo' | 'tag' | 'nutrition' | 'translate' | 'suggest' | 'scale' | 'shopping';
 
 /** The same list as a value, for code that walks every task (the System tab). */
-export const AI_TASK_IDS: readonly AiTask[] = ['extract', 'tag', 'nutrition', 'translate', 'suggest', 'scale', 'shopping'];
+export const AI_TASK_IDS: readonly AiTask[] = ['extract', 'photo', 'tag', 'nutrition', 'translate', 'suggest', 'scale', 'shopping'];
 
 export interface Settings {
   /** Model for any task without its own entry in `task_models`. */

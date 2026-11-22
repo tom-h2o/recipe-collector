@@ -11,6 +11,7 @@ import { parseIngredients } from '@/lib/recipeUtils';
 import { apiFetch } from '@/lib/api';
 import { LANGUAGES } from '@/lib/constants';
 import { MAX_EXTRACT_PHOTOS, encodePhotosForExtraction } from '@/lib/imageUtils';
+import { imageKind } from '@/lib/imageKind';
 import { uploadRecipeImage, attachRecipeImages } from '@/hooks/useRecipeImages';
 import type { RecipeImageSource } from '@/types';
 import type { Recipe, Ingredient } from '@/types';
@@ -162,7 +163,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
       const res = await apiFetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images }),
+        body: JSON.stringify({ images, kind: imageKind(photoFiles) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to extract recipe');

@@ -9,8 +9,13 @@
 -- keeps running on Gemini until it is.
 --
 -- The assignment, from AI_TASKS in src/lib/constants.ts:
---   Sonnet: extraction (photos, PDFs, web pages), translation, nutrition
+--   Opus:   photographed pages (the new `photo` task: camera photos of
+--           cookbook pages and handwritten cards, the hardest reading job)
+--   Sonnet: extraction (web pages, PDFs, screenshots, pasted text),
+--           translation, nutrition
 --   Haiku:  tagging, suggestions, scaling, the shopping list
+-- The browser tells photos from screenshots by file format before upload
+-- (src/lib/imageKind.ts); screenshots are logged as extract-screenshot.
 -- Sonnet is also the main model, for any task added later without an entry.
 --
 -- Embeddings are not in this row and do not change: Anthropic has no
@@ -24,6 +29,7 @@ update public.settings
    set gemini_model = 'claude-sonnet-5-5',
        task_models = '{
          "extract":   "claude-sonnet-5-5",
+         "photo":     "claude-opus-5-5",
          "translate": "claude-sonnet-5-5",
          "suggest":   "claude-haiku-5-5",
          "tag":       "claude-haiku-5-5",
@@ -32,6 +38,9 @@ update public.settings
          "shopping":  "claude-haiku-5-5"
        }'::jsonb
  where id = 1;
+
+comment on column public.settings.task_models is
+  'Per-task model overrides keyed by AiTask (extract, photo, tag, nutrition, translate, suggest, scale, shopping), Claude or Gemini ids. Read from the global row (id = 1) only; per-user values are ignored since migration 0068. A missing key falls back to gemini_model. See modelFor() in api/_lib/supabase.ts.';
 
 comment on column public.settings.gemini_model is
   'Main AI model, Claude or Gemini despite the name. Read from the global row (id = 1) only; per-user values are ignored since migration 0068. Set by the admin.';

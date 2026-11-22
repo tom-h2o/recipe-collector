@@ -40,6 +40,13 @@ export const extractPhotoSchema = z.object({
     )
     .min(1, 'At least one image is required')
     .max(MAX_EXTRACT_PHOTOS, `At most ${MAX_EXTRACT_PHOTOS} images can be extracted at once`),
+  /**
+   * What the browser saw before re-encoding everything as JPEG (imageKind() in
+   * src/lib/imageKind.ts): camera photos go to the `photo` task, screenshots
+   * to `extract`. Older clients send nothing and are treated as photos, the
+   * harder case.
+   */
+  kind: z.enum(['photo', 'screenshot']).default('photo'),
 });
 
 /**
@@ -48,7 +55,7 @@ export const extractPhotoSchema = z.object({
  */
 export function normaliseExtractPhotoBody(body: Record<string, unknown>) {
   if (body.images === undefined && body.imageBase64 !== undefined) {
-    return { images: [{ data: body.imageBase64, mimeType: body.mimeType }] };
+    return { images: [{ data: body.imageBase64, mimeType: body.mimeType }], kind: body.kind };
   }
   return body;
 }

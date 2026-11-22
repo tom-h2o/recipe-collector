@@ -81,6 +81,8 @@ export function configReport(env: Record<string, string | undefined> = process.e
 
 /** gemini_logs endpoints are task names, except extraction, which logs its source. */
 export function taskForEndpoint(endpoint: string): AiTask | null {
+  // Camera photos have their own task; screenshots, PDFs, text and pages are extraction.
+  if (endpoint === 'extract-photo') return 'photo';
   if (endpoint === 'extract' || endpoint.startsWith('extract-')) return 'extract';
   return (AI_TASK_IDS as readonly string[]).includes(endpoint) ? (endpoint as AiTask) : null;
 }

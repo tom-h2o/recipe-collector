@@ -114,8 +114,14 @@ export const AI_TASKS: AiTaskInfo[] = [
   {
     task: 'extract',
     label: 'Recipe extraction',
-    description: 'Reading a recipe off a web page, a PDF or photographed pages. The hardest job here, and the one people notice when it goes wrong, so it runs on Sonnet; Opus is the step up for handwriting.',
+    description: 'Reading a recipe off a web page, a PDF, a screenshot or pasted text. The text is already digital and clean, so Sonnet reads it reliably and quickly.',
     recommended: 'claude-sonnet-5-5',
+  },
+  {
+    task: 'photo',
+    label: 'Photographed pages',
+    description: 'Reading photos taken with a camera: cookbook pages, handwritten cards, a recipe on the fridge. The hardest reading job here (curved pages, bad light, handwriting), so it runs on Opus. A screenshot is not a photo and counts as recipe extraction.',
+    recommended: 'claude-opus-5-5',
   },
   {
     task: 'translate',

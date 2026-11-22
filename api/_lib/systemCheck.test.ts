@@ -61,7 +61,7 @@ describe('reasoning per task', () => {
       { endpoint: 'health-check', model: 'gemini-4-hydrogen', thinking: 'off', call_count: 5 },
       { endpoint: 'find-image', model: 'unsplash', thinking: 'unrecorded', call_count: 9 },
     ]);
-    expect(rows.map((r) => r.task).sort()).toEqual(['extract', 'nutrition', 'scale', 'shopping', 'suggest', 'tag', 'translate']);
+    expect(rows.map((r) => r.task).sort()).toEqual(['extract', 'nutrition', 'photo', 'scale', 'shopping', 'suggest', 'tag', 'translate']);
     const byTask = Object.fromEntries(rows.map((r) => [r.task, r]));
     expect(byTask.translate.reasoning).toBe('off');
     expect(byTask.tag).toMatchObject({ reasoning: 'off', model: 'gemini-3.5-flash-lite' });
@@ -70,8 +70,9 @@ describe('reasoning per task', () => {
       { model: 'gemini-4-argon', on: 0, off: 0, minimal: 0, low: 0, refused: 1, unrecorded: 0 },
       { model: 'gemini-4-hydrogen', on: 0, off: 12, minimal: 0, low: 0, refused: 0, unrecorded: 0 },
     ]);
-    // Every source of extraction counts as the one task.
-    expect(byTask.extract.usage).toEqual([{ model: 'gemini-4-hydrogen', on: 2, off: 0, minimal: 0, low: 0, refused: 0, unrecorded: 3 }]);
+    // Text, pages, PDFs and screenshots count as extraction; camera photos are their own task.
+    expect(byTask.extract.usage).toEqual([{ model: 'gemini-4-hydrogen', on: 2, off: 0, minimal: 0, low: 0, refused: 0, unrecorded: 0 }]);
+    expect(byTask.photo.usage).toEqual([{ model: 'gemini-4-hydrogen', on: 0, off: 0, minimal: 0, low: 0, refused: 0, unrecorded: 3 }]);
     // The check's own probes and the image search are no task's.
     expect(rows.flatMap((r) => r.usage).reduce((n, u) => n + u.on + u.off + u.minimal + u.low + u.refused + u.unrecorded, 0)).toBe(24);
     expect(byTask.tag.usage).toEqual([{ model: 'gemini-3.5-flash-lite', on: 0, off: 0, minimal: 4, low: 0, refused: 0, unrecorded: 0 }]);
@@ -80,12 +81,15 @@ describe('reasoning per task', () => {
 
   it('still lists the configuration when the logs cannot be read', () => {
     const rows = reasoningReport(settings, null);
-    expect(rows).toHaveLength(7);
+    expect(rows).toHaveLength(8);
     expect(rows.every((r) => r.usage.length === 0)).toBe(true);
   });
 
   it('maps log endpoints to tasks', () => {
     expect(taskForEndpoint('extract-pdf')).toBe('extract');
+    // Camera photos have their own task; screenshots are ordinary extraction.
+    expect(taskForEndpoint('extract-photo')).toBe('photo');
+    expect(taskForEndpoint('extract-screenshot')).toBe('extract');
     expect(taskForEndpoint('nutrition')).toBe('nutrition');
     expect(taskForEndpoint(HEALTH_ENDPOINT)).toBeNull();
   });

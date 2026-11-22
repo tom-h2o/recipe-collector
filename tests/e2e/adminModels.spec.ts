@@ -17,6 +17,7 @@ const GLOBAL = {
   gemini_model: 'claude-sonnet-5-5',
   task_models: {
     extract: 'claude-sonnet-5-5',
+    photo: 'claude-opus-5-5',
     translate: 'claude-sonnet-5-5',
     suggest: 'claude-haiku-5-5',
     tag: 'claude-haiku-5-5',
@@ -59,14 +60,13 @@ test('everyone else sees the model per task, and nothing to change it with', asy
   await expect(list).toBeVisible();
   await expect(list.getByRole('listitem').filter({ hasText: 'Translation' })).toContainText('Claude Sonnet');
   await expect(list.getByRole('listitem').filter({ hasText: 'Tagging' })).toContainText('Claude Haiku');
-  await expect(list.getByRole('listitem')).toHaveCount(7);
+  await expect(list.getByRole('listitem')).toHaveCount(8);
 
   await expect(page.getByLabel('Main model')).toHaveCount(0);
   await expect(page.getByLabel(/^Model for /)).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Use recommended' })).toHaveCount(0);
   // A model nothing runs on is not mentioned at all.
   await expect(page.getByRole('dialog')).not.toContainText('gemini-4-carbon');
-  await expect(page.getByRole('dialog')).not.toContainText('claude-opus-5-5');
 });
 
 test('the admin changes a task\'s model for everyone through the admin endpoint', async ({ page }) => {
