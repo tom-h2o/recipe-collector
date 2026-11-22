@@ -1,0 +1,104 @@
+import { createElement } from 'react';
+import {
+  CakeSlice, Coffee, CookingPot, Cookie, Croissant, Dumbbell, Flame, Heart, Leaf, Link2, MilkOff,
+  Salad, Sandwich, Smartphone, Soup, Sprout, Star, Timer, UtensilsCrossed, WheatOff,
+  type LucideIcon,
+} from 'lucide-react';
+
+/**
+ * How filters and tags are shown: a plain label and, where one fits, an icon.
+ *
+ * The values themselves do not change. Filter keys such as '⭐ Favourites' and
+ * tags such as 'Quick (<30min)' are what the store filters on and what the AI
+ * writes into recipes.tags, so they stay as they are; only what is drawn on
+ * screen goes through tagLabel() and <TagIcon>. Emoji in labels are gone: they
+ * drew in a different style on every platform and clashed with the icons
+ * everywhere else in the app.
+ */
+
+const LABELS: Record<string, string> = {
+  '⭐ Favourites': 'Favourites',
+  '🔗 Shared': 'Shared',
+  '🆕 New from iPhone': 'New from iPhone',
+  'Quick (<30min)': 'Under 30 min',
+};
+
+const ICONS: Record<string, LucideIcon> = {
+  '⭐ Favourites': Star,
+  '🔗 Shared': Link2,
+  '🆕 New from iPhone': Smartphone,
+  'Quick (<30min)': Timer,
+  Vegetarian: Leaf,
+  Vegan: Sprout,
+  'Gluten-Free': WheatOff,
+  'Dairy-Free': MilkOff,
+  'High Protein': Dumbbell,
+  'Low Carb': Salad,
+  'Comfort Food': Heart,
+  Breakfast: Coffee,
+  Lunch: Sandwich,
+  Dinner: UtensilsCrossed,
+  Dessert: CakeSlice,
+  Snack: Cookie,
+  Soup,
+  Baking: Croissant,
+  Grilling: Flame,
+  'One-Pot': CookingPot,
+};
+
+/** What a filter or tag reads as on screen. */
+export function tagLabel(tag: string): string {
+  return LABELS[tag] ?? tag.replace(/^\p{Extended_Pictographic}️?\s*/u, '');
+}
+
+/**
+ * A tag's icon, or nothing: cuisines and anything the AI invents go without.
+ * Decorative, since the label says it all.
+ */
+export function TagIcon({ tag, className }: { tag: string; className?: string }) {
+  const icon = ICONS[tag];
+  return icon ? createElement(icon, { className, 'aria-hidden': true }) : null;
+}
+
+/**
+ * The one chip used for every choice in the vault (filters, people,
+ * collections): outlined at rest, a soft green fill when chosen. Material's
+ * filter chip: 32 px high, 8 px corners, which also sets them apart from the
+ * app's round buttons.
+ */
+export function chipClass(active: boolean, variant: 'default' | 'highlight' = 'default'): string {
+  return [
+    'inline-flex shrink-0 items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-medium font-sans whitespace-nowrap transition-colors ring-1 ring-inset',
+    active
+      ? 'bg-sk-primary-fixed/70 text-sk-on-primary-fixed ring-sk-primary/25 dark:bg-primary/20 dark:text-primary dark:ring-primary/30'
+      : variant === 'highlight'
+        ? 'bg-amber-50 text-amber-900 ring-amber-300/70 hover:bg-amber-100 dark:bg-amber-900/25 dark:text-amber-200 dark:ring-amber-400/25'
+        : 'bg-white/60 text-sk-on-surface-variant ring-sk-outline-variant/70 hover:bg-sk-surface-low hover:text-sk-on-surface dark:bg-white/[0.03] dark:text-muted-foreground dark:ring-white/10 dark:hover:bg-white/[0.06] dark:hover:text-foreground',
+  ].join(' ');
+}
+
+/**
+ * A chip that adds something: dashed, quieter. `chip` size beside the vault's
+ * chips (a new collection), `tag` size beside a recipe's tags (a tag to add).
+ */
+export function addChipClass(size: 'chip' | 'tag' = 'chip'): string {
+  return [
+    'inline-flex shrink-0 items-center gap-1 font-medium font-sans whitespace-nowrap border border-dashed border-sk-outline-variant text-sk-outline hover:border-sk-primary hover:text-sk-primary dark:border-white/15 dark:text-muted-foreground dark:hover:text-primary transition-colors',
+    size === 'chip' ? 'h-8 px-3 rounded-lg text-[13px]' : 'h-7 px-2.5 rounded-md text-xs',
+  ].join(' ');
+}
+
+/**
+ * A recipe's tag, on its card and in the recipe: a small green label. Smaller
+ * and tonal, so it reads as a description of the recipe rather than as a
+ * control, though on a card it does filter by that tag when tapped.
+ */
+export function tagClass(active = false, size: 'sm' | 'md' = 'sm'): string {
+  return [
+    'inline-flex items-center gap-1 rounded-md font-medium font-sans whitespace-nowrap transition-colors',
+    size === 'sm' ? 'h-6 px-2 text-[11px]' : 'h-7 px-2.5 text-xs',
+    active
+      ? 'bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground'
+      : 'bg-sk-primary/[0.08] text-sk-primary dark:bg-primary/[0.12] dark:text-primary',
+  ].join(' ');
+}

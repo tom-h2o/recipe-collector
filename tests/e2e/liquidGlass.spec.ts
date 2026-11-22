@@ -175,6 +175,9 @@ test.describe('glass', () => {
 test.describe('touch feedback', () => {
   /** Presses and holds, so the pressed state can be read before release. */
   async function hold(page: Page, selector: string) {
+    // The phone's filter row scrolls sideways: bring the chip into the window
+    // first, as a finger would.
+    await page.locator(selector).first().scrollIntoViewIfNeeded();
     const box = (await page.locator(selector).first().boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();

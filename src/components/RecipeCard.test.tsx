@@ -113,7 +113,11 @@ describe('RecipeCard', () => {
       amount: '1', name: `ingredient${i}`, details: '',
     }));
     render(<RecipeCard recipe={{ ...baseRecipe, ingredients: manyIngredients }} {...defaults} />);
-    expect(screen.getByText('+3 more')).toBeInTheDocument();
+    const more = screen.getByText(/\+3 more/);
+    expect(more).toBeInTheDocument();
+    // In the same quiet voice as the ingredients, not a green badge like a tag.
+    expect(more.className).not.toMatch(/primary/);
+    expect(more.closest('p')?.textContent).toBe('ingredient0 · ingredient1 · ingredient2 · ingredient3 · ingredient4 · +3 more');
   });
 });
 

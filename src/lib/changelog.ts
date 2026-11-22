@@ -20,6 +20,17 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-08',
+    title: 'A calmer way to add recipes',
+    items: [
+      'Adding a recipe starts with a choice: from a website, photos, a PDF or text, or Enter it manually for the full editor.',
+      'While a recipe is read, the key opens the vault and puts it in. No more second message in the corner.',
+      'Filters and tags have a cleaner look, with icons instead of emoji, and the ingredients on each card are a simple list.',
+      'The key now shows in the browser tab.',
+    ],
+  },
+  {
+    // Ids must increase with each release (see 2026-12-02 below).
     id: '2026-12-07',
     title: 'Save recipes straight from Safari',
     items: [

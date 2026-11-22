@@ -2,6 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      The ICO first, for Safari (which has not reliably shown SVG favicons) and
+      older browsers; sizes="32x32" lets the others prefer the SVG below. Both
+      are drawn for 16 px: the key fills the tile, with thick strokes. The
+      earlier one was the header logo shrunk onto a tile, and at tab size it
+      was a few faint pixels.
+    -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <!--
       No manifest link here: vite-plugin-pwa injects its own

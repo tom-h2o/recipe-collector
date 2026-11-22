@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { TagIcon, addChipClass, tagClass, tagLabel } from '@/lib/tags';
 import { Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages, Send, MoreHorizontal, Tag, Salad, FolderOpen, Link2Off, Check} from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -1021,16 +1022,17 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {(recipe.tags || []).map((tag) => (
-                  <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold font-sans bg-sk-primary-fixed/40 dark:bg-primary/15 text-sk-primary dark:text-primary">
-                    {tag}
-                    {showTagEditor && (
-                      <button
-                        onClick={() => onUpdateRecipe(recipe.id, { tags: recipe.tags.filter((t) => t !== tag) })}
-                        aria-label={`Remove tag ${tag}`}
-                        className="ml-0.5 hover:text-destructive transition-colors"
-                      ><X className="w-2.5 h-2.5" /></button>
-                    )}
-                  </span>
+                    <span key={tag} className={tagClass(false, 'md')}>
+                      <TagIcon tag={tag} className="w-3.5 h-3.5 shrink-0" />
+                      {tagLabel(tag)}
+                      {showTagEditor && (
+                        <button
+                          onClick={() => onUpdateRecipe(recipe.id, { tags: recipe.tags.filter((t) => t !== tag) })}
+                          aria-label={`Remove tag ${tagLabel(tag)}`}
+                          className="-mr-1 ml-0.5 p-0.5 rounded hover:text-destructive transition-colors"
+                        ><X className="w-3 h-3" /></button>
+                      )}
+                    </span>
                 ))}
                 {recipe.tags?.length === 0 && !showTagEditor && (
                   <span className="text-xs font-sans text-sk-outline dark:text-muted-foreground">No tags yet — use ⋯ to regenerate</span>
@@ -1042,9 +1044,10 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                     <button
                       key={tag}
                       onClick={() => onUpdateRecipe(recipe.id, { tags: [...(recipe.tags || []), tag] })}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold font-sans border border-dashed border-sk-outline-variant dark:border-border text-sk-outline dark:text-muted-foreground hover:border-sk-primary hover:text-sk-primary dark:hover:text-primary transition-colors"
+                      aria-label={`Add tag ${tagLabel(tag)}`}
+                      className={addChipClass('tag')}
                     >
-                      <Plus className="w-2.5 h-2.5" />{tag}
+                      <Plus className="w-3 h-3" aria-hidden="true" />{tagLabel(tag)}
                     </button>
                   ))}
                 </div>

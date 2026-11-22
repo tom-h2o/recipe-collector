@@ -147,10 +147,14 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
               onClick={onAddRecipe}
               aria-label="Add recipe"
               title="Add recipe"
-              className="inline-flex items-center justify-center gap-2 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/80 text-white dark:text-primary-foreground font-semibold rounded-full shadow-ambient transition-all duration-200 hover:scale-[1.02] h-9 sm:h-10 text-sm w-9 sm:w-auto sm:px-6"
+              className="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/80 text-white dark:text-primary-foreground font-semibold rounded-full shadow-ambient transition-all duration-200 hover:scale-[1.02] h-9 sm:h-10 text-sm w-9 sm:w-auto sm:px-6"
             >
               <Plus className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline">Add Recipe</span>
+              {/* "Add" alone between 1024 and 1280 px, where the desktop tabs
+                  leave no room: "Add Recipe" there either wrapped onto two
+                  lines or, kept on one, pushed the header past the window. */}
+              <span className="hidden sm:inline lg:hidden xl:inline">Add Recipe</span>
+              <span className="hidden lg:inline xl:hidden">Add</span>
             </button>
             {user && <UserMenu user={user} onSignOut={onSignOut} onOpenWhatsNew={onOpenWhatsNew} hasUnreadReleases={hasUnreadReleases} />}
           </div>

@@ -594,3 +594,120 @@ button[data-released] {
 .print-sheet {
   display: none;
 }
+
+/*
+ * Reading a recipe (VaultAnimation): the key goes in and turns, the door swings
+ * open on its left hinge, a recipe card drops in, the door closes and the ring
+ * lights up as it locks. One loop is --vault-cycle; VAULT_CYCLE_MS in the
+ * component moves the line of text on at the same pace. transform-box:
+ * view-box makes each transform-origin a point in the drawing's own
+ * coordinates (the keyhole is 80 60, the hinge 46 60).
+ */
+.vault-anim {
+  --vault-cycle: 4.2s;
+  --vault-ease: cubic-bezier(0.45, 0, 0.2, 1);
+}
+.vault-anim .vault-key,
+.vault-anim .vault-door,
+.vault-anim .vault-card {
+  transform-box: view-box;
+}
+.vault-anim .vault-key {
+  transform-origin: 80px 60px;
+  animation: vault-key var(--vault-cycle) var(--vault-ease) infinite;
+}
+.vault-anim .vault-door {
+  transform-origin: 46px 60px;
+  animation: vault-door var(--vault-cycle) var(--vault-ease) infinite;
+}
+.vault-anim .vault-card {
+  transform-origin: 80px 60px;
+  animation: vault-card var(--vault-cycle) var(--vault-ease) infinite;
+}
+.vault-anim .vault-glow {
+  opacity: 0;
+  animation: vault-glow var(--vault-cycle) ease-in-out infinite;
+}
+.vault-anim .vault-tick {
+  opacity: 0;
+}
+.vault-anim .vault-line {
+  animation: vault-line 0.45s ease-out;
+}
+
+@keyframes vault-key {
+  0%       { opacity: 0; transform: translate(-24px, -24px) rotate(0deg); }
+  8%       { opacity: 1; transform: translate(-24px, -24px) rotate(0deg); }
+  20%      { opacity: 1; transform: translate(0, 0) rotate(0deg); }
+  32%      { opacity: 1; transform: translate(0, 0) rotate(90deg); }
+  38%, 100% { opacity: 0; transform: translate(0, 0) rotate(90deg); }
+}
+@keyframes vault-door {
+  0%, 36%  { transform: scaleX(1); }
+  48%, 70% { transform: scaleX(0.08); }
+  82%, 100% { transform: scaleX(1); }
+}
+@keyframes vault-card {
+  0%, 42%  { opacity: 0; transform: translateY(-50px) scale(1); }
+  48%      { opacity: 1; transform: translateY(-50px) scale(1); }
+  62%      { opacity: 1; transform: translateY(0) scale(0.6); }
+  68%, 100% { opacity: 0; transform: translateY(0) scale(0.4); }
+}
+@keyframes vault-glow {
+  0%, 80%  { opacity: 0; }
+  88%      { opacity: 1; }
+  100%     { opacity: 0; }
+}
+@keyframes vault-line {
+  from { opacity: 0; transform: translateY(4px); }
+}
+@keyframes vault-pop {
+  from { opacity: 0; transform: scale(0.6); }
+}
+
+/* Done: the door shut, the keyhole gives way to a tick. */
+.vault-anim[data-done] .vault-key,
+.vault-anim[data-done] .vault-card,
+.vault-anim[data-done] .vault-keyhole {
+  animation: none;
+  opacity: 0;
+}
+.vault-anim[data-done] .vault-door {
+  animation: none;
+  transform: none;
+}
+.vault-anim[data-done] .vault-glow {
+  animation: none;
+  opacity: 1;
+}
+.vault-anim[data-done] .vault-tick {
+  opacity: 1;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: vault-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Reduce motion: nothing moves. The key sits in the lock; text still fades. */
+@media (prefers-reduced-motion: reduce) {
+  .vault-anim .vault-key,
+  .vault-anim .vault-door,
+  .vault-anim .vault-card,
+  .vault-anim .vault-glow {
+    animation: none;
+  }
+  .vault-anim .vault-key { opacity: 1; transform: none; }
+  .vault-anim .vault-card { opacity: 0; }
+  .vault-anim .vault-line { animation: vault-fade 0.45s linear; }
+  .vault-anim[data-done] .vault-tick { animation: vault-fade 0.2s linear; }
+}
+@keyframes vault-fade {
+  from { opacity: 0; }
+}
+
+/* A row that scrolls sideways without a visible bar (the vault's filter chips). */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
