@@ -20,6 +20,14 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-06',
+    title: 'When a website will not share its recipe',
+    items: [
+      'Some sites, REWE and EDEKA among them, block apps from reading their pages. Instead of "Forbidden" you now see which site it is and three ways that work: paste the text, save the page as a PDF, or use screenshots. The link stays with the recipe.',
+    ],
+  },
+  {
+    // Ids must increase with each release (see 2026-12-02 below).
     id: '2026-12-05',
     title: 'Add the iPhone Shortcut with one tap',
     items: [

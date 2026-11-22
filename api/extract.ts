@@ -282,6 +282,41 @@ ${text}
 === END OF PASTED TEXT ===`;
 }
 
+/**
+ * Many recipe sites (rewe.de, edeka.de, chefkoch.de among them) put bot
+ * protection in front of their pages: Cloudflare, Akamai or a CDN rule answers
+ * a request from a server with 403, or with a challenge only a browser can
+ * pass. Nothing here tries to get round that; the answer names the site and
+ * says so, and the form offers the ways that do work (pasted text, a PDF or a
+ * screenshot). It used to be "Failed to fetch URL: Forbidden".
+ */
+export function describePageRefusal(url: string, status: number, headers?: { get(name: string): string | null }) {
+  const site = siteName(url);
+  const blocked = [401, 403, 429, 503].includes(status) || Boolean(headers?.get('cf-mitigated'));
+  if (blocked) {
+    return {
+      code: 'site_blocked' as const,
+      site,
+      error: `${site} does not let apps read its pages, so this recipe cannot be imported from the link.`,
+    };
+  }
+  return {
+    code: 'page_unavailable' as const,
+    site,
+    error: status === 404 || status === 410
+      ? `That page does not exist on ${site} (any more). Check the link.`
+      : `${site} did not send the page (error ${status}). Try again later, or paste the recipe as text.`,
+  };
+}
+
+function siteName(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return 'The website';
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -369,7 +404,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const promptTemplate = EXTRACT_TEMPLATE + tempNote;
 
     const fetchRes = await fetchPublicUrl(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RecipeCollector/1.0)' } });
-    if (!fetchRes.ok) throw new Error(`Failed to fetch URL: ${fetchRes.statusText}`);
+    if (!fetchRes.ok) {
+      // No AI call has been made, so nothing is logged or counted.
+      const refusal = describePageRefusal(url, fetchRes.status, fetchRes.headers);
+      return res.status(422).json(refusal);
+    }
     const html = await fetchRes.text();
     const $ = cheerio.load(html);
     const pageTitle = $('title').text() || $('meta[property="og:title"]').attr('content') || '';

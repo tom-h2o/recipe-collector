@@ -83,6 +83,41 @@ test.describe('pasting a recipe as text', () => {
     await expect(page.getByLabel('Title')).toHaveValue('');
   });
 
+  test('a site that blocks the link says so and leads to the text tab, keeping the link', async ({ page }) => {
+    // rewe.de, edeka.de and others refuse pages to servers. The form used to show
+    // "Failed to fetch URL: Forbidden" and leave the person there.
+    const REWE = 'https://www.rewe.de/rezepte/klassische-kuerbissuppe/';
+    const sent: unknown[] = [];
+    await page.route('**/api/extract', async (route) => {
+      const body = route.request().postDataJSON() as { url?: string; text?: string };
+      sent.push(body);
+      return body.url
+        ? route.fulfill({ status: 422, contentType: 'application/json', body: JSON.stringify({
+          code: 'site_blocked', site: 'rewe.de',
+          error: 'rewe.de does not let apps read its pages, so this recipe cannot be imported from the link.',
+        }) })
+        : route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(EXTRACTED) });
+    });
+
+    await page.goto('/');
+    await page.getByRole('button', { name: /add recipe/i }).click();
+    await page.getByLabel('Recipe link').fill(REWE);
+    await page.getByRole('button', { name: 'Auto-Fill' }).click();
+
+    const alert = page.getByRole('dialog').getByRole('alert');
+    await expect(alert).toContainText('rewe.de does not let apps read its pages');
+    await expect(alert).toContainText('Full Page');
+    await alert.getByRole('button', { name: 'Paste text' }).click();
+
+    await page.getByLabel('Recipe text').fill(PASTED);
+    await page.getByRole('button', { name: 'Extract Recipe from Text' }).click();
+    await expect(page.getByLabel('Title')).toHaveValue('Omas Pfannkuchen');
+    // The recipe still points back to where it came from.
+    await expect(page.locator('#source-url')).toHaveValue(REWE);
+    await expect(page.locator('#source-name')).toHaveValue('rewe.de');
+    expect(sent).toEqual([{ url: REWE }, { text: PASTED }]);
+  });
+
   for (const width of [320, 390]) {
     test(`all four import tabs fit at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 800 });
