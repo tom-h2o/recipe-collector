@@ -6,6 +6,8 @@ import type { Recipe } from '@/types';
 interface Props {
   recipe: Recipe;
   isProcessing: boolean;
+  /** Sent from the iPhone Shortcut and not opened yet. */
+  isNew?: boolean;
   activeFilter: string | null;
   translation?: { title: string; description: string | null; ingredients?: Array<{ amount: string; name: string; details?: string }> } | null;
   translationLoading?: boolean;
@@ -14,7 +16,7 @@ interface Props {
   onFilterChange: (tag: string) => void;
 }
 
-export function RecipeCard({ recipe, isProcessing, activeFilter, translation, translationLoading, onOpen, onToggleFavourite, onFilterChange }: Props) {
+export function RecipeCard({ recipe, isProcessing, isNew = false, activeFilter, translation, translationLoading, onOpen, onToggleFavourite, onFilterChange }: Props) {
   const parsed = translation?.ingredients ? translation.ingredients : parseIngredients(recipe.ingredients);
   const [imgError, setImgError] = useState(false);
   const totalTime = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
@@ -62,14 +64,24 @@ export function RecipeCard({ recipe, isProcessing, activeFilter, translation, tr
           have a live link is to open each one's menu in turn, which is no way
           to keep track of what you have put on the internet.
         */}
-        {recipe.public_share_token && (
-          <div
-            title="This recipe has a public link anyone can open"
-            className="absolute top-2 left-2 flex items-center gap-1 bg-sk-primary/90 dark:bg-primary/90 text-white dark:text-primary-foreground text-[10px] font-semibold px-2 py-1 rounded-full font-sans backdrop-blur-sm"
-          >
-            <Share2 className="w-3 h-3" aria-hidden="true" /> Shared
-          </div>
-        )}
+        <div className="absolute top-2 left-2 flex flex-col items-start gap-1">
+          {isNew && (
+            <div
+              title="Sent from your photos and not opened yet"
+              className="flex items-center gap-1 bg-amber-500/95 text-white text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full font-sans"
+            >
+              New
+            </div>
+          )}
+          {recipe.public_share_token && (
+            <div
+              title="This recipe has a public link anyone can open"
+              className="flex items-center gap-1 bg-sk-primary/90 dark:bg-primary/90 text-white dark:text-primary-foreground text-[10px] font-semibold px-2 py-1 rounded-full font-sans backdrop-blur-sm"
+            >
+              <Share2 className="w-3 h-3" aria-hidden="true" /> Shared
+            </div>
+          )}
+        </div>
         {/* Processing badge */}
         {(isProcessing || translationLoading) && (
           <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 bg-black/70 backdrop-blur-sm text-white text-[10px] font-semibold px-2.5 py-1 rounded-full font-sans">

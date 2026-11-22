@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { GeminiLogs } from '@/components/GeminiLogs';
 import { ConnectionsPanel } from '@/components/ConnectionsPanel';
+import { ShortcutSettings } from '@/components/ShortcutSettings';
 import { useAccountLinks } from '@/hooks/useAccountLinks';
 import { useModelResolution } from '@/hooks/useModelResolution';
 import { MODEL_OPTIONS, AI_TASKS, RECOMMENDED_TASK_MODELS } from '@/lib/constants';
@@ -172,6 +173,8 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, isA
                   </div>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">All temperatures in recipes will be displayed in your preferred unit.</p>
                 </div>
+
+                <ShortcutSettings open={isOpen && tab === 'settings'} />
 
                 {isAdmin ? (
                   <>

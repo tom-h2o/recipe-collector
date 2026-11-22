@@ -9,6 +9,7 @@ import {
 import { captureException } from './_lib/sentry.js';
 import { getGeminiClient } from './_lib/gemini.js';
 import { configReport, reasoningReport, runLiveCheck, EXPECTED_SCHEMA, type UsageRow } from './_lib/systemCheck.js';
+import { hashShortcutKey, newShortcutKey } from './_lib/shortcutImport.js';
 
 const ADMIN_EMAIL = process.env.VITE_ADMIN_EMAIL ?? '';
 const MAX_PAGE_SIZE = 100;
@@ -225,6 +226,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const auth = req.headers.authorization as string | undefined;
 
   try {
+    // ── The iPhone Shortcut key — any signed-in user, their own key only ──────
+    // Handled first and only on these exact tab/action values, so nothing here
+    // can fall through to the admin routes or to DELETE (account deletion).
+    // The key is shown once on creation; only its hash is stored.
+    const shortcutRoute = req.method === 'GET' && queryParam(req, 'tab') === 'shortcut-key'
+      ? 'status'
+      : req.method === 'POST' && queryParam(req, 'action') === 'shortcut-key'
+        ? 'create'
+        : req.method === 'POST' && queryParam(req, 'action') === 'shortcut-key-revoke'
+          ? 'revoke'
+          : null;
+    if (shortcutRoute) {
+      const userId = await getUserId(auth);
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+      const supabase = getServerSupabase();
+      if (shortcutRoute === 'status') {
+        const { data, error } = await supabase.from('shortcut_keys').select('created_at, last_used_at').eq('user_id', userId).maybeSingle();
+        if (error) throw error;
+        return res.status(200).json({ hasKey: !!data, created_at: data?.created_at ?? null, last_used_at: data?.last_used_at ?? null });
+      }
+      if (shortcutRoute === 'create') {
+        // A new key replaces the old one, which stops working at once.
+        const key = newShortcutKey();
+        const created_at = new Date().toISOString();
+        const { error } = await supabase
+          .from('shortcut_keys')
+          .upsert({ user_id: userId, key_hash: hashShortcutKey(key), created_at, last_used_at: null }, { onConflict: 'user_id' });
+        if (error) throw error;
+        return res.status(200).json({ key, created_at });
+      }
+      const { error } = await supabase.from('shortcut_keys').delete().eq('user_id', userId);
+      if (error) throw error;
+      return res.status(200).json({ ok: true });
+    }
+
     // ── GET /api/account?recipeId=… — admin: open one user's full recipe ──────
     // The paginated dashboard only carries card-level fields; this returns the
     // full row (ingredients, instructions, nutrition) for the viewer.

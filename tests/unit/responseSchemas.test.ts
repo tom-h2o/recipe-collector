@@ -62,9 +62,11 @@ describe('nullable fields stay nullable', () => {
  */
 describe('no AI endpoint sends an unconstrained request', () => {
   const apiDir = path.resolve(process.cwd(), 'api');
-  const aiEndpoints = ['tag', 'nutrition', 'suggest', 'scale', 'shopping', 'translate', 'extract'];
+  // Tagging and nutrition run in _lib/enrich.ts, shared by their endpoints and
+  // the iPhone Shortcut import, which saves and enriches on the server.
+  const aiSources = ['_lib/enrich', 'suggest', 'scale', 'shopping', 'translate', 'extract'];
 
-  for (const name of aiEndpoints) {
+  for (const name of aiSources) {
     it(`${name}.ts constrains its response shape`, () => {
       const src = fs.readFileSync(path.join(apiDir, `${name}.ts`), 'utf8');
       // The colon matters: `import { tagResponseSchema }` also contains the
@@ -78,8 +80,11 @@ describe('no AI endpoint sends an unconstrained request', () => {
     // Those two do not go through generateJson, which is how they missed the
     // modelVersion logging in #23 — and, until they moved onto
     // generateFromParts, every retry: a 503 failed a photo on the first try.
-    const src = fs.readFileSync(path.join(apiDir, 'extract.ts'), 'utf8');
-    expect(src, 'extract.ts calls Gemini directly, skipping retry and fallback').not.toMatch(/\.generateContent\(/);
+    // The photo branch now lives in _lib/photoExtraction.ts, shared with the
+    // iPhone Shortcut import; the PDF branch is still in extract.ts.
+    const files = ['extract.ts', '_lib/photoExtraction.ts'];
+    const src = files.map((f) => fs.readFileSync(path.join(apiDir, f), 'utf8')).join('\n');
+    expect(src, 'extraction calls Gemini directly, skipping retry and fallback').not.toMatch(/\.generateContent\(/);
     const calls = src.match(/generateFromParts\([^;]*\);/g) ?? [];
     expect(calls.length).toBeGreaterThanOrEqual(2);
     for (const call of calls) expect(call).toMatch(/responseSchema:/);

@@ -1,39 +1,17 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey, getUserId, canEditRecipe, modelFor, thinkingFor } from './_lib/supabase.js';
-import { nutritionResponseSchema } from './_lib/responseSchemas.js';
-import { getGeminiClient, generateJson, describeGeminiError } from './_lib/gemini.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId, canEditRecipe } from './_lib/supabase.js';
+import { getGeminiClient, describeGeminiError } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
-import { nutritionResultSchema, nutritionSchema } from './_lib/schemas.js';
-import { makeCacheKey, getCached, setCached } from './_lib/cache.js';
-import { NUTRITION_TEMPLATE } from './_lib/prompts.js';
-import { checkRateLimit } from './_lib/rateLimit.js';
+import { nutritionSchema } from './_lib/schemas.js';
+import { DailyLimitError, estimateNutrition } from './_lib/enrich.js';
 
-function parseNutritionResult(value: unknown) {
-  const parsed = nutritionResultSchema.safeParse(value);
-  if (!parsed.success) throw new Error(`Invalid AI nutrition output: ${parsed.error.issues[0]?.message ?? 'Invalid response'}`);
-  return parsed.data;
-}
-
-function buildNutritionPrompt(template: string, title: string, ingredientText: string, servings: number | null): string {
-  return `${template}
-
-Recipe: ${title || ''}
-Servings: ${servings ?? 'unknown'}
-Ingredients:
-${ingredientText}
-
-Return ONLY a JSON object with these exact keys (all values are numbers rounded to the nearest integer, per serving):
-{
-  "calories": 450,
-  "protein_g": 28,
-  "carbs_g": 40,
-  "fat_g": 18,
-  "fiber_g": 6
-}`;
-}
-
+/**
+ * Estimates nutrition for a recipe the app has just saved. The work itself is
+ * estimateNutrition() in _lib/enrich.ts, shared with the iPhone Shortcut
+ * import, which saves and estimates on the server.
+ */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -50,47 +28,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
 
-    const ingredientText = Array.isArray(ingredients)
-      ? ingredients.map((i: unknown) => {
-          if (typeof i === 'object' && i !== null && 'name' in i) {
-            const ing = i as { amount?: string; name: string };
-            return `${ing.amount || ''} ${ing.name}`.trim();
-          }
-          return String(i);
-        }).join('\n')
-      : String(ingredients);
-
-    const prompt = buildNutritionPrompt(NUTRITION_TEMPLATE, title ?? '', ingredientText, servings ?? null);
-
-    const cacheKey = makeCacheKey('nutrition', { ingredientText, servings: servings ?? null });
-    const cachedNutrition = await getCached(supabase, cacheKey);
-    if (cachedNutrition) {
-      const nutrition = parseNutritionResult(cachedNutrition);
-      const { error: updateError } = await supabase.from('recipes').update({ nutrition }).eq('id', recipeId).eq('user_id', userId);
-      if (updateError) throw updateError;
-      return res.status(200).json({ nutrition });
-    }
-
-    const rl = await checkRateLimit(supabase, userId);
-    if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
-
-    const client = getGeminiClient(apiKey);
-    const nutrition = parseNutritionResult(await generateJson(client, modelFor(settings, 'nutrition'), prompt, { supabase, endpoint: 'nutrition', recipeId, userId }, {
-      responseSchema: nutritionResponseSchema,
-      // The other half of the wait after a save. Unlike tagging this one is a
-      // trade: the figures are an estimate either way and the prompt carries
-      // its own calibration anchors, but reasoning may make them a little
-      // steadier. If the values drift, take 'nutrition' out of REASONING_OFF_TASKS.
-      thinking: thinkingFor('nutrition'),
-    }));
-
-    const { error: updateError } = await supabase.from('recipes').update({ nutrition }).eq('id', recipeId).eq('user_id', userId);
-    if (updateError) throw updateError;
-    setCached(supabase, cacheKey, 'nutrition', nutrition, 24 * 30);
-
+    const nutrition = await estimateNutrition(
+      { supabase, client: getGeminiClient(apiKey), settings, userId },
+      { id: recipeId, title: title ?? '', ingredients, servings: servings ?? null },
+    );
     return res.status(200).json({ nutrition });
   } catch (err: unknown) {
     if (err instanceof ZodError) return res.status(400).json({ error: err.issues[0]?.message ?? 'Invalid request' });
+    if (err instanceof DailyLimitError) return res.status(429).json({ error: err.message });
     captureException(err);
     console.error('Nutrition error:', err);
     // Never pass err.message through: for a Gemini failure that is the raw

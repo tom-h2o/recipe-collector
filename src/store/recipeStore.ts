@@ -26,6 +26,12 @@ interface RecipeState {
   currentSortBy: string;
   /** Narrows the vault to one linked person, or null for everyone visible. */
   currentOwnerFilter: string | null;
+  /**
+   * Recipes the iPhone Shortcut saved that the person has not opened yet
+   * (useRecipeImports). The NEW_FROM_PHOTOS chip filters the vault to these.
+   */
+  newImportIds: string[];
+  setNewImportIds: (ids: string[]) => void;
 
   // Polling intervals tracker (in-memory, outside React lifecycle)
   pollingIntervals: Map<string, ReturnType<typeof setInterval>>;
@@ -91,7 +97,17 @@ interface RecipeState {
  */
 type RecipeQuery = ReturnType<ReturnType<typeof supabase.from>['select']>;
 
-function applyTagFilter<T extends RecipeQuery>(query: T, tagFilter: string): T {
+/**
+ * Not a tag: the recipes the iPhone Shortcut saved and nobody has opened yet.
+ * Offered by the "new recipes from your photos" banner.
+ */
+export const NEW_FROM_PHOTOS = '\ud83c\udd95 New from photos';
+
+/** Matches no row: `in` with an empty list is not valid PostgREST. */
+const NO_RECIPE = '00000000-0000-0000-0000-000000000000';
+
+function applyTagFilter<T extends RecipeQuery>(query: T, tagFilter: string, newImportIds: string[] = []): T {
+  if (tagFilter === NEW_FROM_PHOTOS) return query.in('id', newImportIds.length ? newImportIds : [NO_RECIPE]) as T;
   if (tagFilter === '\u2b50 Favourites') return query.eq('is_favourite', true) as T;
   if (tagFilter === '\ud83d\udd17 Shared') return query.not('public_share_token', 'is', null) as T;
   return query.contains('tags', [tagFilter]) as T;
@@ -125,6 +141,8 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
   currentMemberships: [],
   currentSortBy: 'newest',
   currentOwnerFilter: null,
+  newImportIds: [],
+  setNewImportIds: (ids) => set({ newImportIds: ids }),
   pollingIntervals: new Map(),
   realtimeChannels: new Map(),
 
@@ -168,7 +186,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
     }
 
     if (tagFilter) {
-      query = applyTagFilter(query, tagFilter);
+      query = applyTagFilter(query, tagFilter, get().newImportIds);
     }
 
     if (collectionId) {
@@ -211,7 +229,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       query = query.textSearch('search_vector', currentSearchQuery);
     }
     if (currentTagFilter) {
-      query = applyTagFilter(query, currentTagFilter);
+      query = applyTagFilter(query, currentTagFilter, get().newImportIds);
     }
     if (currentCollectionId) {
       const ids = currentMemberships.filter((m) => m.collection_id === currentCollectionId).map((m) => m.recipe_id);
