@@ -61,7 +61,7 @@ To run a single test file: `npx vitest run src/lib/recipeUtils.test.ts`
 - `RecipeDetail` — full-screen drawer: scaling, translation, cook mode entry, edit/delete/share/send
 - `RecipeForm` — add/edit dialog, in steps: choose (website / photos / PDF / text, or **Enter it manually**), one step per way of importing, reading (`VaultAnimation`), then the editor. Editing a recipe opens on the editor
 - `VaultAnimation` — the only progress shown while a recipe is read: the key turns in the vault door, the door opens, a recipe card goes in; a line of text moves on underneath; Cancel; still under *Reduce motion*
-- `CookMode` — fullscreen step-by-step mode with ingredient side panel
+- `CookMode` — fullscreen step-by-step mode: each step shows the ingredients it mentions ("For this step", `src/lib/stepIngredients.ts`, tap to tick off), and a labelled **Ingredients** button opens the whole list, as a sheet from the bottom on a phone (the step stays in view; it used to cover the screen behind an unlabelled icon) and a side panel from `sm` up; ticks are shared. Its header carries the Cook button's flame, not a second symbol. `tests/e2e/cookMode.spec.ts`
 - `MealPlanner` — 7-day calendar
 - `ShoppingList` — shopping + pantry tabs
 - `SettingsPanel` — temperature unit, and the AI models: editable by the admin (for everyone), a read-only "model per task" list for anyone else; Usage Logs tab shows daily usage meter (progress bar + per-endpoint breakdown) and recent AI call history
