@@ -104,7 +104,7 @@ vi.mock('./_lib/enrich.js', async (importOriginal) => {
   return { ...real, tagRecipe: h.tag, estimateNutrition: h.nutrition };
 });
 
-import { handleShortcutImport, hashShortcutKey, newShortcutKey, readSharedPage, summarise } from './_lib/shortcutImport';
+import { REPLY_WITHIN_MS, handleShortcutImport, hashShortcutKey, newShortcutKey, readSharedPage, summarise } from './_lib/shortcutImport';
 
 const KEY = newShortcutKey();
 const recipe = (title: string) => ({
@@ -359,8 +359,25 @@ describe('a web page from the Safari Shortcut', () => {
     h.generateJson.mockImplementation(() => new Promise((resolve) => { finishReading = resolve; }));
     const { res, waitUntil } = await send({ page }, { replyWithinMs: 10 });
     expect(res.statusCode).toBe(202);
-    expect(res.body?.message).toBe('Got it. Reading the page; the recipe will be in Speisekammer in a minute.');
+    expect(res.body?.message).toBe('Got it. Reading the page now; the recipe will be in Speisekammer in about a minute.');
     finishReading(recipe('Kürbissuppe'));
+    await waitUntil.mock.calls[0][0];
+    expect(h.db.imports[0]).toMatchObject({ status: 'saved' });
+  });
+});
+
+describe('the answer to the iPhone', () => {
+  it('comes as soon as the pictures have arrived, not after the reading', async () => {
+    // The phone used to wait up to 20 s on a spinner for "Saved: <title>".
+    expect(REPLY_WITHIN_MS).toBe(0);
+    let finishReading: (v: unknown) => void = () => {};
+    h.extract.mockImplementation(() => new Promise((resolve) => { finishReading = resolve; }));
+    const { res, waitUntil } = await send({ images: [CAMERA_JPEG] }, { replyWithinMs: REPLY_WITHIN_MS });
+    expect(res.statusCode).toBe(202);
+    expect(res.body?.message).toBe('Got it. Reading the picture now; the recipe will be in Speisekammer in about a minute.');
+    // Recorded before answering, so the app shows it as being read.
+    expect(h.db.imports[0]).toMatchObject({ status: 'processing' });
+    finishReading(recipe('Soup'));
     await waitUntil.mock.calls[0][0];
     expect(h.db.imports[0]).toMatchObject({ status: 'saved' });
   });

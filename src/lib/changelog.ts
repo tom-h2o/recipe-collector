@@ -20,6 +20,14 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-10',
+    title: 'The iPhone Shortcuts answer at once',
+    items: [
+      'Sending a picture or a Safari page now says “Got it” as soon as it has arrived, instead of waiting while the recipe is read. The recipe appears in the vault about a minute later, marked New.',
+    ],
+  },
+  {
+    // Ids must increase with each release (see 2026-12-02 below).
     id: '2026-12-09',
     title: 'Filter by more, and combine filters',
     items: [

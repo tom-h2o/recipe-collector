@@ -156,7 +156,7 @@ export function ShortcutSettings({ open, isAdmin = false }: { open: boolean; isA
           <li>Add <b>Get Dictionary Value</b> for <code>message</code>, then <b>Show Notification</b> with it.</li>
         </ol>
         <p className="text-zinc-500 dark:text-zinc-400">
-          Up to 8 pictures at a time. If reading takes longer, the notification says “Got it” and the recipe appears here a minute later.
+          Up to 8 pictures at a time. The notification says “Got it” as soon as they have arrived; the recipe appears here about a minute later, marked New.
         </p>
       </ShortcutCard>
 

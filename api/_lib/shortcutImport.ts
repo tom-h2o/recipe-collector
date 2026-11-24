@@ -25,13 +25,15 @@ import { extractRecipeFromHtml } from './pageExtraction.js';
  * recipe across all pages, or one per picture), saved to that person's vault
  * with the pictures attached, and tagged and estimated like any new recipe.
  *
- * Shortcuts appears to give up on a request after about 30 seconds, and
- * reading several pages can take longer. So the answer comes within
- * REPLY_WITHIN_MS: "Saved: <title>" if the work is done by then, otherwise
- * "Got it" — and the work finishes in the background (Vercel's waitUntil).
- * Either way each recipe has a recipe_imports row (migration 0070), which the
- * app turns into its "new recipes from your iPhone" banner and New badges,
- * including the ones that could not be read.
+ * The answer comes as soon as the pictures have arrived and the import is
+ * recorded: "Got it", and the reading finishes in the background (Vercel's
+ * waitUntil). It used to wait up to 20 seconds for the reading, to say
+ * "Saved: <title>" instead, which left the iPhone hanging on a spinner for
+ * most of that time; the result was going to be in the app anyway. Each
+ * recipe has a recipe_imports row (migration 0070), which the app turns into
+ * its "new recipes from your iPhone" banner and New badges, including the
+ * ones that could not be read. (Shortcuts also gives up on a request after
+ * about 30 seconds, which a slow read on several pages could exceed.)
  *
  * Every answer is `{ message }`, worded for the person: the Shortcut shows it
  * as a notification as it is.
@@ -47,8 +49,12 @@ import { extractRecipeFromHtml } from './pageExtraction.js';
 export const SHORTCUT_KEY_HEADER = 'x-speisekammer-key';
 const KEY_PREFIX = 'spk_';
 
-/** How long the Shortcut is kept waiting before it hears "Got it". */
-export const REPLY_WITHIN_MS = 20_000;
+/**
+ * How long the Shortcut waits for the reading before it hears "Got it": not
+ * at all. Tests pass a longer wait to check the "Saved: <title>" path, which
+ * stays for any caller that wants it.
+ */
+export const REPLY_WITHIN_MS = 0;
 
 /** Base64 is a third larger than the bytes; Vercel refuses bodies over 4.5 MB. */
 const MAX_TOTAL_BASE64 = 4_400_000;
@@ -352,7 +358,7 @@ async function handlePageImport(req: VercelRequest, res: VercelResponse, supabas
   ]);
   if (done) return reply(done.status === 'failed' ? 422 : 200, summarise([done]));
   deps.waitUntil(work);
-  return reply(202, 'Got it. Reading the page; the recipe will be in Speisekammer in a minute.');
+  return reply(202, 'Got it. Reading the page now; the recipe will be in Speisekammer in about a minute.');
 }
 
 /** POST /api/extract?via=shortcut */
@@ -413,8 +419,8 @@ export async function handleShortcutImport(req: VercelRequest, res: VercelRespon
     // banner in the app reports how it went, failures included.
     deps.waitUntil(work);
     return reply(202, mode === 'single'
-      ? `Got it. Reading ${pictures.length === 1 ? 'the picture' : `${pictures.length} pages`}; the recipe will be in Speisekammer in a minute.`
-      : `Got it. Reading ${groups.length} recipes; they will be in Speisekammer in a few minutes.`);
+      ? `Got it. Reading ${pictures.length === 1 ? 'the picture' : `${pictures.length} pages`} now; the recipe will be in Speisekammer in about a minute.`
+      : `Got it. Reading ${groups.length} recipes now; they will be in Speisekammer in a few minutes.`);
   } catch (err) {
     captureException(err);
     return reply(500, 'Something went wrong on the server. Nothing was saved; please try again.');
