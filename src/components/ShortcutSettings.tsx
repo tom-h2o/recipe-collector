@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useShortcutKey } from '@/hooks/useShortcutKey';
 import { useShortcutLink, type ShortcutKind } from '@/hooks/useShortcutLink';
+import { findShortcutLink } from '../../shared/shortcutLink';
 import { SAFARI_SHORTCUT_NAME, SAFARI_SHORTCUT_SCRIPT } from '../../shared/safariShortcut';
 
 /**
@@ -227,8 +228,28 @@ interface CardProps {
 /** One Shortcut: what it does, Add to Shortcuts once shared, the admin's link field, and the build steps. */
 function ShortcutCard({ kind, icon, heading, name, intro, note, link, isAdmin, formLabel, saving, error, onSave, children }: CardProps) {
   const [draft, setDraft] = useState('');
+  const [notFound, setNotFound] = useState(false);
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setDraft(link ?? ''); }, [link]);
+
+  /**
+   * A paste is saved as soon as it holds an iCloud link: the field is not one
+   * people expect to confirm, and Settings' own Save button below does not
+   * save it, which is how a link pasted on an iPhone was lost. Whatever came
+   * with the link (the Shortcut's name, a query) is dropped.
+   */
+  const changeDraft = (value: string) => {
+    setDraft(value);
+    setNotFound(false);
+    const found = findShortcutLink(value);
+    if (found && found !== link) onSave(found);
+  };
+  const submit = () => {
+    if (!draft.trim()) { onSave(''); return; }
+    const found = findShortcutLink(draft);
+    if (found) onSave(found); else setNotFound(true);
+  };
+  const saved = !!link && findShortcutLink(draft) === link;
   const headingId = `shortcut-${kind}-heading`;
 
   return (
@@ -262,30 +283,54 @@ function ShortcutCard({ kind, icon, heading, name, intro, note, link, isAdmin, f
         <form
           aria-label={formLabel}
           className="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 p-2.5 space-y-2"
-          onSubmit={(e) => { e.preventDefault(); onSave(draft); }}
+          onSubmit={(e) => { e.preventDefault(); submit(); }}
         >
           <Label htmlFor={`shortcut-link-${kind}`} className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
             {formLabel} (admin)
           </Label>
           <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
-            Build the Shortcut once with the steps below. In its settings, open <b>Setup</b> → <b>Add New Question</b> and
-            pick the key in the header, so each person is asked for their own (Apple clears your key when you share).
-            Then <b>Share</b> → <b>Copy iCloud Link</b> and paste it here: everyone gets the Add to Shortcuts button.
+            Build the Shortcut once with the steps below, with your key in a <b>Text</b> action at the top and that
+            Text used in the header. Then <b>ⓘ</b> → <b>Setup</b> → <b>Add New Question</b> and pick that Text action,
+            so each person is asked for their own key (Apple clears yours when you share). Then <b>Share</b> →
+            <b> Copy iCloud Link</b> and paste it here. It is saved at once, and everyone gets the Add to Shortcuts button.
           </p>
           <div className="flex gap-2">
+            {/* Plain text, not type="url": a paste with the Shortcut's name in
+                front is not a URL, and Safari then refused to submit the form
+                without saying why. */}
             <input
               id={`shortcut-link-${kind}`}
-              type="url"
+              type="text"
               inputMode="url"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder="https://www.icloud.com/shortcuts/…"
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              className="flex-1 min-w-0 h-8 px-3 rounded-full text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700"
+              onChange={(e) => changeDraft(e.target.value)}
+              className="flex-1 min-w-0 h-9 px-3 rounded-full text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700"
             />
-            <Button type="submit" disabled={saving || draft.trim() === (link ?? '')} className="shrink-0 h-8 rounded-full text-xs">
-              {draft.trim() ? 'Save link' : 'Remove link'}
-            </Button>
+            {saved ? (
+              <Button type="button" variant="outline" disabled={saving} onClick={() => { setDraft(''); onSave(''); }} className="shrink-0 h-9 rounded-full text-xs">
+                Remove link
+              </Button>
+            ) : (
+              <Button type="submit" disabled={saving || (!draft.trim() && !link)} className="shrink-0 h-9 rounded-full text-xs">
+                {draft.trim() ? 'Save link' : 'Remove link'}
+              </Button>
+            )}
           </div>
+          {saving && <p className="text-xs text-zinc-500" role="status">Saving…</p>}
+          {!saving && saved && !error && (
+            <p className="text-xs text-sk-primary dark:text-primary flex items-center gap-1" role="status">
+              <Check className="w-3.5 h-3.5" aria-hidden="true" /> Saved. Everyone sees Add to Shortcuts for this one.
+            </p>
+          )}
+          {notFound && (
+            <p role="alert" className="text-xs text-destructive">
+              No iCloud link found in that. In Shortcuts: open the Shortcut, <b>Share</b> → <b>Copy iCloud Link</b>, then paste here.
+            </p>
+          )}
           {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
         </form>
       )}

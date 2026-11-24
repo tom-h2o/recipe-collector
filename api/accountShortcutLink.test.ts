@@ -76,8 +76,8 @@ describe('POST /api/account?action=shortcut-url', () => {
     expect(h.upserts.map((u) => (u[0] as { shortcut_url: unknown }).shortcut_url)).toEqual([null, null]);
   });
 
-  it('refuses anything but an iCloud Shortcut link, since every user\'s button opens it', async () => {
-    for (const url of ['https://evil.example/shortcuts/abc12345', 'javascript:alert(1)', 'https://www.icloud.com/shortcuts/abc12345?redirect=x', 'http://www.icloud.com/shortcuts/abc12345']) {
+  it('refuses anything without an iCloud Shortcut link, since every user\'s button opens it', async () => {
+    for (const url of ['https://evil.example/shortcuts/abc12345', 'javascript:alert(1)', 'http://www.icloud.com/shortcuts/abc12345', 'Save page to Speisekammer']) {
       const res = await post({ url });
       expect(res.statusCode, url).toBe(400);
       expect(String(res.body?.error)).toContain('iCloud link');
@@ -91,5 +91,20 @@ describe('POST /api/account?action=shortcut-url', () => {
     h.userId.mockResolvedValue(null);
     expect((await post({ url: LINK })).statusCode).toBe(401);
     expect(h.upserts).toHaveLength(0);
+  });
+
+  it('finds the link in whatever was pasted, and keeps only its canonical form', async () => {
+    // The Shortcuts app can hand over the name with the link, or a query after it.
+    const pasted = [
+      `Save page to Speisekammer\n${LINK}`,
+      `${LINK}?redirect=https://evil.example`,
+      LINK.replace('https://www.', 'https://'),
+    ];
+    for (const url of pasted) {
+      const res = await post({ url, kind: 'safari' });
+      expect(res.statusCode, url).toBe(200);
+      expect(res.body, url).toEqual({ url: LINK, kind: 'safari' });
+    }
+    expect(h.upserts.map((u) => (u[0] as { safari_shortcut_url: unknown }).safari_shortcut_url)).toEqual([LINK, LINK, LINK]);
   });
 });
