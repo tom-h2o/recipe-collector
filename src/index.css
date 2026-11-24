@@ -250,9 +250,14 @@
     0 16px 36px -10px rgb(var(--glass-shadow) / var(--glass-shadow-alpha));
 }
 
-/* Menus carry text over whatever happens to be underneath, so they are denser. */
+/*
+ * Menus carry text over whatever happens to be underneath, so they are
+ * denser: a hint of glass, never a fight with the recipe behind. At 0.8 the
+ * account menu read poorly over a card (it also had no blur at all then, see
+ * UserMenu); 0.92 keeps the rim, the sheen and a tint of what is below.
+ */
 .glass-menu {
-  --glass-alpha: 0.8;
+  --glass-alpha: 0.92;
 }
 
 /* Small round controls that sit on a photo: the favourite star on a card. */
