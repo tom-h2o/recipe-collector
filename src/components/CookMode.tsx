@@ -1,4 +1,4 @@
-import { ChefHat, X, CheckSquare, Square, List } from 'lucide-react';
+import { Flame, X, CheckSquare, Square, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { useState } from 'react';
@@ -6,6 +6,7 @@ import { CookTimer } from '@/components/CookTimer';
 import { useCookTimer } from '@/hooks/useCookTimer';
 import { parseDurations } from '@/lib/parseDurations';
 import { parseIngredients } from '@/lib/recipeUtils';
+import { ingredientsInStep } from '@/lib/stepIngredients';
 import type { Recipe, RecipeTranslation } from '@/types';
 
 interface Props {
@@ -38,6 +39,9 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
   // would sit after the `if (!recipe) return null` guard above, which breaks
   // the rules of hooks.
   const stepDurations = parseDurations(currentStep);
+  // The ingredients this step mentions, shown under it so the full list is
+  // rarely needed (src/lib/stepIngredients.ts).
+  const stepIngredients = ingredientsInStep(currentStep, ingredients);
   const isFirst = cookStep === 0;
   const isLast = cookStep === steps.length - 1;
 
@@ -74,45 +78,60 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
             controls stay off the status bar, the home indicator and the notch. */}
         <div className="flex w-full h-full overflow-hidden pt-[var(--safe-top)] pb-[var(--safe-bottom)] pl-[var(--safe-left)] pr-[var(--safe-right)]">
 
-          {/* Ingredients side panel — overlays on mobile, side panel on desktop */}
+          {/* The whole list. On a phone a sheet from the bottom over a dimmed
+              step, so the step stays in view above it (it used to cover the
+              whole screen); from sm up a panel beside the step. */}
           {showIngredients && (
-            <div className="fixed inset-0 z-10 pt-[var(--safe-top)] pb-[var(--safe-bottom)] sm:static sm:inset-auto sm:z-auto sm:pt-0 sm:pb-0 w-full sm:w-64 shrink-0 border-r border-white/10 flex flex-col overflow-hidden bg-zinc-950 sm:bg-transparent">
-              <div className="shrink-0 px-4 py-4 border-b border-white/10 flex items-center justify-between">
-                <span className="font-bold text-sm text-white/80 uppercase tracking-wider">Ingredients</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-white/40">{checkedIngredients.size}/{ingredients.length}</span>
-                  <button onClick={() => setShowIngredients(false)} aria-label="Hide ingredients" className="sm:hidden p-1 rounded-full hover:bg-white/10 text-white/50"><X className="w-4 h-4" /></button>
+            <>
+              <div
+                aria-hidden="true"
+                onClick={() => setShowIngredients(false)}
+                className="sm:hidden fixed inset-0 z-10 bg-black/60"
+              />
+              <section
+                aria-label="Ingredients"
+                className="fixed inset-x-0 bottom-0 z-20 max-h-[72dvh] rounded-t-3xl border-t border-white/10 bg-zinc-900 pb-[var(--safe-bottom)] pl-[var(--safe-left)] pr-[var(--safe-right)] sm:static sm:z-auto sm:max-h-none sm:rounded-none sm:border-t-0 sm:border-r sm:bg-transparent sm:p-0 w-full sm:w-72 shrink-0 flex flex-col overflow-hidden"
+              >
+                <div aria-hidden="true" className="sm:hidden mx-auto mt-2.5 h-1 w-10 rounded-full bg-white/20" />
+                <div className="shrink-0 px-5 py-3.5 border-b border-white/10 flex items-center justify-between">
+                  <span className="font-bold text-sm text-white/80 uppercase tracking-wider">Ingredients</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-white/40 tabular-nums">{checkedIngredients.size} of {ingredients.length} done</span>
+                    <button onClick={() => setShowIngredients(false)} aria-label="Hide ingredients" className="sm:hidden p-2 -mr-2 rounded-full hover:bg-white/10 text-white/60"><X className="w-5 h-5" /></button>
+                  </div>
                 </div>
-              </div>
-              <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-1">
-                {ingredients.map((ing, i) => (
-                  <button
-                    key={i}
-                    onClick={() => toggleIngredient(i)}
-                    className="w-full flex items-start gap-2.5 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors text-left group"
-                  >
-                    {checkedIngredients.has(i)
-                      ? <CheckSquare className="w-4 h-4 text-sk-primary shrink-0 mt-0.5" />
-                      : <Square className="w-4 h-4 text-white/30 group-hover:text-white/50 shrink-0 mt-0.5" />
-                    }
-                    <span className={`text-sm leading-snug ${checkedIngredients.has(i) ? 'line-through text-white/30' : 'text-white/80'}`}>
-                      {ing.amount && <span className="font-semibold text-sk-primary-fixed">{ing.amount} </span>}
-                      {ing.name}
-                      {ing.details && <span className="text-white/40">, {ing.details}</span>}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
+                <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-3 space-y-1">
+                  {ingredients.map((ing, i) => (
+                    <button
+                      key={i}
+                      onClick={() => toggleIngredient(i)}
+                      aria-pressed={checkedIngredients.has(i)}
+                      className="w-full flex items-start gap-3 px-2 py-2.5 rounded-lg hover:bg-white/5 transition-colors text-left group"
+                    >
+                      {checkedIngredients.has(i)
+                        ? <CheckSquare className="w-5 h-5 text-sk-primary shrink-0" />
+                        : <Square className="w-5 h-5 text-white/30 group-hover:text-white/50 shrink-0" />
+                      }
+                      <span className={`text-base sm:text-sm leading-snug ${checkedIngredients.has(i) ? 'line-through text-white/30' : 'text-white/85'} ${stepIngredients.includes(i) && !checkedIngredients.has(i) ? 'font-semibold text-white' : ''}`}>
+                        {ing.amount && <span className="font-semibold text-sk-primary-fixed">{ing.amount} </span>}
+                        {ing.name}
+                        {ing.details && <span className="text-white/40">, {ing.details}</span>}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </>
           )}
 
           {/* Main area: fixed header + scrollable step text + fixed dots + fixed nav buttons */}
           <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
 
             {/* Header — never scrolls */}
-            <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-white/10">
+            <div className="shrink-0 flex items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b border-white/10">
               <div className="flex items-center gap-3 min-w-0">
-                <ChefHat className="w-6 h-6 text-sk-primary shrink-0" />
+                {/* The flame of the Cook button that opened this, not a second symbol. */}
+                <Flame className="w-6 h-6 text-sk-primary shrink-0" aria-hidden="true" />
                 <span className="font-bold text-lg text-white truncate">{recipe.title}</span>
               </div>
               <div className="flex items-center gap-3 shrink-0">
@@ -120,10 +139,11 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
                   onClick={() => setShowIngredients((v) => !v)}
                   aria-label={showIngredients ? 'Hide ingredients' : 'Show ingredients'}
                   aria-pressed={showIngredients}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${showIngredients ? 'bg-sk-primary/20 text-sk-primary-fixed' : 'hover:bg-white/10 text-white/50 hover:text-white dark:text-primary-foreground/80'}`}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-semibold ring-1 ring-inset transition-colors ${showIngredients ? 'bg-sk-primary/20 text-sk-primary-fixed ring-sk-primary/30' : 'ring-white/15 text-white/80 hover:bg-white/10 hover:text-white'}`}
                 >
-                  <List className="w-4 h-4" />
-                  <span className="hidden sm:inline">Ingredients</span>
+                  <List className="w-4 h-4" aria-hidden="true" />
+                  {/* Labelled on a phone too: an unlabelled list icon was not found. */}
+                  <span>Ingredients</span>
                 </button>
                 <span className="text-sm font-semibold text-white/50">{cookStep + 1}/{steps.length}</span>
                 <button onClick={handleClose} aria-label="Exit cook mode" className="p-2 rounded-full hover:bg-white/10 transition-colors">
@@ -141,6 +161,28 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
                 <p className="max-w-2xl w-full text-center text-lg sm:text-2xl md:text-3xl font-semibold leading-relaxed text-white">
                   {currentStep.replace(/^step\s*\d+[.:)]\s*/i, '')}
                 </p>
+                {stepIngredients.length > 0 && (
+                  <section aria-label="For this step" className="w-full max-w-2xl">
+                    <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40 text-center mb-2.5">For this step</p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {stepIngredients.map((i) => {
+                        const ing = ingredients[i];
+                        const done = checkedIngredients.has(i);
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => toggleIngredient(i)}
+                            aria-pressed={done}
+                            className={`inline-flex items-baseline gap-1.5 px-3.5 py-2 rounded-xl text-base ring-1 ring-inset transition-colors ${done ? 'ring-white/10 text-white/30 line-through' : 'ring-white/15 bg-white/[0.06] text-white/90 hover:bg-white/10'}`}
+                          >
+                            {ing.amount && <span className={`font-semibold ${done ? '' : 'text-sk-primary-fixed'}`}>{ing.amount}</span>}
+                            <span>{ing.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
               </div>
             </div>
 

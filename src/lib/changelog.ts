@@ -20,6 +20,16 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-11',
+    title: 'Ingredients in cook mode',
+    items: [
+      'Cook mode shows the ingredients each step needs right under it, with amounts. Tap one to tick it off.',
+      'The full list has its own Ingredients button. On a phone it slides up from the bottom, so the step stays in view.',
+      'The delete confirmation has bigger buttons.',
+    ],
+  },
+  {
+    // Ids must increase with each release (see 2026-12-02 below).
     id: '2026-12-10',
     title: 'The iPhone Shortcuts answer at once',
     items: [

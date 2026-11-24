@@ -509,9 +509,12 @@ export default function App() {
                 Are you sure you want to delete <strong>"{deleteTarget?.title}"</strong>? This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600 text-white">Delete</AlertDialogAction>
+            {/* Two full-size buttons side by side: the default 32 px ones were
+                too small to hit with confidence on a phone, for a step that
+                cannot be undone. */}
+            <AlertDialogFooter className="grid grid-cols-2 gap-3">
+              <AlertDialogCancel className="h-11 rounded-full text-base font-semibold">Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="h-11 rounded-full text-base font-semibold bg-red-500 hover:bg-red-600 text-white">Delete</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
