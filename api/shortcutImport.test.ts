@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { CAMERA_JPEG, DEVICE_JPEG, HEIC_START, SCREEN_PNG } from './_lib/testFixtures/images';
+import { INSTAGRAM_LOGIN_HTML, INSTAGRAM_PICTURE, PUMPKIN_CAPTION, instagramPostHtml } from './_lib/testFixtures/instagram';
 
 /**
  * The iPhone Shortcut import (POST /api/extract?via=shortcut): a personal key
@@ -77,6 +78,7 @@ const h = vi.hoisted(() => {
     generateJson: vi.fn(),
     tag: vi.fn(),
     nutrition: vi.fn(),
+    fetchPublicUrl: vi.fn(),
     rateAllowed: { value: true },
   };
 });
@@ -99,6 +101,8 @@ vi.mock('./_lib/rateLimit.js', () => ({
   checkRateLimit: vi.fn(async () => ({ allowed: h.rateAllowed.value, used: 0, limit: 100, remaining: 100 })),
 }));
 vi.mock('./_lib/photoExtraction.js', () => ({ extractRecipeFromImages: h.extract }));
+// The link Shortcut's page and an Instagram picture both come through it.
+vi.mock('./_lib/publicUrl.js', () => ({ fetchPublicUrl: h.fetchPublicUrl }));
 vi.mock('./_lib/enrich.js', async (importOriginal) => {
   const real = await importOriginal<typeof import('./_lib/enrich.js')>();
   return { ...real, tagRecipe: h.tag, estimateNutrition: h.nutrition };
@@ -143,6 +147,7 @@ beforeEach(() => {
   h.generateJson.mockImplementation(async () => ({ ...recipe('Klassische Kürbissuppe'), image_url: '/images/kuerbissuppe.jpg', source_name: 'REWE' }));
   h.tag.mockReset().mockResolvedValue(['Vegetarian']);
   h.nutrition.mockReset().mockResolvedValue({ calories: 300 });
+  h.fetchPublicUrl.mockReset();
 });
 
 describe('the key', () => {
@@ -363,6 +368,113 @@ describe('a web page from the Safari Shortcut', () => {
     finishReading(recipe('Kürbissuppe'));
     await waitUntil.mock.calls[0][0];
     expect(h.db.imports[0]).toMatchObject({ status: 'saved' });
+  });
+});
+
+describe('a link from the link Shortcut (Instagram and any other app)', () => {
+  const POST = 'https://www.instagram.com/reel/DAbc123xyz/?igsh=MWZ0dXl5bTd5&utm_source=ig_web_copy_link';
+  const JPEG = Uint8Array.from(Buffer.from(CAMERA_JPEG, 'base64'));
+  const response = (body: string | Uint8Array, status = 200, headers: Record<string, string> = {}) => ({
+    ok: status >= 200 && status < 300,
+    status,
+    headers: new Headers(headers),
+    text: async () => (typeof body === 'string' ? body : ''),
+    arrayBuffer: async () => (typeof body === 'string' ? new TextEncoder().encode(body) : body).slice().buffer,
+  });
+  const servePost = (html = instagramPostHtml(PUMPKIN_CAPTION)) => h.fetchPublicUrl.mockImplementation(async (url: string) =>
+    url.startsWith('https://scontent') ? response(JPEG) : response(html));
+  const pumpkin = { ...recipe('Cremige Kürbissuppe'), image_url: INSTAGRAM_PICTURE, source_name: 'kochmal' };
+
+  it('reads an Instagram post from its caption, and keeps its picture', async () => {
+    servePost();
+    h.generateJson.mockResolvedValue(pumpkin);
+    const { res } = await send({ url: POST });
+    expect(res.statusCode).toBe(200);
+    expect(res.body?.message).toBe('Saved: Cremige Kürbissuppe');
+
+    // The page, as the server fetched it: the caption is what the model reads.
+    expect(h.fetchPublicUrl.mock.calls[0][0]).toBe('https://www.instagram.com/reel/DAbc123xyz/');
+    const [, , prompt, log] = h.generateJson.mock.calls[0] as [unknown, string, string, { endpoint: string }];
+    expect(prompt).toContain('400 ml Kokosmilch');
+    expect(log).toMatchObject({ endpoint: 'extract-link' });
+
+    // Instagram's picture address expires within days: our own copy instead.
+    expect(h.db.uploads).toEqual([{ path: expect.stringMatching(/\.jpg$/), type: 'image/jpeg' }]);
+    expect(h.db.recipes[0]).toMatchObject({
+      title: 'Cremige Kürbissuppe',
+      user_id: 'user-1',
+      // Without the share's tracking.
+      source_url: 'https://www.instagram.com/reel/DAbc123xyz/',
+      source_name: 'kochmal',
+      image_url: `https://storage.test/${h.db.uploads[0].path}`,
+    });
+    expect(h.tag).toHaveBeenCalledTimes(1);
+    expect(h.db.imports).toEqual([expect.objectContaining({ status: 'saved', source: 'link', page_count: 1, recipe_id: 'recipe-1' })]);
+  });
+
+  it('takes the link inside shared text, or from a list', async () => {
+    servePost();
+    h.generateJson.mockResolvedValue(pumpkin);
+    await send({ url: `Schau dir das an! ${POST}` });
+    await send({ url: ['Kürbissuppe', POST] });
+    await send({ link: POST });
+    expect(h.db.recipes.map((r) => r.source_url)).toEqual(Array(3).fill('https://www.instagram.com/reel/DAbc123xyz/'));
+  });
+
+  it('says so at once when Instagram will not show the post, and starts nothing', async () => {
+    h.fetchPublicUrl.mockResolvedValue(response(INSTAGRAM_LOGIN_HTML));
+    const { res } = await send({ url: POST });
+    expect(res.statusCode).toBe(422);
+    expect(res.body?.message).toBe('Instagram did not show this post to Speisekammer: it may be private, or Instagram asked for a login. Open it in Safari and share it to "Save page to Speisekammer" instead.');
+    expect(h.generateJson).not.toHaveBeenCalled();
+    expect(h.db.imports).toHaveLength(0);
+  });
+
+  it('names a site that refuses servers, and points to the Safari Shortcut', async () => {
+    h.fetchPublicUrl.mockResolvedValue(response('Just a moment…', 403, { 'cf-mitigated': 'challenge' }));
+    const { res } = await send({ url: 'https://www.rewe.de/rezepte/klassische-kuerbissuppe/' });
+    expect(res.statusCode).toBe(422);
+    expect(res.body?.message).toBe('rewe.de does not let apps read its pages, so this recipe cannot be imported from the link. Open it in Safari and share it to "Save page to Speisekammer" instead.');
+    expect(h.db.imports).toHaveLength(0);
+  });
+
+  it('refuses what holds no link before fetching anything', async () => {
+    for (const url of ['', 'Kürbissuppe', 'javascript:alert(1)', 42]) {
+      const { res } = await send({ url });
+      expect(res.statusCode).toBe(400);
+      expect(res.body?.message).toBe('No link arrived. Share an Instagram post or a recipe page to the Shortcut.');
+    }
+    expect(h.fetchPublicUrl).not.toHaveBeenCalled();
+  });
+
+  it('records a post whose recipe is only in the video as failed, and says why', async () => {
+    servePost(instagramPostHtml('Mein Lieblingsessen! Rezept im Video 👆 #foodie'));
+    h.generateJson.mockResolvedValue({ ...recipe(''), ingredients: [], instructions: '' });
+    const { res } = await send({ url: POST });
+    expect(res.statusCode).toBe(422);
+    expect(res.body?.message).toBe('No recipe was found in this post\'s caption. If it is only in the video, it cannot be read from the link.');
+    expect(h.db.recipes).toHaveLength(0);
+    expect(h.db.imports[0]).toMatchObject({ status: 'failed', source: 'link' });
+  });
+
+  it('answers "Got it" once the post has arrived, and reads it in the background', async () => {
+    servePost();
+    let finishReading: (v: unknown) => void = () => {};
+    h.generateJson.mockImplementation(() => new Promise((resolve) => { finishReading = resolve; }));
+    const { res, waitUntil } = await send({ url: POST }, { replyWithinMs: REPLY_WITHIN_MS });
+    expect(res.statusCode).toBe(202);
+    expect(res.body?.message).toBe('Got it. Reading the post now; the recipe will be in Speisekammer in about a minute.');
+    expect(h.db.imports[0]).toMatchObject({ status: 'processing', source: 'link' });
+    finishReading(pumpkin);
+    await waitUntil.mock.calls[0][0];
+    expect(h.db.imports[0]).toMatchObject({ status: 'saved' });
+  });
+
+  it('leaves pictures and Safari pages on their own ways in', async () => {
+    // A Safari page carries `url` too, beside its html.
+    await send({ url: 'https://www.rewe.de/rezepte/x/', html: '<html><body>Kürbissuppe: 1 Hokkaido. Kochen. Mehr Text hier.</body></html>' });
+    expect(h.db.imports[0]).toMatchObject({ source: 'page' });
+    expect(h.fetchPublicUrl).not.toHaveBeenCalled();
   });
 });
 

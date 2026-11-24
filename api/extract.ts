@@ -12,7 +12,7 @@ import { extractRecipeFromHtml, validateExtractedRecipe } from './_lib/pageExtra
 import { DailyLimitError } from './_lib/enrich.js';
 import { checkRateLimit } from './_lib/rateLimit.js';
 import { getCached, makeCacheKey, setCached } from './_lib/cache.js';
-import { fetchPublicUrl } from './_lib/publicUrl.js';
+import { fetchPage, noRecipeOnPage } from './_lib/sharedPage.js';
 
 function pdfPrompt(unit: 'C' | 'F') {
   return `You are a culinary assistant that extracts recipes from PDF documents.
@@ -96,40 +96,9 @@ ${text}
 === END OF PASTED TEXT ===`;
 }
 
-/**
- * Many recipe sites (rewe.de, edeka.de, chefkoch.de among them) put bot
- * protection in front of their pages: Cloudflare, Akamai or a CDN rule answers
- * a request from a server with 403, or with a challenge only a browser can
- * pass. Nothing here tries to get round that; the answer names the site and
- * says so, and the form offers the ways that do work (pasted text, a PDF or a
- * screenshot). It used to be "Failed to fetch URL: Forbidden".
- */
-export function describePageRefusal(url: string, status: number, headers?: { get(name: string): string | null }) {
-  const site = siteName(url);
-  const blocked = [401, 403, 429, 503].includes(status) || Boolean(headers?.get('cf-mitigated'));
-  if (blocked) {
-    return {
-      code: 'site_blocked' as const,
-      site,
-      error: `${site} does not let apps read its pages, so this recipe cannot be imported from the link.`,
-    };
-  }
-  return {
-    code: 'page_unavailable' as const,
-    site,
-    error: status === 404 || status === 410
-      ? `That page does not exist on ${site} (any more). Check the link.`
-      : `${site} did not send the page (error ${status}). Try again later, or paste the recipe as text.`,
-  };
-}
-
-function siteName(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return 'The website';
-  }
-}
+// Moved to _lib/sharedPage.ts, which the Shortcut's link import shares; kept
+// exported here for the callers and tests that import it from this file.
+export { describePageRefusal } from './_lib/sharedPage.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
@@ -215,19 +184,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ── URL extraction ─────────────────────────────────────────────────────────
     const { url } = extractSchema.parse(body);
 
-    const fetchRes = await fetchPublicUrl(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RecipeCollector/1.0)' } });
-    if (!fetchRes.ok) {
-      // No AI call has been made, so nothing is logged or counted.
-      const refusal = describePageRefusal(url, fetchRes.status, fetchRes.headers);
-      return res.status(422).json(refusal);
-    }
-    const html = await fetchRes.text();
+    // A refused page (bot protection, a hidden Instagram post) costs no AI call.
+    const fetched = await fetchPage(url);
+    if ('refusal' in fetched) return res.status(422).json(fetched.refusal);
     try {
-      const { recipe, cached, structuredDataFound } = await extractRecipeFromHtml({ supabase, client: getGeminiClient(apiKey), settings, userId, endpoint: 'extract' }, html);
+      const { recipe, cached, structuredDataFound } = await extractRecipeFromHtml({ supabase, client: getGeminiClient(apiKey), settings, userId, endpoint: 'extract' }, fetched.page.html);
       console.info(cached ? 'extract cache hit' : 'extract gemini verified', { url, structuredDataFound });
       return res.status(200).json({ ...recipe, cached, structured_data_found: structuredDataFound });
     } catch (err) {
       if (err instanceof DailyLimitError) return res.status(429).json({ error: err.message });
+      // An answer without a title, ingredients or method: there was no recipe
+      // to read. The schema's own wording ("Too small: expected string…")
+      // used to reach the form as a 400.
+      if (err instanceof ZodError) return res.status(422).json({ error: noRecipeOnPage(url) });
       throw err;
     }
 

@@ -13,7 +13,11 @@ import { extractRecipeFromImages } from './photoExtraction.js';
 import { DailyLimitError, estimateNutrition, tagRecipe, type RecipeText } from './enrich.js';
 import { decodeBase64, imageSize, sniffImageType, splitBase64Images, type SupportedImageType } from './imageBytes.js';
 import { decideKind, type ImageKind } from '../../shared/imageKind.js';
+import { SAFARI_SHORTCUT_NAME } from '../../shared/safariShortcut.js';
 import { extractRecipeFromHtml } from './pageExtraction.js';
+import { cleanSharedUrl, fetchPage, findSharedUrl, isInstagramUrl, noRecipeOnPage, type PageRefusal, type SharedPage } from './sharedPage.js';
+
+export type { SharedPage };
 
 /**
  * Recipes sent from the iPhone's Photos app, through an Apple Shortcut.
@@ -44,6 +48,14 @@ import { extractRecipeFromHtml } from './pageExtraction.js';
  * Web Page". Sites such as rewe.de refuse their pages to servers, so a pasted
  * link cannot be imported; the page the person has open in Safari can be.
  * It is read like a link (extractRecipeFromHtml) and saved with its address.
+ *
+ * And a link from any app's share sheet, from the "Send link to Speisekammer"
+ * Shortcut (migration 0073): `{ url }`. Made for Instagram, whose share
+ * button hands over the post's address and nothing else, but any app's link
+ * works. Here the server fetches the page, as for a link pasted into the app
+ * (sharedPage.ts), before answering: a site that refuses servers, or an
+ * Instagram post Instagram will not show, is said in the notification, with
+ * the Safari Shortcut as the way round, and nothing is recorded.
  */
 
 export const SHORTCUT_KEY_HEADER = 'x-speisekammer-key';
@@ -118,9 +130,9 @@ export async function kindOfPictures(pictures: Picture[]): Promise<ImageKind> {
 /** What one recipe came to. */
 export type ImportOutcome = { status: 'saved'; title: string; recipeId: string } | { status: 'failed'; error: string };
 
-function failureMessage(err: unknown, what: 'picture' | 'page' = 'picture'): string {
+function failureMessage(err: unknown, what: 'picture' | 'page' = 'picture', pageUrl = ''): string {
   // extractedRecipeSchema refused the answer: no title, no ingredients or no method.
-  if (err instanceof ZodError) return what === 'page' ? 'No recipe was found on this page.' : 'No recipe could be read from this picture.';
+  if (err instanceof ZodError) return what === 'page' ? noRecipeOnPage(pageUrl) : 'No recipe could be read from this picture.';
   if (err instanceof DailyLimitError) return 'Today\'s AI allowance is used up. Send it again tomorrow.';
   return describeGeminiError(err, `The ${what} could not be read just now. Please send it again later.`).message;
 }
@@ -214,12 +226,6 @@ export async function importOne(ctx: ImportContext, pictures: Picture[], importI
   }
 }
 
-/** A page sent from Safari: its address and its HTML as the person sees it. */
-export interface SharedPage {
-  url: string;
-  html: string;
-}
-
 /** The script trims scripts, styles and pictures away; a recipe page is well under this. */
 export const MAX_PAGE_HTML = 3_000_000;
 
@@ -261,12 +267,19 @@ function absoluteImageUrl(value: string, pageUrl: string): string {
   }
 }
 
-/** One recipe from one web page: read, saved with its address, tagged and estimated. */
-export async function importPage(ctx: ImportContext, page: SharedPage, importId: string): Promise<ImportOutcome> {
+/**
+ * One recipe from one web page: read, saved with its address, tagged and
+ * estimated. `endpoint` names the way in, in gemini_logs: 'extract-page' for
+ * the Safari Shortcut, 'extract-link' for a link.
+ */
+export async function importPage(ctx: ImportContext, page: SharedPage, importId: string, endpoint = 'extract-page'): Promise<ImportOutcome> {
   const { supabase, userId } = ctx;
+  // Without the share-tracking parameters (Instagram's igsh, utm_*…): this is
+  // the address kept as the recipe's source.
+  const sourceUrl = cleanSharedUrl(page.url);
   try {
     // Checks the allowance itself, after the cache: a page read before is free.
-    const { recipe } = await extractRecipeFromHtml({ ...ctx, endpoint: 'extract-page' }, page.html);
+    const { recipe } = await extractRecipeFromHtml({ ...ctx, endpoint }, page.html);
     const { data: row, error } = await supabase
       .from('recipes')
       .insert({
@@ -279,8 +292,8 @@ export async function importPage(ctx: ImportContext, page: SharedPage, importId:
         original_servings: recipe.servings,
         prep_time_mins: recipe.prep_time_mins,
         cook_time_mins: recipe.cook_time_mins,
-        source_url: page.url,
-        source_name: recipe.source_name || new URL(page.url).hostname.replace(/^www\./, ''),
+        source_url: sourceUrl,
+        source_name: recipe.source_name || new URL(sourceUrl).hostname.replace(/^www\./, ''),
         original_language: recipe.original_language || null,
         user_id: userId,
       })
@@ -293,7 +306,7 @@ export async function importPage(ctx: ImportContext, page: SharedPage, importId:
     return { status: 'saved', title: recipe.title, recipeId: row.id as string };
   } catch (err) {
     if (!(err instanceof ZodError) && !(err instanceof DailyLimitError)) captureException(err);
-    const error = failureMessage(err, 'page');
+    const error = failureMessage(err, 'page', page.url);
     await finishImport(supabase, importId, { status: 'failed', error });
     return { status: 'failed', error };
   }
@@ -361,6 +374,50 @@ async function handlePageImport(req: VercelRequest, res: VercelResponse, supabas
   return reply(202, 'Got it. Reading the page now; the recipe will be in Speisekammer in about a minute.');
 }
 
+/** What the notification says when the page behind a link could not be had. */
+export function linkRefusalMessage(refusal: PageRefusal): string {
+  return refusal.code === 'site_blocked'
+    ? `${refusal.error} Open it in Safari and share it to "${SAFARI_SHORTCUT_NAME}" instead.`
+    : refusal.error;
+}
+
+/**
+ * The link Shortcut: a link from any app's share sheet, one recipe. The page
+ * is fetched before answering (a few seconds), so that a refusal reaches the
+ * notification; the reading then finishes in the background like the others.
+ */
+async function handleLinkImport(req: VercelRequest, res: VercelResponse, supabase: SupabaseClient, userId: string, deps: ShortcutDeps) {
+  const reply = (status: number, message: string) => res.status(status).json({ message });
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const url = findSharedUrl(body.url ?? body.link);
+  if (!url) return reply(400, 'No link arrived. Share an Instagram post or a recipe page to the Shortcut.');
+
+  const fetched = await fetchPage(url);
+  if ('refusal' in fetched) return reply(422, linkRefusalMessage(fetched.refusal));
+
+  const ctx = await contextFor(supabase, userId);
+  if (!ctx) return reply(500, 'The AI service is not set up on the server. Nothing was saved.');
+
+  const { data: rows, error } = await supabase
+    .from('recipe_imports')
+    .insert([{ user_id: userId, status: 'processing', page_count: 1, source: 'link' }])
+    .select('id');
+  const row = rows?.[0];
+  if (error || !row) {
+    if (error) captureException(error);
+    return reply(500, 'The import could not be started. Nothing was saved; please try again.');
+  }
+
+  const work = importPage(ctx, fetched.page, row.id as string, 'extract-link');
+  const done = await Promise.race([
+    work,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), deps.replyWithinMs)),
+  ]);
+  if (done) return reply(done.status === 'failed' ? 422 : 200, summarise([done]));
+  deps.waitUntil(work);
+  return reply(202, `Got it. Reading the ${isInstagramUrl(url) ? 'post' : 'page'} now; the recipe will be in Speisekammer in about a minute.`);
+}
+
 /** POST /api/extract?via=shortcut */
 export async function handleShortcutImport(req: VercelRequest, res: VercelResponse, deps: ShortcutDeps = { waitUntil: vercelWaitUntil, replyWithinMs: REPLY_WITHIN_MS }) {
   const reply = (status: number, message: string) => res.status(status).json({ message });
@@ -371,9 +428,12 @@ export async function handleShortcutImport(req: VercelRequest, res: VercelRespon
     const userId = key ? await userForShortcutKey(supabase, key) : null;
     if (!userId) return reply(401, 'This Shortcut has no valid key. Create one in Speisekammer under Settings → iPhone Shortcuts and paste it into the Shortcut.');
 
-    const body = (req.body ?? {}) as { images?: unknown; mode?: unknown; page?: unknown; html?: unknown };
+    const body = (req.body ?? {}) as { images?: unknown; mode?: unknown; page?: unknown; html?: unknown; url?: unknown; link?: unknown };
     if (body.images === undefined && (body.page !== undefined || body.html !== undefined)) {
       return handlePageImport(req, res, supabase, userId, deps);
+    }
+    if (body.images === undefined && (body.url !== undefined || body.link !== undefined)) {
+      return handleLinkImport(req, res, supabase, userId, deps);
     }
     const mode = body.mode === 'each' ? 'each' : 'single';
     const encoded = splitBase64Images(body.images);
