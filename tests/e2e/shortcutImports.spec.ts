@@ -164,42 +164,46 @@ test('without a shared link there is no button, only the build steps', async ({ 
   await expect(section.getByRole('link', { name: 'Add to Shortcuts' })).toHaveCount(0);
 });
 
-test('the admin pastes the iCloud link, and the server is what checks it', async ({ page }) => {
+test('the admin pastes the iCloud link: saved at once, whatever came with it', async ({ page }) => {
   await installMockBackend(page);
   await serveSettingsRow(page, null);
   const posted: unknown[] = [];
   await page.route('**/api/account?action=shortcut-url', (route) => {
     const body = route.request().postDataJSON() as { url: string };
     posted.push(body);
-    return body.url.startsWith('https://www.icloud.com/shortcuts/')
-      ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: body.url }) })
-      : route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Paste the iCloud link from the Shortcuts app (it starts with https://www.icloud.com/shortcuts/).' }) });
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: body.url }) });
   });
   await page.goto('/');
   await page.getByTitle('Settings').click();
 
+  // Text without a link: said so on the spot, nothing sent.
   const form = page.getByRole('form', { name: 'Shared Shortcut link', exact: true });
   await form.getByRole('textbox').fill('https://example.com/not-a-shortcut');
   await form.getByRole('button', { name: 'Save link' }).click();
-  await expect(form.getByRole('alert')).toContainText('iCloud link');
+  await expect(form.getByRole('alert')).toContainText('No iCloud link found');
 
+  // The link: saved as soon as it is pasted, no button needed.
   await form.getByRole('textbox').fill(LINK);
-  await form.getByRole('button', { name: 'Save link' }).click();
+  await expect(form.getByRole('status')).toContainText('Saved');
   const photos = page.getByRole('region', { name: 'From the Photos app' });
   await expect(photos.getByRole('link', { name: 'Add to Shortcuts' })).toHaveAttribute('href', LINK);
 
-  // The Safari Shortcut's link is its own.
+  // The Safari Shortcut's link is its own; pasted with the Shortcut's name in
+  // front, which a browser "url" field on an iPhone refused without a word.
   const SAFARI_LINK = 'https://www.icloud.com/shortcuts/0a1b2c3d4e5f60718293a4b5c6d7e8f9';
   const safariForm = page.getByRole('form', { name: 'Shared Safari Shortcut link' });
-  await safariForm.getByRole('textbox').fill(SAFARI_LINK);
-  await safariForm.getByRole('button', { name: 'Save link' }).click();
+  await safariForm.getByRole('textbox').fill(`Save page to Speisekammer ${SAFARI_LINK}`);
   await expect(page.getByRole('region', { name: 'From Safari' }).getByRole('link', { name: 'Add to Shortcuts' })).toHaveAttribute('href', SAFARI_LINK);
+  await expect(safariForm.getByRole('textbox')).toHaveValue(SAFARI_LINK);
 
   expect(posted).toEqual([
-    { url: 'https://example.com/not-a-shortcut', kind: 'photos' },
     { url: LINK, kind: 'photos' },
     { url: SAFARI_LINK, kind: 'safari' },
   ]);
+
+  // And it can be taken back.
+  await safariForm.getByRole('button', { name: 'Remove link' }).click();
+  await expect.poll(() => posted.at(-1)).toEqual({ url: '', kind: 'safari' });
 });
 
 test('the Safari Shortcut: its button, the one setting it needs, and the script to paste', async ({ page }) => {

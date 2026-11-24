@@ -1,3 +1,4 @@
+import { findShortcutLink } from '../shared/shortcutLink.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
@@ -33,14 +34,20 @@ export const modelConfigSchema = z.object({
  * that: every user gets a button that opens this address, so it must not be
  * able to point anywhere else. An empty value removes the link.
  */
-export const SHORTCUT_URL_PATTERN = /^https:\/\/(www\.)?icloud\.com\/shortcuts\/[A-Za-z0-9]{8,64}\/?$/;
 
 export const shortcutUrlSchema = z.object({
-  url: z.union([
-    z.literal(''),
-    z.null(),
-    z.string().trim().regex(SHORTCUT_URL_PATTERN, 'Paste the iCloud link from the Shortcuts app (it starts with https://www.icloud.com/shortcuts/).'),
-  ]),
+  // Empty or null removes the link. Anything else must contain an iCloud
+  // Shortcut link, which is kept in its canonical form (shared/shortcutLink.ts):
+  // a paste may carry the Shortcut's name or a query around it.
+  url: z.string().nullable().transform((value, ctx) => {
+    if (value === null || !value.trim()) return null;
+    const link = findShortcutLink(value);
+    if (!link) {
+      ctx.addIssue({ code: 'custom', message: 'Paste the iCloud link from the Shortcuts app (it starts with https://www.icloud.com/shortcuts/).' });
+      return z.NEVER;
+    }
+    return link;
+  }),
   /** photos: "Send to Speisekammer" (0071). safari: "Save page to Speisekammer" (0072). */
   kind: z.enum(['photos', 'safari']).default('photos'),
 }).strict();
@@ -380,7 +387,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid link' });
       }
-      const url = parsed.data.url ? parsed.data.url.trim() : null;
+      const url = parsed.data.url || null;
       const { kind } = parsed.data;
       const { error } = await getServerSupabase()
         .from('settings')
