@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { LogOut, User, KeyRound, Eye, EyeOff, X, Download, Trash2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { AnchoredMenu } from '@/components/AnchoredMenu';
 import { Label } from '@/components/ui/label';
 
 interface Props {
@@ -28,17 +29,8 @@ export function UserMenu({ user, onSignOut, onOpenWhatsNew, hasUnreadReleases = 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  const anchor = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), []);
 
   function openChangePassword() {
     setOpen(false);
@@ -130,8 +122,9 @@ export function UserMenu({ user, onSignOut, onOpenWhatsNew, hasUnreadReleases = 
 
   return (
     <>
-      <div ref={ref} className="relative">
+      <div className="relative">
         <button
+          ref={anchor}
           onClick={() => setOpen((v) => !v)}
           className="relative flex items-center justify-center w-9 h-9 rounded-full overflow-hidden ring-2 ring-transparent hover:ring-sk-primary transition-all focus:outline-none focus-visible:ring-sk-primary"
           aria-label={hasUnreadReleases ? 'Account menu, new updates available' : 'Account menu'}
@@ -147,8 +140,12 @@ export function UserMenu({ user, onSignOut, onOpenWhatsNew, hasUnreadReleases = 
           />
         )}
 
-        {open && (
-          <div className="absolute right-0 top-full mt-2 w-64 glass glass-menu rounded-2xl z-50 overflow-hidden">
+        {/* Through AnchoredMenu (a portal), not inside the header: the header is
+            glass itself, and a backdrop-filter inside another one can only blur
+            what lies within its parent. Hanging below the header, the menu
+            blurred nothing, so the recipes behind it showed through sharp.
+            AnchoredMenu also closes it on Escape and on a tap outside. */}
+        <AnchoredMenu open={open} onClose={close} anchorRef={anchor} className="w-64 glass glass-menu rounded-2xl">
             {/* User info */}
             <div className="flex items-center gap-3 px-4 py-4 border-b border-zinc-100 dark:border-zinc-800">
               <div className="flex-shrink-0 w-10 h-10 rounded-full overflow-hidden">
@@ -215,8 +212,7 @@ export function UserMenu({ user, onSignOut, onOpenWhatsNew, hasUnreadReleases = 
                 Delete account
               </button>
             </div>
-          </div>
-        )}
+        </AnchoredMenu>
       </div>
 
       {/* Change password modal */}
