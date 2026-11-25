@@ -164,6 +164,7 @@ export function ShortcutSettings({ open, isAdmin = false }: { open: boolean; isA
           </li>
           <li>Add <b>Get Dictionary Value</b> for <code>message</code>, then <b>Show Notification</b> with it.</li>
         </ol>
+        <EmptyHeaderNote />
         <p className="text-zinc-500 dark:text-zinc-400">
           Up to 8 pictures at a time. The notification says “Got it” as soon as they have arrived; the recipe appears here about a minute later, marked New.
         </p>
@@ -224,8 +225,13 @@ export function ShortcutSettings({ open, isAdmin = false }: { open: boolean; isA
             Under <b>Otherwise</b>: <b>Get Contents of URL</b> with the same address, method and header, and Request
             Body <b>JSON</b> with <code>url</code> = Shortcut Input.
           </li>
-          <li>After <b>End If</b>: <b>Get Dictionary Value</b> for <code>message</code> in the If Result, then <b>Show Notification</b> with it.</li>
+          <li>
+            After <b>End If</b>: <b>Get Dictionary Value</b> for <code>message</code> in the <b>If Result</b>, then
+            <b> Show Notification</b> with it. Not in <i>Contents of URL</i>: that names one of the two requests, and is
+            empty whenever the other one ran, so the notification would come up blank.
+          </li>
         </ol>
+        <EmptyHeaderNote />
         <p className="text-zinc-500 dark:text-zinc-400">
           The first time, the Shortcut may be under <b>More</b> at the end of the share sheet&apos;s app row, or in its
           list of actions; <b>Edit Actions</b> there puts it among the favourites. Private Instagram posts come back with
@@ -233,6 +239,23 @@ export function ShortcutSettings({ open, isAdmin = false }: { open: boolean; isA
         </p>
       </ShortcutCard>
     </section>
+  );
+}
+
+/**
+ * Shortcuts shows unused rows under Headers as "Key / Text" placeholders, but
+ * sends them: as headers without a name, which is not valid HTTP. On a real
+ * iPhone (2026-11-25) the request then failed with "The network connection was
+ * lost", and deleting the two empty rows fixed it; presumably Vercel drops
+ * such a request before the function, so the app cannot say anything about
+ * it. The steps do instead.
+ */
+function EmptyHeaderNote() {
+  return (
+    <p className="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-2 text-amber-900 dark:text-amber-200">
+      Under <b>Headers</b>, delete every empty row (the grey <i>Key / Text</i> placeholders) with the red minus. Shortcuts
+      sends them as headers without a name, and the request then fails with “The network connection was lost”.
+    </p>
   );
 }
 
