@@ -16,8 +16,8 @@ export interface RecipeImport {
   recipe_id: string | null;
   error: string | null;
   page_count: number;
-  /** Where it came from (0072): pictures from Photos, or a page from Safari. Absent before 0072 ran. */
-  source?: 'photos' | 'page';
+  /** Where it came from: pictures from Photos, a page from Safari (0072), or a link from any app (0073). Absent before 0072 ran. */
+  source?: 'photos' | 'page' | 'link';
   created_at: string;
 }
 

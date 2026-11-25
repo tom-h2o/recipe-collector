@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { INSTAGRAM_LOGIN_HTML, PUMPKIN_CAPTION, instagramPostHtml } from './_lib/testFixtures/instagram';
 
 const validRecipe = {
   title: 'Philadelphia-Torte',
@@ -158,6 +159,44 @@ describe('/api/extract', () => {
     });
     expect(generateJson).not.toHaveBeenCalled();
     expect(checkRateLimit).not.toHaveBeenCalled();
+  });
+
+  it('reads an Instagram link pasted into the app from the post\'s caption', async () => {
+    const { handler, generateJson } = await loadHandler();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, headers: new Headers(), text: () => Promise.resolve(instagramPostHtml(PUMPKIN_CAPTION)) }));
+    const res = createResponse();
+
+    await handler({ method: 'POST', body: { url: 'https://www.instagram.com/p/DAbc123xyz/' }, headers: {} } as VercelRequest, res);
+
+    expect(res.statusCode).toBe(200);
+    const [, , prompt] = generateJson.mock.calls[0];
+    expect(prompt).toContain('Zutaten für 4');
+  });
+
+  it('says so when Instagram will not show a post, as a blocked site, without an AI call', async () => {
+    // A private post, or Instagram wanting a login: it answers with its login
+    // page, which a model would read as "no recipe" at the cost of a call.
+    const { handler, generateJson } = await loadHandler();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, headers: new Headers(), text: () => Promise.resolve(INSTAGRAM_LOGIN_HTML) }));
+    const res = createResponse();
+
+    await handler({ method: 'POST', body: { url: 'https://www.instagram.com/p/private/' }, headers: {} } as VercelRequest, res);
+
+    expect(res.statusCode).toBe(422);
+    expect(res.body).toMatchObject({ code: 'site_blocked', site: 'instagram.com', error: expect.stringContaining('Instagram did not show this post') });
+    expect(generateJson).not.toHaveBeenCalled();
+  });
+
+  it('answers a page without a recipe in words, not with the schema\'s', async () => {
+    // It used to reach the form as "Too small: expected string to have >=1 characters".
+    const { handler } = await loadHandler({ generated: { ...validRecipe, title: '', ingredients: [], instructions: '' } });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, headers: new Headers(), text: () => Promise.resolve(instagramPostHtml('Rezept im Video 👆')) }));
+    const res = createResponse();
+
+    await handler({ method: 'POST', body: { url: 'https://www.instagram.com/reel/DAbc123xyz/' }, headers: {} } as VercelRequest, res);
+
+    expect(res.statusCode).toBe(422);
+    expect(res.body).toEqual({ error: 'No recipe was found in this post\'s caption. If it is only in the video, it cannot be read from the link.' });
   });
 
   it('tells a missing page apart from a blocked one', async () => {

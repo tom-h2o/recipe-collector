@@ -10,15 +10,17 @@ import { EXTRACT_TEMPLATE } from './prompts.js';
 import { checkRateLimit } from './rateLimit.js';
 import { getCached, makeCacheKey, setCached } from './cache.js';
 import { DailyLimitError } from './enrich.js';
+import { keepPicture, pictureFor } from './pageImage.js';
 
 /**
  * A recipe from a web page's HTML: its schema.org Recipe data where it has
  * some, checked by the model against the page's visible text.
  *
- * Two ways in share this. A link pasted into the app (the server fetches the
- * page), and the Safari Shortcut, which sends the page the person has open:
- * sites such as rewe.de refuse pages to servers (see describePageRefusal in
- * api/extract.ts), but not to the person reading them.
+ * Three ways in share this. A link pasted into the app or sent by the "Send
+ * link to Speisekammer" Shortcut (the server fetches the page, sharedPage.ts),
+ * and the Safari Shortcut, which sends the page the person has open: sites
+ * such as rewe.de refuse pages to servers (see describePageRefusal in
+ * sharedPage.ts), but not to the person reading them.
  */
 
 export interface ExtractedIngredient {
@@ -211,7 +213,7 @@ export interface PageExtractionContext {
   client: GoogleGenAI;
   settings: Settings;
   userId: string;
-  /** The gemini_logs endpoint: 'extract' for a link, 'extract-page' for the Safari Shortcut. */
+  /** The gemini_logs endpoint: 'extract' for a link pasted in the app, 'extract-page' for the Safari Shortcut, 'extract-link' for a link sent by Shortcut. */
   endpoint: string;
 }
 
@@ -246,13 +248,19 @@ export async function extractRecipeFromHtml(ctx: PageExtractionContext, html: st
 
   const finalPrompt = buildUrlExtractionPrompt(promptTemplate, pageTitle, pageDescription, ogImage, bodyText, structuredRecipe);
   const cacheKey = makeCacheKey('extract', { model: modelFor(settings, 'extract'), prompt: finalPrompt });
+  // An Instagram picture's address expires within days; such a picture is
+  // copied into our storage (pageImage.ts). A cached answer may predate that.
+  const withKeptPicture = async (recipe: ExtractedRecipe): Promise<ExtractedRecipe> =>
+    ({ ...recipe, image_url: await keepPicture(supabase, pictureFor(recipe.image_url, ogImage)) });
+
   const cachedRecipe = await getCached(supabase, cacheKey);
-  if (cachedRecipe) return { recipe: validateExtractedRecipe(cachedRecipe), cached: true, structuredDataFound: !!structuredRecipe };
+  if (cachedRecipe) return { recipe: await withKeptPicture(validateExtractedRecipe(cachedRecipe)), cached: true, structuredDataFound: !!structuredRecipe };
 
   const rl = await checkRateLimit(supabase, userId);
   if (!rl.allowed) throw new DailyLimitError(rl.limit);
 
-  const recipe = validateExtractedRecipe(await generateJson(client, modelFor(settings, 'extract'), finalPrompt, { supabase, endpoint, userId }, { responseSchema: extractedRecipeResponseSchema, thinking: thinkingFor('extract') }));
+  const answer = validateExtractedRecipe(await generateJson(client, modelFor(settings, 'extract'), finalPrompt, { supabase, endpoint, userId }, { responseSchema: extractedRecipeResponseSchema, thinking: thinkingFor('extract') }));
+  const recipe = await withKeptPicture(answer);
   setCached(supabase, cacheKey, 'extract', recipe, 24 * 7);
   return { recipe, cached: false, structuredDataFound: !!structuredRecipe };
 }

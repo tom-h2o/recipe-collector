@@ -4,7 +4,8 @@ import type { RecipeImport } from '@/hooks/useRecipeImports';
 /**
  * What arrived from the iPhone Shortcuts since the person last looked: recipes
  * saved (with a way to show just those), recipes still being read, and
- * pictures or Safari pages that could not be read, each with its reason.
+ * pictures, Safari pages or shared links that could not be read, each with
+ * its reason.
  * Nothing is shown when there is nothing new.
  */
 interface Props {
@@ -22,7 +23,9 @@ export function ImportBanner({ newCount, processing, failed, showingNew, onShowN
   const reading = processing.length === 1
     ? processing[0].source === 'page'
       ? 'Reading a page from Safari…'
-      : `Reading ${pages === 1 ? 'a picture' : `${pages} pages`} from your photos…`
+      : processing[0].source === 'link'
+        ? 'Reading a shared link…'
+        : `Reading ${pages === 1 ? 'a picture' : `${pages} pages`} from your photos…`
     : `Reading ${processing.length} recipes from your iPhone…`;
 
   return (
@@ -60,7 +63,9 @@ export function ImportBanner({ newCount, processing, failed, showingNew, onShowN
             <span className="font-semibold">
               {f.source === 'page'
                 ? 'A page from Safari could not be read.'
-                : f.page_count === 1 ? 'A picture could not be read.' : `${f.page_count} pages could not be read.`}
+                : f.source === 'link'
+                  ? 'A shared link could not be read.'
+                  : f.page_count === 1 ? 'A picture could not be read.' : `${f.page_count} pages could not be read.`}
             </span>{' '}
             <span className="text-sk-on-surface-variant dark:text-muted-foreground">{f.error}</span>
           </p>
