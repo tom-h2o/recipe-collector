@@ -85,6 +85,22 @@ test('a page sent from Safari is spoken of as a page', async ({ page }) => {
   await expect(banner).not.toContainText('picture');
 });
 
+test('a link sent from another app is spoken of as a link', async ({ page }) => {
+  await installMockBackend(page);
+  await page.route('**/rest/v1/recipe_imports*', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify([
+      { id: 'imp-l1', status: 'processing', source: 'link', recipe_id: null, error: null, page_count: 1, created_at: '2026-11-24T11:00:00Z' },
+      { id: 'imp-l2', status: 'failed', source: 'link', recipe_id: null, error: 'No recipe was found in this post\'s caption.', page_count: 1, created_at: '2026-11-24T11:01:00Z' },
+    ]),
+  }));
+  await page.goto('/');
+  const banner = page.getByRole('region', { name: 'Recipes from your iPhone' });
+  await expect(banner).toContainText('Reading a shared link');
+  await expect(banner).toContainText('A shared link could not be read. No recipe was found in this post\'s caption.');
+  await expect(banner).not.toContainText('picture');
+  await expect(banner).not.toContainText('Safari');
+});
+
 test('shows nothing when nothing new arrived', async ({ page }) => {
   await installMockBackend(page);
   await page.route('**/rest/v1/recipe_imports*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
@@ -122,11 +138,11 @@ test('Settings makes a Shortcut key and shows it once', async ({ page }) => {
 
 const LINK = 'https://www.icloud.com/shortcuts/5f2b0c3a9e4d4b8f8c2a1d6e7f9a0b1c';
 
-async function serveSettingsRow(page: Page, shortcutUrl: string | null, safariUrl: string | null = null) {
+async function serveSettingsRow(page: Page, shortcutUrl: string | null, safariUrl: string | null = null, linkUrl: string | null = null) {
   await page.route('**/rest/v1/settings*', (route) => {
     const url = route.request().url();
     const body = url.includes('id=eq.1')
-      ? { gemini_model: 'claude-sonnet-5-5', task_models: {}, shortcut_url: shortcutUrl, safari_shortcut_url: safariUrl }
+      ? { gemini_model: 'claude-sonnet-5-5', task_models: {}, shortcut_url: shortcutUrl, safari_shortcut_url: safariUrl, link_shortcut_url: linkUrl }
       : { temperature_unit: 'C' };
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
@@ -160,7 +176,7 @@ test('without a shared link there is no button, only the build steps', async ({ 
   await page.goto('/');
   await page.getByTitle('Settings').click();
   const section = page.getByRole('region', { name: 'iPhone Shortcuts' });
-  await expect(section.getByText('How to set up the Shortcut')).toHaveCount(2);
+  await expect(section.getByText('How to set up the Shortcut')).toHaveCount(3);
   await expect(section.getByRole('link', { name: 'Add to Shortcuts' })).toHaveCount(0);
 });
 
@@ -219,6 +235,27 @@ test('the Safari Shortcut: its button, the one setting it needs, and the script 
   await safari.getByText('Build the Shortcut yourself instead').click();
   await expect(safari.getByTestId('safari-script')).toHaveText(SAFARI_SHORTCUT_SCRIPT);
   await expect(safari.getByRole('button', { name: 'Copy script' })).toBeVisible();
+});
+
+test('the link Shortcut, for Instagram: its button and what it sends', async ({ page }) => {
+  const LINK_LINK = 'https://www.icloud.com/shortcuts/9f8e7d6c5b4a39281706f5e4d3c2b1a0';
+  await installMockBackend(page, { email: 'cook@example.com' });
+  await serveSettingsRow(page, null, null, LINK_LINK);
+  await page.goto('/');
+  await page.getByTitle('Settings').click();
+
+  const section = page.getByRole('region', { name: 'iPhone Shortcuts' });
+  await expect(section).toContainText('Three Shortcuts');
+  const link = section.getByRole('region', { name: 'From Instagram and other apps' });
+  await expect(link.getByRole('link', { name: 'Add to Shortcuts' })).toHaveAttribute('href', LINK_LINK);
+  await expect(link).toContainText('read from the post');
+  await expect(link).toContainText('Save page to Speisekammer');
+  await link.getByText('Build the Shortcut yourself instead').click();
+  await expect(link).toContainText('Send link to Speisekammer');
+  await expect(link.getByText(/\/api\/extract\?via=shortcut$/)).toBeVisible();
+  await expect(link.locator('ol')).toContainText('url = Shortcut Input');
+  // The other two are not shared here: no button on either.
+  await expect(section.getByRole('link', { name: 'Add to Shortcuts' })).toHaveCount(1);
 });
 
 test('the Safari script, run in a real browser, sends the recipe data and the address', async ({ page }) => {

@@ -12,7 +12,7 @@ create extension if not exists pgtap with schema extensions;
 create schema if not exists tests;
 
 begin;
-select plan(57);
+select plan(60);
 
 -- ── Fixtures ────────────────────────────────────────────────────────────────
 -- Three accounts: two that will be linked, and a third that must stay isolated.
@@ -562,6 +562,27 @@ select is(
   (select safari_shortcut_url from public.settings where id = 1),
   'https://www.icloud.com/shortcuts/def456',
   'and no user can change the Safari Shortcut link'
+);
+
+-- ── The link Shortcut (migration 0073) ──────────────────────────────────────
+update public.settings set link_shortcut_url = 'https://www.icloud.com/shortcuts/ghi789' where id = 1;
+select lives_ok(
+  $$ insert into public.recipe_imports (id, user_id, status, source)
+     values ('dddddddd-0000-0000-0000-000000000004', '33333333-3333-3333-3333-333333333333', 'processing', 'link') $$,
+  'an import can come from a link'
+);
+select tests.as_user('33333333-3333-3333-3333-333333333333');
+select is(
+  (select link_shortcut_url from public.settings where id = 1),
+  'https://www.icloud.com/shortcuts/ghi789',
+  'every user can read the link Shortcut link'
+);
+update public.settings set link_shortcut_url = 'https://evil.example/shortcut' where id = 1;
+reset role;
+select is(
+  (select link_shortcut_url from public.settings where id = 1),
+  'https://www.icloud.com/shortcuts/ghi789',
+  'and no user can change the link Shortcut link'
 );
 
 select * from finish();

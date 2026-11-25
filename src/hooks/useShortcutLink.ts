@@ -4,16 +4,16 @@ import { apiFetch } from '@/lib/api';
 
 /**
  * The shared iPhone Shortcuts' iCloud links, on the global settings row:
- * `shortcut_url` for the Photos one (migration 0071) and `safari_shortcut_url`
- * for the Safari one (0072). Everyone reads them, to show "Add to Shortcuts";
+ * `shortcut_url` for the Photos one (migration 0071), `safari_shortcut_url`
+ * for the Safari one (0072) and `link_shortcut_url` for the link one (0073). Everyone reads them, to show "Add to Shortcuts";
  * only the admin can change them, through POST /api/account?action=shortcut-url.
  */
 const GLOBAL_SETTINGS_ID = 1;
 
-export type ShortcutKind = 'photos' | 'safari';
+export type ShortcutKind = 'photos' | 'safari' | 'link';
 export type ShortcutLinks = Record<ShortcutKind, string | null>;
 
-const NO_LINKS: ShortcutLinks = { photos: null, safari: null };
+const NO_LINKS: ShortcutLinks = { photos: null, safari: null, link: null };
 
 export function useShortcutLink(enabled: boolean) {
   const [urls, setUrls] = useState<ShortcutLinks>(NO_LINKS);
@@ -24,8 +24,8 @@ export function useShortcutLink(enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
-    // All columns rather than the two by name: in the minutes after a deploy,
-    // before 0072 has run, naming safari_shortcut_url would fail the whole read.
+    // All columns rather than the three by name: in the minutes after a deploy,
+    // before its migration has run, naming a new column would fail the whole read.
     void supabase
       .from('settings')
       .select('*')
@@ -33,8 +33,8 @@ export function useShortcutLink(enabled: boolean) {
       .maybeSingle()
       .then(({ data }) => {
         if (cancelled) return;
-        const row = (data ?? {}) as { shortcut_url?: string | null; safari_shortcut_url?: string | null };
-        setUrls({ photos: row.shortcut_url || null, safari: row.safari_shortcut_url || null });
+        const row = (data ?? {}) as { shortcut_url?: string | null; safari_shortcut_url?: string | null; link_shortcut_url?: string | null };
+        setUrls({ photos: row.shortcut_url || null, safari: row.safari_shortcut_url || null, link: row.link_shortcut_url || null });
         setLoaded(true);
       });
     return () => { cancelled = true; };

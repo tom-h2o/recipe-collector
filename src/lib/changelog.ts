@@ -29,6 +29,16 @@ export const RELEASES: ReleaseNote[] = [
   },
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-12',
+    title: 'Recipes from Instagram',
+    items: [
+      'A third iPhone Shortcut, “Send link to Speisekammer”: on an Instagram post or reel, tap Share and send it. The recipe is read from the post’s caption. Set it up under Settings → iPhone Shortcuts. Links from other apps work too.',
+      'An Instagram link pasted into Add recipe → Website works the same way.',
+      'Recipes from Instagram keep their photo. Instagram’s picture links stop working after a few days, so Speisekammer now keeps its own copy.',
+    ],
+  },
+  {
+    // Ids must increase with each release (see 2026-12-02 below).
     id: '2026-12-11',
     title: 'Ingredients in cook mode',
     items: [
