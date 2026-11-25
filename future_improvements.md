@@ -168,6 +168,47 @@ on its own. The failure is at least legible now — `describeGeminiError()` tell
 user it is a configuration problem and not their recipe. Revisit if the app becomes
 something depended on daily, or if the 403 recurs.
 
+### Vault search that understands German, partial words and several words
+The vault search is Postgres full-text search: `recipes.search_vector` (migration
+0028) is generated from title, description and `ingredients::text`, and
+`recipeStore.ts` queries it with `.textSearch('search_vector', query)`. Looked at
+on 2026-11-25, it has five faults, found by reading the code (not reproduced
+against production):
+
+1. **English stemming on German recipes.** The column uses `to_tsvector('english', …)`,
+   so "Kartoffel" does not find "Kartoffeln" and "Zwiebel" not "Zwiebeln".
+2. **Whole words only.** "Kartoffel" does not find "Kartoffelsuppe", and nothing is
+   found while a word is half typed ("Kart").
+3. **Two words break the query.** `textSearch()` without a `type` sends
+   `fts.<input>`, i.e. `to_tsquery('Kartoffel Suppe')`, which Postgres rejects as
+   a tsquery syntax error. `fetchRecipes` ignores the error and only sets
+   `recipes` when `data` is non-null, so the list silently keeps the previous
+   result: the second word appears to be ignored.
+4. **Not searched:** tags ("vegetarisch" only matches if it is in the title or
+   description), instructions, translations.
+5. **JSON keys are indexed.** `ingredients::text` puts `name`, `amount` and
+   `details` into every recipe's vector, so searching "name" matches everything.
+
+**Proposal (no AI, one migration):**
+- Rebuild `search_vector` with the language-neutral `simple` config from title,
+  description, tags, and only the ingredients' `name`/`details` values (not the
+  JSON), with `setweight` so a title match ranks above an ingredient match.
+  Instructions maybe at the lowest weight.
+- Build the query in the app: split the input into words, strip tsquery
+  operators, and send each word as a prefix (`kartoffel:* & suppe:*`). That fixes
+  1–3: "Kartoffel" finds "Kartoffeln" and "Kartoffelsuppe", "Kart" works while
+  typing, and several words are ANDed instead of failing.
+- Surface a query error instead of silently keeping the old list.
+- Tests: a unit test for the query builder (operators, quotes, umlauts, several
+  words), a pgTAP or SQL check that the generated column holds what it should,
+  and an e2e case typing two words.
+
+**Optional, if it matters:** prefix search finds word *beginnings* only, so
+"Suppe" still would not find "Kartoffelsuppe". Matching inside words needs a
+trigram index (`pg_trgm`, `gin_trgm_ops`) and `ilike '%suppe%'` over title and
+ingredient names; at this vault's size that is fast. Could run alongside the
+full-text search (OR), or only when the full-text search finds nothing.
+
 ### Recipe version history
 When a recipe is edited, the previous version is permanently overwritten with no way to undo.
 - Store snapshots in a `recipe_versions` table on every update
