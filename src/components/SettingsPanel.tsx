@@ -1,4 +1,4 @@
-import { Settings, BarChart2, RefreshCw, Link2 } from 'lucide-react';
+import { Settings, BarChart2, RefreshCw, Link2, Sparkles } from 'lucide-react';
 import { useUsage } from '@/hooks/useUsage';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -8,12 +8,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { GeminiLogs } from '@/components/GeminiLogs';
 import { ConnectionsPanel } from '@/components/ConnectionsPanel';
 import { ShortcutSettings } from '@/components/ShortcutSettings';
+import { SegmentedTabs, type SegmentedTab } from '@/components/SegmentedTabs';
 import { useAccountLinks } from '@/hooks/useAccountLinks';
 import { useModelResolution } from '@/hooks/useModelResolution';
 import { MODEL_OPTIONS, AI_TASKS, RECOMMENDED_TASK_MODELS } from '@/lib/constants';
 import type { AppSettings, AiTask } from '@/types';
 
-type Tab = 'settings' | 'connections' | 'logs';
+type Tab = 'settings' | 'ai' | 'connections' | 'logs';
+
+const TABS: readonly SegmentedTab<Tab>[] = [
+  { id: 'settings', label: 'General', icon: Settings },
+  // "AI" on a phone, where four labels have to share one row.
+  { id: 'ai', label: 'AI models', short: 'AI', icon: Sparkles },
+  { id: 'connections', label: 'Connections', icon: Link2 },
+  { id: 'logs', label: 'Usage', icon: BarChart2 },
+];
 
 interface Props {
   isOpen: boolean;
@@ -125,33 +134,14 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, isA
           <DialogTitle className="text-2xl font-bold flex items-center gap-2">
             <Settings className="w-6 h-6 text-sk-primary" /> Settings
           </DialogTitle>
-          <DialogDescription>Your preferences, linked accounts and AI usage.</DialogDescription>
+          <DialogDescription>Preferences, Shortcuts, AI models and more.</DialogDescription>
         </DialogHeader>
 
-        {/* Tab switcher — fixed position, never moves */}
-        <div className="shrink-0 flex bg-zinc-100 dark:bg-zinc-800 rounded-xl p-1 gap-1">
-          <button
-            onClick={() => setTab('settings')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'settings' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
-          >
-            <Settings className="w-4 h-4" /> General
-          </button>
-          <button
-            onClick={() => setTab('connections')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'connections' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
-          >
-            <Link2 className="w-4 h-4" /> Connections
-          </button>
-          <button
-            onClick={() => setTab('logs')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'logs' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
-          >
-            <BarChart2 className="w-4 h-4" /> Usage Logs
-          </button>
-        </div>
+        {/* Never scrolls with the content; a label never wraps (SegmentedTabs). */}
+        <SegmentedTabs tabs={TABS} value={tab} onChange={setTab} label="Settings sections" idPrefix="settings" className="shrink-0" />
 
         {/* Scrollable content area — fills remaining height */}
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div id="settings-panel" role="tabpanel" aria-labelledby={`settings-tab-${tab}`} className="flex-1 overflow-y-auto min-h-0">
           {tab === 'settings' && (
             <div className="space-y-6 py-2">
                 <div className="space-y-2">
@@ -175,7 +165,11 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, isA
                 </div>
 
                 <ShortcutSettings open={isOpen && tab === 'settings'} isAdmin={isAdmin} />
+              </div>
+            )}
 
+            {tab === 'ai' && (
+              <div className="space-y-6 py-2">
                 {isAdmin ? (
                   <>
                     <p className="text-xs rounded-xl px-3 py-2 bg-sk-surface-high dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground">
@@ -391,8 +385,9 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, isA
             )}
         </div>
 
-        {/* Button area — always visible at bottom */}
-        {tab === 'settings' && (
+        {/* Button area — always visible at bottom. Saves the temperature unit
+            and, for the admin, the AI models; nothing else here is saved by it. */}
+        {(tab === 'settings' || (tab === 'ai' && isAdmin)) && (
           <div className="shrink-0 bg-gradient-to-b from-transparent via-white via-50% to-white dark:via-zinc-900 dark:to-zinc-900 pt-4 pb-2 border-t border-zinc-100 dark:border-zinc-800 flex gap-3">
             <Button onClick={handleSave} disabled={!hasChanges || isSaving} className="flex-1 bg-sk-primary hover:bg-sk-primary-container disabled:bg-zinc-300 disabled:cursor-not-allowed text-white dark:text-primary-foreground font-semibold shadow-md py-3 text-base border-0 rounded-full">
               {isSaving ? 'Saving...' : 'Save Settings'}

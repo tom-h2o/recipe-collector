@@ -14,6 +14,7 @@ async function openSettings(page: import('@playwright/test').Page, logs: unknown
   });
   await page.goto('/');
   await page.getByTitle('Settings').click();
+  await page.getByRole('tab', { name: 'AI models' }).click();
   await page.getByText('Main model', { exact: true }).waitFor();
 }
 

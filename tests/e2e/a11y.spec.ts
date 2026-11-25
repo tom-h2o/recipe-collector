@@ -99,8 +99,11 @@ test('settings dialog', async ({ page }) => {
   await installMockBackend(page);
   await page.goto('/');
   await page.getByTitle('Settings').click();
-  await expect(page.getByText('Main model', { exact: true })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'General', selected: true })).toBeVisible();
   expect(await auditSerious(page, 'settings')).toEqual([]);
+  await page.getByRole('tab', { name: 'AI models' }).click();
+  await expect(page.getByText('Main model', { exact: true })).toBeVisible();
+  expect(await auditSerious(page, 'settings: AI models')).toEqual([]);
 });
 
 // ── remaining views ──────────────────────────────────────────────────────────
