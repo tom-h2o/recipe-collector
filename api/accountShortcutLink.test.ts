@@ -68,11 +68,6 @@ describe('POST /api/account?action=shortcut-url', () => {
     expect(h.upserts).toHaveLength(1);
   });
 
-  it('keeps the link Shortcut\'s link in its own column', async () => {
-    const res = await post({ url: LINK, kind: 'link' });
-    expect(res.body).toEqual({ url: LINK, kind: 'link' });
-    expect(h.upserts[0]).toEqual([{ id: 1, user_id: null, link_shortcut_url: LINK }, { onConflict: 'id' }]);
-  });
 
   it('removes the link when it is emptied', async () => {
     for (const url of ['', null]) {

@@ -20,6 +20,15 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-14',
+    title: 'One Shortcut for pages and links',
+    items: [
+      'The Safari Shortcut now takes links from Instagram and other apps too, so one entry in the share sheet does both: in Safari it reads the page you have open, anywhere else it sends the link.',
+      'The separate “Send link to Speisekammer” Shortcut is no longer needed, and it appeared in Safari as well. The steps for the combined one are under Settings → iPhone Shortcuts.',
+    ],
+  },
+  {
+    // Ids must increase with each release (see 2026-12-02 below).
     id: '2026-12-13',
     title: 'Tidier Settings',
     items: [
