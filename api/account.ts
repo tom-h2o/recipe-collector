@@ -48,12 +48,12 @@ export const shortcutUrlSchema = z.object({
     }
     return link;
   }),
-  /** photos: "Send to Speisekammer" (0071). safari: "Save page to Speisekammer" (0072). link: "Send link to Speisekammer" (0073). */
-  kind: z.enum(['photos', 'safari', 'link']).default('photos'),
+  /** photos: "Send to Speisekammer" (0071). safari: "Save page to Speisekammer", pages and links (0072). */
+  kind: z.enum(['photos', 'safari']).default('photos'),
 }).strict();
 
 /** The global settings column each shared Shortcut's link is kept in. */
-export const SHORTCUT_URL_COLUMNS = { photos: 'shortcut_url', safari: 'safari_shortcut_url', link: 'link_shortcut_url' } as const;
+export const SHORTCUT_URL_COLUMNS = { photos: 'shortcut_url', safari: 'safari_shortcut_url' } as const;
 
 class HttpError extends Error {
   status: number;

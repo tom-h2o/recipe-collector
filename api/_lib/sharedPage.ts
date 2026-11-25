@@ -3,8 +3,8 @@ import { fetchPublicUrl } from './publicUrl.js';
 
 /**
  * Fetching a recipe page by its link, for the two ways a link arrives: pasted
- * into the app (api/extract.ts), and shared to the "Send link to Speisekammer"
- * Shortcut from any app's share sheet, Instagram's among them
+ * into the app (api/extract.ts), and shared from any app but Safari to the
+ * "Save page to Speisekammer" Shortcut, Instagram's share sheet among them
  * (_lib/shortcutImport.ts, migration 0073). Both get the same answer when a
  * site will not give its page to a server, and the same check on Instagram.
  */

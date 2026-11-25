@@ -138,11 +138,11 @@ test('Settings makes a Shortcut key and shows it once', async ({ page }) => {
 
 const LINK = 'https://www.icloud.com/shortcuts/5f2b0c3a9e4d4b8f8c2a1d6e7f9a0b1c';
 
-async function serveSettingsRow(page: Page, shortcutUrl: string | null, safariUrl: string | null = null, linkUrl: string | null = null) {
+async function serveSettingsRow(page: Page, shortcutUrl: string | null, safariUrl: string | null = null) {
   await page.route('**/rest/v1/settings*', (route) => {
     const url = route.request().url();
     const body = url.includes('id=eq.1')
-      ? { gemini_model: 'claude-sonnet-5-5', task_models: {}, shortcut_url: shortcutUrl, safari_shortcut_url: safariUrl, link_shortcut_url: linkUrl }
+      ? { gemini_model: 'claude-sonnet-5-5', task_models: {}, shortcut_url: shortcutUrl, safari_shortcut_url: safariUrl }
       : { temperature_unit: 'C' };
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
@@ -176,7 +176,7 @@ test('without a shared link there is no button, only the build steps', async ({ 
   await page.goto('/');
   await page.getByTitle('Settings').click();
   const section = page.getByRole('region', { name: 'iPhone Shortcuts' });
-  await expect(section.getByText('How to set up the Shortcut')).toHaveCount(3);
+  await expect(section.getByText('How to set up the Shortcut')).toHaveCount(2);
   await expect(section.getByRole('link', { name: 'Add to Shortcuts' })).toHaveCount(0);
 });
 
@@ -237,25 +237,28 @@ test('the Safari Shortcut: its button, the one setting it needs, and the script 
   await expect(safari.getByRole('button', { name: 'Copy script' })).toBeVisible();
 });
 
-test('the link Shortcut, for Instagram: its button and what it sends', async ({ page }) => {
-  const LINK_LINK = 'https://www.icloud.com/shortcuts/9f8e7d6c5b4a39281706f5e4d3c2b1a0';
+test('one Shortcut for pages and links: Safari reads the page, anything else sends the link', async ({ page }) => {
+  // A separate link Shortcut also showed in Safari's share sheet: iOS lists a
+  // Shortcut wherever its content type is shared, and Safari shares a URL too.
   await installMockBackend(page, { email: 'cook@example.com' });
-  await serveSettingsRow(page, null, null, LINK_LINK);
+  await serveSettingsRow(page, null);
   await page.goto('/');
   await page.getByTitle('Settings').click();
 
   const section = page.getByRole('region', { name: 'iPhone Shortcuts' });
-  await expect(section).toContainText('Three Shortcuts');
-  const link = section.getByRole('region', { name: 'From Instagram and other apps' });
-  await expect(link.getByRole('link', { name: 'Add to Shortcuts' })).toHaveAttribute('href', LINK_LINK);
-  await expect(link).toContainText('read from the post');
-  await expect(link).toContainText('Save page to Speisekammer');
-  await link.getByText('Build the Shortcut yourself instead').click();
-  await expect(link).toContainText('Send link to Speisekammer');
-  await expect(link.getByText(/\/api\/extract\?via=shortcut$/)).toBeVisible();
-  await expect(link.locator('ol')).toContainText('url = Shortcut Input');
-  // The other two are not shared here: no button on either.
-  await expect(section.getByRole('link', { name: 'Add to Shortcuts' })).toHaveCount(1);
+  await expect(section).toContainText('Two Shortcuts');
+  await expect(section.getByRole('region')).toHaveCount(2);
+  const card = section.getByRole('region', { name: 'From Safari, Instagram and other apps' });
+  await expect(card).toContainText('Save page to Speisekammer');
+  await expect(card).toContainText("read from its caption");
+  await card.getByText('How to set up the Shortcut').click();
+  const steps = card.locator('ol');
+  await expect(steps).toContainText('Safari web pages and URLs');
+  await expect(steps).toContainText('Get Type');
+  await expect(steps).toContainText('Safari web page');
+  await expect(steps).toContainText('page = JavaScript Result');
+  await expect(steps).toContainText('url = Shortcut Input');
+  await expect(card.getByTestId('safari-script')).toHaveText(SAFARI_SHORTCUT_SCRIPT);
 });
 
 test('the Safari script, run in a real browser, sends the recipe data and the address', async ({ page }) => {

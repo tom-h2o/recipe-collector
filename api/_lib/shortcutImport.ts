@@ -49,10 +49,11 @@ export type { SharedPage };
  * link cannot be imported; the page the person has open in Safari can be.
  * It is read like a link (extractRecipeFromHtml) and saved with its address.
  *
- * And a link from any app's share sheet, from the "Send link to Speisekammer"
- * Shortcut (migration 0073): `{ url }`. Made for Instagram, whose share
- * button hands over the post's address and nothing else, but any app's link
- * works. Here the server fetches the page, as for a link pasted into the app
+ * And a link from any app's share sheet: `{ url }`, sent by the same
+ * Shortcut when what was shared is not a Safari page (it branches on Get
+ * Type; migration 0073 records these as source 'link'). Made for Instagram,
+ * whose share button hands over the post's address and nothing else, but any
+ * app's link works. Here the server fetches the page, as for a link pasted into the app
  * (sharedPage.ts), before answering: a site that refuses servers, or an
  * Instagram post Instagram will not show, is said in the notification, with
  * the Safari Shortcut as the way round, and nothing is recorded.

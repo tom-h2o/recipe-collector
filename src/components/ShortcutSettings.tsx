@@ -1,26 +1,30 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Check, Compass, Copy, Images, KeyRound, Link2, Plus, Smartphone } from 'lucide-react';
+import { Check, Compass, Copy, Images, KeyRound, Plus, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useShortcutKey } from '@/hooks/useShortcutKey';
 import { useShortcutLink, type ShortcutKind } from '@/hooks/useShortcutLink';
 import { findShortcutLink } from '../../shared/shortcutLink';
 import { SAFARI_SHORTCUT_NAME, SAFARI_SHORTCUT_SCRIPT } from '../../shared/safariShortcut';
-import { LINK_SHORTCUT_NAME } from '../../shared/linkShortcut';
 
 /**
- * Settings → iPhone Shortcuts: the personal key, and the three Shortcuts
- * that put Speisekammer in the iPhone's share sheet. A web app cannot appear
- * there by itself (Safari has no Web Share Target support).
+ * Settings → iPhone Shortcuts: the personal key, and the two Shortcuts that
+ * put Speisekammer in the iPhone's share sheet. A web app cannot appear there
+ * by itself (Safari has no Web Share Target support).
  *
  * - "Send to Speisekammer", from the Photos app: pictures of a recipe.
- * - "Save page to Speisekammer", from Safari: the recipe page the person has
- *   open, for sites that refuse their pages to the server (rewe.de and others;
- *   see describePageRefusal in api/_lib/sharedPage.ts).
- * - "Send link to Speisekammer", from Instagram or any other app: a link,
- *   which the server fetches; a post's recipe is read from its caption.
+ * - "Save page to Speisekammer", from Safari and any other app: in Safari the
+ *   page the person has open, for sites that refuse their pages to the server
+ *   (rewe.de and others; see describePageRefusal in api/_lib/sharedPage.ts);
+ *   anywhere else the link, which the server fetches (an Instagram post's
+ *   recipe is read from its caption).
  *
- * All three send the same key, which is shown once, right after it is made; the
+ * There was a third, link-only Shortcut for a day. iOS lists a Shortcut in
+ * every share sheet whose content it accepts and cannot be told to leave an
+ * app out; Safari shares its page as a URL too, so in Safari it sat beside
+ * this one. One Shortcut that branches on Get Type has one entry everywhere.
+ *
+ * Both send the same key, which is shown once, right after it is made; the
  * server keeps only its hash. Once the admin has shared a Shortcut (an iCloud
  * link with an import question for the key), everyone gets an "Add to
  * Shortcuts" button for it and its build steps become a fallback.
@@ -59,9 +63,9 @@ export function ShortcutSettings({ open, isAdmin = false }: { open: boolean; isA
           <Smartphone className="w-4 h-4" aria-hidden="true" /> iPhone Shortcuts
         </Label>
         <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
-          Three Shortcuts put Speisekammer in your iPhone&apos;s share sheet: for pictures in the Photos app, for
-          recipe pages in Safari, and for links from Instagram or any other app. Recipes are saved right away and
-          marked as new here. All three use the same key.
+          Two Shortcuts put Speisekammer in your iPhone&apos;s share sheet: one for pictures in the Photos app, one
+          for pages and links from Safari, Instagram or any other app. Recipes are saved right away and marked as new
+          here. Both use the same key.
         </p>
       </div>
 
@@ -168,18 +172,20 @@ export function ShortcutSettings({ open, isAdmin = false }: { open: boolean; isA
       <ShortcutCard
         kind="safari"
         icon={<Compass className="w-4 h-4" aria-hidden="true" />}
-        heading="From Safari"
+        heading="From Safari, Instagram and other apps"
         name={SAFARI_SHORTCUT_NAME}
         intro={
           <>
-            For recipe sites that block the link import, such as REWE or EDEKA: open the recipe in Safari, tap Share, then
-            <b> {SAFARI_SHORTCUT_NAME}</b>. The recipe is saved with its link.
+            In Safari, tap Share, then <b>{SAFARI_SHORTCUT_NAME}</b>: it reads the page you have open, so sites that
+            block the link import (REWE, EDEKA) work too. On an Instagram post or reel, or a link in any other app, the
+            same Shortcut sends the link; a post&apos;s recipe is read from its caption, and one that is only in the
+            video cannot be read.
           </>
         }
         note={
           <>
             Once on each iPhone: <b>Settings → Apps → Shortcuts → Advanced</b>, turn on <b>Allow Running Scripts</b>. The
-            Shortcut reads the page you have open, so it needs that. If it asks to run on a site, allow it.
+            Shortcut reads the page you have open in Safari, so it needs that. If it asks to run on a site, allow it.
           </>
         }
         link={links.urls.safari}
@@ -190,64 +196,40 @@ export function ShortcutSettings({ open, isAdmin = false }: { open: boolean; isA
         onSave={(value) => void links.save('safari', value)}
       >
         {address('safari')}
+        {/* One Shortcut for pages and links. iOS shows a Shortcut in every
+            share sheet whose content it accepts, and Safari shares its page as
+            a URL too, so a separate link Shortcut sat beside this one in
+            Safari. Get Type tells the two apart. */}
         <ol className="list-decimal pl-4 space-y-1.5">
           <li>In the <b>Shortcuts</b> app, tap <b>+</b> and name the shortcut <b>{SAFARI_SHORTCUT_NAME}</b>.</li>
-          <li>Open its details (ⓘ), turn on <b>Show in Share Sheet</b>, and let it receive <b>Safari web pages</b> only.</li>
+          <li>Open its details (ⓘ), turn on <b>Show in Share Sheet</b>, and let it receive <b>Safari web pages</b> and <b>URLs</b>.</li>
           <li>
-            Add <b>Run JavaScript on Web Page</b> (on Shortcut Input) and replace its script with this one:
+            Add <b>Get Type</b> of Shortcut Input, then <b>If</b> Type <b>is</b> <code>Safari web page</code>. (The
+            text can differ by language: put <b>Show Result</b> after Get Type once, share a page from Safari, and use
+            what it shows.)
+          </li>
+          <li>
+            Inside the If: <b>Run JavaScript on Web Page</b> (on Shortcut Input), with this script in place of its own:
             <pre data-testid="safari-script" className="mt-1.5 p-2 rounded-lg bg-zinc-50 dark:bg-zinc-800 font-mono text-[10px] leading-snug whitespace-pre-wrap break-all">{SAFARI_SHORTCUT_SCRIPT}</pre>
             <Button type="button" variant="outline" className="mt-1.5 h-7 rounded-full text-[11px]" onClick={() => void copy('script', SAFARI_SHORTCUT_SCRIPT)}>
               {copied === 'script' ? 'Copied' : 'Copy script'}
             </Button>
+            <span className="block mt-1.5">
+              then <b>Get Contents of URL</b> with the address above, Method <b>POST</b>, a header
+              <code> X-Speisekammer-Key</code> with your key, and Request Body <b>JSON</b> with
+              <code> page</code> = JavaScript Result (as Text).
+            </span>
           </li>
           <li>
-            Add <b>Get Contents of URL</b> with the address above, Method <b>POST</b>, a header
-            <code> X-Speisekammer-Key</code> with your key, and Request Body <b>JSON</b> with
-            <code> page</code> = JavaScript Result (as Text).
+            Under <b>Otherwise</b>: <b>Get Contents of URL</b> with the same address, method and header, and Request
+            Body <b>JSON</b> with <code>url</code> = Shortcut Input.
           </li>
-          <li>Add <b>Get Dictionary Value</b> for <code>message</code>, then <b>Show Notification</b> with it.</li>
-        </ol>
-      </ShortcutCard>
-
-      <ShortcutCard
-        kind="link"
-        icon={<Link2 className="w-4 h-4" aria-hidden="true" />}
-        heading="From Instagram and other apps"
-        name={LINK_SHORTCUT_NAME}
-        intro={
-          <>
-            On an Instagram post or reel, tap the paper plane, then <b>Share</b> and <b>{LINK_SHORTCUT_NAME}</b>. The
-            recipe is read from the post&apos;s caption; one that is only spoken or shown in the video cannot be read.
-            A link from any other app works too.
-          </>
-        }
-        note={
-          <>
-            Private posts, and the odd post Instagram will not show without a login, come back with a notification
-            saying so: open those in Safari and use <b>{SAFARI_SHORTCUT_NAME}</b> instead.
-          </>
-        }
-        link={links.urls.link}
-        isAdmin={isAdmin}
-        formLabel="Shared link Shortcut link"
-        saving={links.saving === 'link'}
-        error={links.error?.kind === 'link' ? links.error.message : null}
-        onSave={(value) => void links.save('link', value)}
-      >
-        {address('link')}
-        <ol className="list-decimal pl-4 space-y-1.5">
-          <li>In the <b>Shortcuts</b> app, tap <b>+</b> and name the shortcut <b>{LINK_SHORTCUT_NAME}</b>.</li>
-          <li>Open its details (ⓘ), turn on <b>Show in Share Sheet</b>, and let it receive <b>URLs</b> and <b>Text</b>.</li>
-          <li>
-            Add <b>Get Contents of URL</b> with the address above, Method <b>POST</b>, a header
-            <code> X-Speisekammer-Key</code> with your key, and Request Body <b>JSON</b> with
-            <code> url</code> = Shortcut Input.
-          </li>
-          <li>Add <b>Get Dictionary Value</b> for <code>message</code>, then <b>Show Notification</b> with it.</li>
+          <li>After <b>End If</b>: <b>Get Dictionary Value</b> for <code>message</code> in the If Result, then <b>Show Notification</b> with it.</li>
         </ol>
         <p className="text-zinc-500 dark:text-zinc-400">
-          The first time, the Shortcut may be under <b>More</b> at the end of the share sheet&apos;s app row, or in
-          its list of actions; <b>Edit Actions</b> there puts it among the favourites.
+          The first time, the Shortcut may be under <b>More</b> at the end of the share sheet&apos;s app row, or in its
+          list of actions; <b>Edit Actions</b> there puts it among the favourites. Private Instagram posts come back with
+          a notification saying so: open those in Safari and share from there.
         </p>
       </ShortcutCard>
     </section>
