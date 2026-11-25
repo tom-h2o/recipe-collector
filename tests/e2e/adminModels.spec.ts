@@ -55,6 +55,7 @@ test('everyone else sees the model per task, and nothing to change it with', asy
   await serveSettings(page);
   await page.goto('/');
   await page.getByTitle('Settings').click();
+  await page.getByRole('tab', { name: 'AI models' }).click();
 
   const list = page.getByRole('list', { name: 'AI model per task' });
   await expect(list).toBeVisible();
@@ -74,6 +75,7 @@ test('the admin changes a task\'s model for everyone through the admin endpoint'
   const { rowWrites, modelPosts } = await serveSettings(page);
   await page.goto('/');
   await page.getByTitle('Settings').click();
+  await page.getByRole('tab', { name: 'AI models' }).click();
 
   await expect(page.getByText('apply to everyone using the app')).toBeVisible();
   const tagging = page.getByLabel('Model for Tagging');

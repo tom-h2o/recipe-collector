@@ -55,7 +55,7 @@ async function openSystemTab(page: Page, viewport = { width: 1280, height: 900 }
   await expect(page.getByText('Classic Margherita Pizza')).toBeVisible();
   const nav = viewport.width >= 1024 ? page.locator('header') : page.getByRole('navigation');
   await nav.getByRole('button', { name: 'Admin' }).click();
-  await page.getByRole('button', { name: 'System', exact: true }).click();
+  await page.getByRole('tab', { name: 'System' }).click();
   return { posts };
 }
 
@@ -105,7 +105,7 @@ test('the AI logs show whether each call reasoned', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('Classic Margherita Pizza')).toBeVisible();
   await page.locator('header').getByRole('button', { name: 'Admin' }).click();
-  await page.getByRole('button', { name: /AI Logs/ }).click();
+  await page.getByRole('tab', { name: /AI Logs/ }).click();
   await expect(page.getByRole('columnheader', { name: 'Reasoning' })).toBeVisible();
   await expect(page.getByRole('row').filter({ hasText: 'gemini-4-argon' }).getByText('refused', { exact: true })).toBeVisible();
   await expect(page.getByRole('row').filter({ hasText: 'tag' }).getByText('off', { exact: true })).toBeVisible();

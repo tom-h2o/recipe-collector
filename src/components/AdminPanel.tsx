@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, BookOpen, Sparkles, Trash2, RefreshCw, Calendar, TrendingUp, Star, ChevronLeft, ChevronRight, X, Loader2, Pencil } from 'lucide-react';
+import { Users, BookOpen, Sparkles, Trash2, RefreshCw, Calendar, TrendingUp, Star, ChevronLeft, ChevronRight, X, Loader2, Pencil, LayoutDashboard, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { RecipeForm } from '@/components/RecipeForm';
 import type { AdminUser, AdminStats, AdminLog, AdminRecipe, Recipe } from '@/types';
 import { ReasoningTag } from '@/components/ReasoningTag';
 import { SystemCheck } from '@/components/SystemCheck';
+import { SegmentedTabs, type SegmentedTab } from '@/components/SegmentedTabs';
 
 type Tab = 'overview' | 'users' | 'recipes' | 'logs' | 'system';
 
@@ -299,12 +300,12 @@ export function AdminPanel() {
     );
   }
 
-  const TABS: { id: Tab; label: string; count?: number }[] = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'users', label: 'Users', count: stats.total_users },
-    { id: 'recipes', label: 'Recipes', count: stats.total_recipes },
-    { id: 'logs', label: 'AI Logs', count: stats.total_ai_calls },
-    { id: 'system', label: 'System' },
+  const TABS: SegmentedTab<Tab>[] = [
+    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+    { id: 'users', label: 'Users', icon: Users, count: stats.total_users },
+    { id: 'recipes', label: 'Recipes', icon: BookOpen, count: stats.total_recipes },
+    { id: 'logs', label: 'AI Logs', icon: Sparkles, count: stats.total_ai_calls },
+    { id: 'system', label: 'System', icon: Activity },
   ];
 
   return (
@@ -317,30 +318,11 @@ export function AdminPanel() {
         </Button>
       </div>
 
-      {/* Tabs */}
-      {/* Scrolls sideways on a narrow phone rather than pushing the page wider. */}
-      <div className="flex bg-sk-surface-low dark:bg-muted rounded-full p-1 gap-0.5 w-fit max-w-full overflow-x-auto">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            aria-current={tab === t.id ? 'page' : undefined}
-            className={`shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-semibold transition-all flex items-center gap-1.5 ${
-              tab === t.id
-                ? 'bg-white dark:bg-card shadow-sm text-sk-primary dark:text-primary'
-                : 'text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary'
-            }`}
-          >
-            {t.label}
-            {t.count !== undefined && (
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${tab === t.id ? 'bg-sk-primary-fixed text-sk-on-primary-fixed' : 'bg-sk-surface-high dark:bg-muted text-sk-on-surface-variant'}`}>
-                {t.count}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      {/* Scrolls sideways on a narrow phone, from the screen's edge, rather
+          than squeezing the tabs or pushing the page wider. */}
+      <SegmentedTabs tabs={TABS} value={tab} onChange={setTab} label="Admin sections" idPrefix="admin" layout="fit" className="-mx-4 px-4 sm:mx-0 sm:px-0" />
 
+      <div id="admin-panel" role="tabpanel" aria-labelledby={`admin-tab-${tab}`} className="space-y-6">
       {tab === 'system' && <SystemCheck />}
 
       {/* Overview tab */}
@@ -553,6 +535,8 @@ export function AdminPanel() {
           <Pager page={logsPage} setPage={setLogsPage} pageSize={PAGE_SIZE} total={logsTotal} />
         </div>
       )}
+
+      </div>
 
       {/* Recipe viewer — read-only, admin can inspect any user's recipe */}
       {viewingRecipe && (

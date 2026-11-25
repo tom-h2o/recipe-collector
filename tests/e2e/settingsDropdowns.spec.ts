@@ -16,6 +16,7 @@ test('no settings dropdown overflows its trigger', async ({ page }) => {
   await installMockBackend(page);
   await page.goto('/');
   await page.getByTitle('Settings').click();
+  await page.getByRole('tab', { name: 'AI models' }).click();
   await page.getByText('Main model', { exact: true }).waitFor();
 
   const overflowing = await page.evaluate(() => {
@@ -39,6 +40,7 @@ test('the model trigger shows the tier, not the whole option block', async ({ pa
   await installMockBackend(page);
   await page.goto('/');
   await page.getByTitle('Settings').click();
+  await page.getByRole('tab', { name: 'AI models' }).click();
 
   // Derived, not hardcoded: this test is about the trigger showing the tier
   // name rather than the whole option block, and it broke on a tier rename

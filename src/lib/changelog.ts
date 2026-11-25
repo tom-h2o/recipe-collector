@@ -20,6 +20,15 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-13',
+    title: 'Tidier Settings',
+    items: [
+      'The tabs in Settings fit on one row of a phone, and the AI models have a tab of their own instead of sitting at the end of General.',
+      'The tabs in Settings and on the admin dashboard look like the app’s main tab bar, and work with the arrow keys.',
+    ],
+  },
+  {
+    // Ids must increase with each release (see 2026-12-02 below).
     id: '2026-12-12',
     title: 'Recipes from Instagram',
     items: [
