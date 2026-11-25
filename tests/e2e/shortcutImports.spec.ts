@@ -258,6 +258,9 @@ test('one Shortcut for pages and links: Safari reads the page, anything else sen
   await expect(steps).toContainText('Safari web page');
   await expect(steps).toContainText('page = JavaScript Result');
   await expect(steps).toContainText('url = Shortcut Input');
+  await expect(steps).toContainText('message in the If Result');
+  // An empty header row broke the request with "The network connection was lost".
+  await expect(card.getByText(/delete every empty row/)).toBeVisible();
   await expect(card.getByTestId('safari-script')).toHaveText(SAFARI_SHORTCUT_SCRIPT);
 });
 
