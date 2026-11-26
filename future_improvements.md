@@ -47,6 +47,32 @@ Captured during development. Items marked ✅ have been implemented.
 ### Rate limit indicator in the header
 Currently only visible after opening Settings → Usage Logs. A lightweight indicator in the navbar (e.g. a small pill showing "82/100 today") would be more discoverable without requiring navigation.
 
+### Saving an AI-scaled recipe fails (bug)
+After **AI Scale**, "Save as new recipe" in `RecipeDetail` reports "Failed to
+save scaled recipe." Found by reading the code, not reproduced in production:
+`handleSaveScaled` copies **every column** of the recipe row it was given (it
+came from `select('*')`) into the insert, leaving out only a few
+(`id`, `created_at`, `tags`, `is_favourite`, `nutrition`, `rating`, `notes`,
+`user_id`). That includes:
+- `search_vector`, a **generated** column (migration 0028): Postgres refuses
+  any insert that sets it, so every save fails;
+- `public_share_token`, which has a unique index (0061): a shared recipe could
+  not be copied, and if it could, the copy would be public under the same link;
+- `copied_from_recipe_id`: the copy would claim to be adopted from the
+  original's source, which hides that recipe from the vault
+  (`getAdoptedOriginalIds`);
+- `embedding` and `preferred_language`, harmless but wrong to carry over.
+
+**Fix:** build the insert from an explicit list of the fields that belong to a
+recipe (title, description, ingredients, instructions, times, servings, image,
+source, original language), never from the whole row; plus a test that the
+payload holds nothing else. The gallery (`recipe_images`) is not copied today,
+only the cover: decide whether it should be.
+
+**Also decide:** besides "Save as new recipe", whether to offer "Save to this
+recipe" (overwrite the amounts and servings), for a dish always cooked for a
+different number of people. Math scaling (without AI) has no save at all.
+
 ### Keep the screen on in cook mode
 Cook mode has steps and timers, but the iPhone dims and locks after its
 auto-lock delay, exactly when the cook's hands are covered in dough. Nothing in
@@ -327,11 +353,38 @@ When a recipe is edited, the previous version is permanently overwritten with no
 - Store snapshots in a `recipe_versions` table on every update
 - Add a "History" option in `RecipeDetail` to browse and restore previous versions
 
+### A closed test: invitation only
+For now only friends and acquaintances should use the app. Today anyone can
+sign up, and two public pages invite strangers to: the shared-recipe page
+(`PublicRecipe`) and `/about` both end in "Create a free account". Kept
+clearly private (no sign-up for strangers, no payment, no ads), the app is
+most likely not a "geschäftsmäßiger" digital service, which is what the
+Impressum duty (§ 5 DDG) attaches to; see the next entry for when that
+changes. Not legal advice.
+
+- **Close sign-up in Supabase:** Authentication → Sign In / Providers, turn
+  off "Allow new users to sign up". Testers are invited by email from
+  Authentication → Users → Invite user; existing accounts sign in as before.
+  A setting in Supabase, no code.
+- **Hide the invitations in the app while sign-up is closed:** the "Create a
+  free account" links on `PublicRecipe` and `AboutPage`, and the sign-up
+  option in `AuthGate` (an invited person sets a password through the invite
+  link instead). Driven by one flag, e.g. `VITE_SIGNUP_OPEN`, so opening up
+  later is one setting, not a code change; e2e cases for both states.
+- **"Magical Apps"** in the footer (`Layout`) reads like a company or brand;
+  leave it out during the closed test, or decide deliberately to keep it.
+- **Tell the testers what happens to their data,** even without a formal
+  privacy policy: recipes, photos and pages are sent to Anthropic and Google
+  to be read, data is stored at Supabase, and the account can be deleted in
+  the app. A short note on the sign-in screen or in the invite is enough.
+
 ### Impressum and privacy policy
 The app is reachable by anyone: sign-up is open, and `/about` and public share
 links (`/r/<token>`) render without an account. There is no Impressum and no
 privacy policy anywhere in it.
 
+- **Needed once the app is opened up** beyond a closed circle (previous
+  entry); while it is an invitation-only test it most likely is not.
 - **Impressum** (German law: § 5 DDG, formerly § 5 TMG): name, an address that
   can be served, and a way to make contact quickly (email). Whether a private,
   non-commercial app strictly needs one is a legal question, not a code one;
