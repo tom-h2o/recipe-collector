@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { openedFromRecoveryLink, supabase } from '@/lib/supabase';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  // From the link itself, not only the event: see src/lib/recoveryLink.ts.
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(openedFromRecoveryLink);
 
   useEffect(() => {
     // onAuthStateChange is the single source of truth for initial state.
@@ -15,10 +16,11 @@ export function useAuth() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordRecovery(true);
-      } else if (event !== 'SIGNED_IN') {
-        // Don't clear recovery mode on SIGNED_IN — Supabase fires SIGNED_IN
-        // immediately after PASSWORD_RECOVERY as part of the same flow.
-        // Only clear it on other events (SIGNED_OUT, USER_UPDATED, etc.)
+      } else if (event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        // Only these end recovery: the new password was set, or the person
+        // left. SIGNED_IN, INITIAL_SESSION and TOKEN_REFRESHED all arrive
+        // around a recovery link, in no fixed order, and INITIAL_SESSION
+        // clearing it is what sent the link straight to the vault.
         setIsPasswordRecovery(false);
       }
       setUser(session?.user ?? null);
