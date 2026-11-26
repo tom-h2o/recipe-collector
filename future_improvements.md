@@ -168,6 +168,61 @@ on its own. The failure is at least legible now — `describeGeminiError()` tell
 user it is a configuration problem and not their recipe. Revisit if the app becomes
 something depended on daily, or if the 403 recurs.
 
+### Cook mode shows each step's share of an ingredient
+Recipes often split an ingredient across steps: "half the onion now, the rest
+later", "keep back a spoonful of the cream for the top". The ingredient list
+should keep showing the **total** (it does, and that is right), but cook mode's
+"For this step" should show only what **this** step uses. Today it cannot:
+`ingredientsInStep()` (`src/lib/stepIngredients.ts`) only finds which
+ingredients a step *mentions*, by matching words, and shows each with its full
+amount.
+
+**What is needed is a mapping, not a new list.** Per step, the ingredients it
+uses and how much of each, pointing at the existing list by index:
+
+```json
+"step_ingredients": [
+  [ { "i": 0, "share": 0.5 }, { "i": 3, "amount": "1 EL" } ],
+  [ { "i": 0, "share": 0.5 } ],
+  [ { "i": 3, "rest": true } ]
+]
+```
+
+- `share` (a fraction of the total) where the recipe says "half", "a third";
+  `amount` where it names a quantity ("1 EL davon"); `rest` for "the rest" /
+  "the remaining". A fraction scales with the servings for free; an `amount`
+  goes through `scaleAmount()`, as the list does.
+- Indexes, not names: the mapping then survives a translation (the translated
+  list keeps the same order) and a rename.
+- Shown in cook mode as e.g. "½ of 2 Zwiebeln (1)" or "1 EL of 200 ml Sahne";
+  the full list stays unchanged.
+
+**Where the model call goes: in the post-save enrichment, not in extraction.**
+Tagging and nutrition already run after every save (`api/_lib/enrich.ts`, from
+the app and from the Shortcut import), so a third job there covers every way a
+recipe arrives — link, photo, PDF, pasted text, **entered by hand** — and is
+redone after every **edit**. Putting it into the extraction prompt would miss
+manual and edited recipes and make the heaviest, slowest call heavier. It is a
+small reading job: Haiku, reasoning lowered (`REASONING_OFF_TASKS`), a strict
+response schema like the others. It costs one more AI call per save, which
+counts against the daily allowance like tagging does.
+
+**Guarding it:**
+- Store it with a hash of the instructions and ingredients it was made from;
+  cook mode uses it only while the hash matches and otherwise falls back to
+  today's word matching. An edit that changes the steps can never show amounts
+  for the wrong step in the meantime.
+- Validate before storing: one entry per step (`splitSteps()`), indexes in
+  range, shares between 0 and 1 and per ingredient adding up to about 1. A
+  mapping that fails is dropped, not stored: the fallback is the current
+  behaviour, which is fine.
+- Existing recipes get it the next time they are saved, or through
+  ⋯ → Regenerate (which already re-runs tagging), or a one-off backfill.
+
+**Not decided:** whether to show it only where an ingredient is actually split
+(otherwise "For this step" stays as it is), and how to word a share for things
+that do not divide nicely ("½ Ei").
+
 ### Vault search that understands German, partial words and several words
 The vault search is Postgres full-text search: `recipes.search_vector` (migration
 0028) is generated from title, description and `ingredients::text`, and
