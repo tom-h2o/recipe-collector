@@ -20,6 +20,14 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-15',
+    title: 'Password reset fixed',
+    items: [
+      'The link in a “reset your password” email now asks for a new password, as it should. It used to sign you straight in without letting you set one.',
+    ],
+  },
+  {
+    // Ids must increase with each release (see 2026-12-02 below).
     id: '2026-12-14',
     title: 'One Shortcut for pages and links',
     items: [

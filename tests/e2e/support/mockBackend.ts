@@ -91,9 +91,15 @@ interface Options {
    * makes the admin's; pass another email to see the app as everyone else does.
    */
   email?: string;
+  /**
+   * False: no session is seeded, so the app opens on the sign-in screen
+   * (tests/e2e/authFlows.spec.ts). The routes stay in place for what follows
+   * a sign-in; a spec answers /auth/v1 itself by routing it after this call.
+   */
+  signedIn?: boolean;
 }
 
-export async function installMockBackend(page: Page, { verbose = false, theme, email }: Options = {}) {
+export async function installMockBackend(page: Page, { verbose = false, theme, email, signedIn = true }: Options = {}) {
   const log = (...args: unknown[]) => { if (verbose) console.log(...args); };
   const user = email ? { ...MOCK_USER, email } : MOCK_USER;
 
@@ -138,7 +144,9 @@ export async function installMockBackend(page: Page, { verbose = false, theme, e
   });
 
   await page.addInitScript(
-    ({ storageKey, user, themeChoice }) => {
+    ({ storageKey, user, themeChoice, seedSession }) => {
+      if (themeChoice) window.localStorage.setItem('theme', themeChoice);
+      if (!seedSession) return;
       window.localStorage.setItem(
         storageKey,
         JSON.stringify({
@@ -150,8 +158,7 @@ export async function installMockBackend(page: Page, { verbose = false, theme, e
           expires_at: Math.floor(Date.now() / 1000) + 3600,
         }),
       );
-      if (themeChoice) window.localStorage.setItem('theme', themeChoice);
     },
-    { storageKey: authStorageKey, user, themeChoice: theme ?? null },
+    { storageKey: authStorageKey, user, themeChoice: theme ?? null, seedSession: signedIn },
   );
 }

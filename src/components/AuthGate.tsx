@@ -36,6 +36,10 @@ export function AuthGate({ children }: Props) {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [resetError, setResetError] = useState<string | null>(null);
   const [magicError, setMagicError] = useState<string | null>(null);
+  // Errors are shown in the form they belong to, never only as a toast, which
+  // disappears while the person is still reading it (see CLAUDE.md).
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [resendError, setResendError] = useState<string | null>(null);
   const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
   const [isClaiming, setIsClaiming] = useState(false);
   const [claimed, setClaimed] = useState(false);
@@ -104,9 +108,10 @@ export function AuthGate({ children }: Props) {
   async function handleResendConfirmation() {
     if (!unconfirmedEmail) return;
     setIsSubmitting(true);
+    setResendError(null);
     try {
       const { error } = await resendConfirmation(unconfirmedEmail);
-      if (error) { toast.error(error); return; }
+      if (error) { setResendError(error); return; }
       toast.success('Confirmation email resent! Check your inbox.');
     } finally {
       setIsSubmitting(false);
@@ -133,12 +138,13 @@ export function AuthGate({ children }: Props) {
     e.preventDefault();
     if (!newPassword) return;
     setIsSubmitting(true);
+    setRecoveryError(null);
     try {
       const { error } = await updatePassword(newPassword);
-      if (error) { toast.error(error); return; }
+      if (error) { setRecoveryError(error); return; }
       toast.success('Password updated! You are now signed in.');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      setRecoveryError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -168,8 +174,10 @@ export function AuthGate({ children }: Props) {
     );
   }
 
-  // Password recovery mode — user clicked the reset link in their email
-  if (isPasswordRecovery) {
+  // Password recovery mode: the person opened the reset link from the email.
+  // Only with a session; an expired link signs nobody in, and the sign-in
+  // screen is the right place then.
+  if (isPasswordRecovery && user) {
     return (
       <div className="min-h-screen bg-sk-surface dark:bg-background flex items-center justify-center p-6">
         <div className="w-full max-w-sm space-y-8">
@@ -194,7 +202,7 @@ export function AuthGate({ children }: Props) {
                   id="new-password"
                   type={showPassword ? 'text' : 'password'}
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  onChange={(e) => { setNewPassword(e.target.value); setRecoveryError(null); }}
                   placeholder="Min. 8 characters"
                   required
                   minLength={8}
@@ -212,6 +220,11 @@ export function AuthGate({ children }: Props) {
                 </button>
               </div>
             </div>
+            {recoveryError && (
+              <div role="alert" className="p-3 bg-destructive/8 border border-destructive/20 rounded-xl text-sm text-destructive">
+                {recoveryError}
+              </div>
+            )}
             <Button
               type="submit"
               disabled={isSubmitting}
@@ -335,7 +348,7 @@ export function AuthGate({ children }: Props) {
                 </div>
 
                 {loginError && (
-                  <div className="p-3 bg-destructive/8 border border-destructive/20 rounded-xl text-sm space-y-1.5">
+                  <div role="alert" className="p-3 bg-destructive/8 border border-destructive/20 rounded-xl text-sm space-y-1.5">
                     <p className="text-destructive dark:text-destructive">{loginError}</p>
                     {!isSignUp && (
                       <button
@@ -387,6 +400,7 @@ export function AuthGate({ children }: Props) {
                   >
                     {isSubmitting ? 'Sending…' : 'Resend confirmation email'}
                   </button>
+                  {resendError && <p role="alert" className="text-destructive text-xs">{resendError}</p>}
                 </div>
               )}
             </>
@@ -414,7 +428,7 @@ export function AuthGate({ children }: Props) {
                   />
                 </div>
                 {resetError && (
-                  <div className="p-3 bg-destructive/8 border border-destructive/20 rounded-xl text-sm text-destructive">
+                  <div role="alert" className="p-3 bg-destructive/8 border border-destructive/20 rounded-xl text-sm text-destructive">
                     {resetError}
                   </div>
                 )}
@@ -467,7 +481,7 @@ export function AuthGate({ children }: Props) {
                   />
                 </div>
                 {magicError && (
-                  <div className="p-3 bg-destructive/8 border border-destructive/20 rounded-xl text-sm text-destructive">
+                  <div role="alert" className="p-3 bg-destructive/8 border border-destructive/20 rounded-xl text-sm text-destructive">
                     {magicError}
                   </div>
                 )}
