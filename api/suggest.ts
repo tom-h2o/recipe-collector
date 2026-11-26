@@ -29,9 +29,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     // Suggestions draw on the caller's recipes plus anyone they are linked to.
     const visibleUserIds = await getVisibleUserIds(supabase, userId);
+    const respond = async (validIds: string[]) => {
+      if (validIds.length === 0) return res.status(200).json({ suggestions: [] });
+      const { data: matchedRecipes } = await supabase.from('recipes').select('*').in('user_id', visibleUserIds).in('id', validIds);
+      return res.status(200).json({ suggestions: matchedRecipes ?? [] });
+    };
     const settings = await getSettings(supabase, userId);
     const apiKey = resolveApiKey(settings);
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
+
+    // A list of ids from the caller's own collection, so the cache is per
+    // person: shared, one person's answer was served to everyone who typed the
+    // same ingredients, and came back empty after the visibility filter below.
+    // Checked first, so a repeat costs neither the allowance nor an embedding.
+    const cacheKey = makeCacheKey('suggest', { userId, ingredients: [...userIngredients].sort() });
+    const cachedIds = await getCached<string[]>(supabase, cacheKey);
+    if (cachedIds) return respond(parseSuggestResult(cachedIds));
+
+    // Before the embedding, which is a paid call too: it used to be made
+    // first, so a caller over the limit could still make one per request.
+    const rl = await checkRateLimit(supabase, userId);
+    if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
 
     let queryEmbedding: number[] | null = null;
     let vectorRecipes: any[] = [];
@@ -71,26 +89,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const recipeList = topCandidates.map((c) => `ID: ${c.recipe.id} | Title: ${c.recipe.title} | Ingredients: ${c.ingredientsText}`).join('\n');
     const prompt = `${SUGGEST_TEMPLATE}\n\nThe user currently has these ingredients: ${userIngredients.join(', ')}\n\nHere are the recipes in their collection:\n${recipeList}`;
 
-    const cacheKey = makeCacheKey('suggest', userIngredients);
-    const cachedIds = await getCached<string[]>(supabase, cacheKey);
-
-    let validIds: string[];
-    if (cachedIds) {
-      validIds = parseSuggestResult(cachedIds);
-    } else {
-      const rl = await checkRateLimit(supabase, userId);
-      if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
-      const client = getGeminiClient(apiKey);
-      const suggestedIds = parseSuggestResult(await generateJson(client, modelFor(settings, 'suggest'), prompt, { supabase, endpoint: 'suggest', userId }, { responseSchema: suggestResponseSchema, thinking: thinkingFor('suggest') }));
-      const candidateIds = new Set(topCandidates.map((c) => String(c.recipe.id)));
-      validIds = suggestedIds.filter((id) => candidateIds.has(id));
-      setCached(supabase, cacheKey, 'suggest', validIds, 1);
-    }
-
-    if (validIds.length === 0) return res.status(200).json({ suggestions: [] });
-
-    const { data: matchedRecipes } = await supabase.from('recipes').select('*').in('user_id', visibleUserIds).in('id', validIds);
-    return res.status(200).json({ suggestions: matchedRecipes ?? [] });
+    const client = getGeminiClient(apiKey);
+    const suggestedIds = parseSuggestResult(await generateJson(client, modelFor(settings, 'suggest'), prompt, { supabase, endpoint: 'suggest', userId }, { responseSchema: suggestResponseSchema, thinking: thinkingFor('suggest') }));
+    const candidateIds = new Set(topCandidates.map((c) => String(c.recipe.id)));
+    const validIds = suggestedIds.filter((id) => candidateIds.has(id));
+    setCached(supabase, cacheKey, 'suggest', validIds, 1);
+    return respond(validIds);
   } catch (err: unknown) {
     if (err instanceof ZodError) return res.status(400).json({ error: err.issues[0]?.message ?? 'Invalid request' });
     captureException(err);

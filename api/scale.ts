@@ -1,12 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ZodError } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
-import { getServerSupabase, getSettings, resolveApiKey, getUserId, modelFor, thinkingFor } from './_lib/supabase.js';
+import { getServerSupabase, getSettings, resolveApiKey, getUserId, userCanReadRecipe, modelFor, thinkingFor } from './_lib/supabase.js';
 import { scaledIngredientsResponseSchema } from './_lib/responseSchemas.js';
 import { getGeminiClient, generateJson, describeGeminiError } from './_lib/gemini.js';
 import { captureException } from './_lib/sentry.js';
 import { scaledIngredientsResultSchema, scaleSchema } from './_lib/schemas.js';
-import { getCached, setCached } from './_lib/cache.js';
+import { getCached, makeCacheKey, setCached } from './_lib/cache.js';
 import { checkRateLimit } from './_lib/rateLimit.js';
 
 type ScaledIngredient = { amount: string; name: string; details: string };
@@ -29,7 +29,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const userId = await getUserId(req.headers.authorization as string | undefined);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-    const cacheKey = recipeId ? `scale:${recipeId}:${currentServings}:${targetServings}` : null;
+    // The cache is keyed by the recipe, so it answers only someone who may
+    // read that recipe, and the key carries the ingredients themselves. It was
+    // `scale:<id>:<from>:<to>` with no read check: anyone holding an id could
+    // read another person's scaled ingredients from the cache, or store
+    // whatever ingredients they sent under that id for its owner to be served.
+    if (recipeId && !await userCanReadRecipe(supabase, recipeId, userId)) return res.status(403).json({ error: 'Forbidden' });
+    const cacheKey = recipeId ? makeCacheKey('scale', { recipeId, ingredients, currentServings, targetServings }) : null;
     if (cacheKey) {
       const cached = await getCached<ScaledIngredient[]>(supabase, cacheKey);
       if (cached) return res.status(200).json({ ingredients: parseScaledIngredientsResult(cached), cached: true });

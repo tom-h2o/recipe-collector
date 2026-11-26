@@ -25,11 +25,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Unsplash, not Gemini. This used to consume the shared AI allowance, so a
     // cover lookup could be the reason an extraction was refused. It now has its
     // own generous budget, counted from its own log rows.
-    const rl = await checkRateLimit(supabase, userId, { endpoint: 'find-image', limit: FIND_IMAGE_DAILY_LIMIT });
-    if (!rl.allowed) return res.status(429).json({ error: `Daily image lookup limit reached (${rl.limit}/day). Resets at midnight UTC.` });
-
     const accessKey = process.env.UNSPLASH_ACCESS_KEY;
     if (!accessKey) return res.status(200).json({ imageUrl: '' });
+
+    const rl = await checkRateLimit(supabase, userId, { endpoint: 'find-image', limit: FIND_IMAGE_DAILY_LIMIT });
+    if (!rl.allowed) return res.status(429).json({ error: `Daily image lookup limit reached (${rl.limit}/day). Resets at midnight UTC.` });
 
     const queryTerms = [title, description ? description.split(' ').slice(0, 4).join(' ') : '', 'food recipe'].filter(Boolean).join(' ');
     const startTime = Date.now();

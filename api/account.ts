@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { setCorsHeaders } from './_lib/cors.js';
 import {
-  getServerSupabase, getUserId, getSettings, resolveApiKey, saveModelConfig, GLOBAL_SETTINGS_ID,
+  getServerSupabase, getUserId, getSettings, resolveApiKey, saveModelConfig, GLOBAL_SETTINGS_ID, isAdminUser,
   AI_TASK_IDS, OFFERED_MODELS, type AiTask,
 } from './_lib/supabase.js';
 import { captureException } from './_lib/sentry.js';
@@ -12,7 +12,6 @@ import { getGeminiClient } from './_lib/gemini.js';
 import { configReport, reasoningReport, runLiveCheck, EXPECTED_SCHEMA, type UsageRow } from './_lib/systemCheck.js';
 import { hashShortcutKey, newShortcutKey } from './_lib/shortcutImport.js';
 
-const ADMIN_EMAIL = process.env.VITE_ADMIN_EMAIL ?? '';
 const MAX_PAGE_SIZE = 100;
 
 /**
@@ -64,17 +63,16 @@ class HttpError extends Error {
   }
 }
 
-/** Throws unless the caller is the admin; returns their user id. */
+/** Throws unless the caller is the admin; returns their user id. See isAdminIdentity(). */
 async function assertAdmin(authHeader: string | undefined): Promise<string> {
   const userId = await getUserId(authHeader);
   if (!userId) throw new HttpError(401, 'Unauthorized');
-  const supabase = getServerSupabase();
-  const { data, error } = await supabase.auth.admin.getUserById(userId);
-  if (error || !data?.user) throw new HttpError(403, error?.message || 'Forbidden');
-  // An unset ADMIN_EMAIL must never match an account with no email.
-  if (!ADMIN_EMAIL || data.user.email !== ADMIN_EMAIL) throw new HttpError(403, 'Forbidden');
+  if (!await isAdminUser(getServerSupabase(), userId)) throw new HttpError(403, 'Forbidden');
   return userId;
 }
+
+/** The least time between two live system checks. */
+const HEALTH_CHECK_SPACING_MS = 60 * 1000;
 
 /** Seven days: long enough to see every task used, short enough to reflect a change. */
 const REASONING_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
@@ -103,12 +101,92 @@ export async function getHealthOverview(supabase: SupabaseClient, adminId: strin
   };
 }
 
-async function deleteUserData(userId: string): Promise<void> {
-  const supabase = getServerSupabase();
-  await supabase.from('meal_plan').delete().eq('user_id', userId);
-  await supabase.from('shopping_list').delete().eq('user_id', userId);
-  await supabase.from('settings').delete().eq('user_id', userId);
-  await supabase.from('recipes').delete().eq('user_id', userId);
+const PHOTO_PATH_MARKER = '/storage/v1/object/public/recipe-images/';
+const CHUNK = 100;
+
+function chunks<T>(items: T[]): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += CHUNK) out.push(items.slice(i, i + CHUNK));
+  return out;
+}
+
+function failIf(what: string, result: { error: { message?: string } | null }) {
+  if (result.error) throw new Error(`Deleting ${what} failed: ${result.error.message ?? 'unknown error'}`);
+}
+
+/**
+ * The photo files only this person uses. Their gallery rows name the files we
+ * hold (storage_path), and so may their covers; a file still named by somebody
+ * else stays, because copies point at the same file: a recipe someone accepted
+ * from them, or one a linked account adopted.
+ */
+async function photosOnlyTheyUse(supabase: SupabaseClient, userId: string): Promise<string[]> {
+  const [gallery, covers] = await Promise.all([
+    supabase.from('recipe_images').select('storage_path').eq('user_id', userId).not('storage_path', 'is', null),
+    supabase.from('recipes').select('image_url').eq('user_id', userId).like('image_url', `%${PHOTO_PATH_MARKER}%`),
+  ]);
+  if (gallery.error) throw gallery.error;
+  if (covers.error) throw covers.error;
+  const paths = new Set<string>();
+  for (const row of gallery.data ?? []) if (row.storage_path) paths.add(row.storage_path as string);
+  for (const row of covers.data ?? []) {
+    const path = String(row.image_url ?? '').split(PHOTO_PATH_MARKER)[1]?.split('?')[0];
+    if (path) paths.add(decodeURIComponent(path));
+  }
+  if (paths.size === 0) return [];
+
+  const shared = new Set<string>();
+  for (const group of chunks([...paths])) {
+    const { data, error } = await supabase.from('recipe_images').select('storage_path').in('storage_path', group).neq('user_id', userId);
+    if (error) throw error;
+    for (const row of data ?? []) shared.add(row.storage_path as string);
+  }
+  // Covers are stored as the public address the app made for the file, so
+  // the same address finds every other recipe that shows it.
+  const byUrl = new Map([...paths].map((path) => [supabase.storage.from('recipe-images').getPublicUrl(path).data.publicUrl, path]));
+  for (const group of chunks([...byUrl.keys()])) {
+    const { data, error } = await supabase.from('recipes').select('image_url').in('image_url', group).neq('user_id', userId);
+    if (error) throw error;
+    for (const row of data ?? []) {
+      const path = byUrl.get(row.image_url as string);
+      if (path) shared.add(path);
+    }
+  }
+  return [...paths].filter((p) => !shared.has(p));
+}
+
+/**
+ * Deletes an account and what it leaves behind. Every step is checked: this
+ * used to ignore every error but the last, so a failed delete still answered
+ * "ok" and left the person's data in place. Each step can be run again, so a
+ * failure part-way is fixed by trying again.
+ *
+ * Beyond the account's own rows (many tables cascade from auth.users, the
+ * ones without a cascade are deleted here): its photo files, which stayed
+ * public in the bucket; its AI log rows, which hold the full text of what it
+ * sent and got back; and recipes and invitations still waiting for its
+ * address, which would otherwise be handed to whoever signs up with it next.
+ */
+export async function deleteUserData(supabase: SupabaseClient, userId: string): Promise<void> {
+  const { data: found, error: findError } = await supabase.auth.admin.getUserById(userId);
+  if (findError) throw findError;
+  const email = found?.user?.email?.toLowerCase() ?? null;
+
+  const photos = await photosOnlyTheyUse(supabase, userId);
+
+  failIf('the meal plan', await supabase.from('meal_plan').delete().eq('user_id', userId));
+  failIf('the shopping list', await supabase.from('shopping_list').delete().eq('user_id', userId));
+  failIf('settings', await supabase.from('settings').delete().eq('user_id', userId));
+  failIf('the AI log', await supabase.from('gemini_logs').delete().eq('user_id', userId));
+  if (email) {
+    failIf('recipes waiting for this address', await supabase.from('recipe_shares').delete().eq('recipient_email', email).eq('status', 'pending'));
+    failIf('invitations to this address', await supabase.from('account_links').delete().eq('addressee_email', email).eq('status', 'pending'));
+  }
+  failIf('recipes', await supabase.from('recipes').delete().eq('user_id', userId));
+  for (const group of chunks(photos)) {
+    failIf('photos', await supabase.storage.from('recipe-images').remove(group));
+  }
+
   const { error } = await supabase.auth.admin.deleteUser(userId);
   if (error) throw error;
 }
@@ -182,7 +260,7 @@ export async function getStats(supabase: SupabaseClient) {
 // avoids downloading every recipes/gemini_logs row just to tally them in JS.
 async function getUsersPage(supabase: SupabaseClient, page: number, pageSize: number) {
   const { data, error } = await supabase.auth.admin.listUsers({ page: page + 1, perPage: pageSize });
-  if (error) throw new HttpError(500, error.message);
+  if (error) throw error;
   const authUsers = data.users;
   const total = (data as { total?: number }).total ?? authUsers.length;
 
@@ -216,7 +294,7 @@ async function getRecipesPage(supabase: SupabaseClient, page: number, pageSize: 
   if (ownerId) query = query.eq('user_id', ownerId);
 
   const { data, count, error } = await query;
-  if (error) throw new HttpError(500, error.message);
+  if (error) throw error;
 
   const emailMap = await emailMapFor(supabase, (data ?? []).map((r) => r.user_id));
   const recipes = (data ?? []).map((r) => ({ ...r, user_email: r.user_id ? (emailMap[r.user_id] ?? null) : null }));
@@ -236,7 +314,7 @@ async function getLogsPage(supabase: SupabaseClient, page: number, pageSize: num
   // Code is live a few minutes before the migration job adds `thinking`
   // (0067); the tab shows the rows without it rather than failing.
   if (error && /thinking/i.test(error.message)) ({ data, count, error } = await fetchPage(LOG_COLUMNS));
-  if (error) throw new HttpError(500, error.message);
+  if (error) throw error;
 
   // The column list is a variable, so supabase-js cannot infer the row shape.
   const rows = (data ?? []) as unknown as { user_id: string | null }[];
@@ -286,6 +364,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { error } = await supabase.from('shortcut_keys').delete().eq('user_id', userId);
       if (error) throw error;
       return res.status(200).json({ ok: true });
+    }
+
+    // ── GET /api/account?tab=whoami — any signed-in user: am I the admin? ─────
+    // The app asks rather than comparing an address compiled into its code:
+    // that put the admin's address in every visitor's browser.
+    if (req.method === 'GET' && queryParam(req, 'tab') === 'whoami') {
+      const userId = await getUserId(auth);
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(200).json({ isAdmin: await isAdminUser(getServerSupabase(), userId) });
     }
 
     // ── GET /api/account?recipeId=… — admin: open one user's full recipe ──────
@@ -359,6 +446,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'POST' && queryParam(req, 'action') === 'health-check') {
       const adminId = await assertAdmin(auth);
       const supabase = getServerSupabase();
+      // Each run is a paid call per model, outside the daily allowance (it is
+      // logged as health-check), so runs are spaced out rather than unlimited.
+      const since = new Date(Date.now() - HEALTH_CHECK_SPACING_MS).toISOString();
+      const { count: recent, error: recentError } = await supabase.from('gemini_logs').select('id', { count: 'exact', head: true }).eq('endpoint', 'health-check').gte('created_at', since);
+      if (recentError) throw recentError;
+      if ((recent ?? 0) > 0) return res.status(429).json({ error: 'The check ran less than a minute ago. Please wait a moment before running it again.' });
       const apiKey = resolveApiKey(await getSettings(supabase, adminId));
       const report = await runLiveCheck({ supabase, client: apiKey ? getGeminiClient(apiKey) : null, userId: adminId });
       return res.status(200).json(report);
@@ -427,7 +520,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .select('*')
         .single();
 
-      if (error) return res.status(500).json({ error: error.message });
+      if (error) throw error;
       if (!recipe) return res.status(404).json({ error: 'Recipe not found' });
 
       return res.status(200).json({ recipe });
@@ -439,11 +532,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (targetUserId) {
         await assertAdmin(auth);
-        await deleteUserData(targetUserId);
+        await deleteUserData(getServerSupabase(), targetUserId);
       } else {
         const userId = await getUserId(auth);
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-        await deleteUserData(userId);
+        await deleteUserData(getServerSupabase(), userId);
       }
 
       return res.status(200).json({ ok: true });
@@ -453,7 +546,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err) {
     if (err instanceof HttpError) return res.status(err.status).json({ error: err.message });
     captureException(err);
-    const message = err instanceof Error ? err.message : 'Request failed';
-    return res.status(500).json({ error: message });
+    console.error('Account error:', err);
+    // Never the raw message: a database error names tables and constraints.
+    return res.status(500).json({ error: 'Request failed.' });
   }
 }

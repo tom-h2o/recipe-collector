@@ -80,10 +80,11 @@ export function useAccountLinks(userId?: string | null, userEmail?: string | nul
       if (!userId) return;
       setBusy(true);
       try {
-        const { error } = await supabase
-          .from('account_links')
-          .update({ status: 'accepted', addressee_id: userId, accepted_at: new Date().toISOString() })
-          .eq('id', linkId);
+        // Through the database function, not an update: since migration 0074
+        // the browser may not write status or addressee_id at all, because
+        // writing them directly is how a link could be forged. The function
+        // checks the invitation was sent to this account's confirmed address.
+        const { error } = await supabase.rpc('accept_account_link', { link_id: linkId });
         if (error) throw new Error(error.message);
         toast.success('Connected — you can now see each other’s recipes.');
         await fetchLinks();
@@ -101,8 +102,12 @@ export function useAccountLinks(userId?: string | null, userEmail?: string | nul
     async (linkId: string) => {
       setBusy(true);
       try {
-        const { error } = await supabase.from('account_links').delete().eq('id', linkId);
+        // A delete the policy refuses matches nothing and reports no error, so
+        // ask for the row back: declining used to say "Disconnected" while the
+        // invitation stayed where it was.
+        const { data, error } = await supabase.from('account_links').delete().eq('id', linkId).select('id');
         if (error) throw new Error(error.message);
+        if (!data || data.length === 0) throw new Error('Could not disconnect. Please reload and try again.');
         setLinks((prev) => prev.filter((l) => l.linkId !== linkId));
         toast.success('Disconnected');
       } catch (err) {

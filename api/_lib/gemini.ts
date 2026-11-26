@@ -671,7 +671,9 @@ export async function generateJson<T = unknown>(
     throw err;
   } finally {
     if (logCtx) {
-      void insertGeminiLog(logCtx.supabase, {
+      // Awaited: a serverless function may be frozen as soon as it has
+      // answered, and a write still in flight then is lost.
+      await insertGeminiLog(logCtx.supabase, {
         endpoint: logCtx.endpoint,
         // The model that answered, which is `model` unless it could not serve.
         model: activeModel,

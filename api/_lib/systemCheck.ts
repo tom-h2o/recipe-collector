@@ -26,7 +26,7 @@ import { extractedRecipeResponseSchema } from './responseSchemas.js';
  * migration job failed shows up here instead of as odd errors elsewhere.
  * tests/unit/systemCheck.test.ts fails when a newer migration file exists.
  */
-export const EXPECTED_SCHEMA = '0073';
+export const EXPECTED_SCHEMA = '0074';
 
 /** How long one probe may take. A healthy call answers in a second or two. */
 export const PROBE_TIMEOUT_MS = 25_000;
@@ -59,10 +59,12 @@ interface ConfigItem {
 const CONFIG: ConfigItem[] = [
   { id: 'supabase-url', label: 'Supabase URL', names: ['VITE_SUPABASE_URL'], required: true, missing: 'Nothing can reach the database.' },
   { id: 'supabase-anon-key', label: 'Supabase public key', names: ['VITE_SUPABASE_ANON_KEY'], required: true, missing: 'The app cannot sign anyone in.' },
-  { id: 'supabase-service-key', label: 'Supabase service key', names: ['SUPABASE_SERVICE_KEY'], required: true, missing: 'The server functions fall back to the public key, and row-level security refuses most of what they do.' },
+  { id: 'supabase-service-key', label: 'Supabase service key', names: ['SUPABASE_SERVICE_KEY'], required: true, missing: 'The server functions refuse to run.' },
   { id: 'claude-key', label: 'Claude API key', names: ['ANTHROPIC_API_KEY'], required: true, missing: 'Claude is the main AI provider. Without its key every task runs on Gemini, the backup, and Claude models show as skipped below.' },
   { id: 'gemini-key', label: 'Gemini API key', names: ['GEMINI_API_KEY_1', 'GEMINI_API_KEY'], required: true, missing: 'Recipe search and the backup for every task stop working, and every task on a Gemini model fails.' },
-  { id: 'admin-email', label: 'Admin email', names: ['VITE_ADMIN_EMAIL'], required: true, missing: 'Nobody can open this panel.' },
+  // ADMIN_USER_ID first: an account id cannot be chosen by whoever signs up.
+  // The address is the fallback until it is set (api/_lib/supabase.ts).
+  { id: 'admin-email', label: 'Admin', names: ['ADMIN_USER_ID', 'ADMIN_EMAIL', 'VITE_ADMIN_EMAIL'], required: true, missing: 'Nobody can open this panel.' },
   { id: 'unsplash-key', label: 'Unsplash key', names: ['UNSPLASH_ACCESS_KEY'], required: false, missing: 'Image search is off.' },
   { id: 'sentry-server', label: 'Sentry, server', names: ['SENTRY_DSN'], required: false, missing: 'Errors in the server functions are not reported anywhere.' },
   { id: 'sentry-browser', label: 'Sentry, browser', names: ['VITE_SENTRY_DSN'], required: false, missing: 'Errors in the app itself are not reported anywhere.' },

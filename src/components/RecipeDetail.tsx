@@ -385,14 +385,8 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: request.signal,
-      body: JSON.stringify({
-        recipeId: recipe.id,
-        targetLanguage: langCode,
-        title: recipe.title,
-        description: recipe.description ?? '',
-        instructions: recipe.instructions,
-        ingredients: parseIngredients(recipe.ingredients),
-      }),
+      // The server reads the text from the recipe itself (api/translate.ts).
+      body: JSON.stringify({ recipeId: recipe.id, targetLanguage: langCode }),
     })
       .then(async (res) => {
         const data = await res.json().catch(() => null);

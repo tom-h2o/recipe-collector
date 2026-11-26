@@ -62,9 +62,16 @@ export const OFFERED_MODELS: readonly string[] = [
 // equal to DEFAULT_MODEL in src/lib/constants.ts by modelDefaults.test.ts.
 export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 
+/**
+ * The server's client, with the service key. There is deliberately no fallback
+ * to the anon key: it used to fall back silently, and under the anon key the
+ * daily AI allowance could never be counted, so every call went through.
+ * Missing configuration should be loud.
+ */
 export function getServerSupabase(): SupabaseClient {
   const url = process.env.VITE_SUPABASE_URL || '';
-  const key = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+  const key = process.env.SUPABASE_SERVICE_KEY || '';
+  if (!url || !key) throw new Error('SUPABASE_SERVICE_KEY and VITE_SUPABASE_URL must be set on the server.');
   return createClient(url, key);
 }
 
@@ -153,12 +160,23 @@ export async function getUserId(authHeader: string | undefined): Promise<string 
   return user?.id ?? null;
 }
 
-export async function getAuthenticatedUser(authHeader: string | undefined): Promise<{ id: string; email: string | null } | null> {
+export interface AuthenticatedUser {
+  id: string;
+  email: string | null;
+  /**
+   * Whether the address was confirmed. Invitations, shares and (as a
+   * fallback) the admin are matched by email, and an address nobody confirmed
+   * proves nothing about who signed up with it.
+   */
+  emailConfirmed: boolean;
+}
+
+export async function getAuthenticatedUser(authHeader: string | undefined): Promise<AuthenticatedUser | null> {
   if (!authHeader?.startsWith('Bearer ')) return null;
   const token = authHeader.slice(7);
   try {
     const { data: { user } } = await getServerSupabase().auth.getUser(token);
-    return user ? { id: user.id, email: user.email ?? null } : null;
+    return user ? { id: user.id, email: user.email ?? null, emailConfirmed: !!user.email_confirmed_at } : null;
   } catch {
     return null;
   }
@@ -230,15 +248,33 @@ export async function userCanReadRecipe(supabase: SupabaseClient, recipeId: stri
 }
 
 /**
+ * Whether this signed-in user is the admin.
+ *
+ * By account id (ADMIN_USER_ID), which nobody can choose. It used to be the
+ * email address in VITE_ADMIN_EMAIL, which was also compiled into the browser
+ * code for everyone to read, and nothing checked that the address had been
+ * confirmed. Until ADMIN_USER_ID is set, the address still works, but only
+ * once confirmed, and from ADMIN_EMAIL (server only) if that is set.
+ */
+export function isAdminIdentity(user: { id: string; email: string | null; emailConfirmed: boolean }): boolean {
+  const adminId = (process.env.ADMIN_USER_ID ?? '').trim();
+  if (adminId) return user.id === adminId;
+  const adminEmail = (process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || '').trim().toLowerCase();
+  // An unset address must never match an account without one.
+  if (!adminEmail || !user.email) return false;
+  return user.emailConfirmed && user.email.toLowerCase() === adminEmail;
+}
+
+/**
  * The admin may act on recipes they do not own (view, edit, re-run tagging or
  * nutrition from the admin panel), so ownership checks accept an admin as well.
  */
 export async function isAdminUser(supabase: SupabaseClient, userId: string): Promise<boolean> {
-  const adminEmail = process.env.VITE_ADMIN_EMAIL ?? '';
-  if (!adminEmail) return false;
+  const adminId = (process.env.ADMIN_USER_ID ?? '').trim();
+  if (adminId) return userId === adminId;
   const { data, error } = await supabase.auth.admin.getUserById(userId);
   if (error || !data?.user) return false;
-  return data.user.email === adminEmail;
+  return isAdminIdentity({ id: data.user.id, email: data.user.email ?? null, emailConfirmed: !!data.user.email_confirmed_at });
 }
 
 /** True when the user owns the recipe, or is the admin acting on someone else's. */

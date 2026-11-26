@@ -122,9 +122,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // ── Photo extraction ───────────────────────────────────────────────────────
     if (body.imageBase64 !== undefined || body.images !== undefined) {
+      const { images, kind } = extractPhotoSchema.parse(normaliseExtractPhotoBody(body));
+      // After validating: an allowed answer has already taken a unit.
       const rl = await checkRateLimit(supabase, userId);
       if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
-      const { images, kind } = extractPhotoSchema.parse(normaliseExtractPhotoBody(body));
       // Shared with the iPhone Shortcut import: same prompt, same task per kind
       // (a camera photo runs as `photo`, a screenshot as `extract`), same log row.
       const recipeData = await extractRecipeFromImages({ supabase, client: getGeminiClient(apiKey), settings, userId, images, kind });
@@ -133,9 +134,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ── PDF extraction ─────────────────────────────────────────────────────────
     if (body.pdfBase64 !== undefined) {
+      const { pdfBase64 } = extractPdfSchema.parse(body);
       const rl = await checkRateLimit(supabase, userId);
       if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });
-      const { pdfBase64 } = extractPdfSchema.parse(body);
       const client = getGeminiClient(apiKey);
       const startTime = Date.now();
       const progress = { attempts: 0, model: modelFor(settings, 'extract') };
@@ -144,11 +145,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const text = response.text;
         if (!text) throw new Error('The AI returned an empty response.');
         const recipeData = validateExtractedRecipe(JSON.parse(text));
-        supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: progress.model, model_version: response.modelVersion ?? null, attempts: progress.attempts, status: 'success', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', output_preview: text.substring(0, 300), user_id: userId }).then(() => {}, () => {});
+        await supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: progress.model, model_version: response.modelVersion ?? null, attempts: progress.attempts, status: 'success', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', output_preview: text.substring(0, 300), user_id: userId }).then(() => {}, () => {});
         return res.status(200).json(recipeData);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
-        supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: progress.model, attempts: progress.attempts, status: 'error', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', error_message: errorMessage, user_id: userId }).then(() => {}, () => {});
+        await supabase.from('gemini_logs').insert({ endpoint: 'extract-pdf', model: progress.model, attempts: progress.attempts, status: 'error', latency_ms: Date.now() - startTime, input_preview: '[PDF document]', error_message: errorMessage, user_id: userId }).then(() => {}, () => {});
         throw err;
       }
     }

@@ -87,8 +87,9 @@ interface Options {
   /** Colour theme to seed before the app boots. */
   theme?: 'light' | 'dark';
   /**
-   * Who is signed in. Defaults to MOCK_USER, whose email playwright.config.ts
-   * makes the admin's; pass another email to see the app as everyone else does.
+   * Who is signed in. Defaults to MOCK_USER, whom /api/account?tab=whoami
+   * below answers as the admin; pass another email to see the app as
+   * everyone else does.
    */
   email?: string;
   /**
@@ -129,7 +130,10 @@ export async function installMockBackend(page: Page, { verbose = false, theme, e
     const url = route.request().url();
     log('API intercept:', url);
     let body: unknown = {};
-    if (url.includes('tab=overview')) {
+    if (url.includes('tab=whoami')) {
+      // The server decides who the admin is; here, MOCK_USER is.
+      body = { isAdmin: user.email === MOCK_USER.email };
+    } else if (url.includes('tab=overview')) {
       body = { stats: { total_users: 1, total_recipes: MOCK_RECIPES.length, total_ai_calls: 3, calls_today: 1, calls_this_week: 3, model_breakdown: [{ model: 'gemini-3.7-flash', count: 3 }] } };
     } else if (url.includes('tab=users')) {
       body = { users: [{ id: MOCK_USER.id, email: MOCK_USER.email, created_at: MOCK_USER.created_at, last_sign_in_at: null, recipe_count: 2, ai_call_count: 3 }], total: 1 };

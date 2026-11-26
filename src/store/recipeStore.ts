@@ -127,11 +127,22 @@ function hasFilters(filters: string | readonly string[] | null | undefined): fil
   return typeof filters === 'string' ? filters.length > 0 : !!filters && filters.length > 0;
 }
 
+/**
+ * Originals the signed-in person has adopted a copy of, to leave out of the
+ * list beside their copy. Only their own copies count: RLS also returns a
+ * linked account's recipes, and without the owner filter a partner who
+ * adopted one of *your* recipes made your original vanish from your own vault.
+ */
 async function getAdoptedOriginalIds(): Promise<string[]> {
   try {
+    // From the stored session: no request, and no user means nothing adopted.
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) return [];
     const { data } = await supabase
       .from('recipes')
       .select('copied_from_recipe_id')
+      .eq('user_id', userId)
       .not('copied_from_recipe_id', 'is', null);
     return (data ?? [])
       .map((r) => r.copied_from_recipe_id as string | null)

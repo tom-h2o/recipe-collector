@@ -10,6 +10,7 @@ import { WhatsNew } from '@/components/WhatsNew';
 import { useAccountLinks } from '@/hooks/useAccountLinks';
 import { useSettings } from '@/hooks/useSettings';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useRecipeShares } from '@/hooks/useRecipeShares';
 import { useCollections } from '@/hooks/useCollections';
 
@@ -24,8 +25,6 @@ import { ImportBanner } from '@/components/ImportBanner';
 import { NEW_FROM_IPHONE, useRecipeStore } from '@/store/recipeStore';
 import type { ActiveView, Recipe } from '@/types';
 import type { SortOption } from '@/lib/constants';
-
-const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL ?? '';
 
 const RecipeVault = lazy(() => import('@/components/RecipeVault').then((m) => ({ default: m.RecipeVault })));
 const RecipeDetail = lazy(() => import('@/components/RecipeDetail').then((m) => ({ default: m.RecipeDetail })));
@@ -47,7 +46,7 @@ function ViewFallback() {
 
 export default function App() {
   const { user, signOut } = useAuth();
-  const isAdmin = !!ADMIN_EMAIL && user?.email === ADMIN_EMAIL;
+  const isAdmin = useIsAdmin(user?.id);
   const { recipes, loading, processingIds, hasMore, fetchRecipes, loadMore, saveRecipe, deleteRecipe, toggleFavourite, updateRecipe } = useRecipes(user?.id);
   const { mealPlans, fetchMealPlans, addMealPlan, removeMealPlan } = useMealPlans(user?.id);
   const { shoppingList, pantryItems, isGeneratingShopping, fetchShoppingList, fetchPantryItems, generateShoppingList, toggleItem, deleteItem, clearAll, moveItemToPantry, moveItemToShopping, deletePantryItem, addToPantry } = useShoppingList(user?.id);

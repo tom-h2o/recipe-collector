@@ -34,8 +34,8 @@ export default defineConfig({
   ],
   webServer: {
     command: `npm run dev -- --port ${PORT} --strictPort --mode ${process.env.E2E_MODE ?? 'development'}`,
-    // Matches MOCK_USER.email so the admin panel is reachable in tests.
-    env: { ...process.env, VITE_ADMIN_EMAIL: 'test@example.com' },
+    // Who is the admin is the server's answer (GET /api/account?tab=whoami),
+    // which tests/e2e/support/mockBackend.ts gives for MOCK_USER.
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 10000,

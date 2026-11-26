@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { openedFromRecoveryLink, supabase } from '@/lib/supabase';
+import { clearPrivateCaches } from '@/lib/clearPrivateCaches';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -23,6 +24,9 @@ export function useAuth() {
         // clearing it is what sent the link straight to the vault.
         setIsPasswordRecovery(false);
       }
+      // Also when the session ends without the button (expired, or signed out
+      // in another tab): the offline copy is the previous person's.
+      if (event === 'SIGNED_OUT') void clearPrivateCaches();
       setUser(session?.user ?? null);
       setLoading(false);
     });
@@ -81,6 +85,7 @@ export function useAuth() {
 
   async function signOut() {
     await supabase.auth.signOut();
+    await clearPrivateCaches();
   }
 
   return {

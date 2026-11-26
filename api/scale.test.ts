@@ -14,8 +14,11 @@ function createResponse() {
   return res as unknown as VercelResponse & typeof res;
 }
 
-async function loadHandler(generated: unknown) {
+async function loadHandler(generated: unknown, { canRead = true }: { canRead?: boolean } = {}) {
   vi.resetModules();
+  const userCanReadRecipe = vi.fn().mockResolvedValue(canRead);
+  const getCached = vi.fn().mockResolvedValue(null);
+  const makeCacheKey = vi.fn((endpoint: string, input: unknown) => `${endpoint}:${JSON.stringify(input)}`);
   vi.doMock('./_lib/supabase.js', () => ({
     getServerSupabase: () => ({}),
     // Mirrors the real modelFor: per-task override, else the single model.
@@ -30,9 +33,11 @@ async function loadHandler(generated: unknown) {
     }),
     resolveApiKey: () => 'key',
     getUserId: vi.fn().mockResolvedValue('user-1'),
+    userCanReadRecipe,
   }));
   vi.doMock('./_lib/cache.js', () => ({
-    getCached: vi.fn().mockResolvedValue(null),
+    getCached,
+    makeCacheKey,
     setCached: vi.fn(),
   }));
   vi.doMock('./_lib/rateLimit.js', () => ({
@@ -51,7 +56,7 @@ async function loadHandler(generated: unknown) {
     generateJson: vi.fn().mockResolvedValue(generated),
   }));
   const mod = await import('./scale');
-  return { handler: mod.default };
+  return { handler: mod.default, userCanReadRecipe, getCached, makeCacheKey };
 }
 
 describe('/api/scale', () => {
@@ -74,5 +79,32 @@ describe('/api/scale', () => {
     await handler({ method: 'POST', headers: {}, body: { ingredients: [{ amount: '200g', name: 'flour', details: '' }], currentServings: 2, targetServings: 4 } } as VercelRequest, res);
 
     expect(res.statusCode).toBe(500);
+  });
+});
+
+describe('/api/scale: the cache of a recipe', () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  const recipeId = '550e8400-e29b-41d4-a716-446655440000';
+  const body = { recipeId, ingredients: [{ amount: '200g', name: 'flour', details: '' }], currentServings: 2, targetServings: 4 };
+
+  it('is not reachable for a recipe the caller cannot read', async () => {
+    const { handler, getCached } = await loadHandler([{ amount: '400g', name: 'flour' }], { canRead: false });
+    const res = createResponse();
+
+    await handler({ method: 'POST', headers: {}, body } as VercelRequest, res);
+
+    expect(res.statusCode).toBe(403);
+    expect(getCached).not.toHaveBeenCalled();
+  });
+
+  it('is keyed by the ingredients as well as the recipe', async () => {
+    const { handler, userCanReadRecipe, makeCacheKey } = await loadHandler([{ amount: '400g', name: 'flour' }]);
+    const res = createResponse();
+
+    await handler({ method: 'POST', headers: {}, body } as VercelRequest, res);
+
+    expect(userCanReadRecipe).toHaveBeenCalledWith(expect.anything(), recipeId, 'user-1');
+    expect(makeCacheKey).toHaveBeenCalledWith('scale', expect.objectContaining({ recipeId, ingredients: body.ingredients }));
   });
 });

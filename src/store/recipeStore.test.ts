@@ -355,3 +355,25 @@ describe('filtering the vault by linked person', () => {
     expect(ownerEq?.args[1]).toBe('partner');
   });
 });
+
+describe('originals hidden beside an adopted copy', () => {
+  it('counts only copies the signed-in person made, not a linked account\'s', async () => {
+    // A partner adopting one of *your* recipes used to hide your original
+    // from your own vault: RLS returns their copies too.
+    const { supabase } = await import('@/lib/supabase');
+    const client = supabase as unknown as { auth?: unknown };
+    client.auth = { getSession: async () => ({ data: { session: { user: { id: 'me' } } } }) };
+    try {
+      queueResult([{ copied_from_recipe_id: 'original-1' }]);
+      queueResult([recipe()]);
+      await useRecipeStore.getState().fetchRecipes('', null, null, [], 'newest', null);
+
+      const lookup = calls.findIndex((c) => c.table === 'recipes' && c.op === 'select' && c.payload === 'copied_from_recipe_id');
+      expect(lookup).toBeGreaterThanOrEqual(0);
+      expect(calls[lookup + 1]).toMatchObject({ op: 'eq', args: ['user_id', 'me'] });
+      expect(calls.some((c) => c.op === 'not' && c.args[0] === 'id' && c.args[2] === '(original-1)')).toBe(true);
+    } finally {
+      delete client.auth;
+    }
+  });
+});

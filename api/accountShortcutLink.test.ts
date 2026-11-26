@@ -23,7 +23,7 @@ vi.mock('./_lib/supabase.js', async (importOriginal) => {
     ...real,
     getUserId: () => h.userId(),
     getServerSupabase: () => ({
-      auth: { admin: { getUserById: async (id: string) => ({ data: { user: { id, email: id === ADMIN ? 'admin@example.test' : 'cook@example.test' } }, error: null }) } },
+      auth: { admin: { getUserById: async (id: string) => ({ data: { user: { id, email: id === ADMIN ? 'admin@example.test' : 'cook@example.test', email_confirmed_at: '2026-01-01T00:00:00Z' } }, error: null }) } },
       from: () => ({ upsert: async (...args: unknown[]) => { h.upserts.push(args); return { error: null }; } }),
     }),
   };

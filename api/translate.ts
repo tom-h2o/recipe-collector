@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { recipeId, targetLanguage, title, description, instructions, ingredients } = translateSchema.parse(req.body);
+    const { recipeId, targetLanguage } = translateSchema.parse(req.body);
     const supabase = getServerSupabase();
     const userId = await getUserId(req.headers.authorization as string | undefined);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -29,6 +29,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data: existing } = await supabase.from('recipe_translations').select('*').eq('recipe_id', recipeId).eq('language_code', targetLanguage).single();
     if (existing) return res.status(200).json({ ...existing, cached: true });
+
+    // The recipe as stored, never as the request describes it. The text used to
+    // come with the request, and the result is stored on the recipe for its
+    // owner and everyone linked to them: a linked account could make a recipe
+    // that was not theirs "say" anything in another language.
+    const { data: source, error: sourceError } = await supabase
+      .from('recipes')
+      .select('title, description, instructions, ingredients')
+      .eq('id', recipeId)
+      .maybeSingle();
+    if (sourceError) throw sourceError;
+    if (!source) return res.status(404).json({ error: 'Recipe not found.' });
+    const title = String(source.title ?? '');
+    const description = String(source.description ?? '');
+    const instructions = String(source.instructions ?? '');
+    const ingredients = (Array.isArray(source.ingredients) ? source.ingredients : [])
+      .filter((i: unknown): i is Record<string, unknown> => !!i && typeof i === 'object')
+      .map((i) => ({ amount: String(i.amount ?? ''), name: String(i.name ?? ''), details: String(i.details ?? '') }));
+    if (!title.trim() || !instructions.trim() || ingredients.length === 0) {
+      return res.status(400).json({ error: 'This recipe needs a title, ingredients and steps before it can be translated.' });
+    }
 
     const rl = await checkRateLimit(supabase, userId);
     if (!rl.allowed) return res.status(429).json({ error: `Daily AI call limit reached (${rl.limit} calls/day). Resets at midnight UTC.` });

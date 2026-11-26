@@ -21,6 +21,7 @@ const h = vi.hoisted(() => {
     userId: vi.fn<() => Promise<string | null>>(),
     saveModelConfig: vi.fn(),
     emailOf: vi.fn<(id: string) => string>(),
+    confirmed: vi.fn<(id: string) => boolean>(),
   };
 });
 
@@ -31,7 +32,7 @@ vi.mock('./_lib/supabase.js', async (importOriginal) => {
     getUserId: () => h.userId(),
     saveModelConfig: (...args: unknown[]) => h.saveModelConfig(...args),
     getServerSupabase: () => ({
-      auth: { admin: { getUserById: async (id: string) => ({ data: { user: { id, email: h.emailOf(id) } }, error: null }) } },
+      auth: { admin: { getUserById: async (id: string) => ({ data: { user: { id, email: h.emailOf(id), email_confirmed_at: h.confirmed(id) ? '2026-01-01T00:00:00Z' : null } }, error: null }) } },
     }),
   };
 });
@@ -58,6 +59,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.userId.mockResolvedValue(ADMIN);
   h.emailOf.mockImplementation((id) => (id === ADMIN ? ADMIN_EMAIL : 'someone@example.test'));
+  h.confirmed.mockReturnValue(true);
+  delete process.env.ADMIN_USER_ID;
   h.saveModelConfig.mockImplementation(async (_s, config) => config);
 });
 
@@ -74,6 +77,22 @@ describe('POST /api/account?action=models', () => {
     const res = await call(valid);
     expect(res.statusCode).toBe(403);
     expect(h.saveModelConfig).not.toHaveBeenCalled();
+  });
+
+  it('refuses the admin\'s address until it has been confirmed', async () => {
+    // Anyone can sign up with an address; only confirming it proves it is theirs.
+    h.confirmed.mockReturnValue(false);
+    const res = await call(valid);
+    expect(res.statusCode).toBe(403);
+    expect(h.saveModelConfig).not.toHaveBeenCalled();
+  });
+
+  it('knows the admin by account id once ADMIN_USER_ID is set, whatever the address', async () => {
+    process.env.ADMIN_USER_ID = 'user-2';
+    h.userId.mockResolvedValue('user-2');
+    expect((await call(valid)).statusCode).toBe(200);
+    h.userId.mockResolvedValue(ADMIN);
+    expect((await call(valid)).statusCode).toBe(403);
   });
 
   it('refuses a caller who is not signed in', async () => {
@@ -129,5 +148,38 @@ describe('getSettings', () => {
     const s = await getSettings(clientWith([globalRow]), 'u1');
     expect(s.task_models).toEqual({ tag: 'gemini-3.5-flash-lite' });
     expect(s.temperature_unit).toBe('C');
+  });
+});
+
+describe('GET /api/account?tab=whoami', () => {
+  function whoami() {
+    const res = {
+      statusCode: 0,
+      body: undefined as unknown,
+      setHeader: vi.fn(),
+      status(code: number) { this.statusCode = code; return this; },
+      json(payload: unknown) { this.body = payload; return this; },
+      end() { return this; },
+    };
+    const req = { method: 'GET', query: { tab: 'whoami' }, headers: { authorization: 'Bearer t' } };
+    return handler(req as unknown as VercelRequest, res as unknown as VercelResponse).then(() => res);
+  }
+
+  it('tells the admin they are the admin', async () => {
+    const res = await whoami();
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ isAdmin: true });
+  });
+
+  it('tells anyone else they are not, without refusing them', async () => {
+    h.userId.mockResolvedValue('user-2');
+    const res = await whoami();
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ isAdmin: false });
+  });
+
+  it('asks for sign-in first', async () => {
+    h.userId.mockResolvedValue(null);
+    expect((await whoami()).statusCode).toBe(401);
   });
 });
