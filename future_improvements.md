@@ -47,6 +47,23 @@ Captured during development. Items marked ✅ have been implemented.
 ### Rate limit indicator in the header
 Currently only visible after opening Settings → Usage Logs. A lightweight indicator in the navbar (e.g. a small pill showing "82/100 today") would be more discoverable without requiring navigation.
 
+### Keep the screen on in cook mode
+Cook mode has steps and timers, but the iPhone dims and locks after its
+auto-lock delay, exactly when the cook's hands are covered in dough. Nothing in
+`src/` asks for a wake lock today.
+
+- On opening `CookMode`, `navigator.wakeLock.request('screen')`; release it on
+  close. The browser drops the lock whenever the page is hidden (app switcher,
+  a call), so request it again on `visibilitychange` while cook mode is open.
+- Where the API is missing, or the request is refused (low power mode), do
+  nothing and say nothing: cook mode works as today.
+- Safari has the Screen Wake Lock API since 16.4; installed home-screen apps
+  lagged behind for a while, so check it once in the installed app on an
+  iPhone, not only in Safari.
+- A small hook (`useWakeLock(active)`), unit-tested against a fake
+  `navigator.wakeLock`, and an e2e case that opening and closing cook mode
+  requests and releases the lock.
+
 - ✅ **Plain-text recipe import** — a fourth import tab beside URL, photo and PDF: paste a recipe from a chat, a note or another app and Gemini structures it. Handled inside `api/extract.ts` (`{ text }`), so it needs no new serverless function
 
 - ✅ **Embedding backfill** — `backfill_embeddings.js` utility script exists (gitignored)
@@ -208,6 +225,47 @@ against production):
 trigram index (`pg_trgm`, `gin_trgm_ops`) and `ilike '%suppe%'` over title and
 ingredient names; at this vault's size that is fast. Could run alongside the
 full-text search (OR), or only when the full-text search finds nothing.
+
+### Shopping for one recipe, and plan entries without a day
+Today the shopping list only comes from the meal plan ("Generate from Next 7
+Days", `generateShoppingList` in `recipeStore.ts`), and generating **deletes the
+whole list** and rebuilds it: items typed in by hand and every tick are lost.
+List rows are plain text (`shopping_list.item`) with no link to the recipe or
+planned meal they came from, so the list cannot tell what it already holds.
+There is also no way to put one recipe's ingredients on the list without
+planning it on a day first.
+
+**The meal plan stays the one source of the list; it gains entries without a
+day.**
+- `meal_plan.date` and `meal_type` become nullable (one migration; the
+  `meal_type` CHECK lets NULL through as it is). The planner shows them in a
+  **"Not planned yet"** area above the days; moving one onto a day gives the
+  same row a date, it does not make a second one.
+- A **"Add to shopping list"** button in `RecipeDetail` puts the recipe there
+  with one tap (no day asked) and adds its ingredients to the list.
+- The list remembers which planned meals it holds: a link table
+  `shopping_list_sources (item_id, meal_plan_id)`, both cascading, because a
+  merged line ("800 g Kartoffeln") can come from several meals.
+- **"Generate" adds instead of replacing:** the next 7 days plus every entry
+  without a day, skipping meals already linked to the list. Items typed in by
+  hand and ticks stay.
+- Removing a planned meal removes its unticked items (a line shared with
+  another meal keeps that meal's part, or simply stays: decide when building).
+
+**When an entry without a day leaves the plan.** Otherwise they pile up and
+every "Generate" puts them on the list again. "Done!" at the end of cook mode
+asks "Remove from the plan?", and it can be removed by hand. No automatic
+expiry: nothing should disappear unnoticed.
+
+**Merging is the hard part.** `SHOPPING_TEMPLATE` merges duplicates across
+recipes ("1 onion" + "2 onions" → "3 onions") while it builds the whole list.
+Adding one recipe later means either one AI call to fold its ingredients into
+the existing lines (cost: one call per add, and the links have to follow the
+merge), or separate lines per meal that the app only groups for display (no AI
+call, but "500 g" and "300 g Kartoffeln" stay two lines). Decide when building.
+
+Optional, same change: subtract what is already in the pantry (`pantry_items`)
+when adding, and use the planned servings once the plan has them.
 
 ### Recipe version history
 When a recipe is edited, the previous version is permanently overwritten with no way to undo.
