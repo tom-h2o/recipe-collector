@@ -385,6 +385,52 @@ Currently importing multiple recipes requires opening each one individually. A q
 
 - ✅ **Model usage breakdown counted in the database** — `getStats()` no longer downloads every `gemini_logs` row to tally them; `gemini_model_usage()` (migration 0066) groups them. The old query was also silently capped at 1000 rows by the API, so the chart was wrong past that
 
+### The app in German and English
+The interface is English throughout, while the people using it are mostly
+German-speaking family and friends, and the Impressum and privacy policy will
+be German anyway. Decided: **bilingual, German and English**, not German only,
+so the app stays open to people who do not read German. Recipes are not part of
+this: they stay in their own language and already have translation.
+
+**Which language.** The device's language by default (`navigator.language`:
+German for `de-*`, English otherwise), with a choice in Settings → General
+stored on the user's own `settings` row (`ui_language`, nullable = follow the
+device), so the server can use it too. No CHECK constraint on `settings`
+(CLAUDE.md); validate in the app and the API.
+
+**What has to be translated, and where it lives today:**
+- Every component's text (several hundred strings, hard-coded in `src/`),
+  toasts, empty states, `aria-label`s (tests find controls by them).
+- Server messages a person reads: the Shortcut notifications
+  (`shortcutImport.ts`), `describeGeminiError()`, `describePageRefusal()`,
+  `noRecipeOnPage()`, the Zod messages written for people. The Shortcut path
+  knows the user from the key, so it can read `ui_language`; the app's API
+  calls can send it in a header.
+- Display labels whose stored values must not change: tags (`tagLabel()`, the
+  values in `recipes.tags` stay English, see "Labels are not values" in
+  CLAUDE.md), meal types, shopping categories ("Produce", "Dairy & Eggs" are
+  written by `SHOPPING_TEMPLATE` and stored).
+- The release notes (`changelog.ts`): two texts per entry, or English only.
+  Decide when building.
+- Supabase's auth emails: one template per project, so either one bilingual
+  email, or a template that branches on a language stored in the user's
+  metadata at sign-up.
+- Dates and numbers already go through `toLocale…`; pass the chosen language.
+
+**How.** A small typed dictionary per language (`src/i18n/en.ts`,
+`src/i18n/de.ts`) and a `t()` hook, or `react-i18next` if plurals and
+interpolation get heavy. Either way the German dictionary must be typed against
+the English one, so a missing translation fails `tsc`, not a user. The few
+server strings in a shared module both sides import.
+
+**Tests.** The e2e suite finds almost everything by English text and labels:
+pin it to English (one line in the mock backend), and add a spec that switches
+to German and checks a handful of screens, plus a unit test that both
+dictionaries have the same keys.
+
+**Cost going forward:** every new feature needs its text twice. The earlier it
+is done, the less there is to convert, so best before the next large features.
+
 ### Offline recipe browsing — partly done
 Read-only browsing already survives a bad connection: a `NetworkFirst` runtime
 cache covers Supabase REST GETs, and a `CacheFirst` cache covers recipe images
