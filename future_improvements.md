@@ -327,6 +327,55 @@ When a recipe is edited, the previous version is permanently overwritten with no
 - Store snapshots in a `recipe_versions` table on every update
 - Add a "History" option in `RecipeDetail` to browse and restore previous versions
 
+### Impressum and privacy policy
+The app is reachable by anyone: sign-up is open, and `/about` and public share
+links (`/r/<token>`) render without an account. There is no Impressum and no
+privacy policy anywhere in it.
+
+- **Impressum** (German law: § 5 DDG, formerly § 5 TMG): name, an address that
+  can be served, and a way to make contact quickly (email). Whether a private,
+  non-commercial app strictly needs one is a legal question, not a code one;
+  having one costs little. The address need not be a home address (a c/o or
+  address service is common). The content has to come from the owner, not from
+  the code.
+- **Privacy policy (Datenschutzerklärung, GDPR):** probably the more important
+  of the two, because personal data is processed and sent to third parties:
+  accounts and emails (Supabase), recipe text, photos and pages sent to
+  **Anthropic and Google** for reading, tagging and translation, Unsplash for
+  pictures, Vercel for hosting, Sentry for errors if a DSN is set. It should say
+  what is stored, where (and outside the EU where it is), for how long, and how
+  to have an account and its data deleted (that already exists:
+  `DELETE /api/account`).
+- **Shape:** two public routes beside `/about`, e.g. `/impressum` and
+  `/datenschutz`, rendered before `AuthGate` like `/about` (no table reads,
+  `ThemeSync` for dark mode). The text in one file in the repo
+  (`src/content/legal.ts`), in German, since the law is German; edited by hand,
+  no admin form. Linked from the footer in `Layout`, the sign-in screen
+  (`AuthGate`), `/about` and the public share page.
+- Not legal advice: the wording should be checked by someone who knows the law,
+  or come from a generator meant for it.
+
+### Feedback and bug reports from inside the app
+There is no way to report a bug or send an idea from the app; it all goes
+through talking to the admin.
+
+- **Where:** "Send feedback" in the account menu (`UserMenu`) and on
+  `LoadFailure` / the error screen, where a report is most likely to be wanted.
+- **Form:** kind (bug / idea / other), text, optionally a screenshot. Filled in
+  automatically and shown before sending: app build, current view, device and
+  browser, light/dark, and the Sentry event id of the last error if Sentry is
+  configured, so a report can be matched to its stack trace.
+- **Where it goes:** a `feedback` table, written from the browser under RLS
+  (insert own rows only, read own rows only), so no new serverless function is
+  needed (the Hobby plan has one slot left). Screenshots in a **private**
+  storage bucket, not `recipe-images`, which is public. A **Feedback** tab in
+  the admin dashboard, with status (new / seen / done) and the context above.
+- **Telling the admin:** optional, later: an email per report (needs the custom
+  SMTP from the domain move, or a mail service), or a GitHub issue created
+  server-side (needs a token, and would go through `api/account.ts`).
+- pgTAP cases: a user cannot read another's feedback or change its status; the
+  admin reads it through the service key.
+
 ### Batch import queue
 Currently importing multiple recipes requires opening each one individually. A queue-based approach would let users paste several URLs at once and have them processed in the background.
 
