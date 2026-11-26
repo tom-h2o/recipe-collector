@@ -20,6 +20,17 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-16',
+    title: 'Privacy and safety fixes',
+    items: [
+      'Photos you send from your iPhone are now stored without their hidden details, such as where they were taken.',
+      'Signing out now removes the offline copy of your recipes from this device, so the next person to use it cannot see them.',
+      'Declining an invitation to connect accounts now really declines it. It used to stay in your inbox.',
+      'Connecting accounts now needs a confirmed email address, and recipes sent to you can only be accepted from one.',
+    ],
+  },
+  {
+    // Ids must increase with each release (see 2026-12-02 below).
     id: '2026-12-15',
     title: 'Password reset fixed',
     items: [

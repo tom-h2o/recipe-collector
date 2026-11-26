@@ -1,30 +1,51 @@
 import { z } from 'zod';
 
+/**
+ * Upper bounds on what a request may ask the AI to read. Every endpoint is
+ * behind sign-in and the daily allowance, but the allowance counts calls, not
+ * their size: without these, one call could carry a book. Each is well above
+ * anything a recipe needs (the longest step list in the vault is a few
+ * thousand characters).
+ */
+export const MAX_TITLE = 300;
+export const MAX_DESCRIPTION = 5000;
+export const MAX_INSTRUCTIONS = 20000;
+export const MAX_INGREDIENT_ROWS = 200;
+export const MAX_INGREDIENT_FIELD = 500;
+/** For ingredients the endpoint accepts in any shape: the size of the JSON. */
+const MAX_LOOSE_INGREDIENTS = 50000;
+
+const looseIngredients = z.unknown().refine(
+  (value) => value === undefined || (JSON.stringify(value)?.length ?? 0) <= MAX_LOOSE_INGREDIENTS,
+  'That ingredient list is too long.',
+);
+
 export const extractSchema = z.object({
   url: z.string().url('A valid URL is required'),
 });
 
 export const tagSchema = z.object({
   recipeId: z.string().uuid('recipeId must be a UUID'),
-  title: z.string().min(1, 'title is required'),
-  description: z.string().optional(),
-  ingredients: z.unknown().optional(),
-  instructions: z.string().optional(),
+  title: z.string().min(1, 'title is required').max(MAX_TITLE),
+  description: z.string().max(MAX_DESCRIPTION).optional(),
+  ingredients: looseIngredients.optional(),
+  instructions: z.string().max(MAX_INSTRUCTIONS).optional(),
 });
 
 export const nutritionSchema = z.object({
   recipeId: z.string().uuid('recipeId must be a UUID'),
-  title: z.string().optional(),
-  ingredients: z.unknown(),
+  title: z.string().max(MAX_TITLE).optional(),
+  ingredients: looseIngredients,
   servings: z.number().optional(),
 });
 
 export const suggestSchema = z.object({
-  ingredients: z.array(z.string()).min(1, 'At least one ingredient is required'),
+  ingredients: z.array(z.string().max(100)).min(1, 'At least one ingredient is required').max(50, 'At most 50 ingredients at once'),
 });
 
 export const shoppingSchema = z.object({
-  ingredients: z.array(z.string()).min(1, 'At least one ingredient is required'),
+  // A week's meal plan, every ingredient of every recipe in it.
+  ingredients: z.array(z.string().max(MAX_INGREDIENT_FIELD)).min(1, 'At least one ingredient is required').max(1000, 'That shopping list is too long'),
 });
 
 /** A single recipe can span several photos (e.g. a two-page cookbook spread). */
@@ -141,18 +162,18 @@ export const scaleSchema = z.object({
   recipeId: z.string().uuid().optional(),
   ingredients: z.array(
     z.object({
-      amount: z.string(),
-      name: z.string().min(1),
-      details: z.string().optional().default(''),
+      amount: z.string().max(MAX_INGREDIENT_FIELD),
+      name: z.string().min(1).max(MAX_INGREDIENT_FIELD),
+      details: z.string().max(MAX_INGREDIENT_FIELD).optional().default(''),
     }),
-  ).min(1, 'At least one ingredient is required'),
-  currentServings: z.number().int().positive(),
-  targetServings: z.number().int().positive(),
+  ).min(1, 'At least one ingredient is required').max(MAX_INGREDIENT_ROWS),
+  currentServings: z.number().int().positive().max(1000),
+  targetServings: z.number().int().positive().max(1000),
 });
 
 export const findImageSchema = z.object({
-  title: z.string().min(1, 'title is required'),
-  description: z.string().optional(),
+  title: z.string().min(1, 'title is required').max(MAX_TITLE),
+  description: z.string().max(MAX_DESCRIPTION).optional(),
 });
 
 export const shareSchema = z.discriminatedUnion('action', [
@@ -171,19 +192,15 @@ export const shareSchema = z.discriminatedUnion('action', [
   }),
 ]);
 
+/**
+ * Which recipe, and into what. The text itself is read from the database
+ * (api/translate.ts): it used to come with the request, so anyone who could
+ * open a linked account's recipe could store a "translation" of it that said
+ * whatever they liked. Older clients still send the text; it is ignored.
+ */
 export const translateSchema = z.object({
   recipeId: z.string().uuid('recipeId must be a UUID'),
   targetLanguage: z.enum(['en', 'de', 'fr', 'es'], { message: 'Unsupported language' }),
-  title: z.string().min(1),
-  description: z.string().optional().default(''),
-  instructions: z.string().min(1),
-  ingredients: z.array(
-    z.object({
-      amount: z.string(),
-      name: z.string(),
-      details: z.string().optional().default(''),
-    }),
-  ).min(1),
 });
 
 /**

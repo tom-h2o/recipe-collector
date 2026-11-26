@@ -17,7 +17,7 @@ const h = vi.hoisted(() => {
     imports: [] as Record<string, unknown>[],
     recipes: [] as Record<string, unknown>[],
     images: [] as Record<string, unknown>[],
-    uploads: [] as { path: string; type: string }[],
+    uploads: [] as { path: string; type: string; bytes?: Uint8Array }[],
   };
   const table = (name: string) => {
     if (name === 'shortcut_keys') {
@@ -66,7 +66,7 @@ const h = vi.hoisted(() => {
     from: table,
     storage: {
       from: () => ({
-        upload: async (path: string, _bytes: Uint8Array, opts: { contentType: string }) => { db.uploads.push({ path, type: opts.contentType }); return { error: null }; },
+        upload: async (path: string, bytes: Uint8Array, opts: { contentType: string }) => { db.uploads.push({ path, type: opts.contentType, bytes }); return { error: null }; },
         getPublicUrl: (path: string) => ({ data: { publicUrl: `https://storage.test/${path}` } }),
       }),
     },
@@ -186,6 +186,10 @@ describe('one recipe across several pages', () => {
     expect(h.db.recipes[0]).toMatchObject({ title: 'Grandma\'s soup', user_id: 'user-1', servings: 4, original_servings: 4, image_url: `https://storage.test/${h.db.uploads[0].path}` });
     expect(h.db.images.map((i) => i.sort_order)).toEqual([0, 1]);
     expect(h.db.uploads.map((u) => u.type)).toEqual(['image/jpeg', 'image/jpeg']);
+    // The bucket is public: what is stored carries no camera metadata (make,
+    // model, and on a real phone where it was taken), only the picture.
+    for (const u of h.db.uploads) expect(Buffer.from(u.bytes!).includes('Exif')).toBe(false);
+    expect(Buffer.from(CAMERA_JPEG, 'base64').includes('Exif')).toBe(true);
     expect(h.tag).toHaveBeenCalledTimes(1);
     expect(h.nutrition).toHaveBeenCalledTimes(1);
 
@@ -399,7 +403,7 @@ describe('a link from the link Shortcut (Instagram and any other app)', () => {
     expect(log).toMatchObject({ endpoint: 'extract-link' });
 
     // Instagram's picture address expires within days: our own copy instead.
-    expect(h.db.uploads).toEqual([{ path: expect.stringMatching(/\.jpg$/), type: 'image/jpeg' }]);
+    expect(h.db.uploads).toEqual([{ path: expect.stringMatching(/\.jpg$/), type: 'image/jpeg', bytes: expect.any(Uint8Array) }]);
     expect(h.db.recipes[0]).toMatchObject({
       title: 'Cremige Kürbissuppe',
       user_id: 'user-1',

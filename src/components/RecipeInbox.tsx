@@ -1,5 +1,6 @@
 import { Check, X, Inbox, ChefHat, ArrowLeft, Link2 } from 'lucide-react';
 import type { RecipeShare, LinkedPerson } from '@/types';
+import { isOwnPhotoUrl } from '../../shared/photoUrl';
 
 interface Props {
   shares: RecipeShare[];
@@ -96,9 +97,13 @@ export function RecipeInbox({ shares, linkInvites = [], onAccept, onReject, onAc
           className="bg-white dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm overflow-hidden flex"
         >
           {/* Recipe image */}
-          {share.recipe_image_url ? (
+          {/* Only our own photos: anything else would load before the person
+              chose to open anything, and could tell the sender when and from
+              where. The server stops sending others (api/share.ts); this
+              covers shares from before that. */}
+          {isOwnPhotoUrl(share.recipe_image_url, import.meta.env.VITE_SUPABASE_URL) ? (
             <img
-              src={share.recipe_image_url}
+              src={share.recipe_image_url ?? undefined}
               alt={share.recipe_title}
               className="w-28 h-28 object-cover shrink-0"
             />

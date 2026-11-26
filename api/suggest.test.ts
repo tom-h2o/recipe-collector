@@ -111,3 +111,40 @@ describe('/api/suggest', () => {
     expect(res.statusCode).toBe(500);
   });
 });
+
+describe('/api/suggest and the daily allowance', () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it('refuses before making the embedding, which is a paid call too', async () => {
+    vi.resetModules();
+    const embedContent = vi.fn();
+    const checkRateLimit = vi.fn().mockResolvedValue({ allowed: false, used: 100, limit: 100, remaining: 0 });
+    const makeCacheKey = vi.fn(() => 'k');
+    vi.doMock('./_lib/supabase.js', () => ({
+      getServerSupabase: () => ({ rpc: vi.fn(), from: vi.fn() }),
+      modelFor: () => 'm',
+      thinkingFor: () => true,
+      getSettings: vi.fn().mockResolvedValue({ gemini_model: 'm', temperature_unit: 'C' }),
+      resolveApiKey: () => 'key',
+      getUserId: vi.fn().mockResolvedValue('user-1'),
+      getVisibleUserIds: vi.fn().mockResolvedValue(['user-1']),
+    }));
+    vi.doMock('./_lib/cache.js', () => ({ getCached: vi.fn().mockResolvedValue(null), makeCacheKey, setCached: vi.fn() }));
+    vi.doMock('./_lib/rateLimit.js', () => ({ checkRateLimit }));
+    vi.doMock('./_lib/gemini.js', () => ({
+      EMBEDDING_MODEL: 'e',
+      getGeminiClient: () => ({ models: { embedContent } }),
+      describeGeminiError: (_e: unknown, fallback: string) => ({ status: 500, message: fallback, retryable: true }),
+      generateJson: vi.fn(),
+    }));
+    const { default: handler } = await import('./suggest');
+    const res = createResponse();
+
+    await handler({ method: 'POST', headers: {}, body: { ingredients: ['leek', 'cream'] } } as VercelRequest, res);
+
+    expect(res.statusCode).toBe(429);
+    expect(embedContent).not.toHaveBeenCalled();
+    // One person's suggestions are not another's: the cache key names them.
+    expect(makeCacheKey).toHaveBeenCalledWith('suggest', { userId: 'user-1', ingredients: ['cream', 'leek'] });
+  });
+});

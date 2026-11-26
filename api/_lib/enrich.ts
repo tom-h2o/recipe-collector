@@ -94,14 +94,26 @@ Return ONLY a JSON object with these exact keys (all values are numbers rounded 
 }`;
 }
 
-async function embed(client: GoogleGenAI, recipe: RecipeText, ingredientText: string, where: string): Promise<number[] | null> {
+/**
+ * The recipe's embedding, for Suggest's vector search. Cached by its text, like
+ * the tags beside it: a repeated tag request is answered from the cache and
+ * costs none of the allowance, and without this cache each repeat still made a
+ * free call to the embedding model.
+ */
+async function embed(supabase: SupabaseClient, client: GoogleGenAI, recipe: RecipeText, ingredientText: string, where: string): Promise<number[] | null> {
+  const contents = `Title: ${recipe.title}\nDescription: ${recipe.description || ''}\nIngredients: ${ingredientText}\nInstructions: ${recipe.instructions || ''}`;
+  const cacheKey = makeCacheKey('embedding', { model: EMBEDDING_MODEL, contents });
+  const cached = await getCached<number[]>(supabase, cacheKey);
+  if (Array.isArray(cached) && cached.length > 0) return cached;
   try {
     const embedResponse = await client.models.embedContent({
       model: EMBEDDING_MODEL,
-      contents: `Title: ${recipe.title}\nDescription: ${recipe.description || ''}\nIngredients: ${ingredientText}\nInstructions: ${recipe.instructions || ''}`,
+      contents,
       config: { outputDimensionality: 768 },
     });
-    return embedResponse.embeddings?.[0]?.values ?? null;
+    const values = embedResponse.embeddings?.[0]?.values ?? null;
+    if (values) setCached(supabase, cacheKey, 'embedding', values, 24 * 30);
+    return values;
   } catch (embedErr) {
     console.warn(`Embedding generation failed${where}:`, embedErr);
     return null;
@@ -130,7 +142,7 @@ export async function tagRecipe({ supabase, client, settings, userId }: EnrichCo
   if (cachedTags) {
     const validCachedTags = parseTagResult(cachedTags).filter((t) => AVAILABLE_TAGS.includes(t));
     if (validCachedTags.length === 0) throw new Error('Cached tags did not contain any supported tags.');
-    await store(validCachedTags, await embed(client, recipe, ingredientText, ' (cached path)'));
+    await store(validCachedTags, await embed(supabase, client, recipe, ingredientText, ' (cached path)'));
     return validCachedTags;
   }
 
@@ -147,7 +159,7 @@ export async function tagRecipe({ supabase, client, settings, userId }: EnrichCo
   const validTags = tags.filter((t) => AVAILABLE_TAGS.includes(t));
   if (validTags.length === 0) throw new Error('The AI returned no supported tags.');
 
-  await store(validTags, await embed(client, recipe, ingredientText, ''));
+  await store(validTags, await embed(supabase, client, recipe, ingredientText, ''));
   setCached(supabase, cacheKey, 'tag', validTags, 24 * 30);
   return validTags;
 }

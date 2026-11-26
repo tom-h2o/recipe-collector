@@ -12,6 +12,7 @@ import { MAX_EXTRACT_PHOTOS } from './schemas.js';
 import { extractRecipeFromImages } from './photoExtraction.js';
 import { DailyLimitError, estimateNutrition, tagRecipe, type RecipeText } from './enrich.js';
 import { decodeBase64, imageSize, sniffImageType, splitBase64Images, type SupportedImageType } from './imageBytes.js';
+import { stripImageMetadata } from './stripMetadata.js';
 import { decideKind, type ImageKind } from '../../shared/imageKind.js';
 import { SAFARI_SHORTCUT_NAME } from '../../shared/safariShortcut.js';
 import { extractRecipeFromHtml } from './pageExtraction.js';
@@ -145,13 +146,20 @@ interface ImportContext {
   userId: string;
 }
 
+/**
+ * Stores the pictures as they will be shown, without their metadata. The
+ * Shortcut sends originals, and a camera photo's EXIF can hold where it was
+ * taken: the bucket is public, so that would be published with the photo.
+ * Only for storage: kindOfPictures() needs the camera EXIF to tell a photo
+ * from a screenshot, so it reads the bytes as they arrived.
+ */
 async function storePictures(supabase: SupabaseClient, pictures: Picture[]): Promise<{ url: string; storagePath: string }[]> {
   const stored: { url: string; storagePath: string }[] = [];
   for (const picture of pictures) {
     const storagePath = `${randomUUID()}.${picture.type.split('/')[1].replace('jpeg', 'jpg')}`;
     const { error } = await supabase.storage
       .from('recipe-images')
-      .upload(storagePath, picture.bytes, { contentType: picture.type, upsert: false });
+      .upload(storagePath, stripImageMetadata(picture.bytes, picture.type), { contentType: picture.type, upsert: false });
     if (error) throw new Error(`The picture could not be stored: ${error.message}`);
     stored.push({ url: supabase.storage.from('recipe-images').getPublicUrl(storagePath).data.publicUrl, storagePath });
   }

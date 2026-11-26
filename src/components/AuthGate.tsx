@@ -4,7 +4,6 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { SpeisekammerLogo } from '@/components/SpeisekammerLogo';
@@ -41,39 +40,6 @@ export function AuthGate({ children }: Props) {
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const [resendError, setResendError] = useState<string | null>(null);
   const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
-  const [isClaiming, setIsClaiming] = useState(false);
-  const [claimed, setClaimed] = useState(false);
-  const [hasUnclaimed, setHasUnclaimed] = useState<boolean | null | 'checking'>(null);
-
-  async function checkUnclaimed() {
-    setHasUnclaimed('checking');
-    const { count } = await supabase
-      .from('recipes')
-      .select('id', { count: 'exact', head: true })
-      .is('user_id', null);
-    setHasUnclaimed((count ?? 0) > 0);
-  }
-
-  async function claimExistingRecipes() {
-    if (!user) return;
-    setIsClaiming(true);
-    const tables = ['recipes', 'meal_plan', 'shopping_list'] as const;
-    try {
-      await Promise.all(
-        tables.map((t) =>
-          supabase.from(t).update({ user_id: user.id }).is('user_id', null),
-        ),
-      );
-      setClaimed(true);
-      setHasUnclaimed(false);
-      toast.success('All existing recipes claimed!');
-    } catch {
-      toast.error('Failed to claim recipes. Try again.');
-    } finally {
-      setIsClaiming(false);
-    }
-  }
-
   async function handlePasswordSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email || !password) return;
@@ -511,44 +477,6 @@ export function AuthGate({ children }: Props) {
           )}
 
           </div>{/* end form area */}
-        </div>
-      </div>
-    );
-  }
-
-  // Logged in — check for unclaimed data exactly once (null = not yet checked)
-  if (!claimed && hasUnclaimed === null && !isClaiming) {
-    checkUnclaimed();
-  }
-
-  if (!claimed && hasUnclaimed === true) {
-    return (
-      <div className="min-h-screen bg-sk-surface dark:bg-background flex items-center justify-center p-6">
-        <div className="w-full max-w-md bg-white dark:bg-card rounded-3xl shadow-ambient p-10 space-y-6 text-center">
-          <SpeisekammerLogo size={56} />
-          <div>
-            <h2 className="font-serif text-2xl font-normal text-sk-on-surface dark:text-foreground">
-              Welcome back!
-            </h2>
-            <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground mt-2">
-              We found existing recipes that aren't assigned to any account yet. Claim them as yours to continue.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3">
-            <Button
-              onClick={claimExistingRecipes}
-              disabled={isClaiming}
-              className="w-full h-12 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold rounded-full border-0"
-            >
-              {isClaiming ? 'Claiming...' : 'Claim all existing recipes'}
-            </Button>
-            <button
-              onClick={() => setClaimed(true)}
-              className="text-sm font-sans text-sk-outline hover:text-sk-on-surface-variant transition-colors"
-            >
-              Skip (existing recipes will remain visible but unassigned)
-            </button>
-          </div>
         </div>
       </div>
     );
