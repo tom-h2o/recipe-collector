@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ "master", "main", "develop", "staging" ]
 
+# Read-only token for every job: nothing here pushes, comments or releases.
+# Migrations authenticate with their own Supabase secrets, not this token.
+permissions:
+  contents: read
+
 env:
   # checkout and setup-node are on v5, which runs on Node 24 natively; before
   # that every run warned that they "target Node.js 20 but are being forced to

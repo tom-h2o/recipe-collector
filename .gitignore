@@ -32,3 +32,13 @@ backfill_embeddings.js
 
 # Local agent settings — machine-specific, not shared
 .claude/settings.local.json
+
+# Secrets and machine-local tool state. .env.example stays: it holds names only.
+.env
+.env.*
+!.env.example
+.vercel/
+# Written by `supabase link`: the project ref, pooler host and CLI versions of
+# whoever ran it. Not secret, but not the repository's business either.
+supabase/.temp/
+supabase/.branches/
