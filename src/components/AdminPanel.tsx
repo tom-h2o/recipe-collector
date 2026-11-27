@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, BookOpen, Sparkles, Trash2, RefreshCw, Calendar, TrendingUp, Star, ChevronLeft, ChevronRight, X, Loader2, LayoutDashboard, Activity, BarChart3, Search, UserRound } from 'lucide-react';
+import { Users, BookOpen, Sparkles, Trash2, RefreshCw, Calendar, TrendingUp, Star, ChevronLeft, ChevronRight, X, Loader2, LayoutDashboard, Activity, BarChart3, Search, UserRound, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -9,10 +9,11 @@ import type { AdminUser, AdminStats, AdminLog, AdminRecipe, Recipe } from '@/typ
 import { ReasoningTag } from '@/components/ReasoningTag';
 import { SystemCheck } from '@/components/SystemCheck';
 import { AdminUsage } from '@/components/AdminUsage';
+import { AdminFeedback } from '@/components/AdminFeedback';
 import { SegmentedTabs, type SegmentedTab } from '@/components/SegmentedTabs';
 import { chipClass, tagClass, tagLabel } from '@/lib/tags';
 
-type Tab = 'overview' | 'usage' | 'users' | 'recipes' | 'logs' | 'system';
+type Tab = 'overview' | 'usage' | 'feedback' | 'users' | 'recipes' | 'logs' | 'system';
 
 const PAGE_SIZE = 25;
 
@@ -173,7 +174,7 @@ export function AdminPanel() {
 
   function refresh() {
     loadStats();
-    if (tab === 'usage') setUsageReload((n) => n + 1);
+    if (tab === 'usage' || tab === 'feedback') setUsageReload((n) => n + 1);
     if (tab === 'users') loadUsers(usersPage);
     if (tab === 'recipes') loadRecipes(recipesPage, recipeSearchDebounced, ownerFilter?.id ?? null);
     if (tab === 'logs') loadLogs(logsPage);
@@ -308,6 +309,8 @@ export function AdminPanel() {
   const TABS: SegmentedTab<Tab>[] = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'usage', label: 'Usage', icon: BarChart3 },
+    // The count is what nobody has looked at yet, and only shown when there is some.
+    { id: 'feedback', label: 'Feedback', icon: MessageSquare, count: stats.new_feedback || undefined },
     { id: 'users', label: 'Users', icon: Users, count: stats.total_users },
     { id: 'recipes', label: 'Recipes', icon: BookOpen, count: stats.total_recipes },
     { id: 'logs', label: 'AI Logs', icon: Sparkles, count: stats.total_ai_calls },
@@ -331,6 +334,12 @@ export function AdminPanel() {
       <div id="admin-panel" role="tabpanel" aria-labelledby={`admin-tab-${tab}`} className="space-y-6">
       {tab === 'system' && <SystemCheck />}
       {tab === 'usage' && <AdminUsage reloadKey={usageReload} />}
+      {tab === 'feedback' && (
+        <AdminFeedback
+          reloadKey={usageReload}
+          onNewCountChange={(delta) => setStats((s) => (s ? { ...s, new_feedback: Math.max(0, (s.new_feedback ?? 0) + delta) } : s))}
+        />
+      )}
 
       {/* Overview tab */}
       {tab === 'overview' && (

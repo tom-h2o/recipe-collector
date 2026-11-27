@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { useState } from 'react';
 import { CookTimer } from '@/components/CookTimer';
 import { useCookTimer } from '@/hooks/useCookTimer';
+import { useWakeLock } from '@/hooks/useWakeLock';
 import { parseDurations } from '@/lib/parseDurations';
 import { parseIngredients } from '@/lib/recipeUtils';
 import { ingredientsInStep } from '@/lib/stepIngredients';
@@ -23,6 +24,8 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
   // Deliberately not reset when the step changes: a timer set for one step
   // usually needs to keep running while the cook reads ahead.
   const timer = useCookTimer();
+  // The screen stays on for as long as cook mode is open.
+  useWakeLock(isOpen && !!recipe);
 
   if (!recipe) return null;
 

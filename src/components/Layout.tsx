@@ -178,7 +178,7 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
               <span className="hidden sm:inline lg:hidden xl:inline">Add Recipe</span>
               <span className="hidden lg:inline xl:hidden">Add</span>
             </button>
-            {user && <UserMenu user={user} onSignOut={onSignOut} onOpenWhatsNew={onOpenWhatsNew} hasUnreadReleases={hasUnreadReleases} />}
+            {user && <UserMenu user={user} onSignOut={onSignOut} onOpenWhatsNew={onOpenWhatsNew} hasUnreadReleases={hasUnreadReleases} currentView={activeView} />}
           </div>
         </div>
       </header>
@@ -196,7 +196,7 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
                 <circle cx="5" cy="5" r="1.2" fill="currentColor"/>
                 <line x1="7.5" y1="6.5" x2="13" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
-              Speisekammer · <span className="font-semibold text-sk-on-surface-variant dark:text-foreground">Magical Apps</span>
+              Speisekammer
             </span>
           </footer>
         </div>

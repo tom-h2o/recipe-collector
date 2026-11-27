@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { APP_NAME } from '@/lib/appInfo';
 import { dropServiceWorker, looksLikeAMissingChunk, recoveryInProgress } from '@/lib/recoverFromStaleChunks';
+import { collectFeedbackContext, submitFeedback } from '@/lib/feedback';
 
 /**
  * What the app shows when it cannot render at all.
@@ -14,6 +15,7 @@ import { dropServiceWorker, looksLikeAMissingChunk, recoveryInProgress } from '@
  */
 export function LoadFailure({ error }: { error: Error }) {
   const [busy, setBusy] = useState(false);
+  const [report, setReport] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
   const missingFile = looksLikeAMissingChunk(error.message);
 
   // An automatic recovery reload is already on its way; a failure screen that
@@ -26,6 +28,19 @@ export function LoadFailure({ error }: { error: Error }) {
     setBusy(true);
     await dropServiceWorker();
     window.location.reload();
+  }
+
+  // One tap, no form: this screen appears when the app cannot draw itself, so
+  // the report is the error and where it happened. Needs a signed-in session;
+  // without one it says it could not be sent.
+  async function reportProblem() {
+    setReport('sending');
+    const failure = await submitFeedback(
+      'bug',
+      missingFile ? 'The app could not load one of its files.' : 'The app showed its failure screen.',
+      collectFeedbackContext('failure screen', error.message || 'unknown error'),
+    ).catch(() => 'failed');
+    setReport(failure ? 'failed' : 'sent');
   }
 
   return (
@@ -59,6 +74,18 @@ export function LoadFailure({ error }: { error: Error }) {
         </div>
         <p className="text-xs text-zinc-500 dark:text-zinc-400 break-words">
           Your recipes are not affected. Details: {error.message || 'unknown error'}
+        </p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400" aria-live="polite">
+          {report === 'sent' ? 'Reported. Thank you.' : report === 'failed' ? 'The report could not be sent from here.' : (
+            <button
+              type="button"
+              onClick={reportProblem}
+              disabled={report === 'sending'}
+              className="underline font-semibold text-zinc-700 dark:text-zinc-200 disabled:opacity-50"
+            >
+              {report === 'sending' ? 'Reporting…' : 'Report this problem'}
+            </button>
+          )}
         </p>
       </div>
     </div>

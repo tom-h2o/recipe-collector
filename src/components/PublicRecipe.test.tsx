@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { PublicRecipe } from './PublicRecipe';
 import type { Recipe } from '@/types';
@@ -30,6 +30,8 @@ const recipe: Recipe = {
   source_url: null,
   source_name: null,
 };
+
+afterEach(() => vi.unstubAllEnvs());
 
 describe('PublicRecipe', () => {
   it('shows the recipe a guest followed the link for', () => {
@@ -118,6 +120,7 @@ describe('PublicRecipe: the pitch to a guest', () => {
   });
 
   it('offers a way to sign up and a way to read more', () => {
+    vi.stubEnv('VITE_SIGNUP_OPEN', 'true');
     render(<PublicRecipe recipe={recipe} />);
     expect(screen.getByRole('link', { name: /create a free account/i })).toHaveAttribute('href', '/');
     expect(screen.getByRole('link', { name: /see everything it does/i })).toHaveAttribute('href', '/about');
@@ -129,7 +132,14 @@ describe('PublicRecipe: the pitch to a guest', () => {
     const aside = container.querySelector('aside');
     expect(aside).not.toBeNull();
     expect(aside!.className).toContain('print:hidden');
-    expect(aside!.textContent).toMatch(/Create a free account/i);
+    expect(aside!.textContent).toMatch(/See everything it does/i);
+  });
+
+  it('does not ask a stranger to sign up while accounts are by invitation', () => {
+    render(<PublicRecipe recipe={recipe} />);
+    expect(screen.queryByText(/create a free account/i)).toBeNull();
+    expect(document.body.textContent).not.toMatch(/You can have one too/);
+    expect(screen.getByRole('link', { name: /see everything it does/i })).toHaveAttribute('href', '/about');
   });
 
   it('does not leak the author’s email address', () => {

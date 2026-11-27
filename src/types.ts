@@ -69,6 +69,8 @@ export interface ShoppingItem {
   item: string;
   category: string | null;
   is_checked: boolean;
+  /** Made by "Generate" from the meal plan (migration 0077); false or absent: added by the person. */
+  from_plan?: boolean;
 }
 
 export interface PantryItem {
@@ -163,6 +165,39 @@ export interface AdminStats {
   calls_today: number;
   calls_this_week: number;
   model_breakdown: { model: string; count: number }[];
+  /** Reports nobody has looked at yet (Admin → Feedback). */
+  new_feedback?: number;
+}
+
+export type FeedbackKind = 'bug' | 'idea' | 'other';
+export type FeedbackStatus = 'new' | 'seen' | 'done';
+
+/** What the app adds to a report, shown to the person before it is sent. */
+export interface FeedbackContext {
+  build?: string;
+  view?: string;
+  path?: string;
+  screen?: string;
+  installed?: boolean;
+  theme?: string;
+  language?: string;
+  userAgent?: string;
+  /** Sentry's id for the last error reported from this page, if any. */
+  lastErrorId?: string;
+  /** The message of the error the report was sent from (the failure screen). */
+  error?: string;
+}
+
+/** GET /api/account?tab=feedback — one report as the admin sees it. */
+export interface AdminFeedbackRow {
+  id: string;
+  created_at: string;
+  user_id: string;
+  user_email: string | null;
+  kind: FeedbackKind;
+  message: string;
+  context: FeedbackContext;
+  status: FeedbackStatus;
 }
 
 /** GET /api/account?tab=usage — admin_usage() (migration 0075). */

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { isRecoveryHash } from './recoveryLink'
+import { isInviteHash, isRecoveryHash } from './recoveryLink'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -13,6 +13,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
  * createClient, which consumes the hash. See recoveryLink.ts.
  */
 export const openedFromRecoveryLink = typeof window !== 'undefined' && isRecoveryHash(window.location.hash)
+
+/** Whether this page was opened from an invitation email. Same timing. */
+export const openedFromInviteLink = typeof window !== 'undefined' && isInviteHash(window.location.hash)
 
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',

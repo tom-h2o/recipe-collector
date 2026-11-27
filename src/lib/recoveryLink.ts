@@ -11,6 +11,20 @@
  * link) carries no access token and is not recovery.
  */
 export function isRecoveryHash(hash: string): boolean {
+  return linkType(hash) === 'recovery';
+}
+
+/**
+ * An invitation (Supabase → Authentication → Users → Invite user) arrives the
+ * same way with `type=invite`. It signs the person in to an account that has
+ * no password yet, so they are asked to choose one, like after a reset;
+ * otherwise their next sign-in would have to be a magic link or a reset.
+ */
+export function isInviteHash(hash: string): boolean {
+  return linkType(hash) === 'invite';
+}
+
+function linkType(hash: string): string | null {
   const params = new URLSearchParams(hash.replace(/^#/, ''));
-  return params.get('type') === 'recovery' && !!params.get('access_token');
+  return params.get('access_token') ? params.get('type') : null;
 }

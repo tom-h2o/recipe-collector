@@ -4,6 +4,84 @@ Captured during development. Items marked ✅ have been implemented.
 
 ---
 
+## Launch plan (decided 2026-11-27)
+
+The app goes to family and friends in a few days, 2–3 people first. Every open
+point was gone through with the owner; this is the order and what was decided.
+Tick an item here when it ships.
+
+### A. Before sharing
+
+1. [x] **Invitation only.** Owner turns off "Allow new users to sign up" in
+   Supabase. In the app, one flag (`VITE_SIGNUP_OPEN`) hides sign-up in
+   `AuthGate` and the "Create a free account" links on `PublicRecipe` and
+   `AboutPage`; e2e cases for both states. Details: "A closed test" below.
+2. [x] **Short data note** on the sign-in screen and `/about`: what is stored,
+   that recipes, photos and pages go to Anthropic and Google to be read, and
+   how to delete the account. Impressum and the full privacy policy wait until
+   the app opens beyond invited people.
+3. [ ] **Sign-in emails through the owner's domain** (owner, in Resend, DNS and
+   Supabase; steps in `LAUNCH.md`). Supabase's built-in mailer sends about two
+   emails an hour. Review the invite, magic-link and reset templates.
+4. [x] **Remove "Save as new recipe"** after AI Scale. It has never worked
+   (`handleSaveScaled` copied generated and unique columns into the insert),
+   and a second recipe is not wanted: the point was only not to pay for the
+   same scaling twice. Confirm the scale answer is cached, and remove
+   `onSaveScaled` with the button.
+5. [x] **Vault search**: the full proposal below *including* matching inside
+   words (`pg_trgm`), so "Suppe" finds "Kartoffelsuppe".
+6. [x] **"Generate" keeps hand-typed shopping items.** Today it deletes the
+   whole list. A small migration marks where an item came from; Generate
+   replaces only its own. The larger redesign stays under C.
+7. [x] **Feedback from inside the app**: the simple form and an admin tab, no
+   screenshots yet. Details below.
+8. [x] **Screen stays on in cook mode.** Details below; owner checks it once in
+   the installed app on an iPhone.
+9. [x] **Footer says "Speisekammer"** only, without "Magical Apps".
+10. [x] **`LAUNCH.md`**: the Supabase switches, the SMTP steps, the admin
+    System check, and a 15-minute run with a second account on an iPhone
+    (sign in, import by link, photo and Shortcut, cook, share, delete account).
+
+Done on 2026-11-27 except 3, which is the owner's (Resend, DNS and the
+Supabase switches; the steps are in `LAUNCH.md`). Two things turned out
+differently from the plan: the shopping list had no field to add an item at
+all, so one was added with point 6; and a search that found nothing said "The
+vault is empty", fixed with point 5. Still to do by hand: the run-through in
+`LAUNCH.md`, which holds everything that could not be checked from the
+repository (the screen staying on in the installed app, the invitation link,
+the Claude models).
+
+Decided against for now: an AI cost ceiling (100 calls a day per person stays;
+few people) and backups (risk accepted; a free Supabase project has none and
+pauses after a week without use).
+
+### B. Right after launch
+
+11. [ ] **The app in German and English** — first, before new features add
+    more text to convert.
+12. [ ] **Shopping for one recipe, and plan entries without a day** — as
+    written below.
+
+### C. Later, in this order
+
+13. Cook mode shows each step's share of an ingredient (as written)
+14. Recipe version history
+15. Nutritional goals (settle its three open decisions when it is next)
+16. Impressum and privacy policy, when the app opens up
+17. Gallery photo ordering, when someone asks
+18. Playwright upgrade and Supabase CLI 3.x, each as its own change
+
+### Dropped
+
+Allowance indicator in the header (Settings → Usage is enough); batch import
+(the Shortcuts cover it); offline editing (reading offline already works and
+stays); cook mode voice control (unreliable on iPhones); moving the log
+cleanup to `pg_cron` (the sampled trigger works); the admin-managed model list
+and the second Gemini project (both written before the admin chose the models
+in Settings and before Claude became the main provider with Gemini as backup).
+
+---
+
 ## Already Implemented (since original list)
 
 - ✅ **pgvector similarity search** — `suggest.ts` uses `gemini-embedding-2` embeddings and cosine similarity via the `match_recipes` pgvector function, with a string-matching fallback
@@ -43,52 +121,6 @@ Captured during development. Items marked ✅ have been implemented.
 ## Quick Wins
 
 - ✅ **Meal planner week navigation** — prev/next week buttons with `weekOffset` state; shows weekly calorie total
-
-### Rate limit indicator in the header
-Currently only visible after opening Settings → Usage Logs. A lightweight indicator in the navbar (e.g. a small pill showing "82/100 today") would be more discoverable without requiring navigation.
-
-### Saving an AI-scaled recipe fails (bug)
-After **AI Scale**, "Save as new recipe" in `RecipeDetail` reports "Failed to
-save scaled recipe." Found by reading the code, not reproduced in production:
-`handleSaveScaled` copies **every column** of the recipe row it was given (it
-came from `select('*')`) into the insert, leaving out only a few
-(`id`, `created_at`, `tags`, `is_favourite`, `nutrition`, `rating`, `notes`,
-`user_id`). That includes:
-- `search_vector`, a **generated** column (migration 0028): Postgres refuses
-  any insert that sets it, so every save fails;
-- `public_share_token`, which has a unique index (0061): a shared recipe could
-  not be copied, and if it could, the copy would be public under the same link;
-- `copied_from_recipe_id`: the copy would claim to be adopted from the
-  original's source, which hides that recipe from the vault
-  (`getAdoptedOriginalIds`);
-- `embedding` and `preferred_language`, harmless but wrong to carry over.
-
-**Fix:** build the insert from an explicit list of the fields that belong to a
-recipe (title, description, ingredients, instructions, times, servings, image,
-source, original language), never from the whole row; plus a test that the
-payload holds nothing else. The gallery (`recipe_images`) is not copied today,
-only the cover: decide whether it should be.
-
-**Also decide:** besides "Save as new recipe", whether to offer "Save to this
-recipe" (overwrite the amounts and servings), for a dish always cooked for a
-different number of people. Math scaling (without AI) has no save at all.
-
-### Keep the screen on in cook mode
-Cook mode has steps and timers, but the iPhone dims and locks after its
-auto-lock delay, exactly when the cook's hands are covered in dough. Nothing in
-`src/` asks for a wake lock today.
-
-- On opening `CookMode`, `navigator.wakeLock.request('screen')`; release it on
-  close. The browser drops the lock whenever the page is hidden (app switcher,
-  a call), so request it again on `visibilitychange` while cook mode is open.
-- Where the API is missing, or the request is refused (low power mode), do
-  nothing and say nothing: cook mode works as today.
-- Safari has the Screen Wake Lock API since 16.4; installed home-screen apps
-  lagged behind for a while, so check it once in the installed app on an
-  iPhone, not only in Safari.
-- A small hook (`useWakeLock(active)`), unit-tested against a fake
-  `navigator.wakeLock`, and an e2e case that opening and closing cook mode
-  requests and releases the lock.
 
 - ✅ **Plain-text recipe import** — a fourth import tab beside URL, photo and PDF: paste a recipe from a chat, a note or another app and Gemini structures it. Handled inside `api/extract.ts` (`{ text }`), so it needs no new serverless function
 
@@ -139,40 +171,6 @@ entries are wanted. Display as per-day totals on the planner plus a prominent
 already stored, so showing them costs little — but targets for five numbers make
 for a busier UI than targets for two.
 
-### Admin-managed model list (no deploy needed)
-Considered and deliberately deferred — the `-latest` aliases removed most of the
-pressure for it, since a new Google release no longer needs a code change at all.
-Worth building if a release ever regresses and the tiers need pinning back in a
-hurry, or if the tier line-up itself should change without a deploy.
-
-**Shape.** A `model_options` table mirroring `MODEL_OPTIONS` (`id`, `name`,
-`badge`, `description`, `price`, `sort_order`, `is_default`), edited from a new
-tab in `AdminPanel`. `MODEL_OPTIONS` in `constants.ts` stays as the seed *and*
-the fallback: an empty or unreachable table means the hardcoded list is used, so
-the dropdown can never come up empty.
-
-**Endpoint.** Goes into `api/account.ts` as another action behind the existing
-`assertAdmin()`, not a new file — Vercel Hobby caps at 12 functions and 10 are in
-use. See the function-limit note in CLAUDE.md.
-
-**Validation before save is the whole point.** On save the server calls
-`generateContent` once against the submitted id and refuses the write if it
-errors, surfacing Google's own message. `gemini-2.5-flash-lite` reached the
-dropdown precisely because `ListModels` advertised it while every real call
-returned 404 (migration 0044) — a list endpoint is not evidence a model serves
-requests, so the only honest check is making the call. Store the response's
-`modelVersion` alongside the row so the panel can show `gemini-flash-latest →
-gemini-3.8-flash` per tier.
-
-**Setting the default** has to do what migration 0050 did by hand: update every
-`settings` row in the same request, because the standing policy is that all users
-move to the new default together.
-
-**The risk to hold in view.** This creates a way to change what every user's AI
-calls run against, from a web form, with no deploy and no review. Validation stops
-a *broken* id, not an expensive one — Pro is roughly 3× Flash — so the confirm
-step should show the price delta rather than pretend that isn't a real button.
-
 ### Playwright upgrade, so the runner can move off 24.04
 CI runners are pinned to `ubuntu-24.04` because GitHub moved `ubuntu-latest` to
 26.04 and Playwright 1.60 refuses to install there. The project is on `^1.60.0`;
@@ -194,22 +192,6 @@ Not urgent. Deliberately left pinned rather than tracking `latest`, because an
 upstream release of a major version should not land on whichever pull request
 happens to run next. `tests/unit/supabaseCliVersion.test.ts` fails if the two
 pins drift apart or the config key stops matching.
-
-### A second Gemini project, if the app ever matters daily
-On 2026-09-15 three calls failed with `403 PERMISSION_DENIED` — "Your project has
-been denied access" — and every AI feature was down until it cleared. There is one
-Gemini project and no failover.
-
-Worth knowing before building anything: a second **key** changes nothing, because
-a project-level denial applies to every key in that project. Real failover means a
-second Google Cloud project with its own billing, plus `resolveApiKey()` learning
-to pick between them and the call path retrying once on an auth-shaped failure.
-
-Deliberately not done. At current volume (39 AI calls in the logs, 2 new recipes in
-two months) the ongoing cost of a second project outweighs an outage that cleared
-on its own. The failure is at least legible now — `describeGeminiError()` tells the
-user it is a configuration problem and not their recipe. Revisit if the app becomes
-something depended on daily, or if the 403 recurs.
 
 ### Cook mode shows each step's share of an ingredient
 Recipes often split an ingredient across steps: "half the onion now, the rest
@@ -266,51 +248,11 @@ counts against the daily allowance like tagging does.
 (otherwise "For this step" stays as it is), and how to word a share for things
 that do not divide nicely ("½ Ei").
 
-### Vault search that understands German, partial words and several words
-The vault search is Postgres full-text search: `recipes.search_vector` (migration
-0028) is generated from title, description and `ingredients::text`, and
-`recipeStore.ts` queries it with `.textSearch('search_vector', query)`. Looked at
-on 2026-11-25, it has five faults, found by reading the code (not reproduced
-against production):
-
-1. **English stemming on German recipes.** The column uses `to_tsvector('english', …)`,
-   so "Kartoffel" does not find "Kartoffeln" and "Zwiebel" not "Zwiebeln".
-2. **Whole words only.** "Kartoffel" does not find "Kartoffelsuppe", and nothing is
-   found while a word is half typed ("Kart").
-3. **Two words break the query.** `textSearch()` without a `type` sends
-   `fts.<input>`, i.e. `to_tsquery('Kartoffel Suppe')`, which Postgres rejects as
-   a tsquery syntax error. `fetchRecipes` ignores the error and only sets
-   `recipes` when `data` is non-null, so the list silently keeps the previous
-   result: the second word appears to be ignored.
-4. **Not searched:** tags ("vegetarisch" only matches if it is in the title or
-   description), instructions, translations.
-5. **JSON keys are indexed.** `ingredients::text` puts `name`, `amount` and
-   `details` into every recipe's vector, so searching "name" matches everything.
-
-**Proposal (no AI, one migration):**
-- Rebuild `search_vector` with the language-neutral `simple` config from title,
-  description, tags, and only the ingredients' `name`/`details` values (not the
-  JSON), with `setweight` so a title match ranks above an ingredient match.
-  Instructions maybe at the lowest weight.
-- Build the query in the app: split the input into words, strip tsquery
-  operators, and send each word as a prefix (`kartoffel:* & suppe:*`). That fixes
-  1–3: "Kartoffel" finds "Kartoffeln" and "Kartoffelsuppe", "Kart" works while
-  typing, and several words are ANDed instead of failing.
-- Surface a query error instead of silently keeping the old list.
-- Tests: a unit test for the query builder (operators, quotes, umlauts, several
-  words), a pgTAP or SQL check that the generated column holds what it should,
-  and an e2e case typing two words.
-
-**Optional, if it matters:** prefix search finds word *beginnings* only, so
-"Suppe" still would not find "Kartoffelsuppe". Matching inside words needs a
-trigram index (`pg_trgm`, `gin_trgm_ops`) and `ilike '%suppe%'` over title and
-ingredient names; at this vault's size that is fast. Could run alongside the
-full-text search (OR), or only when the full-text search finds nothing.
-
 ### Shopping for one recipe, and plan entries without a day
 Today the shopping list only comes from the meal plan ("Generate from Next 7
-Days", `generateShoppingList` in `recipeStore.ts`), and generating **deletes the
-whole list** and rebuilds it: items typed in by hand and every tick are lost.
+Days", `generateShoppingList` in `recipeStore.ts`). Since migration 0077
+generating replaces only the rows it made (`from_plan`) and keeps items added
+by hand; ticks on generated items are still lost.
 List rows are plain text (`shopping_list.item`) with no link to the recipe or
 planned meal they came from, so the list cannot tell what it already holds.
 There is also no way to put one recipe's ingredients on the list without
@@ -354,6 +296,9 @@ When a recipe is edited, the previous version is permanently overwritten with no
 - Add a "History" option in `RecipeDetail` to browse and restore previous versions
 
 ### A closed test: invitation only
+*The app side is done (`VITE_SIGNUP_OPEN`, the data note, the footer); the
+Supabase switch is the owner's. Kept for the reasoning.*
+
 For now only friends and acquaintances should use the app. Today anyone can
 sign up, and two public pages invite strangers to: the shared-recipe page
 (`PublicRecipe`) and `/about` both end in "Create a free account". Kept
@@ -408,30 +353,6 @@ privacy policy anywhere in it.
 - Not legal advice: the wording should be checked by someone who knows the law,
   or come from a generator meant for it.
 
-### Feedback and bug reports from inside the app
-There is no way to report a bug or send an idea from the app; it all goes
-through talking to the admin.
-
-- **Where:** "Send feedback" in the account menu (`UserMenu`) and on
-  `LoadFailure` / the error screen, where a report is most likely to be wanted.
-- **Form:** kind (bug / idea / other), text, optionally a screenshot. Filled in
-  automatically and shown before sending: app build, current view, device and
-  browser, light/dark, and the Sentry event id of the last error if Sentry is
-  configured, so a report can be matched to its stack trace.
-- **Where it goes:** a `feedback` table, written from the browser under RLS
-  (insert own rows only, read own rows only), so no new serverless function is
-  needed (the Hobby plan has one slot left). Screenshots in a **private**
-  storage bucket, not `recipe-images`, which is public. A **Feedback** tab in
-  the admin dashboard, with status (new / seen / done) and the context above.
-- **Telling the admin:** optional, later: an email per report (needs the custom
-  SMTP from the domain move, or a mail service), or a GitHub issue created
-  server-side (needs a token, and would go through `api/account.ts`).
-- pgTAP cases: a user cannot read another's feedback or change its status; the
-  admin reads it through the service key.
-
-### Batch import queue
-Currently importing multiple recipes requires opening each one individually. A queue-based approach would let users paste several URLs at once and have them processed in the background.
-
 ---
 
 ## Bigger Changes
@@ -484,27 +405,12 @@ dictionaries have the same keys.
 **Cost going forward:** every new feature needs its text twice. The earlier it
 is done, the less there is to convert, so best before the next large features.
 
-### Offline recipe browsing — partly done
-Read-only browsing already survives a bad connection: a `NetworkFirst` runtime
-cache covers Supabase REST GETs, and a `CacheFirst` cache covers recipe images
-under `/storage/v1/object/public` (200 entries, 30 days) so cook mode keeps its
-pictures. What remains is *writing* offline.
-- Use Workbox's `BackgroundSync` plugin to queue edits made offline
-- Requires a conflict resolution strategy for concurrent edits
+- ✅ **Offline reading** — a `NetworkFirst` cache for Supabase REST GETs and a `CacheFirst` cache for recipe photos (200 entries, 30 days), so cook mode keeps its pictures. Editing offline was dropped
 
 ### Gallery photo ordering
 `recipe_images.sort_order` is upload order and there is no way to change it. With
 two or three photos this does not matter; with eight pages of a scanned recipe it
 might. Deliberately deferred until the need is real.
-
-### `gemini_logs` cleanup is sampled, not scheduled
-The 30-day purge used to run on every insert; it now runs on roughly one insert
-in a hundred. That is fine at any real volume but is still a trigger doing
-housekeeping. If `pg_cron` is ever enabled, move it to a nightly job and drop the
-trigger entirely.
-
-### Cook mode voice control
-Hands-free step navigation via the Web Speech API (`SpeechRecognition`) — say "next" or "back" to navigate steps without touching the screen.
 
 ---
 

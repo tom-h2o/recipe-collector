@@ -6,6 +6,7 @@ import { SORT_OPTIONS, type SortOption } from '@/lib/constants';
 import { NEW_FROM_IPHONE } from '@/store/recipeStore';
 import { addChipClass, chipClass, toggleFilter } from '@/lib/tags';
 import { FilterBar } from './FilterBar';
+import { useRecipeStore } from '@/store/recipeStore';
 import type { Recipe, RecipeTranslation, Collection, RecipeCollection, LinkedPerson } from '@/types';
 
 interface Props {
@@ -74,6 +75,15 @@ export function RecipeVault({
   }, []);
 
   const filteredRecipes = recipes;
+  const loadError = useRecipeStore((state) => state.loadError);
+  // Whether anything narrows the list. An empty answer then means "nothing
+  // matches", not "you have no recipes".
+  const isNarrowed = !!searchQuery.trim() || activeFilters.length > 0 || !!activeCollectionId || !!activeOwnerId;
+
+  function retryLoad() {
+    const s = useRecipeStore.getState();
+    void s.fetchRecipes(s.currentSearchQuery, s.currentTagFilter, s.currentCollectionId, s.currentMemberships, s.currentSortBy, s.currentOwnerFilter);
+  }
 
   return (
     <>
@@ -251,7 +261,21 @@ export function RecipeVault({
               </div>
             ))}
           </div>
-        ) : recipes.length === 0 ? (
+        ) : loadError ? (
+          <div role="alert" className="text-center py-24 px-6 bg-white dark:bg-card rounded-3xl shadow-ambient">
+            <p className="font-serif text-xl font-normal text-sk-on-surface dark:text-foreground mb-1">The recipes could not be loaded</p>
+            <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground mb-5">
+              Nothing is lost. Check the connection and try again.
+            </p>
+            <button
+              type="button"
+              onClick={retryLoad}
+              className="inline-flex items-center h-10 px-5 rounded-full bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground text-sm font-semibold font-sans transition-colors"
+            >
+              Try again
+            </button>
+          </div>
+        ) : recipes.length === 0 && !isNarrowed ? (
           <div className="text-center py-32 bg-white dark:bg-card rounded-3xl shadow-ambient">
             {/* Empty-vault Speisekammer key */}
             <svg className="w-20 h-20 mx-auto mb-6 text-sk-primary-fixed dark:text-muted" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">

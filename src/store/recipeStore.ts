@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { searchWords } from '@/lib/searchWords';
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -14,6 +15,10 @@ interface RecipeState {
   // Recipes
   recipes: Recipe[];
   loading: boolean;
+  /** The last load of the list failed; the vault says so instead of looking empty. */
+  loadError: boolean;
+  /** Counts list loads, so a slow older answer cannot replace a newer one. */
+  fetchSeq: number;
   processingIds: Set<string>;
   page: number;
   hasMore: boolean;
@@ -70,6 +75,8 @@ interface RecipeState {
   fetchShoppingList: (userId: string | null) => Promise<void>;
   fetchPantryItems: (userId: string | null) => Promise<void>;
   generateShoppingList: (mealPlans: MealPlan[], userId: string | null) => Promise<void>;
+  /** An item the person types in themselves; "Generate" leaves it alone. */
+  addShoppingItem: (item: string, userId: string | null) => Promise<void>;
   toggleShoppingItem: (id: string, checked: boolean) => Promise<void>;
   deleteShoppingItem: (id: string) => Promise<void>;
   clearShoppingList: (userId: string | null) => Promise<void>;
@@ -122,6 +129,17 @@ function applyTagFilter<T extends RecipeQuery>(query: T, filters: string | reado
   return (tags.length ? q.contains('tags', tags) : q) as T;
 }
 
+/**
+ * The search field, applied in one place for the first page and the next
+ * (like the filters above). Each typed word must appear somewhere in the
+ * recipe's `search_text`; see src/lib/searchWords.ts and migration 0076.
+ */
+function applySearch<T extends RecipeQuery>(query: T, input: string): T {
+  let q = query;
+  for (const word of searchWords(input)) q = q.ilike('search_text', `%${word}%`) as T;
+  return q;
+}
+
 /** Whether any filter chip is in use. */
 function hasFilters(filters: string | readonly string[] | null | undefined): filters is string | readonly string[] {
   return typeof filters === 'string' ? filters.length > 0 : !!filters && filters.length > 0;
@@ -157,6 +175,8 @@ async function getAdoptedOriginalIds(): Promise<string[]> {
 export const useRecipeStore = create<RecipeState>((set, get) => ({
   recipes: [],
   loading: true,
+  loadError: false,
+  fetchSeq: 0,
   processingIds: new Set<string>(),
   page: 0,
   hasMore: false,
@@ -187,7 +207,9 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
     sortBy = 'newest',
     ownerFilter = null
   ) => {
+    const seq = get().fetchSeq + 1;
     set({
+      fetchSeq: seq,
       loading: true,
       page: 0,
       currentSearchQuery: searchQuery,
@@ -206,9 +228,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
     const adoptedIds = await getAdoptedOriginalIds();
     if (adoptedIds.length > 0) query = query.not('id', 'in', `(${adoptedIds.join(',')})`);
 
-    if (searchQuery && searchQuery.trim()) {
-      query = query.textSearch('search_vector', searchQuery.trim());
-    }
+    query = applySearch(query, searchQuery);
 
     if (hasFilters(tagFilter)) {
       query = applyTagFilter(query, tagFilter, get().newImportIds);
@@ -229,12 +249,23 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       default: query = query.order('created_at', { ascending: false }); break;
     }
 
-    const { data } = await query.range(0, PAGE_SIZE - 1);
+    const { data, error } = await query.range(0, PAGE_SIZE - 1);
+    // A newer search or filter was started while this one was on its way: its
+    // answer is the one to show, whichever arrives last.
+    if (get().fetchSeq !== seq) return;
     if (data) {
       set({
         recipes: data as Recipe[],
         hasMore: data.length === PAGE_SIZE,
+        loadError: false,
       });
+    } else {
+      // Say so. The list used to keep whatever it showed before, so a search
+      // the database refused looked like a search that found the old result.
+      console.warn('Loading recipes failed:', error?.message);
+      // The recipes already loaded are kept (the planner and the open recipe
+      // read them); the vault shows the failure in place of the list.
+      set({ loadError: true });
     }
     set({ loading: false });
   },
@@ -250,9 +281,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
     const adoptedIds = await getAdoptedOriginalIds();
     if (adoptedIds.length > 0) query = query.not('id', 'in', `(${adoptedIds.join(',')})`);
 
-    if (currentSearchQuery) {
-      query = query.textSearch('search_vector', currentSearchQuery);
-    }
+    query = applySearch(query, currentSearchQuery);
     if (hasFilters(currentTagFilter)) {
       query = applyTagFilter(query, currentTagFilter, get().newImportIds);
     }
@@ -579,10 +608,13 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
+      // Only what an earlier Generate made (migration 0077). Items the person
+      // added themselves stay; this used to delete the whole list.
       const { error: deleteError } = await supabase
         .from('shopping_list')
         .delete()
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .eq('from_plan', true);
       if (deleteError) throw deleteError;
 
       const inserts = (data.list as { category: string; items: string[] }[]).flatMap((group) =>
@@ -590,6 +622,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
           category: group.category,
           item,
           is_checked: false,
+          from_plan: true,
           ...(userId ? { user_id: userId } : {}),
         })),
       );
@@ -599,13 +632,33 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       }
 
       await get().fetchShoppingList(userId);
-      toast.success('Shopping list generated!', { id: toastId });
+      const kept = get().shoppingList.filter((i) => !i.from_plan).length;
+      toast.success(
+        kept > 0
+          ? `Shopping list generated. Your own ${kept === 1 ? 'item was' : `${kept} items were`} kept.`
+          : 'Shopping list generated!',
+        { id: toastId },
+      );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to generate list';
       toast.error(message, { id: toastId });
     } finally {
       set({ isGeneratingShopping: false });
     }
+  },
+
+  addShoppingItem: async (item, userId) => {
+    if (!userId) return;
+    const { data, error } = await supabase
+      .from('shopping_list')
+      .insert({ user_id: userId, item, category: null, is_checked: false, from_plan: false })
+      .select()
+      .single();
+    if (error) {
+      toast.error('Failed to add the item.');
+      return;
+    }
+    if (data) set({ shoppingList: [...get().shoppingList, data as ShoppingItem] });
   },
 
   toggleShoppingItem: async (id, checked) => {

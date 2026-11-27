@@ -27,6 +27,38 @@ export const PITCH = {
     `${APP_NAME} puts them all in one place, in one format. Paste a link, photograph the pages of a cookbook, or drop in a PDF, and it reads the recipe out for you — ingredients, steps, timings and all — ready to search, scale, plan and cook from.`,
 } as const;
 
+/**
+ * What happens to a person's data, said plainly. Shown on /about and, in one
+ * line, on the sign-in screen. It is a note for invited people, not a privacy
+ * policy: that (and an Impressum) is due when the app opens to anyone.
+ * Keep it true: a service added to the app belongs in this list.
+ */
+export const DATA_NOTE_SHORT =
+  'Recipes, photos and pages you add are sent to Anthropic and Google to be read by their AI.';
+
+export const DATA_NOTE: { title: string; text: string }[] = [
+  {
+    title: 'What is stored',
+    text: 'Your email address, your recipes with their photos and notes, your meal plan, shopping list and settings. They are kept in a database at Supabase and are only visible to you, to accounts you connect yours with, and to the person who runs the app.',
+  },
+  {
+    title: 'What is sent to AI services',
+    text: 'To read a recipe from a link, a photo, a PDF or pasted text, and to tag, translate, scale or estimate nutrition, the recipe (or the page, photo or file) is sent to Anthropic (Claude) or Google (Gemini). The text sent and received is kept in a log for 30 days to find faults.',
+  },
+  {
+    title: 'What else leaves the app',
+    text: 'The app is hosted at Vercel. When a recipe has no picture, its title is used to search Unsplash for one. Technical error reports go to Sentry, without recipe contents, sign-in details or your address.',
+  },
+  {
+    title: 'What is public',
+    text: 'Nothing, unless you create a share link for a recipe. Anyone with that link can read that recipe until you remove the link. Photo files are reachable by anyone who has their exact address.',
+  },
+  {
+    title: 'How to delete it',
+    text: 'Account menu → Delete account removes your account, recipes, photos, plans and logs for good.',
+  },
+];
+
 export interface Capability {
   icon: typeof LinkIcon;
   title: string;

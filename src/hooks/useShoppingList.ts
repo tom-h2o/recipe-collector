@@ -22,6 +22,13 @@ export function useShoppingList(userId?: string | null) {
     [userId]
   );
 
+  const addItem = useCallback(
+    async (item: string) => {
+      await useRecipeStore.getState().addShoppingItem(item, userId ?? null);
+    },
+    [userId]
+  );
+
   const toggleItem = useCallback(
     async (id: string, checked: boolean) => {
       await useRecipeStore.getState().toggleShoppingItem(id, checked);
@@ -75,6 +82,7 @@ export function useShoppingList(userId?: string | null) {
     fetchShoppingList,
     fetchPantryItems,
     generateShoppingList,
+    addItem,
     toggleItem,
     deleteItem,
     clearAll,

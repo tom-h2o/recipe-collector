@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { openedFromRecoveryLink, supabase } from '@/lib/supabase';
+import { openedFromInviteLink, openedFromRecoveryLink, supabase } from '@/lib/supabase';
+import { describeClosedSignup, isSignupOpen } from '@/lib/signupOpen';
 import { clearPrivateCaches } from '@/lib/clearPrivateCaches';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   // From the link itself, not only the event: see src/lib/recoveryLink.ts.
-  const [isPasswordRecovery, setIsPasswordRecovery] = useState(openedFromRecoveryLink);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(openedFromRecoveryLink || openedFromInviteLink);
+  // An invited person has no password yet; the same form, worded as a welcome.
+  const isInvite = openedFromInviteLink;
 
   useEffect(() => {
     // onAuthStateChange is the single source of truth for initial state.
@@ -37,9 +40,11 @@ export function useAuth() {
   async function signInWithEmail(email: string): Promise<{ error: string | null }> {
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin },
+      // A magic link signs up whoever asks for one unless told not to. While
+      // the app is invitation only it must never make an account.
+      options: { emailRedirectTo: window.location.origin, shouldCreateUser: isSignupOpen() },
     });
-    if (error) return { error: error.message };
+    if (error) return { error: describeClosedSignup(error.message) };
     return { error: null };
   }
 
@@ -56,7 +61,7 @@ export function useAuth() {
       password,
       options: { emailRedirectTo: window.location.origin },
     });
-    if (error) return { error: error.message };
+    if (error) return { error: describeClosedSignup(error.message) };
     // session is null when email confirmation is required
     const needsConfirmation = !data.session;
     return { error: null, needsConfirmation };
@@ -89,7 +94,7 @@ export function useAuth() {
   }
 
   return {
-    user, loading, isPasswordRecovery,
+    user, loading, isPasswordRecovery, isInvite,
     signInWithEmail, signInWithPassword, signUpWithPassword,
     sendPasswordReset, updatePassword, resendConfirmation, signOut,
   };

@@ -75,3 +75,28 @@ test('on a phone the list is labelled and opens as a sheet below the step', asyn
   await expect(sheet).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'For this step' }).getByRole('button', { name: /Knoblauch/ })).toHaveAttribute('aria-pressed', 'true');
 });
+
+test('the screen is kept on while cook mode is open, and let go when it closes', async ({ page }) => {
+  // A stand-in for the Screen Wake Lock API that counts what the app asks for.
+  await page.addInitScript(() => {
+    const log = { requested: 0, released: 0 };
+    (window as unknown as { __wakeLock: typeof log }).__wakeLock = log;
+    Object.defineProperty(navigator, 'wakeLock', {
+      configurable: true,
+      value: {
+        request: async () => {
+          log.requested += 1;
+          const sentinel = { released: false, release: async () => { sentinel.released = true; log.released += 1; } };
+          return sentinel;
+        },
+      },
+    });
+  });
+  const wakeLock = () => page.evaluate(() => (window as unknown as { __wakeLock: { requested: number; released: number } }).__wakeLock);
+
+  await openCookMode(page, 390);
+  await expect.poll(wakeLock).toEqual({ requested: 1, released: 0 });
+
+  await page.getByRole('button', { name: 'Exit cook mode' }).click();
+  await expect.poll(wakeLock).toEqual({ requested: 1, released: 1 });
+});
