@@ -319,6 +319,13 @@ const server: Record<string, string> = {
     'Hat mit {count} Werten statt 768 geantwortet, was recipes.embedding nicht speichern kann.',
   'Answers with 768 values, as recipe search needs.':
     'Antwortet mit 768 Werten, wie die Rezeptsuche sie braucht.',
+
+  // Supabase Auth, where the message carries a number
+  'Password should be at least {n} characters.': 'Das Passwort muss mindestens {n} Zeichen haben.',
+  'For security purposes, you can only request this after {n} seconds.':
+    'Aus Sicherheitsgründen kannst du das erst in {n} Sekunden wieder anfordern.',
+  'For security purposes, you can only request this once every {n} seconds':
+    'Aus Sicherheitsgründen kannst du das nur alle {n} Sekunden anfordern.',
 };
 
 export default server;

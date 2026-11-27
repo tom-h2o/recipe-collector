@@ -62,11 +62,6 @@ const account: Record<string, string> = {
   'User already registered': 'Für diese Adresse gibt es schon ein Konto.',
   'Password should be at least 8 characters.': 'Das Passwort muss mindestens 8 Zeichen haben.',
   'Password should be at least 8 characters': 'Das Passwort muss mindestens 8 Zeichen haben.',
-  'Password should be at least {n} characters.': 'Das Passwort muss mindestens {n} Zeichen haben.',
-  'For security purposes, you can only request this after {n} seconds.':
-    'Aus Sicherheitsgründen kannst du das erst in {n} Sekunden wieder anfordern.',
-  'For security purposes, you can only request this once every {n} seconds':
-    'Aus Sicherheitsgründen kannst du das nur alle {n} Sekunden anfordern.',
   'New password should be different from the old password.': 'Das neue Passwort muss sich vom alten unterscheiden.',
   'Email rate limit exceeded': 'Zu viele E-Mails in kurzer Zeit. Bitte versuche es später noch einmal.',
   'Signups not allowed for this instance': 'Neue Konten können hier zurzeit nicht angelegt werden.',

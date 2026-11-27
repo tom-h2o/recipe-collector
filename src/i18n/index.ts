@@ -10,7 +10,7 @@
  * account exists), else the device's language.
  */
 import { useSyncExternalStore } from 'react';
-import { de } from './de';
+import { de, fragments } from './de';
 
 export type Lang = 'en' | 'de';
 /** 'system' follows the device. */
@@ -49,17 +49,24 @@ let preference: LanguagePreference = readPreference();
 let lang: Lang = preference === 'system' ? systemLanguage() : preference;
 const listeners = new Set<() => void>();
 
+// Through globalThis, with their shapes spelled out: tests/unit imports files
+// that import this one, and that project is compiled without the DOM types.
+const page = globalThis as {
+  document?: { documentElement: { lang: string } };
+  addEventListener?: (type: string, listener: () => void) => void;
+};
+
 function apply() {
   const next = preference === 'system' ? systemLanguage() : preference;
-  if (typeof document !== 'undefined') document.documentElement.lang = next;
+  if (page.document) page.document.documentElement.lang = next;
   if (next === lang) return;
   lang = next;
   translators.clear();
   listeners.forEach((l) => l());
 }
-if (typeof document !== 'undefined') document.documentElement.lang = lang;
+if (page.document) page.document.documentElement.lang = lang;
 // The device's language can change while the app is open (iOS: per-app language).
-if (typeof window !== 'undefined') window.addEventListener('languagechange', apply);
+page.addEventListener?.('languagechange', apply);
 
 export function getLanguage(): Lang {
   return lang;
@@ -169,7 +176,9 @@ let patterns: { regex: RegExp; names: string[]; german: string }[] | null = null
 function serverPatterns() {
   if (patterns) return patterns;
   patterns = [];
-  for (const [key, german] of Object.entries(de)) {
+  // Only the server's own entries: a pattern from a screen's dictionary
+  // ('{name} notes') would match text it was never written for.
+  for (const [key, german] of Object.entries(fragments.server)) {
     if (!key.includes('{')) continue;
     const names: string[] = [];
     const source = key
