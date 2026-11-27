@@ -29,6 +29,7 @@ export const RELEASES: ReleaseNote[] = [
       'Send feedback: the account menu has a new entry for reporting a fault or sending an idea.',
       '“Save as new recipe” after AI Scale is gone. It did not work, and scaling the same recipe again costs nothing extra.',
       'Speisekammer is by invitation for now, and the sign-in screen says what happens to your data.',
+      'After signing in, your recipes are there at once. The vault used to look empty until you tapped a filter or searched.',
     ],
   },
   {

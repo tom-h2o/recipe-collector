@@ -83,9 +83,22 @@ async function signedOut(page: Page, behaviour: Behaviour = {}, startAt = '/') {
     // otp (magic link), recover (password reset), resend: GoTrue answers {}.
     return json({});
   });
+  // Row-level security, as far as the recipe list goes: a request without a
+  // signed-in person's token gets no rows. The shared mock hands the recipes to
+  // anyone, which hid that the list was loaded once, before sign-in, and not
+  // again: the vault said it was empty until a filter happened to refetch.
+  await page.route('**/rest/v1/recipes?*', (route) => {
+    const token = route.request().headers()['authorization'] ?? '';
+    return SESSION_TOKENS.some((t) => token === `Bearer ${t}`)
+      ? route.fallback()
+      : route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+  });
   await page.goto(startAt);
   return calls;
 }
+
+/** The access tokens this file's sign-ins hand out. */
+const SESSION_TOKENS = ['password-token', 'signup-token', 'recovery-token', 'invite-token'];
 
 const vault = (page: Page) => page.getByText('Classic Margherita Pizza');
 const signInScreen = (page: Page) => page.getByText('Sign in to access your recipes');
@@ -104,6 +117,30 @@ test.describe('signing in with a password', () => {
     expect(signIn?.body).toMatchObject({ email: EMAIL, password: PASSWORD });
     // The session is kept, so a reload stays signed in.
     expect(await page.evaluate((key) => window.localStorage.getItem(key), authStorageKey)).toContain('password-token');
+  });
+
+  test('the recipes are there after signing in, however long the sign-in screen was open', async ({ page }) => {
+    // The list used to be asked for once, 300 ms after the app opened: before
+    // sign-in, so the database answered with nothing, and signing in did not
+    // ask again. A test that signs in faster than that never saw it; a person
+    // always did, as an empty vault until a filter was tapped.
+    const listRequests: string[] = [];
+    page.on('request', (request) => {
+      if (request.url().includes('/rest/v1/recipes?select=*')) listRequests.push(request.headers()['authorization'] ?? '');
+    });
+    await signedOut(page);
+    await expect(signInScreen(page)).toBeVisible();
+    await page.waitForTimeout(1000);
+    // Nobody is signed in, so there is nothing to ask for yet.
+    expect(listRequests).toEqual([]);
+
+    await page.getByLabel('Email address').fill(EMAIL);
+    await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+
+    await expect(vault(page)).toBeVisible();
+    await expect(page.getByText('The vault is empty')).toHaveCount(0);
+    expect(listRequests).toEqual(['Bearer password-token']);
   });
 
   test('a wrong password is said in the form, with the way to reset it', async ({ page }) => {
