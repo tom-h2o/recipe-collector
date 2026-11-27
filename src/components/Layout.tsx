@@ -74,7 +74,13 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
           </div>
 
           {/* Desktop nav tabs: a glass capsule, with a tinted pill that slides
-              to the current tab instead of each tab painting its own. */}
+              to the current tab instead of each tab painting its own.
+              The row stops growing at 1152 px (max-w-6xl: 1072 px inside the
+              margins), so the longer labels and wider padding from xl come out
+              of the same room as below it. With xl:px-5 tabs and a labelled
+              Suggest, the admin's buttons ran 63 px past the right margin,
+              102 px with a three-digit Vault and a two-digit Inbox
+              (tests/e2e/headerFit.spec.ts). */}
           <div className="hidden lg:flex justify-center">
             <div ref={desktopTabs} className="relative flex glass rounded-full p-1 gap-0.5">
               <span aria-hidden="true" className="tab-pill" data-ready={desktopPill.ready} style={desktopPill.style} />
@@ -83,7 +89,7 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
                   key={view}
                   onClick={() => onSetView(view)}
                   aria-current={activeView === view ? 'page' : undefined}
-                  className={`relative z-10 px-2.5 xl:px-5 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors duration-200 flex items-center gap-1.5 ${
+                  className={`relative z-10 px-2.5 xl:px-3.5 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors duration-200 flex items-center gap-1.5 ${
                     activeView === view
                       ? 'text-sk-primary dark:text-primary'
                       : 'text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary'
@@ -116,7 +122,7 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
                 <button
                   onClick={() => onSetView('admin')}
                   aria-current={activeView === 'admin' ? 'page' : undefined}
-                  className={`relative z-10 px-2.5 xl:px-5 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors duration-200 flex items-center gap-1.5 ${
+                  className={`relative z-10 px-2.5 xl:px-3.5 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors duration-200 flex items-center gap-1.5 ${
                     activeView === 'admin'
                       ? 'text-sk-primary dark:text-primary'
                       : 'text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary'
@@ -132,13 +138,18 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
               gear are bare icons with 8 px of padding, so they still read as
               spaced; only the two filled circles at the end keep 4 px apart. */}
           <div className="flex items-center gap-0 sm:gap-2 justify-end">
+            {/* Labelled only between sm and lg, where there are no tabs. From
+                lg it is a round icon, as on a phone: with its label, the
+                admin's header with a full Vault and Inbox ran 47 px past the
+                margin at 1024 px and the page scrolled sideways. Its title
+                still names it. */}
             <button
               onClick={onOpenSuggest}
-              className="inline-flex items-center justify-center gap-2 bg-sk-secondary-container hover:bg-[#f0b48a] dark:bg-secondary dark:hover:bg-secondary/80 text-[#794e2e] dark:text-secondary-foreground font-semibold rounded-full transition-all duration-200 hover:scale-[1.02] h-9 sm:h-10 text-sm w-9 sm:w-auto sm:px-5"
+              className="inline-flex items-center justify-center gap-2 bg-sk-secondary-container hover:bg-[#f0b48a] dark:bg-secondary dark:hover:bg-secondary/80 text-[#794e2e] dark:text-secondary-foreground font-semibold rounded-full transition-all duration-200 hover:scale-[1.02] h-9 sm:h-10 text-sm w-9 sm:w-auto sm:px-5 lg:w-10 lg:px-0"
               title="Suggest a recipe"
             >
               <Wand2 className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline">Suggest</span>
+              <span className="hidden sm:inline lg:hidden">Suggest</span>
             </button>
             <button
               onClick={toggle}
