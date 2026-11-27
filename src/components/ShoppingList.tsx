@@ -4,12 +4,17 @@ import type { ShoppingItem, PantryItem, MealPlan } from '@/types';
 
 type Tab = 'shopping' | 'pantry';
 
+/** The group for items the person added themselves. */
+const OWN_ITEMS = 'Your items';
+
 interface Props {
   shoppingList: ShoppingItem[];
   pantryItems: PantryItem[];
   isGenerating: boolean;
   mealPlans: MealPlan[];
   onGenerate: (mealPlans: MealPlan[]) => void;
+  /** Adds an item the person typed in; Generate keeps these. */
+  onAddItem: (item: string) => void;
   onToggleItem: (id: string, checked: boolean) => void;
   onDeleteItem: (id: string) => void;
   onClearAll: () => void;
@@ -21,11 +26,12 @@ interface Props {
 
 export function ShoppingList({
   shoppingList, pantryItems, isGenerating, mealPlans,
-  onGenerate, onToggleItem, onDeleteItem, onClearAll,
+  onGenerate, onAddItem, onToggleItem, onDeleteItem, onClearAll,
   onMoveItemToPantry, onMoveItemToShopping, onDeletePantryItem, onAddToPantry,
 }: Props) {
   const [tab, setTab] = useState<Tab>('shopping');
   const [newPantryItem, setNewPantryItem] = useState('');
+  const [newItem, setNewItem] = useState('');
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -44,11 +50,15 @@ export function ShoppingList({
   }
 
   const shoppingGrouped = shoppingList.reduce((acc, curr) => {
-    const cat = curr.category || 'Other';
+    // What the person added themselves has no category; it gets a group of
+    // its own rather than hiding among the generated "Other".
+    const cat = curr.category || (curr.from_plan ? 'Other' : OWN_ITEMS);
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(curr);
     return acc;
   }, {} as Record<string, ShoppingItem[]>);
+  // The person's own items first, then the generated groups as they came.
+  const shoppingGroups = Object.entries(shoppingGrouped).sort(([a], [b]) => Number(b === OWN_ITEMS) - Number(a === OWN_ITEMS));
 
   const pantryGrouped = pantryItems.reduce((acc, curr) => {
     const cat = curr.category || 'Other';
@@ -132,17 +142,46 @@ export function ShoppingList({
         </div>
       )}
 
+      {/* Add an item by hand */}
+      {tab === 'shopping' && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const val = newItem.trim();
+            if (!val) return;
+            onAddItem(val);
+            setNewItem('');
+          }}
+          className="flex gap-2"
+        >
+          <input
+            value={newItem}
+            onChange={(e) => setNewItem(e.target.value)}
+            aria-label="Add an item to the shopping list"
+            placeholder="Add an item (e.g. coffee, washing-up liquid)…"
+            maxLength={200}
+            className="flex-1 min-w-0 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 text-sm px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-sk-primary/40"
+          />
+          <button
+            type="submit"
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground text-sm font-semibold rounded-xl transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Add
+          </button>
+        </form>
+      )}
+
       {/* SHOPPING TAB */}
       {tab === 'shopping' && (
         shoppingList.length === 0 ? (
           <div className="text-center py-24 bg-white dark:bg-zinc-900/50 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-sm">
             <ShoppingCart className="w-16 h-16 mx-auto text-zinc-300 dark:text-zinc-700 mb-4" />
             <p className="text-xl font-bold text-zinc-500 dark:text-zinc-400">Your shopping list is empty.</p>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">Generate one from your meal plan, or add items manually.</p>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">Generate one from your meal plan, or add items above.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {Object.entries(shoppingGrouped).map(([cat, items]) => (
+            {shoppingGroups.map(([cat, items]) => (
               <div key={cat} className="bg-white dark:bg-zinc-900/50 p-5 rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-800">
                 <h3 className="font-sans font-semibold text-sm uppercase tracking-widest text-sk-primary dark:text-primary mb-3 ml-2">{cat}</h3>
                 <div className="space-y-1">

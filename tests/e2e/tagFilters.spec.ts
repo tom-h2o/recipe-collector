@@ -101,3 +101,42 @@ test('the recipe\'s tag editor is grouped like the filters', async ({ page }) =>
     await expect(dialog.getByRole('button', { name: `Add tag ${tag}` })).toBeVisible();
   }
 });
+
+test('the search asks for every typed word, anywhere in the recipe', async ({ page }) => {
+  // Two words used to be a syntax error in the database's full-text search;
+  // the list silently kept the previous result.
+  const { queries } = await open(page);
+  await page.getByPlaceholder(/Search recipes/).fill('Kartoffel Suppe');
+  await expect.poll(() => queries.at(-1) ?? '').toContain('search_text=ilike.%kartoffel%');
+  expect(queries.at(-1)).toContain('search_text=ilike.%suppe%');
+  expect(queries.at(-1)).not.toContain('search_vector');
+});
+
+test('a search that finds nothing says so, instead of calling the vault empty', async ({ page }) => {
+  const { queries } = await open(page);
+  await page.route('**/rest/v1/recipes?*', (route) =>
+    route.request().url().includes('search_text')
+      ? route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+      : route.fallback());
+  await page.getByPlaceholder(/Search recipes/).fill('gibtsnicht');
+  await expect(page.getByText('No results found')).toBeVisible();
+  await expect(page.getByText('The vault is empty')).toHaveCount(0);
+  expect(queries.length).toBeGreaterThan(0);
+});
+
+test('a list that cannot be loaded says so and can be tried again', async ({ page }) => {
+  await open(page);
+  let fail = true;
+  await page.route('**/rest/v1/recipes?*', (route) =>
+    fail && route.request().url().includes('search_text')
+      ? route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ code: '42703', message: 'column recipes.search_text does not exist' }) })
+      : route.fallback());
+  await page.getByPlaceholder(/Search recipes/).fill('suppe');
+  const alert = page.getByRole('alert').filter({ hasText: 'could not be loaded' });
+  await expect(alert).toBeVisible();
+
+  fail = false;
+  await alert.getByRole('button', { name: 'Try again' }).click();
+  await expect(alert).toHaveCount(0);
+  await expect(page.locator('.recipe-card').first()).toBeVisible();
+});

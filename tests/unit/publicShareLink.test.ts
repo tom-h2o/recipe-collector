@@ -21,7 +21,7 @@ describe('public share links (migration 0061)', () => {
   // to `recipes` can leak something. `select *` would have shipped the owner's
   // private notes to anyone holding a link, so the RPC names its columns and
   // this test fails the moment a private one is added to that list.
-  it.each(['notes', 'user_id', 'rating', 'embedding', 'search_vector', 'preferred_language', 'is_favourite'])(
+  it.each(['notes', 'user_id', 'rating', 'embedding', 'search_vector', 'search_text', 'preferred_language', 'is_favourite'])(
     'never exposes %s to an anonymous reader',
     (column) => {
       expect(returnedColumns()).not.toContain(column);

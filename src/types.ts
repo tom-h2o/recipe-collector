@@ -69,6 +69,8 @@ export interface ShoppingItem {
   item: string;
   category: string | null;
   is_checked: boolean;
+  /** Made by "Generate" from the meal plan (migration 0077); false or absent: added by the person. */
+  from_plan?: boolean;
 }
 
 export interface PantryItem {

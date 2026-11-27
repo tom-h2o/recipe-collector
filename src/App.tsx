@@ -49,7 +49,7 @@ export default function App() {
   const isAdmin = useIsAdmin(user?.id);
   const { recipes, loading, processingIds, hasMore, fetchRecipes, loadMore, saveRecipe, deleteRecipe, toggleFavourite, updateRecipe } = useRecipes(user?.id);
   const { mealPlans, fetchMealPlans, addMealPlan, removeMealPlan } = useMealPlans(user?.id);
-  const { shoppingList, pantryItems, isGeneratingShopping, fetchShoppingList, fetchPantryItems, generateShoppingList, toggleItem, deleteItem, clearAll, moveItemToPantry, moveItemToShopping, deletePantryItem, addToPantry } = useShoppingList(user?.id);
+  const { shoppingList, pantryItems, isGeneratingShopping, fetchShoppingList, fetchPantryItems, generateShoppingList, addItem, toggleItem, deleteItem, clearAll, moveItemToPantry, moveItemToShopping, deletePantryItem, addToPantry } = useShoppingList(user?.id);
   const { settings, isSavingSettings, fetchSettings, saveSettings } = useSettings(user?.id);
   const {
     connected: connectedPeople, pendingIncoming: linkInvites,
@@ -392,6 +392,7 @@ export default function App() {
               isGenerating={isGeneratingShopping}
               mealPlans={mealPlans}
               onGenerate={generateShoppingList}
+              onAddItem={addItem}
               onToggleItem={toggleItem}
               onDeleteItem={deleteItem}
               onClearAll={clearAll}

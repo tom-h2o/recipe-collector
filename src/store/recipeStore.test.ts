@@ -3,7 +3,8 @@ import type { Recipe } from '@/types';
 
 // ── Supabase mock ────────────────────────────────────────────────────────────
 // A chainable query builder whose terminal value each test sets via `queueResult`.
-const results: { data: unknown; error: unknown }[] = [];
+// `wait` holds an answer back until a test lets it go, to make one arrive late.
+const results: { data: unknown; error: unknown; wait?: Promise<void> }[] = [];
 const queueResult = (data: unknown, error: unknown = null) => results.push({ data, error });
 const takeResult = () => results.shift() ?? { data: null, error: null };
 // `args` keeps every argument; `payload` stays as the first one so the older
@@ -17,7 +18,7 @@ function makeBuilder(table: string) {
     calls.push({ table, op, payload: args[0], args });
     return builder;
   };
-  for (const op of ['select', 'eq', 'is', 'in', 'order', 'range', 'textSearch', 'limit', 'not', 'gte']) {
+  for (const op of ['select', 'eq', 'is', 'in', 'order', 'range', 'textSearch', 'ilike', 'limit', 'not', 'gte']) {
     builder[op] = chain(op);
   }
   for (const op of ['insert', 'update', 'delete', 'upsert']) {
@@ -26,7 +27,10 @@ function makeBuilder(table: string) {
   builder.single = () => Promise.resolve(takeResult());
   builder.maybeSingle = () => Promise.resolve(takeResult());
   // Awaiting the builder resolves the queued result (Supabase builders are thenable).
-  builder.then = (resolve: (v: unknown) => unknown) => Promise.resolve(takeResult()).then(resolve);
+  builder.then = (resolve: (v: unknown) => unknown) => {
+    const result = takeResult();
+    return Promise.resolve('wait' in result ? result.wait : undefined).then(() => resolve(result));
+  };
   return builder;
 }
 
@@ -375,5 +379,129 @@ describe('originals hidden beside an adopted copy', () => {
     } finally {
       delete client.auth;
     }
+  });
+});
+
+/**
+ * The search field. Each typed word is asked for anywhere in search_text
+ * (migration 0076), on the first page and on the next: with full-text search
+ * two words were a syntax error the store swallowed, and the list kept the
+ * previous result.
+ */
+describe('vault search', () => {
+  const ilikes = () => calls.filter((c) => c.table === 'recipes' && c.op === 'ilike').map((c) => c.args);
+
+  beforeEach(() => {
+    calls.length = 0;
+    results.length = 0;
+    useRecipeStore.setState({ recipes: [], loadError: false });
+  });
+
+  it('asks for every word, each anywhere in the text', async () => {
+    queueResult([]);
+    await useRecipeStore.getState().fetchRecipes('Kartoffel Suppe');
+    expect(ilikes()).toEqual([['search_text', '%kartoffel%'], ['search_text', '%suppe%']]);
+    expect(calls.some((c) => c.op === 'textSearch')).toBe(false);
+  });
+
+  it('adds no condition for an empty search', async () => {
+    queueResult([]);
+    await useRecipeStore.getState().fetchRecipes('   ');
+    expect(ilikes()).toEqual([]);
+  });
+
+  it('searches the next page the same way', async () => {
+    queueResult([]);
+    await useRecipeStore.getState().fetchRecipes('Kartoffel Suppe');
+    calls.length = 0;
+    queueResult([]);
+    await useRecipeStore.getState().loadMore();
+    expect(ilikes()).toEqual([['search_text', '%kartoffel%'], ['search_text', '%suppe%']]);
+  });
+
+  it('says when the list could not be loaded, and clears that on the next success', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    useRecipeStore.setState({ recipes: [{ id: 'kept' } as Recipe] });
+    queueResult(null, { message: 'column recipes.search_text does not exist' });
+    await useRecipeStore.getState().fetchRecipes('suppe');
+    expect(useRecipeStore.getState().loadError).toBe(true);
+    expect(useRecipeStore.getState().loading).toBe(false);
+    // What was loaded before is still there for the planner and an open recipe.
+    expect(useRecipeStore.getState().recipes).toHaveLength(1);
+
+    queueResult([]);
+    await useRecipeStore.getState().fetchRecipes('');
+    expect(useRecipeStore.getState().loadError).toBe(false);
+    warn.mockRestore();
+  });
+
+  it('shows the newest search, even when an older one answers last', async () => {
+    // Two searches in flight; the first one's answer is held back until the
+    // second has been shown.
+    let release!: () => void;
+    results.push({ data: [{ id: 'old' }], error: null, wait: new Promise<void>((r) => { release = r; }) });
+    queueResult([{ id: 'new' }]);
+    const first = useRecipeStore.getState().fetchRecipes('ka');
+    const second = useRecipeStore.getState().fetchRecipes('kartoffel');
+    await second;
+    release();
+    await first;
+    expect(useRecipeStore.getState().recipes.map((r) => r.id)).toEqual(['new']);
+    expect(useRecipeStore.getState().loading).toBe(false);
+  });
+});
+
+/**
+ * Generate rebuilds what it made, not the whole list (migration 0077): it used
+ * to delete every row first, taking the person's own items with it.
+ */
+describe('shopping list', () => {
+  const tomorrow = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  };
+  const plan = () => [{
+    id: 'm1', date: tomorrow(), meal_type: 'dinner', recipe_id: 'r1',
+    recipe: { ingredients: [{ amount: '2', name: 'onions', details: '' }] },
+  }] as never;
+
+  beforeEach(async () => {
+    calls.length = 0;
+    results.length = 0;
+    useRecipeStore.setState({ shoppingList: [] });
+    const { apiFetch } = await import('@/lib/api');
+    vi.mocked(apiFetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({ list: [{ category: 'Produce', items: ['2 onions'] }] }),
+    } as never);
+  });
+
+  it('deletes only the generated rows and marks the new ones as generated', async () => {
+    queueResult(null); // delete
+    queueResult(null); // insert
+    queueResult([
+      { id: 'own', item: 'coffee', category: null, is_checked: false, from_plan: false },
+      { id: 'gen', item: '2 onions', category: 'Produce', is_checked: false, from_plan: true },
+    ]); // the list read back
+    await useRecipeStore.getState().generateShoppingList(plan(), 'user-1');
+
+    const list = calls.filter((c) => c.table === 'shopping_list');
+    const del = list.findIndex((c) => c.op === 'delete');
+    // The delete is narrowed to this person's generated rows before it runs.
+    expect(list.slice(del + 1, del + 3).map((c) => c.args)).toEqual([['user_id', 'user-1'], ['from_plan', true]]);
+    const insert = list.find((c) => c.op === 'insert');
+    expect(insert?.payload).toEqual([
+      { category: 'Produce', item: '2 onions', is_checked: false, from_plan: true, user_id: 'user-1' },
+    ]);
+    expect(useRecipeStore.getState().shoppingList.map((i) => i.id)).toEqual(['own', 'gen']);
+  });
+
+  it('adds a typed item as the person\'s own, so Generate leaves it', async () => {
+    queueResult({ id: 'own', item: 'coffee', category: null, is_checked: false, from_plan: false });
+    await useRecipeStore.getState().addShoppingItem('coffee', 'user-1');
+    const insert = calls.find((c) => c.table === 'shopping_list' && c.op === 'insert');
+    expect(insert?.payload).toEqual({ user_id: 'user-1', item: 'coffee', category: null, is_checked: false, from_plan: false });
+    expect(useRecipeStore.getState().shoppingList.map((i) => i.item)).toEqual(['coffee']);
   });
 });
