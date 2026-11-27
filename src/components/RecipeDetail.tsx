@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { TagIcon, addChipClass, tagClass, tagLabel } from '@/lib/tags';
-import { Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, Clock, CalendarPlus, ExternalLink, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages, Send, MoreHorizontal, Tag, Salad, FolderOpen, Link2Off, Check} from 'lucide-react';
+import { Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, CalendarPlus, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages, Send, MoreHorizontal, Tag, Salad, FolderOpen, Link2Off, Check} from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
@@ -19,6 +19,7 @@ import { usePrintTitle } from '@/hooks/usePrintTitle';
 import { RecipePrintSheet } from '@/components/RecipePrintSheet';
 import { useRecipeImages } from '@/hooks/useRecipeImages';
 import { adoptRecipe } from '@/lib/adoptRecipe';
+import { IngredientTable, NutritionTiles, RecipeHero, RecipeTimes, SectionLabel, SourceLink, StepList } from '@/components/recipe/RecipeParts';
 
 interface Props {
   recipe: Recipe | null;
@@ -489,7 +490,6 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
   const rawInstructions = (typeof translation?.instructions === 'string' ? translation.instructions : recipe.instructions) ?? '';
   const displayInstructions = convertTemperaturesInText(rawInstructions, temperatureUnit) ?? '';
   const steps = displayInstructions.split(/\n+/).map((s) => s.trim()).filter(Boolean);
-  const totalTime = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
 
   async function handleAddToPlan() {
     if (!onAddMealPlan || !recipe) return;
@@ -537,17 +537,7 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
         </button>
         <div className="overflow-y-auto max-h-[var(--dialog-max-h)]">
         <div className="flex flex-col">
-          <div className="w-full h-32 sm:h-44 md:h-64 overflow-hidden shrink-0 rounded-t-3xl relative">
-            {recipe.image_url ? (
-              <img src={recipe.image_url} className="w-full h-full object-cover" alt={recipe.title} />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-sk-primary-fixed via-sk-surface-low to-sk-surface-highest dark:from-primary/20 dark:via-muted dark:to-muted">
-                <span className="text-[6rem] sm:text-[8rem] font-serif font-normal text-sk-primary/20 dark:text-primary/15 select-none leading-none">
-                  {recipe.title?.[0]?.toUpperCase() ?? '?'}
-                </span>
-              </div>
-            )}
-          </div>
+          <RecipeHero imageUrl={recipe.image_url} title={recipe.title} />
           <div className="p-4 sm:p-6 md:p-10 space-y-6 sm:space-y-8">
             <DialogHeader className="text-left space-y-2">
               <DialogTitle className="font-serif text-2xl sm:text-3xl md:text-[2.25rem] font-bold tracking-tight text-sk-on-surface dark:text-foreground leading-tight">
@@ -854,32 +844,9 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                     {isSavingScaled ? 'Saving…' : 'Save as new recipe'}
                   </button>
                 )}
-                {totalTime > 0 && (
-                  <div className="inline-flex items-center gap-1.5 text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
-                    <Clock className="w-4 h-4" />
-                    {recipe.prep_time_mins != null && recipe.prep_time_mins > 0 && (
-                      <span>Prep {recipe.prep_time_mins}m</span>
-                    )}
-                    {recipe.prep_time_mins != null && recipe.prep_time_mins > 0 && recipe.cook_time_mins != null && recipe.cook_time_mins > 0 && (
-                      <span className="text-sk-outline-variant">·</span>
-                    )}
-                    {recipe.cook_time_mins != null && recipe.cook_time_mins > 0 && (
-                      <span>Cook {recipe.cook_time_mins}m</span>
-                    )}
-                  </div>
-                )}
+                <RecipeTimes prep={recipe.prep_time_mins} cook={recipe.cook_time_mins} />
                 <span className="text-sm font-sans text-sk-outline dark:text-muted-foreground">{parsed.length} ingredients</span>
-                {(recipe.source_name || recipe.source_url) && (
-                  recipe.source_url
-                    ? <a href={recipe.source_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm font-sans text-sk-outline hover:text-sk-primary dark:hover:text-primary transition-colors">
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        {recipe.source_name || new URL(recipe.source_url).hostname.replace(/^www\./, '')}
-                      </a>
-                    : <span className="inline-flex items-center gap-1.5 text-sm font-sans text-sk-outline">
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        {recipe.source_name}
-                      </span>
-                )}
+                <SourceLink sourceUrl={recipe.source_url} sourceName={recipe.source_name} />
               </div>
 
               {(translation ? translation.description : recipe.description) && (
@@ -921,85 +888,15 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
 
             <div className="grid grid-cols-1 md:grid-cols-7 gap-8">
               <div className="md:col-span-3">
-                <h3 className="font-sans text-xs font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground mb-4">
-                  Ingredients
-                </h3>
-                {/* Ingredient list — no dividers, tonal background rows */}
-                <div className="rounded-xl overflow-hidden bg-sk-surface-low dark:bg-muted">
-                  <table className="w-full text-sm">
-                    <tbody>
-                      {displayIngredients.map((ing, i) => {
-                        const displayAmount = ing.amount || '—';
-                        const displayName = ing.name;
-                        const displayDetails = ing.details;
-                        return (
-                          <tr key={i} className={i % 2 === 0 ? 'bg-sk-surface-low dark:bg-muted' : 'bg-white dark:bg-card/50'}>
-                            <td className="py-2.5 px-4 font-semibold font-sans text-sk-primary dark:text-primary whitespace-nowrap w-1/3">
-                              {displayAmount}
-                            </td>
-                            <td className="py-2.5 px-4 font-sans text-sk-on-surface dark:text-foreground">
-                              {displayName}
-                              {displayDetails ? <span className="text-sk-on-surface-variant dark:text-muted-foreground">, {displayDetails}</span> : ''}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {recipe.nutrition && (() => {
-                  const n = recipe.nutrition;
-                  // Deliberately not multiplied by `scale`. These are
-                  // per-serving figures — NUTRITION_TEMPLATE tells the model to
-                  // "divide total recipe nutrients by the number of servings" —
-                  // and a per-serving figure does not change with the size of
-                  // the batch. Scaling them made a recipe taken from 4 servings
-                  // to 8 report twice the calories *per serving*, under a
-                  // heading that still read "Per serving".
-                  const fmt = (v: number) => Math.round(v);
-                  return (
-                    <div className="mt-4">
-                      <p className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground mb-2">
-                        Per serving
-                      </p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          { label: 'Calories', value: fmt(n.calories), unit: 'kcal' },
-                          { label: 'Protein', value: fmt(n.protein_g), unit: 'g' },
-                          { label: 'Carbs', value: fmt(n.carbs_g), unit: 'g' },
-                          { label: 'Fat', value: fmt(n.fat_g), unit: 'g' },
-                        ].map((stat) => (
-                          <div key={stat.label} className="rounded-xl p-2.5 text-center bg-sk-surface-low dark:bg-muted">
-                            <div className="font-sans text-lg font-bold text-sk-primary dark:text-primary">
-                              {stat.value}<span className="text-xs font-medium ml-0.5 text-sk-on-surface-variant">{stat.unit}</span>
-                            </div>
-                            <div className="font-sans text-[10px] uppercase tracking-widest font-semibold text-sk-outline dark:text-muted-foreground mt-0.5">{stat.label}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
+                <SectionLabel>Ingredients</SectionLabel>
+                <IngredientTable ingredients={displayIngredients} />
+                {/* Per serving, so deliberately not multiplied by `scale`. */}
+                {recipe.nutrition && <NutritionTiles nutrition={recipe.nutrition} />}
               </div>
 
               <div className="md:col-span-4">
-                <h3 className="font-sans text-xs font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground mb-4">
-                  Instructions
-                </h3>
-                {/* Steps — primary-fixed circle numbers, no bullet points */}
-                <ol className="space-y-5">
-                  {steps.map((step, i) => (
-                    <li key={i} className="flex gap-4">
-                      <span className="shrink-0 w-7 h-7 rounded-full bg-sk-primary-fixed dark:bg-primary/20 text-sk-on-primary-fixed dark:text-primary flex items-center justify-center text-sm font-bold font-sans mt-0.5">
-                        {i + 1}
-                      </span>
-                      <p className="font-sans text-sk-on-surface dark:text-foreground leading-relaxed">
-                        {step.replace(/^step\s*\d+[.:)]\s*/i, '')}
-                      </p>
-                    </li>
-                  ))}
-                </ol>
+                <SectionLabel>Instructions</SectionLabel>
+                <StepList steps={steps} />
               </div>
             </div>
 
