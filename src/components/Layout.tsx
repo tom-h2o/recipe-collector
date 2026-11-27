@@ -178,7 +178,7 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
               <span className="hidden sm:inline lg:hidden xl:inline">Add Recipe</span>
               <span className="hidden lg:inline xl:hidden">Add</span>
             </button>
-            {user && <UserMenu user={user} onSignOut={onSignOut} onOpenWhatsNew={onOpenWhatsNew} hasUnreadReleases={hasUnreadReleases} />}
+            {user && <UserMenu user={user} onSignOut={onSignOut} onOpenWhatsNew={onOpenWhatsNew} hasUnreadReleases={hasUnreadReleases} currentView={activeView} />}
           </div>
         </div>
       </header>

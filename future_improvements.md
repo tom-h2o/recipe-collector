@@ -12,35 +12,44 @@ Tick an item here when it ships.
 
 ### A. Before sharing
 
-1. [ ] **Invitation only.** Owner turns off "Allow new users to sign up" in
+1. [x] **Invitation only.** Owner turns off "Allow new users to sign up" in
    Supabase. In the app, one flag (`VITE_SIGNUP_OPEN`) hides sign-up in
    `AuthGate` and the "Create a free account" links on `PublicRecipe` and
    `AboutPage`; e2e cases for both states. Details: "A closed test" below.
-2. [ ] **Short data note** on the sign-in screen and `/about`: what is stored,
+2. [x] **Short data note** on the sign-in screen and `/about`: what is stored,
    that recipes, photos and pages go to Anthropic and Google to be read, and
    how to delete the account. Impressum and the full privacy policy wait until
    the app opens beyond invited people.
 3. [ ] **Sign-in emails through the owner's domain** (owner, in Resend, DNS and
    Supabase; steps in `LAUNCH.md`). Supabase's built-in mailer sends about two
    emails an hour. Review the invite, magic-link and reset templates.
-4. [ ] **Remove "Save as new recipe"** after AI Scale. It has never worked
+4. [x] **Remove "Save as new recipe"** after AI Scale. It has never worked
    (`handleSaveScaled` copied generated and unique columns into the insert),
    and a second recipe is not wanted: the point was only not to pay for the
    same scaling twice. Confirm the scale answer is cached, and remove
    `onSaveScaled` with the button.
-5. [ ] **Vault search**: the full proposal below *including* matching inside
+5. [x] **Vault search**: the full proposal below *including* matching inside
    words (`pg_trgm`), so "Suppe" finds "Kartoffelsuppe".
-6. [ ] **"Generate" keeps hand-typed shopping items.** Today it deletes the
+6. [x] **"Generate" keeps hand-typed shopping items.** Today it deletes the
    whole list. A small migration marks where an item came from; Generate
    replaces only its own. The larger redesign stays under C.
-7. [ ] **Feedback from inside the app**: the simple form and an admin tab, no
+7. [x] **Feedback from inside the app**: the simple form and an admin tab, no
    screenshots yet. Details below.
-8. [ ] **Screen stays on in cook mode.** Details below; owner checks it once in
+8. [x] **Screen stays on in cook mode.** Details below; owner checks it once in
    the installed app on an iPhone.
-9. [ ] **Footer says "Speisekammer"** only, without "Magical Apps".
-10. [ ] **`LAUNCH.md`**: the Supabase switches, the SMTP steps, the admin
+9. [x] **Footer says "Speisekammer"** only, without "Magical Apps".
+10. [x] **`LAUNCH.md`**: the Supabase switches, the SMTP steps, the admin
     System check, and a 15-minute run with a second account on an iPhone
     (sign in, import by link, photo and Shortcut, cook, share, delete account).
+
+Done on 2026-11-27 except 3, which is the owner's (Resend, DNS and the
+Supabase switches; the steps are in `LAUNCH.md`). Two things turned out
+differently from the plan: the shopping list had no field to add an item at
+all, so one was added with point 6; and a search that found nothing said "The
+vault is empty", fixed with point 5. Still to do by hand: the run-through in
+`LAUNCH.md`, which holds everything that could not be checked from the
+repository (the screen staying on in the installed app, the invitation link,
+the Claude models).
 
 Decided against for now: an AI cost ceiling (100 calls a day per person stays;
 few people) and backups (risk accepted; a free Supabase project has none and
@@ -112,23 +121,6 @@ in Settings and before Claude became the main provider with Gemini as backup).
 ## Quick Wins
 
 - ✅ **Meal planner week navigation** — prev/next week buttons with `weekOffset` state; shows weekly calorie total
-
-### Keep the screen on in cook mode
-Cook mode has steps and timers, but the iPhone dims and locks after its
-auto-lock delay, exactly when the cook's hands are covered in dough. Nothing in
-`src/` asks for a wake lock today.
-
-- On opening `CookMode`, `navigator.wakeLock.request('screen')`; release it on
-  close. The browser drops the lock whenever the page is hidden (app switcher,
-  a call), so request it again on `visibilitychange` while cook mode is open.
-- Where the API is missing, or the request is refused (low power mode), do
-  nothing and say nothing: cook mode works as today.
-- Safari has the Screen Wake Lock API since 16.4; installed home-screen apps
-  lagged behind for a while, so check it once in the installed app on an
-  iPhone, not only in Safari.
-- A small hook (`useWakeLock(active)`), unit-tested against a fake
-  `navigator.wakeLock`, and an e2e case that opening and closing cook mode
-  requests and releases the lock.
 
 - ✅ **Plain-text recipe import** — a fourth import tab beside URL, photo and PDF: paste a recipe from a chat, a note or another app and Gemini structures it. Handled inside `api/extract.ts` (`{ text }`), so it needs no new serverless function
 
@@ -256,51 +248,11 @@ counts against the daily allowance like tagging does.
 (otherwise "For this step" stays as it is), and how to word a share for things
 that do not divide nicely ("½ Ei").
 
-### Vault search that understands German, partial words and several words
-The vault search is Postgres full-text search: `recipes.search_vector` (migration
-0028) is generated from title, description and `ingredients::text`, and
-`recipeStore.ts` queries it with `.textSearch('search_vector', query)`. Looked at
-on 2026-11-25, it has five faults, found by reading the code (not reproduced
-against production):
-
-1. **English stemming on German recipes.** The column uses `to_tsvector('english', …)`,
-   so "Kartoffel" does not find "Kartoffeln" and "Zwiebel" not "Zwiebeln".
-2. **Whole words only.** "Kartoffel" does not find "Kartoffelsuppe", and nothing is
-   found while a word is half typed ("Kart").
-3. **Two words break the query.** `textSearch()` without a `type` sends
-   `fts.<input>`, i.e. `to_tsquery('Kartoffel Suppe')`, which Postgres rejects as
-   a tsquery syntax error. `fetchRecipes` ignores the error and only sets
-   `recipes` when `data` is non-null, so the list silently keeps the previous
-   result: the second word appears to be ignored.
-4. **Not searched:** tags ("vegetarisch" only matches if it is in the title or
-   description), instructions, translations.
-5. **JSON keys are indexed.** `ingredients::text` puts `name`, `amount` and
-   `details` into every recipe's vector, so searching "name" matches everything.
-
-**Proposal (no AI, one migration):**
-- Rebuild `search_vector` with the language-neutral `simple` config from title,
-  description, tags, and only the ingredients' `name`/`details` values (not the
-  JSON), with `setweight` so a title match ranks above an ingredient match.
-  Instructions maybe at the lowest weight.
-- Build the query in the app: split the input into words, strip tsquery
-  operators, and send each word as a prefix (`kartoffel:* & suppe:*`). That fixes
-  1–3: "Kartoffel" finds "Kartoffeln" and "Kartoffelsuppe", "Kart" works while
-  typing, and several words are ANDed instead of failing.
-- Surface a query error instead of silently keeping the old list.
-- Tests: a unit test for the query builder (operators, quotes, umlauts, several
-  words), a pgTAP or SQL check that the generated column holds what it should,
-  and an e2e case typing two words.
-
-**Optional, if it matters:** prefix search finds word *beginnings* only, so
-"Suppe" still would not find "Kartoffelsuppe". Matching inside words needs a
-trigram index (`pg_trgm`, `gin_trgm_ops`) and `ilike '%suppe%'` over title and
-ingredient names; at this vault's size that is fast. Could run alongside the
-full-text search (OR), or only when the full-text search finds nothing.
-
 ### Shopping for one recipe, and plan entries without a day
 Today the shopping list only comes from the meal plan ("Generate from Next 7
-Days", `generateShoppingList` in `recipeStore.ts`), and generating **deletes the
-whole list** and rebuilds it: items typed in by hand and every tick are lost.
+Days", `generateShoppingList` in `recipeStore.ts`). Since migration 0077
+generating replaces only the rows it made (`from_plan`) and keeps items added
+by hand; ticks on generated items are still lost.
 List rows are plain text (`shopping_list.item`) with no link to the recipe or
 planned meal they came from, so the list cannot tell what it already holds.
 There is also no way to put one recipe's ingredients on the list without
@@ -344,6 +296,9 @@ When a recipe is edited, the previous version is permanently overwritten with no
 - Add a "History" option in `RecipeDetail` to browse and restore previous versions
 
 ### A closed test: invitation only
+*The app side is done (`VITE_SIGNUP_OPEN`, the data note, the footer); the
+Supabase switch is the owner's. Kept for the reasoning.*
+
 For now only friends and acquaintances should use the app. Today anyone can
 sign up, and two public pages invite strangers to: the shared-recipe page
 (`PublicRecipe`) and `/about` both end in "Create a free account". Kept
@@ -397,27 +352,6 @@ privacy policy anywhere in it.
   (`AuthGate`), `/about` and the public share page.
 - Not legal advice: the wording should be checked by someone who knows the law,
   or come from a generator meant for it.
-
-### Feedback and bug reports from inside the app
-There is no way to report a bug or send an idea from the app; it all goes
-through talking to the admin.
-
-- **Where:** "Send feedback" in the account menu (`UserMenu`) and on
-  `LoadFailure` / the error screen, where a report is most likely to be wanted.
-- **Form:** kind (bug / idea / other), text, optionally a screenshot. Filled in
-  automatically and shown before sending: app build, current view, device and
-  browser, light/dark, and the Sentry event id of the last error if Sentry is
-  configured, so a report can be matched to its stack trace.
-- **Where it goes:** a `feedback` table, written from the browser under RLS
-  (insert own rows only, read own rows only), so no new serverless function is
-  needed (the Hobby plan has one slot left). Screenshots in a **private**
-  storage bucket, not `recipe-images`, which is public. A **Feedback** tab in
-  the admin dashboard, with status (new / seen / done) and the context above.
-- **Telling the admin:** optional, later: an email per report (needs the custom
-  SMTP from the domain move, or a mail service), or a GitHub issue created
-  server-side (needs a token, and would go through `api/account.ts`).
-- pgTAP cases: a user cannot read another's feedback or change its status; the
-  admin reads it through the service key.
 
 ---
 

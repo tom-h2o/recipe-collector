@@ -34,6 +34,12 @@ export const modelConfigSchema = z.object({
  * able to point anywhere else. An empty value removes the link.
  */
 
+/** What the admin may set a report to (the CHECK on feedback.status). */
+export const feedbackStatusSchema = z.object({
+  id: z.string().uuid(),
+  status: z.enum(['new', 'seen', 'done']),
+});
+
 export const shortcutUrlSchema = z.object({
   // Empty or null removes the link. Anything else must contain an iCloud
   // Shortcut link, which is kept in its canonical form (shared/shortcutLink.ts):
@@ -323,6 +329,36 @@ async function getRecipesPage(supabase: SupabaseClient, page: number, pageSize: 
   return { recipes, total: count ?? 0 };
 }
 
+/**
+ * Admin → Feedback: reports sent from the app (migration 0078), newest first,
+ * one page at a time, with who sent each.
+ */
+async function getFeedbackPage(supabase: SupabaseClient, page: number, pageSize: number) {
+  const { data, count, error } = await supabase
+    .from('feedback')
+    .select('id, created_at, user_id, kind, message, context, status', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(page * pageSize, page * pageSize + pageSize - 1);
+  if (error) throw error;
+  const emailMap = await emailMapFor(supabase, (data ?? []).map((r) => r.user_id));
+  const feedback = (data ?? []).map((r) => ({ ...r, user_email: emailMap[r.user_id] ?? null }));
+  return { feedback, total: count ?? 0 };
+}
+
+/**
+ * How many reports nobody has looked at, for the badge on the Feedback tab.
+ * A failure costs the badge, not the dashboard (also the minutes after a
+ * deploy, before the migration job has made the table).
+ */
+async function countNewFeedback(supabase: SupabaseClient): Promise<number> {
+  const { count, error } = await supabase.from('feedback').select('id', { count: 'exact', head: true }).eq('status', 'new');
+  if (error) {
+    console.warn('Counting new feedback failed:', error.message);
+    return 0;
+  }
+  return count ?? 0;
+}
+
 const LOG_COLUMNS = 'id, created_at, endpoint, model, model_version, status, latency_ms, user_id';
 
 async function getLogsPage(supabase: SupabaseClient, page: number, pageSize: number) {
@@ -432,8 +468,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const tab = queryParam(req, 'tab') ?? 'overview';
 
       if (tab === 'overview') {
-        const stats = await getStats(supabase);
-        return res.status(200).json({ stats });
+        const [stats, new_feedback] = await Promise.all([getStats(supabase), countNewFeedback(supabase)]);
+        return res.status(200).json({ stats: { ...stats, new_feedback } });
       }
 
       if (tab === 'users') {
@@ -454,6 +490,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { page, pageSize } = parsePageParams(req);
         const { logs, total } = await getLogsPage(supabase, page, pageSize);
         return res.status(200).json({ logs, total });
+      }
+
+      if (tab === 'feedback') {
+        const { page, pageSize } = parsePageParams(req);
+        const { feedback, total } = await getFeedbackPage(supabase, page, pageSize);
+        return res.status(200).json({ feedback, total });
       }
 
       if (tab === 'health') {
@@ -508,6 +550,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       const saved = await saveModelConfig(getServerSupabase(), parsed.data);
       return res.status(200).json(saved);
+    }
+
+    // ── POST /api/account?action=feedback-status — admin: new / seen / done ───
+    // People cannot change a report they sent (no update policy, 0078); the
+    // admin's handling of it goes through the service key here.
+    if (req.method === 'POST' && queryParam(req, 'action') === 'feedback-status') {
+      await assertAdmin(auth);
+      const parsed = feedbackStatusSchema.safeParse(req.body ?? {});
+      if (!parsed.success) return res.status(400).json({ error: 'Invalid feedback status' });
+      const { data, error } = await getServerSupabase()
+        .from('feedback')
+        .update({ status: parsed.data.status })
+        .eq('id', parsed.data.id)
+        .select('id');
+      if (error) throw error;
+      if (!data?.length) return res.status(404).json({ error: 'Report not found' });
+      return res.status(200).json(parsed.data);
     }
 
     // ── POST /api/account?action=shortcut-url — admin: a shared Shortcut ──────

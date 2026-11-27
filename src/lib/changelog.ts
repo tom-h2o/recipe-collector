@@ -20,6 +20,18 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-18',
+    title: 'Better search, a screen that stays on, and a way to tell us',
+    items: [
+      'Search finds more: “Kartoffel” now finds “Kartoffeln” and “Kartoffelsuppe”, “Suppe” finds “Kartoffelsuppe”, and results appear while you are still typing a word. Several words work together, and tags are searched too.',
+      'In cook mode the screen stays on, so the phone no longer dims and locks while your hands are busy. (In low power mode the phone may still decide otherwise.)',
+      'Shopping list: you can add your own items at the top, and “Generate” now keeps them. It used to replace the whole list.',
+      'Send feedback: the account menu has a new entry for reporting a fault or sending an idea.',
+      '“Save as new recipe” after AI Scale is gone. It did not work, and scaling the same recipe again costs nothing extra.',
+      'Speisekammer is by invitation for now, and the sign-in screen says what happens to your data.',
+    ],
+  },
+  {
     id: '2026-12-17',
     title: 'The top bar fits the screen',
     items: [

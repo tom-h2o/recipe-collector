@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { LogOut, User, KeyRound, Eye, EyeOff, X, Download, Trash2, Sparkles } from 'lucide-react';
+import { LogOut, User, KeyRound, Eye, EyeOff, X, Download, Trash2, Sparkles, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AnchoredMenu } from '@/components/AnchoredMenu';
 import { Label } from '@/components/ui/label';
+import { FeedbackDialog } from '@/components/FeedbackDialog';
 
 interface Props {
   user: SupabaseUser;
@@ -16,13 +17,16 @@ interface Props {
   onOpenWhatsNew?: () => void;
   /** Dot on the avatar and the menu entry when there are unread release notes. */
   hasUnreadReleases?: boolean;
+  /** The view on screen, added to a feedback report. */
+  currentView?: string;
 }
 
-export function UserMenu({ user, onSignOut, onOpenWhatsNew, hasUnreadReleases = false }: Props) {
+export function UserMenu({ user, onSignOut, onOpenWhatsNew, hasUnreadReleases = false, currentView }: Props) {
   const { updatePassword } = useAuth();
   const [open, setOpen] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -194,6 +198,13 @@ export function UserMenu({ user, onSignOut, onOpenWhatsNew, hasUnreadReleases = 
                 <Download className="w-4 h-4 text-zinc-400" />
                 Export recipes (JSON)
               </button>
+              <button
+                onClick={() => { setOpen(false); setShowFeedback(true); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"
+              >
+                <MessageSquare className="w-4 h-4 text-zinc-400" />
+                Send feedback
+              </button>
 
               <div className="my-1 border-t border-zinc-100 dark:border-zinc-800" />
 
@@ -214,6 +225,8 @@ export function UserMenu({ user, onSignOut, onOpenWhatsNew, hasUnreadReleases = 
             </div>
         </AnchoredMenu>
       </div>
+
+      <FeedbackDialog isOpen={showFeedback} onClose={() => setShowFeedback(false)} view={currentView} />
 
       {/* Change password modal */}
       {showChangePassword && (
