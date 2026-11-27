@@ -81,7 +81,8 @@ describe('offered languages', () => {
     // `label`; anything built into English wording must use `name`.
     const detail = readFileSync(join(ROOT, 'src', 'components', 'RecipeDetail.tsx'), 'utf8');
     expect(detail).not.toMatch(/(Delete|Translate to|translation deleted|delete the) \$\{[^}]*\.label\}/);
-    expect(detail).toMatch(/\.name \?\? code\.toUpperCase\(\)/);
+    // The English name, translated where it is shown ("Deutsch" in German).
+    expect(detail).toMatch(/\.name;\s*const label = known \? t\(known\) : code\.toUpperCase\(\)/);
   });
 });
 
