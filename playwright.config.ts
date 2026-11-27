@@ -23,6 +23,9 @@ export default defineConfig({
     // silently stops working and every test fails for a reason that looks
     // nothing like the cause.
     serviceWorkers: 'block',
+    // The app follows the browser's language; the specs match English text.
+    // tests/e2e/language.spec.ts sets German itself.
+    locale: 'en-US',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
