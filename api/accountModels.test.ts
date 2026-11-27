@@ -22,6 +22,8 @@ const h = vi.hoisted(() => {
     saveModelConfig: vi.fn(),
     emailOf: vi.fn<(id: string) => string>(),
     confirmed: vi.fn<(id: string) => boolean>(),
+    upsert: vi.fn(),
+    rpc: vi.fn(),
   };
 });
 
@@ -33,6 +35,8 @@ vi.mock('./_lib/supabase.js', async (importOriginal) => {
     saveModelConfig: (...args: unknown[]) => h.saveModelConfig(...args),
     getServerSupabase: () => ({
       auth: { admin: { getUserById: async (id: string) => ({ data: { user: { id, email: h.emailOf(id), email_confirmed_at: h.confirmed(id) ? '2026-01-01T00:00:00Z' : null } }, error: null }) } },
+      from: (table: string) => ({ upsert: (row: unknown, opts: unknown) => h.upsert(table, row, opts) }),
+      rpc: (name: string, args: unknown) => h.rpc(name, args),
     }),
   };
 });
@@ -60,6 +64,8 @@ beforeEach(() => {
   h.userId.mockResolvedValue(ADMIN);
   h.emailOf.mockImplementation((id) => (id === ADMIN ? ADMIN_EMAIL : 'someone@example.test'));
   h.confirmed.mockReturnValue(true);
+  h.upsert.mockResolvedValue({ error: null });
+  h.rpc.mockResolvedValue({ data: { days: 30 }, error: null });
   delete process.env.ADMIN_USER_ID;
   h.saveModelConfig.mockImplementation(async (_s, config) => config);
 });
@@ -181,5 +187,84 @@ describe('GET /api/account?tab=whoami', () => {
   it('asks for sign-in first', async () => {
     h.userId.mockResolvedValue(null);
     expect((await whoami()).statusCode).toBe(401);
+  });
+});
+
+describe('the app opens the whoami route counts', () => {
+  function whoami() {
+    const res = {
+      statusCode: 0,
+      body: undefined as unknown,
+      setHeader: vi.fn(),
+      status(code: number) { this.statusCode = code; return this; },
+      json(payload: unknown) { this.body = payload; return this; },
+      end() { return this; },
+    };
+    const req = { method: 'GET', query: { tab: 'whoami' }, headers: { authorization: 'Bearer t' } };
+    return handler(req as unknown as VercelRequest, res as unknown as VercelResponse).then(() => res);
+  }
+
+  it('records today for the person, the date and nothing else', async () => {
+    h.userId.mockResolvedValue('user-2');
+    await whoami();
+    expect(h.upsert).toHaveBeenCalledWith(
+      'app_opens',
+      { user_id: 'user-2', day: new Date().toISOString().slice(0, 10) },
+      { onConflict: 'user_id,day', ignoreDuplicates: true },
+    );
+  });
+
+  it('still answers when the count cannot be written', async () => {
+    h.upsert.mockRejectedValueOnce(new Error('relation "app_opens" does not exist'));
+    const res = await whoami();
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ isAdmin: true });
+  });
+
+  it('counts nothing for someone not signed in', async () => {
+    h.userId.mockResolvedValue(null);
+    await whoami();
+    expect(h.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /api/account?tab=usage', () => {
+  function usage(days?: string) {
+    const res = {
+      statusCode: 0,
+      body: undefined as unknown,
+      setHeader: vi.fn(),
+      status(code: number) { this.statusCode = code; return this; },
+      json(payload: unknown) { this.body = payload; return this; },
+      end() { return this; },
+    };
+    const req = { method: 'GET', query: { tab: 'usage', ...(days ? { days } : {}) }, headers: { authorization: 'Bearer t' } };
+    return handler(req as unknown as VercelRequest, res as unknown as VercelResponse).then(() => res);
+  }
+
+  it('gives the admin the report for the period asked for', async () => {
+    const res = await usage('7');
+    expect(res.statusCode).toBe(200);
+    expect(h.rpc).toHaveBeenCalledWith('admin_usage', { p_days: 7 });
+    expect(res.body).toEqual({ usage: { days: 30 } });
+  });
+
+  it.each([['0', 1], ['5000', 90], ['soon', 30], [undefined, 30]])('keeps the period %s within reason (%i days)', async (days, expected) => {
+    await usage(days);
+    expect(h.rpc).toHaveBeenCalledWith('admin_usage', { p_days: expected });
+  });
+
+  it('refuses everyone else, without running the report', async () => {
+    h.userId.mockResolvedValue('user-2');
+    const res = await usage();
+    expect(res.statusCode).toBe(403);
+    expect(h.rpc).not.toHaveBeenCalled();
+  });
+
+  it('says what is missing in the minutes before the migration', async () => {
+    h.rpc.mockResolvedValueOnce({ data: null, error: { code: 'PGRST202', message: 'Could not find the function public.admin_usage' } });
+    const res = await usage();
+    expect(res.statusCode).toBe(503);
+    expect((res.body as { error: string }).error).toMatch(/latest database migration/);
   });
 });

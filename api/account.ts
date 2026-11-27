@@ -71,6 +71,27 @@ async function assertAdmin(authHeader: string | undefined): Promise<string> {
   return userId;
 }
 
+/**
+ * Notes that this person opened the app today: one row per person per UTC
+ * day, the date and nothing else (app_opens, migration 0075). Without it,
+ * someone who only reads and cooks from their recipes never shows as active.
+ * Never fails the request it rides on.
+ */
+export async function recordAppOpen(supabase: SupabaseClient, userId: string): Promise<void> {
+  try {
+    const day = new Date().toISOString().slice(0, 10);
+    await supabase.from('app_opens').upsert({ user_id: userId, day }, { onConflict: 'user_id,day', ignoreDuplicates: true });
+  } catch {
+    // Counting is a courtesy; answering whoami is not.
+  }
+}
+
+/** The usage report's period, in days: what the Usage tab offers, clamped like the SQL. */
+export function usageDays(raw: string | undefined): number {
+  const days = parseInt(raw ?? '30', 10);
+  return Number.isFinite(days) ? Math.min(90, Math.max(1, days)) : 30;
+}
+
 /** The least time between two live system checks. */
 const HEALTH_CHECK_SPACING_MS = 60 * 1000;
 
@@ -369,10 +390,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ── GET /api/account?tab=whoami — any signed-in user: am I the admin? ─────
     // The app asks rather than comparing an address compiled into its code:
     // that put the admin's address in every visitor's browser.
+    // It is also the one call every signed-in load makes, so it records the
+    // day the app was opened, for the admin's Usage tab (migration 0075).
     if (req.method === 'GET' && queryParam(req, 'tab') === 'whoami') {
       const userId = await getUserId(auth);
       if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-      return res.status(200).json({ isAdmin: await isAdminUser(getServerSupabase(), userId) });
+      const supabase = getServerSupabase();
+      await recordAppOpen(supabase, userId);
+      return res.status(200).json({ isAdmin: await isAdminUser(supabase, userId) });
     }
 
     // ── GET /api/account?recipeId=… — admin: open one user's full recipe ──────
@@ -433,6 +458,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (tab === 'health') {
         return res.status(200).json(await getHealthOverview(supabase, adminId));
+      }
+
+      // Counted in the database by admin_usage() (migration 0075): fetching
+      // rows to count them would stop at the API's 1000-row limit.
+      if (tab === 'usage') {
+        const { data, error } = await supabase.rpc('admin_usage', { p_days: usageDays(queryParam(req, 'days')) });
+        if (error) {
+          // The minutes after a deploy, before the migration job has run.
+          if (error.code === 'PGRST202' || /admin_usage/.test(error.message ?? '')) {
+            return res.status(503).json({ error: 'The usage report needs the latest database migration. Try again in a few minutes.' });
+          }
+          throw error;
+        }
+        return res.status(200).json({ usage: data });
       }
 
       return res.status(400).json({ error: 'Invalid tab' });

@@ -165,6 +165,39 @@ export interface AdminStats {
   model_breakdown: { model: string; count: number }[];
 }
 
+/** GET /api/account?tab=usage — admin_usage() (migration 0075). */
+export interface AdminUsage {
+  days: number;
+  first_day: string;
+  today: string;
+  /** The first day app opens were recorded; null until anyone has opened the app since 0075. */
+  tracking_since: string | null;
+  totals: {
+    active_people: number;
+    recipes_added: number;
+    ai_calls: number;
+    iphone_imports: number;
+    shares_sent: number;
+    connections_made: number;
+  };
+  /** Eight Monday-to-Sunday weeks, oldest first, the current one last. */
+  weeks: { week_start: string; active_people: number; recipes_added: number }[];
+  /** gemini_logs endpoints in the period (at most the 30 days the log keeps). */
+  features: { endpoint: string; calls: number; people: number; failed: number }[];
+  imports: { source: string; count: number; failed: number }[];
+  people: {
+    id: string;
+    email: string | null;
+    created_at: string;
+    last_sign_in_at: string | null;
+    last_active: string | null;
+    active_days: number;
+    recipes_total: number;
+    recipes_added: number;
+    ai_calls: number;
+  }[];
+}
+
 export interface AdminRecipe {
   id: string;
   title: string;
