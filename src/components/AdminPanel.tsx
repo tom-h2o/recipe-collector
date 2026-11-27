@@ -1,15 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, BookOpen, Sparkles, Trash2, RefreshCw, Calendar, TrendingUp, Star, ChevronLeft, ChevronRight, X, Loader2, Pencil, LayoutDashboard, Activity, BarChart3 } from 'lucide-react';
+import { Users, BookOpen, Sparkles, Trash2, RefreshCw, Calendar, TrendingUp, Star, ChevronLeft, ChevronRight, X, Loader2, LayoutDashboard, Activity, BarChart3, Search, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { PublicRecipe } from '@/components/PublicRecipe';
+import { AdminRecipeView } from '@/components/AdminRecipeView';
 import { RecipeForm } from '@/components/RecipeForm';
 import type { AdminUser, AdminStats, AdminLog, AdminRecipe, Recipe } from '@/types';
 import { ReasoningTag } from '@/components/ReasoningTag';
 import { SystemCheck } from '@/components/SystemCheck';
 import { AdminUsage } from '@/components/AdminUsage';
 import { SegmentedTabs, type SegmentedTab } from '@/components/SegmentedTabs';
+import { chipClass, tagClass, tagLabel } from '@/lib/tags';
 
 type Tab = 'overview' | 'usage' | 'users' | 'recipes' | 'logs' | 'system';
 
@@ -83,7 +84,7 @@ export function AdminPanel() {
 
   // Recipe viewer/editor — `recipe` stays null while the full row is fetched
   const [viewingRecipe, setViewingRecipe] = useState<
-    { id: string; title: string; ownerEmail: string | null; recipe: Recipe | null } | null
+    { id: string; title: string; imageUrl: string | null; ownerEmail: string | null; recipe: Recipe | null } | null
   >(null);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [rerunning, setRerunning] = useState<'tag' | 'nutrition' | null>(null);
@@ -212,7 +213,7 @@ export function AdminPanel() {
   }
 
   async function openRecipe(r: AdminRecipe) {
-    setViewingRecipe({ id: r.id, title: r.title, ownerEmail: r.user_email, recipe: null });
+    setViewingRecipe({ id: r.id, title: r.title, imageUrl: r.image_url ?? null, ownerEmail: r.user_email, recipe: null });
     try {
       const res = await apiFetch(`/api/account?recipeId=${r.id}`);
       if (!res.ok) throw new Error(await readError(res));
@@ -247,7 +248,7 @@ export function AdminPanel() {
     const recipe = viewingRecipe?.recipe;
     if (!recipe) return;
     setRerunning(kind);
-    const id = toast.loading(kind === 'tag' ? 'Re-tagging recipe…' : 'Re-analysing nutrition…');
+    const id = toast.loading(kind === 'tag' ? 'Regenerating tags…' : 'Regenerating nutrition…');
     try {
       const payload =
         kind === 'tag'
@@ -407,86 +408,95 @@ export function AdminPanel() {
         </div>
       )}
 
-      {/* Recipes tab */}
+      {/* Recipes tab: the vault's search field and chips, one row per recipe */}
       {tab === 'recipes' && (
         <div className="space-y-4">
-          <div className="flex gap-3 items-center flex-wrap">
-            <input
-              type="text"
-              value={recipeSearch}
-              onChange={(e) => setRecipeSearch(e.target.value)}
-              placeholder="Search recipes…"
-              className="flex-1 min-w-[160px] h-9 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-sk-primary/30"
-            />
-            {recipeSearch && (
-              <Button variant="outline" size="sm" onClick={() => setRecipeSearch('')}>Clear</Button>
-            )}
+          <div className="flex gap-2 items-center flex-wrap">
+            <div className="relative flex-1 min-w-[12rem]">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-sk-outline dark:text-muted-foreground pointer-events-none" aria-hidden="true" />
+              <input
+                type="text"
+                value={recipeSearch}
+                onChange={(e) => setRecipeSearch(e.target.value)}
+                placeholder="Search everyone's recipes by title…"
+                aria-label="Search recipes by title"
+                className="w-full pl-10 pr-10 py-2.5 rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface dark:text-foreground text-sm font-sans focus:outline-none focus:ring-2 focus:ring-sk-primary/25 dark:focus:ring-primary/25 transition placeholder:text-sk-outline dark:placeholder:text-muted-foreground"
+              />
+              {recipeSearch && (
+                <button
+                  type="button"
+                  onClick={() => setRecipeSearch('')}
+                  aria-label="Clear search"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sk-outline hover:text-sk-primary dark:hover:text-primary"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
             {ownerFilter && (
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-full bg-sk-surface-low dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground">
-                Owner: {ownerFilter.email}
-                <button onClick={() => setOwnerFilter(null)} className="hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
+              <span className={`${chipClass(true)} max-w-full`}>
+                <UserRound className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span className="truncate">{ownerFilter.email}</span>
+                <button
+                  type="button"
+                  onClick={() => setOwnerFilter(null)}
+                  aria-label="Show everyone's recipes"
+                  className="-mr-1 p-0.5 rounded hover:text-destructive transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </span>
             )}
           </div>
 
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                    <th className="text-left px-6 py-3 font-semibold">Recipe</th>
-                    <th className="text-left px-4 py-3 font-semibold">Owner</th>
-                    <th className="text-right px-4 py-3 font-semibold">Created</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
-                  {recipesLoading ? (
-                    <tr><td colSpan={3} className="px-6 py-10 text-center text-zinc-400"><Loader2 className="w-4 h-4 animate-spin inline mr-2" />Loading…</td></tr>
-                  ) : recipes.length === 0 ? (
-                    <tr><td colSpan={3} className="px-6 py-10 text-center text-zinc-400">No recipes found.</td></tr>
-                  ) : recipes.map((r) => (
-                    <tr
-                      key={r.id}
+            {recipesLoading ? (
+              <p role="status" className="px-6 py-10 text-center text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin inline mr-2" aria-hidden="true" />Loading…
+              </p>
+            ) : recipes.length === 0 ? (
+              <p className="px-6 py-10 text-center text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
+                {recipeSearch || ownerFilter ? 'No recipes match.' : 'No recipes yet.'}
+              </p>
+            ) : (
+              <ul aria-label="Recipes" className="divide-y divide-sk-outline-variant/30 dark:divide-white/5">
+                {recipes.map((r) => (
+                  <li key={r.id}>
+                    <button
+                      type="button"
                       onClick={() => openRecipe(r)}
-                      title={`Open "${r.title}"`}
-                      className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors cursor-pointer"
+                      data-pressable="surface"
+                      className="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3 text-left hover:bg-sk-surface-low/60 dark:hover:bg-white/[0.03] transition-colors"
                     >
-                      <td className="px-6 py-3">
-                        <div className="flex items-center gap-3">
-                          {r.image_url ? (
-                            <img src={r.image_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
-                          ) : (
-                            <div className="w-9 h-9 rounded-lg bg-sk-surface-low dark:bg-muted flex items-center justify-center shrink-0 text-sm font-serif text-sk-primary/30">
-                              {r.title[0]?.toUpperCase()}
-                            </div>
-                          )}
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <p className="font-semibold text-zinc-900 dark:text-zinc-100 truncate">{r.title}</p>
-                              {r.is_favourite && <Star className="w-3 h-3 text-amber-400 shrink-0 fill-current" />}
-                            </div>
-                            {r.tags && r.tags.length > 0 && (
-                              <div className="flex gap-1 mt-0.5 flex-wrap">
-                                {r.tags.slice(0, 4).map((tag) => (
-                                  <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-full bg-sk-surface-low dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground">{tag}</span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 max-w-[200px] truncate">{r.user_email ?? '—'}</td>
-                      <td className="px-4 py-3 text-right text-zinc-400 dark:text-zinc-500 whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1.5">
-                          {formatDate(r.created_at)}
-                          <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600" />
+                      {r.image_url ? (
+                        <img src={r.image_url} alt="" className="w-12 h-12 rounded-xl object-cover shrink-0" />
+                      ) : (
+                        <span aria-hidden="true" className="w-12 h-12 rounded-xl shrink-0 flex items-center justify-center bg-gradient-to-br from-sk-primary-fixed via-sk-surface-low to-sk-surface-highest dark:from-primary/20 dark:via-muted dark:to-muted font-serif text-xl text-sk-primary/40 dark:text-primary/40">
+                          {r.title[0]?.toUpperCase()}
                         </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      )}
+                      <span className="min-w-0 flex-1 space-y-1">
+                        <span className="flex items-center gap-1.5">
+                          <span className="font-semibold font-sans text-sk-on-surface dark:text-foreground truncate">{r.title}</span>
+                          {r.is_favourite && <Star className="w-3.5 h-3.5 shrink-0 fill-sk-primary text-sk-primary dark:fill-primary dark:text-primary" aria-label="Favourite" />}
+                        </span>
+                        <span className="block text-xs font-sans text-sk-on-surface-variant dark:text-muted-foreground truncate">
+                          {r.user_email ?? 'No account'} · {formatDate(r.created_at)}
+                        </span>
+                        {r.tags && r.tags.length > 0 && (
+                          <span className="hidden sm:flex gap-1 flex-wrap">
+                            {r.tags.slice(0, 4).map((tag) => (
+                              <span key={tag} className={tagClass()}>{tagLabel(tag)}</span>
+                            ))}
+                          </span>
+                        )}
+                      </span>
+                      <ChevronRight className="w-4 h-4 shrink-0 text-sk-outline dark:text-muted-foreground" aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <Pager page={recipesPage} setPage={setRecipesPage} pageSize={PAGE_SIZE} total={recipesTotal} />
         </div>
@@ -544,93 +554,30 @@ export function AdminPanel() {
 
       </div>
 
-      {/* Recipe viewer — read-only, admin can inspect any user's recipe */}
+      {/* Someone's recipe, drawn like the recipe drawer, with the edit form nested inside */}
       {viewingRecipe && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 overflow-y-auto p-4 sm:p-8"
-          onClick={() => setViewingRecipe(null)}
-        >
-          <div className="max-w-3xl mx-auto" onClick={(e) => e.stopPropagation()}>
-            {/* Own surface so the header stays legible over any page behind it */}
-            <div className="flex items-center gap-3 mb-3 text-white bg-zinc-900/90 rounded-xl px-4 py-2.5">
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold truncate">{viewingRecipe.title}</p>
-                <p className="text-xs text-white/80 truncate">{viewingRecipe.ownerEmail ?? '(no user)'}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setViewingRecipe(null)}
-                aria-label="Close recipe"
-                className="shrink-0 p-2 rounded-full bg-white/15 hover:bg-white/25 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {viewingRecipe.recipe && (
-              <div className="flex flex-wrap gap-2 mb-3">
-                <Button size="sm" variant="outline" onClick={() => setEditingRecipe(viewingRecipe.recipe)} className="gap-1.5 bg-white dark:bg-zinc-900">
-                  <Pencil className="w-3.5 h-3.5" /> Edit
-                </Button>
-                <Button size="sm" variant="outline" disabled={rerunning !== null} onClick={() => rerun('tag')} className="gap-1.5 bg-white dark:bg-zinc-900">
-                  <RefreshCw className={`w-3.5 h-3.5 ${rerunning === 'tag' ? 'animate-spin' : ''}`} /> Re-tag
-                </Button>
-                <Button size="sm" variant="outline" disabled={rerunning !== null} onClick={() => rerun('nutrition')} className="gap-1.5 bg-white dark:bg-zinc-900">
-                  <RefreshCw className={`w-3.5 h-3.5 ${rerunning === 'nutrition' ? 'animate-spin' : ''}`} /> Re-analyse nutrition
-                </Button>
-                {viewingRecipe.recipe.tags && viewingRecipe.recipe.tags.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1 ml-auto">
-                    {viewingRecipe.recipe.tags.map((t) => (
-                      <span key={t} className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/15 text-white">{t}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* PublicRecipe omits nutrition, so surface it here for the re-run */}
-            {viewingRecipe.recipe?.nutrition && (
-              <div className="mb-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-4 py-3">
-                <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2">Nutrition (per serving)</p>
-                <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-                  {([
-                    ['Calories', viewingRecipe.recipe.nutrition.calories, 'kcal'],
-                    ['Protein', viewingRecipe.recipe.nutrition.protein_g, 'g'],
-                    ['Carbs', viewingRecipe.recipe.nutrition.carbs_g, 'g'],
-                    ['Fat', viewingRecipe.recipe.nutrition.fat_g, 'g'],
-                    ['Fibre', viewingRecipe.recipe.nutrition.fiber_g, 'g'],
-                  ] as const).map(([label, value, unit]) => (
-                    <span key={label} className="text-zinc-600 dark:text-zinc-300">
-                      {label}{' '}
-                      <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                        {value ?? '—'}{value != null ? unit : ''}
-                      </span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {viewingRecipe.recipe ? (
-              <PublicRecipe recipe={viewingRecipe.recipe} />
-            ) : (
-              <div className="flex items-center justify-center py-24 bg-white dark:bg-zinc-950 rounded-3xl border border-zinc-200 dark:border-zinc-800 text-sk-on-surface-variant dark:text-muted-foreground">
-                <RefreshCw className="w-5 h-5 animate-spin mr-2" /> Loading recipe…
-              </div>
-            )}
-          </div>
-        </div>
+        <AdminRecipeView
+          recipe={viewingRecipe.recipe}
+          title={viewingRecipe.title}
+          imageUrl={viewingRecipe.imageUrl}
+          ownerEmail={viewingRecipe.ownerEmail}
+          onClose={() => { setEditingRecipe(null); setViewingRecipe(null); }}
+          onEdit={setEditingRecipe}
+          onRegenerate={rerun}
+          regenerating={rerunning}
+          nestedDialogs={editingRecipe && (
+            // Saves via the service key, bypassing owner RLS
+            <RecipeForm
+              isOpen
+              editingRecipe={editingRecipe}
+              onClose={() => setEditingRecipe(null)}
+              onSave={handleAdminSave}
+              // attach to the recipe's owner, not the admin doing the editing
+              userId={editingRecipe.user_id ?? null}
+            />
+          )}
+        />
       )}
-
-      {/* Admin recipe editor — saves via the service key, bypassing owner RLS */}
-      <RecipeForm
-        isOpen={editingRecipe !== null}
-        editingRecipe={editingRecipe}
-        onClose={() => setEditingRecipe(null)}
-        onSave={handleAdminSave}
-        // attach to the recipe's owner, not the admin doing the editing
-        userId={editingRecipe?.user_id ?? null}
-      />
 
       {/* Delete user confirmation */}
       {confirmDelete && (
