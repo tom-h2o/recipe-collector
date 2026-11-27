@@ -115,7 +115,9 @@ test('the admin reads reports and marks one as done', async ({ page }) => {
 
   await first.getByRole('button', { name: 'Done' }).click();
   await expect(first.getByRole('button', { name: 'Done' })).toHaveAttribute('aria-pressed', 'true');
-  expect(updates).toEqual([{ id: rows[0].id, status: 'done' }]);
+  // The button changes at once and the save follows it, so wait for the
+  // request rather than reading the list the moment the button has changed.
+  await expect.poll(() => updates).toEqual([{ id: rows[0].id, status: 'done' }]);
   // The badge follows: nothing new is left.
   await expect(tab).not.toContainText('1');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
