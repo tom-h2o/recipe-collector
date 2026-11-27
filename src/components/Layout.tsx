@@ -42,10 +42,19 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
     <>
       {/* Sticky header — full-width, independent of content padding */}
       <header className="sticky top-0 z-40 w-full glass-bar pt-[var(--safe-top)] pl-[var(--safe-left)] pr-[var(--safe-right)] print:static print:border-0 print:p-0">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-10 h-16 sm:h-[4.5rem] grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:gap-4">
+        {/* Two columns below lg, three from lg. With three throughout, the
+            hidden desktop tabs left the buttons in the middle column and an
+            empty one after it, whose gap held them short of the right margin.
+            At 360 px the row holds 328 px: the name and five 36 px buttons
+            only fit with no gaps between the buttons and a smaller name below
+            375 px (tests/e2e/headerFit.spec.ts). Narrower still (an iPhone
+            with Display Zoom is 320 px), the name is cut short rather than
+            the page scrolling sideways. */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-10 h-16 sm:h-[4.5rem] grid grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[auto_1fr_auto] items-center gap-2 sm:gap-4">
 
-          {/* Branding */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* Branding. Free to shrink below lg only: from lg the desktop tabs
+              take their full width as well, and the name gave way to them. */}
+          <div className="flex min-w-0 lg:min-w-max items-center gap-2 sm:gap-3">
             <svg className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
               <circle cx="11" cy="11" r="7" stroke="#315f3b" strokeWidth="2.5" fill="none"/>
               <circle cx="11" cy="11" r="3" fill="#315f3b"/>
@@ -54,8 +63,8 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
               <line x1="26" y1="24.5" x2="29" y2="21.5" stroke="#315f3b" strokeWidth="2" strokeLinecap="round"/>
               <path d="M7 4 Q11 1 15 5 Q11 8 7 4Z" fill="#bcefc0" opacity="0.8"/>
             </svg>
-            <div className="flex flex-col leading-none">
-              <h1 className="font-serif text-lg sm:text-xl font-normal tracking-tight text-sk-primary dark:text-primary">
+            <div className="flex min-w-0 flex-col leading-none">
+              <h1 className="truncate font-serif text-base min-[375px]:text-lg sm:text-xl font-normal tracking-tight text-sk-primary dark:text-primary">
                 Speisekammer
               </h1>
               <span className="hidden sm:block text-[10px] font-sans font-medium uppercase tracking-[0.15em] text-sk-on-surface-variant dark:text-muted-foreground">
@@ -65,7 +74,13 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
           </div>
 
           {/* Desktop nav tabs: a glass capsule, with a tinted pill that slides
-              to the current tab instead of each tab painting its own. */}
+              to the current tab instead of each tab painting its own.
+              The row stops growing at 1152 px (max-w-6xl: 1072 px inside the
+              margins), so the longer labels and wider padding from xl come out
+              of the same room as below it. With xl:px-5 tabs and a labelled
+              Suggest, the admin's buttons ran 63 px past the right margin,
+              102 px with a three-digit Vault and a two-digit Inbox
+              (tests/e2e/headerFit.spec.ts). */}
           <div className="hidden lg:flex justify-center">
             <div ref={desktopTabs} className="relative flex glass rounded-full p-1 gap-0.5">
               <span aria-hidden="true" className="tab-pill" data-ready={desktopPill.ready} style={desktopPill.style} />
@@ -74,7 +89,7 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
                   key={view}
                   onClick={() => onSetView(view)}
                   aria-current={activeView === view ? 'page' : undefined}
-                  className={`relative z-10 px-2.5 xl:px-5 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors duration-200 flex items-center gap-1.5 ${
+                  className={`relative z-10 px-2.5 xl:px-3.5 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors duration-200 flex items-center gap-1.5 ${
                     activeView === view
                       ? 'text-sk-primary dark:text-primary'
                       : 'text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary'
@@ -107,7 +122,7 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
                 <button
                   onClick={() => onSetView('admin')}
                   aria-current={activeView === 'admin' ? 'page' : undefined}
-                  className={`relative z-10 px-2.5 xl:px-5 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors duration-200 flex items-center gap-1.5 ${
+                  className={`relative z-10 px-2.5 xl:px-3.5 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors duration-200 flex items-center gap-1.5 ${
                     activeView === 'admin'
                       ? 'text-sk-primary dark:text-primary'
                       : 'text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary'
@@ -119,15 +134,22 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
             </div>
           </div>
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-1 sm:gap-2 justify-end">
+          {/* Action buttons. No gap between them on a phone: the moon and the
+              gear are bare icons with 8 px of padding, so they still read as
+              spaced; only the two filled circles at the end keep 4 px apart. */}
+          <div className="flex items-center gap-0 sm:gap-2 justify-end">
+            {/* Labelled only between sm and lg, where there are no tabs. From
+                lg it is a round icon, as on a phone: with its label, the
+                admin's header with a full Vault and Inbox ran 47 px past the
+                margin at 1024 px and the page scrolled sideways. Its title
+                still names it. */}
             <button
               onClick={onOpenSuggest}
-              className="inline-flex items-center justify-center gap-2 bg-sk-secondary-container hover:bg-[#f0b48a] dark:bg-secondary dark:hover:bg-secondary/80 text-[#794e2e] dark:text-secondary-foreground font-semibold rounded-full transition-all duration-200 hover:scale-[1.02] h-9 sm:h-10 text-sm w-9 sm:w-auto sm:px-5"
+              className="inline-flex items-center justify-center gap-2 bg-sk-secondary-container hover:bg-[#f0b48a] dark:bg-secondary dark:hover:bg-secondary/80 text-[#794e2e] dark:text-secondary-foreground font-semibold rounded-full transition-all duration-200 hover:scale-[1.02] h-9 sm:h-10 text-sm w-9 sm:w-auto sm:px-5 lg:w-10 lg:px-0"
               title="Suggest a recipe"
             >
               <Wand2 className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline">Suggest</span>
+              <span className="hidden sm:inline lg:hidden">Suggest</span>
             </button>
             <button
               onClick={toggle}
@@ -147,7 +169,7 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
               onClick={onAddRecipe}
               aria-label="Add recipe"
               title="Add recipe"
-              className="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/80 text-white dark:text-primary-foreground font-semibold rounded-full shadow-ambient transition-all duration-200 hover:scale-[1.02] h-9 sm:h-10 text-sm w-9 sm:w-auto sm:px-6"
+              className="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/80 text-white dark:text-primary-foreground font-semibold rounded-full shadow-ambient transition-all duration-200 hover:scale-[1.02] h-9 sm:h-10 text-sm w-9 sm:w-auto sm:px-6 mr-1 sm:mr-0"
             >
               <Plus className="w-4 h-4 shrink-0" />
               {/* "Add" alone between 1024 and 1280 px, where the desktop tabs

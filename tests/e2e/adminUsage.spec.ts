@@ -95,10 +95,8 @@ test('says so, and offers a retry, when the report cannot be made', async ({ pag
   await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible();
 });
 
-// 375, like the other phone checks (a11y.spec.ts). At 360 the page header is
-// already 2px too wide, whichever tab is open.
 test('fits a phone without scrolling sideways', async ({ page }) => {
-  await openUsage(page, { width: 375, height: 812 });
+  await openUsage(page, { width: 360, height: 780 });
   await expect(page.getByRole('figure').first()).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
