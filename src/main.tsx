@@ -8,7 +8,7 @@ import '@fontsource-variable/newsreader/wght-italic.css'
 import '@fontsource-variable/manrope'
 import './index.css'
 import App from './App.tsx'
-import { initSentry } from './lib/sentry'
+import { initSentry, reactRootErrorHooks } from './lib/sentry'
 import { registerServiceWorker } from './lib/registerServiceWorker'
 import { recoverFromStaleChunks } from './lib/recoverFromStaleChunks'
 import { initPressFeedback } from './lib/pressFeedback'
@@ -29,7 +29,9 @@ registerServiceWorker()
 // Touch feedback for everything tappable; the styles are in index.css.
 initPressFeedback()
 
-createRoot(document.getElementById('root')!).render(
+// The error hooks report to Sentry what React handles itself, including what
+// the boundary below catches, which would otherwise never be reported.
+createRoot(document.getElementById('root')!, reactRootErrorHooks).render(
   <StrictMode>
     {/* The lazy views in App sit under no other boundary. Without this one a
         view whose file will not load unmounts everything: a white page. */}

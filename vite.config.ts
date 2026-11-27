@@ -2,9 +2,29 @@ import path from "path"
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { sentryVitePlugin } from '@sentry/bundler-plugins/vite'
+
+/**
+ * Source maps for Sentry, only when SENTRY_AUTH_TOKEN is set (Vercel's
+ * production and preview builds). They are uploaded to the speisekammer-web
+ * project and deleted from dist/ before anything is deployed, and 'hidden'
+ * leaves no sourceMappingURL in the code: the source never becomes public.
+ * Without the token (local builds, CI) no maps are made at all.
+ */
+const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN
+const release = process.env.VERCEL_GIT_COMMIT_SHA ?? ''
 
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    // The commit and Vercel environment, for src/lib/sentry.ts (declared in
+    // src/sentry-build.d.ts). Empty outside a Vercel build.
+    __SENTRY_RELEASE__: JSON.stringify(release),
+    __SENTRY_ENVIRONMENT__: JSON.stringify(process.env.VERCEL_ENV ?? ''),
+  },
+  build: {
+    sourcemap: sentryAuthToken ? 'hidden' : false,
+  },
   plugins: [
     react(),
     VitePWA({
@@ -89,6 +109,17 @@ export default defineConfig({
         ],
       },
     }),
+    // Last, as Sentry's docs require, so it sees the final bundle.
+    ...(sentryAuthToken
+      ? [sentryVitePlugin({
+          org: 'tom-enterprise',
+          project: 'speisekammer-web',
+          authToken: sentryAuthToken,
+          release: release ? { name: release } : undefined,
+          sourcemaps: { filesToDeleteAfterUpload: ['./dist/**/*.map'] },
+          telemetry: false,
+        })]
+      : []),
   ],
   resolve: {
     alias: {
