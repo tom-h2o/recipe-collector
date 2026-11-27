@@ -132,6 +132,11 @@ test('the list and the recipe fit a phone without scrolling sideways', async ({ 
   await list.getByRole('button', { name: /Classic Margherita Pizza/ }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('button', { name: 'Regenerate nutrition' })).toBeInViewport();
+  // Measured once the dialog has finished opening: until then it is still
+  // moving into place, and a box read mid-way lies partly off the screen
+  // (as safeArea.spec.ts found for every dialog).
+  await page.evaluate(() =>
+    Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined))).then(() => undefined));
   const box = await dialog.boundingBox();
   expect(box!.x).toBeGreaterThanOrEqual(0);
   expect(box!.x + box!.width).toBeLessThanOrEqual(375);
