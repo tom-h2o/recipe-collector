@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { installMockBackend } from './support/mockBackend';
+import { openAdmin, openSettings } from './support/nav';
 
 /**
  * The tab bars in Settings and on the admin dashboard (SegmentedTabs). On a
@@ -26,7 +27,7 @@ for (const width of [375, 390]) {
     await page.setViewportSize({ width, height: 800 });
     await installMockBackend(page);
     await page.goto('/');
-    await page.getByTitle('Settings').click();
+    await openSettings(page);
 
     const tabs = page.getByRole('tablist', { name: 'Settings sections' });
     await expect(tabs.getByRole('tab')).toHaveCount(4);
@@ -43,7 +44,7 @@ for (const width of [375, 390]) {
 test('Settings: arrow keys move between tabs, and the pill follows', async ({ page }) => {
   await installMockBackend(page);
   await page.goto('/');
-  await page.getByTitle('Settings').click();
+  await openSettings(page);
 
   const general = page.getByRole('tab', { name: 'General' });
   await expect(general).toHaveAttribute('aria-selected', 'true');
@@ -71,7 +72,7 @@ test('Settings: arrow keys move between tabs, and the pill follows', async ({ pa
 test('Settings: the AI models have their own tab, with Save for the admin only', async ({ page }) => {
   await installMockBackend(page);
   await page.goto('/');
-  await page.getByTitle('Settings').click();
+  await openSettings(page);
 
   // General is the everyday things: no model pickers in it any more.
   await expect(page.getByRole('tabpanel')).toContainText('Temperature Unit');
@@ -89,7 +90,7 @@ test('Settings: the AI models have their own tab, with Save for the admin only',
 test('Settings: anyone else reads the models, with nothing to save', async ({ page }) => {
   await installMockBackend(page, { email: 'cook@example.com' });
   await page.goto('/');
-  await page.getByTitle('Settings').click();
+  await openSettings(page);
   await page.getByRole('tab', { name: 'AI models' }).click();
   await expect(page.getByRole('list', { name: 'AI model per task' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save Settings' })).toHaveCount(0);
@@ -104,7 +105,7 @@ test('Admin: the tabs scroll on a phone instead of squeezing, and the chosen one
   }));
   await page.goto('/');
   await expect(page.getByText('Classic Margherita Pizza')).toBeVisible();
-  await page.getByRole('navigation').getByRole('button', { name: 'Admin' }).click();
+  await openAdmin(page);
 
   const tabs = page.getByRole('tablist', { name: 'Admin sections' });
   // Overview, Usage, Feedback, Users, Recipes, AI Logs, System.

@@ -1,19 +1,27 @@
-import { useCallback, useRef, useState } from 'react';
-import { Check, ChevronDown, X } from 'lucide-react';
-import { AnchoredMenu } from '@/components/AnchoredMenu';
-import { DIRECT_FILTERS } from '@/lib/constants';
+import { useState } from 'react';
+import { SlidersHorizontal, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Sheet } from '@/components/Sheet';
+import { FAVOURITES_FILTER, SHARED_FILTER, QUICK_TAG } from '@/lib/constants';
 import { NEW_FROM_IPHONE } from '@/store/recipeStore';
 import { MENU_GROUPS, TagIcon, chipClass, chosenInGroup, setGroupFilter, tagLabel, toggleFilter } from '@/lib/tags';
 
 /**
- * The vault's filters: Favourites, Shared and Under 30 min as chips of their
- * own, every other tag in a menu per group (Diet, Cuisine, Meal, Main
- * ingredient, More). They combine: Vegetarian and Italian shows the recipes
- * that are both. A group's chip shows what was chosen in it, with an ✕.
+ * The vault's filters. In the row: one **Filters** button for the tags, what
+ * was chosen there as chips with an ✕ right beside it (so a choice is on
+ * screen on a phone, not scrolled away), then Favourites and Under 30 min as
+ * chips of their own, and Shared at the end. They combine: Vegetarian
+ * and Italian shows the recipes that are both.
  *
- * All 31 tags as chips was too many for a row; seven of them as chips left the
- * other 24 reachable only by tapping a tag on some card. One row that scrolls
- * sideways on a phone, Clear first so it never scrolls out of sight.
+ * The Filters button opens a sheet with all tags in view at once, by group
+ * (Diet, Cuisine, Meal, Main ingredient, More), one choice per group. There
+ * used to be a menu per group in the row; on a phone only the first of the
+ * five fitted on screen, and the rest had to be scrolled to before anyone
+ * knew they were there. Shared was the second chip: it is a property of how a
+ * recipe is published, not a kind of recipe, so it now comes last.
+ *
+ * One row that scrolls sideways on a phone, Clear first so it never scrolls
+ * out of sight.
  */
 interface Props {
   active: readonly string[];
@@ -26,29 +34,112 @@ interface Props {
 }
 
 export function FilterBar({ active, onChange, showNew, searching, onClearAll }: Props) {
+  const [open, setOpen] = useState(false);
+  // What the sheet holds: one chosen tag per group, in the groups' order.
+  const chosen = MENU_GROUPS
+    .map((group) => ({ group, tag: chosenInGroup(active, group.id) }))
+    .filter((c): c is { group: typeof MENU_GROUPS[number]; tag: string } => c.tag !== null);
+
   return (
-    <div role="group" aria-label="Filters" className="flex gap-2 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible">
-      {(searching || active.length > 0) && (
-        <button type="button" onClick={onClearAll} className={chipClass(false)}>
-          <X className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> Clear
+    <>
+      <div role="group" aria-label="Filters" className="flex gap-2 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible">
+        {(searching || active.length > 0) && (
+          // A bare ✕ on a phone, so what was chosen stays on screen beside it.
+          <button type="button" onClick={onClearAll} aria-label="Clear" title="Clear search and filters" className={`${chipClass(false)} max-sm:w-8 max-sm:justify-center max-sm:px-0`}>
+            <X className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> <span className="max-sm:hidden">Clear</span>
+          </button>
+        )}
+        {showNew && (
+          <DirectChip filter={NEW_FROM_IPHONE} active={active.includes(NEW_FROM_IPHONE)} highlight onClick={() => onChange(toggleFilter(active, NEW_FROM_IPHONE))} />
+        )}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-haspopup="dialog"
+          aria-label={chosen.length > 0 ? `Filters, ${chosen.length} chosen` : 'Filters'}
+          className={chipClass(false)}
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          Filters
+          {chosen.length > 0 && (
+            <span aria-hidden="true" className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-sk-primary dark:bg-primary px-1 text-[10px] font-bold text-white dark:text-primary-foreground">
+              {chosen.length}
+            </span>
+          )}
         </button>
-      )}
-      {showNew && (
-        <DirectChip filter={NEW_FROM_IPHONE} active={active.includes(NEW_FROM_IPHONE)} highlight onClick={() => onChange(toggleFilter(active, NEW_FROM_IPHONE))} />
-      )}
-      {DIRECT_FILTERS.map((f) => (
-        <DirectChip key={f} filter={f} active={active.includes(f)} onClick={() => onChange(toggleFilter(active, f))} />
-      ))}
-      {MENU_GROUPS.map((group) => (
-        <GroupChip
-          key={group.id}
-          label={group.label}
-          tags={group.tags}
-          chosen={chosenInGroup(active, group.id)}
-          onChoose={(tag) => onChange(setGroupFilter(active, group.id, tag))}
-        />
-      ))}
-    </div>
+        {chosen.map(({ group, tag }) => (
+          // Two buttons in one pill: back to the sheet, or drop this one.
+          <span key={group.id} className={`${chipClass(true)} pr-1`}>
+            <button type="button" onClick={() => setOpen(true)} aria-label={`${group.label}: ${tagLabel(tag)}`} className="inline-flex items-center gap-1.5 h-full">
+              <TagIcon tag={tag} className="w-3.5 h-3.5 shrink-0" />
+              {tagLabel(tag)}
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange(setGroupFilter(active, group.id, null))}
+              aria-label={`Clear ${group.label.toLowerCase()} filter`}
+              className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/10"
+            >
+              <X className="w-3.5 h-3.5" aria-hidden="true" />
+            </button>
+          </span>
+        ))}
+        {[FAVOURITES_FILTER, QUICK_TAG].map((f) => (
+          <DirectChip key={f} filter={f} active={active.includes(f)} onClick={() => onChange(toggleFilter(active, f))} />
+        ))}
+        <DirectChip filter={SHARED_FILTER} active={active.includes(SHARED_FILTER)} onClick={() => onChange(toggleFilter(active, SHARED_FILTER))} />
+      </div>
+
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Filters"
+        description="One per group. Together they narrow the list: Vegetarian and Italian shows recipes that are both."
+      >
+        <div className="space-y-5">
+          {MENU_GROUPS.map((group) => {
+            const current = chosenInGroup(active, group.id);
+            return (
+              <section key={group.id} role="group" aria-label={group.label} className="space-y-2">
+                <h3 className="text-[11px] font-sans font-semibold uppercase tracking-[0.12em] text-sk-on-surface-variant dark:text-muted-foreground">
+                  {group.label}
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {group.tags.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      aria-pressed={current === tag}
+                      // Tapping the chosen one again takes it off.
+                      onClick={() => onChange(setGroupFilter(active, group.id, current === tag ? null : tag))}
+                      className={chipClass(current === tag)}
+                    >
+                      <TagIcon tag={tag} className="w-3.5 h-3.5 shrink-0" />
+                      {tagLabel(tag)}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+        {/* Stays in reach while the tags scroll under it. */}
+        <div className="sticky bottom-0 -mx-5 mt-5 flex gap-2 bg-white dark:bg-card px-5 pt-3 pb-1 border-t border-sk-outline-variant/40 dark:border-border">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={chosen.length === 0}
+            onClick={() => onChange(active.filter((f) => !chosen.some((c) => c.tag === f)))}
+            className="flex-1 rounded-full"
+          >
+            Clear
+          </Button>
+          <Button type="button" onClick={() => setOpen(false)} className="flex-1 rounded-full bg-sk-primary hover:bg-sk-primary-container text-white dark:text-primary-foreground border-0">
+            Show recipes
+          </Button>
+        </div>
+      </Sheet>
+    </>
   );
 }
 
@@ -58,66 +149,5 @@ function DirectChip({ filter, active, highlight = false, onClick }: { filter: st
       <TagIcon tag={filter} className="w-3.5 h-3.5 shrink-0" />
       {tagLabel(filter)}
     </button>
-  );
-}
-
-const MENU_ITEM = 'w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-sm font-sans text-sk-on-surface dark:text-foreground hover:bg-sk-surface-low/80 dark:hover:bg-white/[0.06] transition-colors';
-
-/** One group's chip and its menu. Chosen: the chip names the tag, with an ✕ beside it. */
-function GroupChip({ label, tags, chosen, onChoose }: { label: string; tags: readonly string[]; chosen: string | null; onChoose: (tag: string | null) => void }) {
-  const [open, setOpen] = useState(false);
-  const anchor = useRef<HTMLButtonElement>(null);
-  const close = useCallback(() => setOpen(false), []);
-  const choose = (tag: string | null) => { onChoose(tag); close(); };
-
-  const trigger = (
-    <button
-      ref={anchor}
-      type="button"
-      aria-haspopup="menu"
-      aria-expanded={open}
-      aria-label={chosen ? `${label}: ${tagLabel(chosen)}` : label}
-      onClick={() => setOpen((v) => !v)}
-      className={chosen ? 'inline-flex items-center gap-1.5 h-full' : chipClass(false)}
-    >
-      {chosen && <TagIcon tag={chosen} className="w-3.5 h-3.5 shrink-0" />}
-      {chosen ? tagLabel(chosen) : label}
-      <ChevronDown className={`w-3.5 h-3.5 shrink-0 opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
-    </button>
-  );
-
-  return (
-    <>
-      {chosen ? (
-        // The chip is two buttons in one pill: open the menu, or clear the choice.
-        <span className={`${chipClass(true)} pr-1`}>
-          {trigger}
-          <button
-            type="button"
-            onClick={() => onChoose(null)}
-            aria-label={`Clear ${label.toLowerCase()} filter`}
-            className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/10"
-          >
-            <X className="w-3.5 h-3.5" aria-hidden="true" />
-          </button>
-        </span>
-      ) : trigger}
-      <AnchoredMenu open={open} onClose={close} anchorRef={anchor} align="start" className="w-56 glass glass-menu rounded-2xl p-1.5 flex flex-col gap-0.5">
-        <button type="button" role="menuitemradio" aria-checked={!chosen} onClick={() => choose(null)} className={`${MENU_ITEM} text-sk-on-surface-variant dark:text-muted-foreground`}>
-          <span className="w-4 shrink-0" />
-          Show all
-          {!chosen && <Check className="w-4 h-4 ml-auto text-sk-primary dark:text-primary" aria-hidden="true" />}
-        </button>
-        {tags.map((tag) => (
-          <button key={tag} type="button" role="menuitemradio" aria-checked={chosen === tag} onClick={() => choose(tag)} className={MENU_ITEM}>
-            <span className="w-4 shrink-0 flex justify-center text-sk-outline dark:text-muted-foreground">
-              <TagIcon tag={tag} className="w-4 h-4" />
-            </span>
-            {tagLabel(tag)}
-            {chosen === tag && <Check className="w-4 h-4 ml-auto text-sk-primary dark:text-primary" aria-hidden="true" />}
-          </button>
-        ))}
-      </AnchoredMenu>
-    </>
   );
 }

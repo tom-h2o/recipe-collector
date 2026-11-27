@@ -174,7 +174,12 @@ export const MODELS = MODEL_OPTIONS.map((m) => m.id);
  * Every other tag is chosen from its group's menu (TAG_GROUPS). Favourites and
  * Shared are properties of the row, not tags (applyTagFilter in recipeStore).
  */
-export const DIRECT_FILTERS = ['⭐ Favourites', '🔗 Shared', QUICK_TAG] as const;
+/** Filter keys that are not tags: properties of the row (recipeStore's applyTagFilter). */
+export const FAVOURITES_FILTER = '⭐ Favourites';
+export const SHARED_FILTER = '🔗 Shared';
+export { QUICK_TAG };
+/** The chips with a place of their own in the vault's filter row, in its order: Shared comes last. */
+export const DIRECT_FILTERS = [FAVOURITES_FILTER, QUICK_TAG, SHARED_FILTER] as const;
 
 /** The one tag list, shared with the server's tagging prompt: shared/tags.ts. */
 export { AVAILABLE_TAGS, TAG_GROUPS } from '../../shared/tags';

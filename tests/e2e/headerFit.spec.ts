@@ -1,40 +1,36 @@
 import { test, expect, type Page } from '@playwright/test';
 import { installMockBackend, MOCK_RECIPES } from './support/mockBackend';
+import { openAdmin } from './support/nav';
 
 /**
- * The header fits inside the margins the page content uses, at every width.
+ * The header fits inside the margins the page content uses, at every width,
+ * and so does the phone's bottom bar.
  *
- * On a phone: the name and five round buttons (Suggest, theme, Settings, Add
- * recipe, the account menu) in the 328 px a 360 px screen leaves inside the
- * page margins. It was 18 px too wide, which pushed every view 2 px past the
- * screen, so the whole app could be dragged sideways.
+ * On a phone the header is the name and two round buttons: Suggest and Add
+ * recipe. It used to carry five (also light/dark, Settings and the account),
+ * which only fitted a 360 px screen with no gaps between them and a smaller
+ * name. Those three are entries of the account list now, which the bottom
+ * bar's last tab ("You") opens; the admin dashboard is an entry there too,
+ * so the admin's bars are the same as everyone's.
  *
  * On a desktop (from lg, 1024 px) the tabs sit between the name and the
  * buttons, in a row that stops growing at 1152 px (1072 px inside the
- * margins). The admin's fifth tab and the counts on Vault and Inbox are what
- * make it tight. With wider tabs from xl and a labelled Suggest button, the
- * admin's header ran 63 px past the margin from 1280 px, and with a full
- * vault and inbox 102 px there and 47 px at 1024, where the page scrolled.
+ * margins), and the account's avatar is the last control on the right.
  *
  * Checked against the header's content box, not only the page's scroll
- * width: the side margins hid most of these, and at 375 px the buttons ran
- * 3 px into the margin while the page itself still fitted.
- *
- * The admin and everyone else are both checked: on a phone their headers are
- * the same (the admin's extra tab is in the bottom bar), so an admin-only
- * control added later cannot break it unnoticed.
+ * width: the side margins hid most earlier faults, and at 375 px the buttons
+ * once ran 3 px into the margin while the page itself still fitted.
  */
 
-const CONTROLS: (string | RegExp)[] = [
-  // "Suggest a recipe" (its title) as an icon, "Suggest" (its label) from sm to lg.
+const PHONE_CONTROLS: (string | RegExp)[] = [
+  // "Suggest a recipe" as an icon; "Suggest" is its label from sm to lg.
   /^Suggest/,
-  /^Switch to (dark|light) mode$/,
-  'Settings',
   'Add recipe',
-  /^Account menu/,
 ];
+/** From lg the avatar joins them, top right. */
+const DESKTOP_CONTROLS: (string | RegExp)[] = [...PHONE_CONTROLS, /^Account menu/];
 
-/** The desktop tabs; Vault and Inbox carry a count after the label. */
+/** The desktop tabs; Inbox carries a count after the label. */
 const TABS: RegExp[] = [/^Vault/, /Planner$/, /^Shopping$/, /^Inbox/];
 
 const WHO = [
@@ -42,10 +38,7 @@ const WHO = [
   { name: 'everyone else', email: 'cook@example.com' },
 ] as const;
 
-/**
- * The widest the tabs get: a three-digit Vault (the count is the recipes
- * loaded so far, 24 a page) and a two-digit Inbox.
- */
+/** The widest the tabs get: a two-digit Inbox. (The Vault tab no longer counts.) */
 async function fillVaultAndInbox(page: Page) {
   const recipes = Array.from({ length: 120 }, (_, i) => ({ ...MOCK_RECIPES[i % MOCK_RECIPES.length], id: `recipe-${i}` }));
   await page.route('**/rest/v1/recipes?**', (route) =>
@@ -65,11 +58,6 @@ async function open(page: Page, width: number, { email, full = false }: { email?
   if (full) await fillVaultAndInbox(page);
   await page.goto('/');
   await expect(page.getByText('Classic Margherita Pizza').first()).toBeVisible();
-  // Wait for the server's answer on who is the admin, so the header and the
-  // bottom bar are in their final state.
-  const adminTab = page.getByRole('button', { name: /^Admin$/ }).filter({ visible: true });
-  if (email) await expect(adminTab).toHaveCount(0);
-  else await expect(adminTab).toHaveCount(1);
   // Newsreader is what the name is measured in; a fallback serif is narrower.
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
 }
@@ -85,6 +73,7 @@ async function contentBox(page: Page) {
 
 /** Every header control in full, inside the margins the page content uses. */
 async function expectHeaderFits(page: Page, tabs: RegExp[] = []) {
+  const controls = (page.viewportSize()?.width ?? 0) >= 1024 ? DESKTOP_CONTROLS : PHONE_CONTROLS;
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow, 'the page scrolls sideways').toBeLessThanOrEqual(0);
 
@@ -92,13 +81,13 @@ async function expectHeaderFits(page: Page, tabs: RegExp[] = []) {
   const { left, right } = await contentBox(page);
 
   let lastRight = 0;
-  for (const name of CONTROLS) {
+  for (const name of controls) {
     const control = header.getByRole('button', { name });
     await expect(control).toBeVisible();
     const box = (await control.boundingBox())!;
-    // 36 px is what they are on a phone; none may shrink to make room.
-    expect(box.width, `${name} is narrower than 36 px`).toBeGreaterThanOrEqual(36);
-    expect(box.height, `${name} is shorter than 36 px`).toBeGreaterThanOrEqual(36);
+    // 40 px across at every width; none may shrink to make room.
+    expect(box.width, `${name} is narrower than 40 px`).toBeGreaterThanOrEqual(40);
+    expect(box.height, `${name} is shorter than 40 px`).toBeGreaterThanOrEqual(40);
     expect(box.x, `${name} starts in the left margin`).toBeGreaterThanOrEqual(left - 0.5);
     expect(box.x + box.width, `${name} runs into the right margin`).toBeLessThanOrEqual(right + 0.5);
     lastRight = Math.max(lastRight, box.x + box.width);
@@ -132,7 +121,7 @@ for (const who of WHO) {
 
 test('at 360 px the header fits on the admin dashboard too', async ({ page }) => {
   await open(page, 360);
-  await page.getByRole('navigation').getByRole('button', { name: 'Admin' }).click();
+  await openAdmin(page);
   await expect(page.getByText('Admin Dashboard')).toBeVisible();
   await expectHeaderFits(page);
 });
@@ -153,10 +142,13 @@ for (const who of WHO) {
     test(`from 1024 px the tabs and buttons fit, for ${who.name}, ${full ? 'with a full vault and inbox' : 'with a few recipes'}`, async ({ page }) => {
       await open(page, 1024, { email: who.email, full });
       if (full) {
-        await expect(page.locator('header').getByRole('button', { name: /^Vault/ })).toContainText('120');
         await expect(page.locator('header').getByRole('button', { name: /^Inbox/ })).toContainText('12');
+        // The number of recipes loaded so far is not a count of anything to do.
+        await expect(page.locator('header').getByRole('button', { name: /^Vault/ })).toHaveText('Vault');
       }
-      const tabs = who.email ? TABS : [...TABS, /^Admin$/];
+      // The admin dashboard is in the account list, not a tab.
+      await expect(page.locator('header').getByRole('button', { name: /^Admin$/ })).toHaveCount(0);
+      const tabs = TABS;
       // 1024 is the narrowest box; from 1152 it stays 1072 px, and 1280 is
       // where the longer labels and wider tabs start.
       for (const width of [1024, 1280, 1440]) {
@@ -169,3 +161,19 @@ for (const who of WHO) {
     });
   }
 }
+
+for (const who of WHO) {
+  test(`the phone's bottom bar has the same five tabs for ${who.name}, each wide enough for a thumb`, async ({ page }) => {
+    await open(page, 320, { email: who.email });
+    const bar = page.getByRole('navigation');
+    const tabs = bar.getByRole('button');
+    await expect(tabs).toHaveText(['Vault', 'Planner', 'Shopping', 'Inbox', /You$/]);
+    for (const box of await tabs.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().toJSON() as { x: number; width: number; height: number }))) {
+      expect(box.width).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(320);
+    }
+  });
+}
+

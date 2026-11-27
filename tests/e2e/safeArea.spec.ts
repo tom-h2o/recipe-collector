@@ -63,7 +63,8 @@ test.describe('on an iPhone, nothing to tap sits under the status bar or the hom
     // rather than recipes scrolling past behind the clock.
     expect((await header.boundingBox())!.y).toBe(0);
     const buttons = header.getByRole('button');
-    expect(await buttons.count()).toBeGreaterThan(2);
+    // Suggest and Add recipe: the rest moved into the account sheet.
+    expect(await buttons.count()).toBe(2);
     for (const button of await buttons.all()) await expectTappable(button);
 
     // Still true once the page has scrolled and the bar is stuck to the top.
@@ -71,6 +72,19 @@ test.describe('on an iPhone, nothing to tap sits under the status bar or the hom
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
     expect((await header.boundingBox())!.y).toBe(0);
     for (const button of await buttons.all()) await expectTappable(button);
+  });
+
+  test('the account sheet: every entry lies above the home indicator', async ({ page }) => {
+    await openVault(page);
+    await page.getByRole('button', { name: /^Account menu/ }).click();
+    const sheet = page.getByRole('dialog', { name: 'You' });
+    await expect(sheet).toBeVisible();
+    await settle(page);
+    // The sheet itself runs to the bottom edge; what can be tapped does not.
+    const box = (await sheet.boundingBox())!;
+    expect(Math.round(box.y + box.height)).toBe(PHONE.height);
+    for (const entry of await sheet.getByRole('button').all()) await expectTappable(entry);
+    await expectTappable(sheet.getByRole('switch', { name: 'Dark mode' }));
   });
 
   test('the tab bar floats above the home indicator', async ({ page }) => {

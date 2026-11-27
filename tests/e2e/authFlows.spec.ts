@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { MOCK_USER, authStorageKey, installMockBackend } from './support/mockBackend';
+import { openAccount } from './support/nav';
 
 /**
  * Signing in, signing up and getting back into an account (AuthGate, useAuth).
@@ -301,7 +302,7 @@ test('signing out ends the session and returns to the sign-in screen', async ({ 
   await page.goto('/');
   await expect(vault(page)).toBeVisible();
 
-  await page.getByRole('button', { name: /^Account menu/ }).click();
+  await openAccount(page);
   await page.getByRole('button', { name: 'Sign out' }).click();
 
   await expect(signInScreen(page)).toBeVisible();

@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { installMockBackend } from './support/mockBackend';
+import { openAdmin } from './support/nav';
 
 /**
  * The admin System tab. Configuration and reasoning load with the tab and call
@@ -53,8 +54,7 @@ async function openSystemTab(page: Page, viewport = { width: 1280, height: 900 }
   });
   await page.goto('/');
   await expect(page.getByText('Classic Margherita Pizza')).toBeVisible();
-  const nav = viewport.width >= 1024 ? page.locator('header') : page.getByRole('navigation');
-  await nav.getByRole('button', { name: 'Admin' }).click();
+  await openAdmin(page);
   await page.getByRole('tab', { name: 'System' }).click();
   return { posts };
 }
@@ -104,7 +104,7 @@ test('the AI logs show whether each call reasoned', async ({ page }) => {
     ] }) }));
   await page.goto('/');
   await expect(page.getByText('Classic Margherita Pizza')).toBeVisible();
-  await page.locator('header').getByRole('button', { name: 'Admin' }).click();
+  await openAdmin(page);
   await page.getByRole('tab', { name: /AI Logs/ }).click();
   await expect(page.getByRole('columnheader', { name: 'Reasoning' })).toBeVisible();
   await expect(page.getByRole('row').filter({ hasText: 'gemini-4-argon' }).getByText('refused', { exact: true })).toBeVisible();
