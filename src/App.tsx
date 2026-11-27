@@ -187,10 +187,21 @@ export default function App() {
     void recipeImports.markSeen(recipe.id);
   };
 
+  const userId = user?.id ?? null;
   useEffect(() => {
     // A guest on a share link has no vault to search, and the query would come
     // back empty under RLS anyway — so skip the round trip entirely.
     if (isPublicSharePath || isAboutPath) return;
+    // Nobody signed in: nothing to load, and nothing of the last person's to
+    // keep. This effect runs when the app mounts, which is before sign-in, and
+    // it used to load then and never again: under RLS that answer is empty, so
+    // after signing in the vault said it was empty until a filter or the
+    // search happened to refetch. The person's id is a dependency now, so the
+    // list loads when they sign in and reloads if someone else does.
+    if (!userId) {
+      useRecipeStore.setState({ recipes: [], hasMore: false, loading: true, loadError: false });
+      return;
+    }
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
       fetchRecipes(searchQuery, activeFilters, activeCollectionId, membershipsRef.current, sortBy, activeOwnerId);
@@ -198,7 +209,7 @@ export default function App() {
     return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
     // newImportKey: the New-from-photos filter reads the ids from the store,
     // so a change to them must refetch while that filter is on.
-  }, [isPublicSharePath, isAboutPath, searchQuery, activeFilters, activeCollectionId, membershipKey, sortBy, activeOwnerId, fetchRecipes, vaultRefresh, newImportsShown]);
+  }, [isPublicSharePath, isAboutPath, userId, searchQuery, activeFilters, activeCollectionId, membershipKey, sortBy, activeOwnerId, fetchRecipes, vaultRefresh, newImportsShown]);
 
   function openForm(recipe?: Recipe) {
     setEditingRecipe(recipe ?? null);
