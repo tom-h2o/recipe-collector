@@ -1,3 +1,5 @@
+import { t } from '@/i18n';
+
 /**
  * Whether strangers may create an account from inside the app.
  *
@@ -21,6 +23,6 @@ export function isSignupOpen(): boolean {
  */
 export function describeClosedSignup(message: string): string {
   return /signups? not allowed|signup is disabled|signups are disabled/i.test(message)
-    ? 'There is no account for this address. Speisekammer is invitation only for now: ask the person who told you about it.'
+    ? t('There is no account for this address. Speisekammer is invitation only for now: ask the person who told you about it.')
     : message;
 }

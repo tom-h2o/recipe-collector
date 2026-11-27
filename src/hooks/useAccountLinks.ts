@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
+import { msg, t, translateMessage } from '@/i18n';
 import { supabase } from '@/lib/supabase';
 import type { AccountLink, LinkedPerson } from '@/types';
 
@@ -37,7 +38,7 @@ export function useAccountLinks(userId?: string | null, userEmail?: string | nul
       .from('account_links')
       .select('*')
       .order('created_at', { ascending: true });
-    if (error) toast.error('Could not load your connections.');
+    if (error) toast.error(t('Could not load your connections.'));
     setLinks(((data as AccountLink[]) ?? []).map((l) => toLinkedPerson(l, userId, userEmail)));
     setLoading(false);
   }, [userId, userEmail]);
@@ -48,7 +49,7 @@ export function useAccountLinks(userId?: string | null, userEmail?: string | nul
       const target = email.trim().toLowerCase();
       if (!target) return;
       if (target === userEmail.toLowerCase()) {
-        toast.error('You cannot connect to yourself.');
+        toast.error(t('You cannot connect to yourself.'));
         return;
       }
       setBusy(true);
@@ -61,13 +62,13 @@ export function useAccountLinks(userId?: string | null, userEmail?: string | nul
         if (error) {
           // the unique constraint is the common case, and worth naming
           throw new Error(
-            error.code === '23505' ? 'You have already invited that person.' : error.message,
+            error.code === '23505' ? msg('You have already invited that person.') : error.message,
           );
         }
-        toast.success(`Invitation sent to ${target}`);
+        toast.success(t('Invitation sent to {email}', { email: target }));
         await fetchLinks();
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Could not send the invitation.');
+        toast.error(translateMessage(err instanceof Error ? err.message : msg('Could not send the invitation.')));
       } finally {
         setBusy(false);
       }
@@ -86,10 +87,10 @@ export function useAccountLinks(userId?: string | null, userEmail?: string | nul
         // checks the invitation was sent to this account's confirmed address.
         const { error } = await supabase.rpc('accept_account_link', { link_id: linkId });
         if (error) throw new Error(error.message);
-        toast.success('Connected — you can now see each other’s recipes.');
+        toast.success(t('Connected — you can now see each other’s recipes.'));
         await fetchLinks();
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Could not accept the invitation.');
+        toast.error(translateMessage(err instanceof Error ? err.message : msg('Could not accept the invitation.')));
       } finally {
         setBusy(false);
       }
@@ -107,11 +108,11 @@ export function useAccountLinks(userId?: string | null, userEmail?: string | nul
         // invitation stayed where it was.
         const { data, error } = await supabase.from('account_links').delete().eq('id', linkId).select('id');
         if (error) throw new Error(error.message);
-        if (!data || data.length === 0) throw new Error('Could not disconnect. Please reload and try again.');
+        if (!data || data.length === 0) throw new Error(msg('Could not disconnect. Please reload and try again.'));
         setLinks((prev) => prev.filter((l) => l.linkId !== linkId));
-        toast.success('Disconnected');
+        toast.success(t('Disconnected'));
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Could not disconnect.');
+        toast.error(translateMessage(err instanceof Error ? err.message : msg('Could not disconnect.')));
       } finally {
         setBusy(false);
       }
@@ -130,7 +131,7 @@ export function useAccountLinks(userId?: string | null, userEmail?: string | nul
         .from('account_links')
         .update({ [link.myLabelColumn]: label.trim() || null })
         .eq('id', linkId);
-      if (error) { toast.error('Could not save the name.'); return; }
+      if (error) { toast.error(t('Could not save the name.')); return; }
       setLinks((prev) =>
         prev.map((l) => (l.linkId === linkId ? { ...l, label: label.trim() || l.email } : l)),
       );

@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { LinkedPerson } from '@/types';
+import { useT } from '@/i18n';
+import { rich } from '@/i18n/rich';
 
 interface Props {
   connected: LinkedPerson[];
@@ -19,6 +21,7 @@ interface Props {
 function PersonRow({
   person, action, onRename,
 }: { person: LinkedPerson; action: React.ReactNode; onRename?: (label: string) => void }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(person.label === person.email ? '' : person.label);
 
@@ -35,11 +38,11 @@ function PersonRow({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder={person.email}
-              aria-label={`Name for ${person.email}`}
+              aria-label={t('Name for {email}', { email: person.email })}
               className="h-8"
             />
-            <Button type="submit" size="sm" variant="outline">Save</Button>
-            <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
+            <Button type="submit" size="sm" variant="outline">{t('Save')}</Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>{t('Cancel')}</Button>
           </form>
         ) : (
           <>
@@ -49,8 +52,8 @@ function PersonRow({
                 <button
                   type="button"
                   onClick={() => setEditing(true)}
-                  aria-label={`Rename ${person.label}`}
-                  title="Set a name"
+                  aria-label={t('Rename {name}', { name: person.label })}
+                  title={t('Set a name')}
                   className="text-sk-outline hover:text-sk-primary dark:hover:text-primary transition-colors"
                 >
                   <Pencil className="w-3 h-3" />
@@ -76,18 +79,17 @@ function PersonRow({
 export function ConnectionsPanel({
   connected, pendingIncoming, pendingOutgoing, busy, onInvite, onAccept, onDisconnect, onRename,
 }: Props) {
+  const t = useT();
   const [email, setEmail] = useState('');
 
   return (
     <div className="space-y-5 py-2">
       <div className="space-y-2">
         <Label className="font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
-          <Link2 className="w-4 h-4 text-sk-primary dark:text-primary" /> Connected accounts
+          <Link2 className="w-4 h-4 text-sk-primary dark:text-primary" /> {t('Connected accounts')}
         </Label>
         <p className="text-xs text-zinc-600 dark:text-zinc-400">
-          Connecting lets you both browse each other’s recipes and save copies. It shares your
-          <strong> whole recipe collection</strong>, not selected recipes, until you disconnect.
-          Neither of you can edit the other’s recipes.
+          {rich(t, 'Connecting lets you both browse each other’s recipes and save copies. It shares your <b>whole recipe collection</b>, not selected recipes, until you disconnect. Neither of you can edit the other’s recipes.', { b: (text) => <strong>{text}</strong> })}
         </p>
       </div>
 
@@ -99,18 +101,18 @@ export function ConnectionsPanel({
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="their@email.com"
-          aria-label="Email address to connect with"
+          placeholder={t('their@email.com')}
+          aria-label={t('Email address to connect with')}
         />
         <Button type="submit" disabled={busy || !email.trim()} className="gap-1.5 whitespace-nowrap bg-sk-primary hover:bg-sk-primary-container text-white dark:text-primary-foreground border-0">
-          <UserPlus className="w-3.5 h-3.5" /> Invite
+          <UserPlus className="w-3.5 h-3.5" /> {t('Invite')}
         </Button>
       </form>
 
       {pendingIncoming.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-bold uppercase tracking-wider text-sk-on-surface-variant dark:text-muted-foreground">
-            Invitations for you
+            {t('Invitations for you')}
           </p>
           {pendingIncoming.map((p) => (
             <PersonRow
@@ -119,9 +121,9 @@ export function ConnectionsPanel({
               action={
                 <>
                   <Button size="sm" disabled={busy} onClick={() => onAccept(p.linkId)} className="gap-1 bg-sk-primary hover:bg-sk-primary-container text-white dark:text-primary-foreground border-0">
-                    <Check className="w-3 h-3" /> Accept
+                    <Check className="w-3 h-3" /> {t('Accept')}
                   </Button>
-                  <Button size="sm" variant="outline" disabled={busy} onClick={() => onDisconnect(p.linkId)} aria-label={`Decline invitation from ${p.label}`}>
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => onDisconnect(p.linkId)} aria-label={t('Decline invitation from {name}', { name: p.label })}>
                     <X className="w-3 h-3" />
                   </Button>
                 </>
@@ -134,7 +136,7 @@ export function ConnectionsPanel({
       {connected.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-bold uppercase tracking-wider text-sk-on-surface-variant dark:text-muted-foreground">
-            Connected
+            {t('Connected')}
           </p>
           {connected.map((p) => (
             <PersonRow
@@ -143,7 +145,7 @@ export function ConnectionsPanel({
               onRename={(label) => onRename(p.linkId, label)}
               action={
                 <Button size="sm" variant="outline" disabled={busy} onClick={() => onDisconnect(p.linkId)}>
-                  Disconnect
+                  {t('Disconnect')}
                 </Button>
               }
             />
@@ -154,7 +156,7 @@ export function ConnectionsPanel({
       {pendingOutgoing.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-bold uppercase tracking-wider text-sk-on-surface-variant dark:text-muted-foreground">
-            Waiting for them to accept
+            {t('Waiting for them to accept')}
           </p>
           {pendingOutgoing.map((p) => (
             <PersonRow
@@ -162,7 +164,7 @@ export function ConnectionsPanel({
               person={p}
               action={
                 <Button size="sm" variant="outline" disabled={busy} onClick={() => onDisconnect(p.linkId)}>
-                  Cancel
+                  {t('Cancel')}
                 </Button>
               }
             />
@@ -172,7 +174,7 @@ export function ConnectionsPanel({
 
       {connected.length === 0 && pendingIncoming.length === 0 && pendingOutgoing.length === 0 && (
         <p className="text-sm text-sk-outline dark:text-muted-foreground">
-          No connections yet. Invite someone you cook with.
+          {t('No connections yet. Invite someone you cook with.')}
         </p>
       )}
     </div>

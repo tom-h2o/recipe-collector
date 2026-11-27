@@ -3,6 +3,8 @@ import { RefreshCw, ChevronDown, ChevronRight, CheckCircle, XCircle, Clock } fro
 import { supabase } from '@/lib/supabase';
 import type { ThinkingState } from '@/types';
 import { ReasoningTag } from '@/components/ReasoningTag';
+import { dateLocale, t as translate, translateMessage, useT } from '@/i18n';
+import { rich } from '@/i18n/rich';
 
 interface GeminiLog {
   id: string;
@@ -34,15 +36,16 @@ const ENDPOINT_COLORS: Record<string, string> = {
 function relativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
   const s = Math.floor(diffMs / 1000);
-  if (s < 60) return `${s}s ago`;
+  if (s < 60) return translate('{n}s ago', { n: s });
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
+  if (m < 60) return translate('{n}m ago', { n: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return new Date(iso).toLocaleDateString();
+  if (h < 24) return translate('{n}h ago', { n: h });
+  return new Date(iso).toLocaleDateString(dateLocale());
 }
 
 export function GeminiLogs() {
+  const t = useT();
   const [logs, setLogs] = useState<GeminiLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -77,15 +80,15 @@ export function GeminiLogs() {
       <div className="flex items-center justify-between">
         <div className="flex gap-4 text-sm">
           <span className="text-zinc-500 dark:text-zinc-400">
-            <span className="font-bold text-zinc-900 dark:text-zinc-100">{logs.length}</span> calls
+            {rich(t, '<b>{n}</b> calls', { b: (text) => <span className="font-bold text-zinc-900 dark:text-zinc-100">{text}</span> }, { n: logs.length })}
           </span>
           <span className="text-zinc-500 dark:text-zinc-400">
-            <span className={`font-bold ${successRate >= 90 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>{successRate}%</span> success
+            {rich(t, '<b>{rate}%</b> success', { b: (text) => <span className={`font-bold ${successRate >= 90 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>{text}</span> }, { rate: successRate })}
           </span>
           {avgLatency > 0 && (
             <span className="text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
               <Clock className="w-3.5 h-3.5" />
-              <span className="font-bold text-zinc-900 dark:text-zinc-100">{avgLatency > 1000 ? `${(avgLatency / 1000).toFixed(1)}s` : `${avgLatency}ms`}</span> avg
+              <span>{rich(t, '<b>{time}</b> avg', { b: (text) => <span className="font-bold text-zinc-900 dark:text-zinc-100">{text}</span> }, { time: avgLatency > 1000 ? `${(avgLatency / 1000).toFixed(1)}s` : `${avgLatency}ms` })}</span>
             </span>
           )}
         </div>
@@ -95,7 +98,7 @@ export function GeminiLogs() {
           className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
+          {t('Refresh')}
         </button>
       </div>
 
@@ -108,16 +111,16 @@ export function GeminiLogs() {
         </div>
       ) : logs.length === 0 ? (
         <div className="text-center py-10 text-zinc-400 dark:text-zinc-600 text-sm">
-          No API calls yet. Extract a recipe to see logs here.
+          {t('No API calls yet. Extract a recipe to see logs here.')}
         </div>
       ) : (
         <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
           {/* Header */}
           <div className="grid grid-cols-[1fr_80px_100px_60px_48px] gap-2 px-3 py-2 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-            <span>Time</span>
-            <span>Endpoint</span>
-            <span>Model</span>
-            <span>Status</span>
+            <span>{t('Time')}</span>
+            <span>{t('Endpoint')}</span>
+            <span>{t('Model')}</span>
+            <span>{t('Status')}</span>
             <span className="text-right">ms</span>
           </div>
 
@@ -142,15 +145,15 @@ export function GeminiLogs() {
                   <span
                     className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate font-mono"
                     title={log.model_version && log.model_version !== log.model
-                      ? `${log.model} resolved to ${log.model_version}`
+                      ? t('{model} resolved to {version}', { model: log.model, version: log.model_version })
                       : log.model}
                   >
                     {(log.model_version ?? log.model).replace('gemini-', '')}
                   </span>
                   <span>
                     {log.status === 'success'
-                      ? <CheckCircle className="w-4 h-4 text-green-500" />
-                      : <XCircle className="w-4 h-4 text-red-500" />
+                      ? <CheckCircle className="w-4 h-4 text-green-500" aria-label={t('Succeeded')} />
+                      : <XCircle className="w-4 h-4 text-red-500" aria-label={t('Failed')} />
                     }
                   </span>
                   <span className="text-right text-xs font-mono text-zinc-400">
@@ -162,12 +165,12 @@ export function GeminiLogs() {
                   <div className="px-3 pb-3 pt-1 space-y-2 bg-zinc-50 dark:bg-zinc-900/70 border-t border-zinc-100 dark:border-zinc-800 max-h-96 overflow-y-auto">
                     {log.thinking && (
                       <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-                        Reasoning <ReasoningTag state={log.thinking} />
+                        {t('Reasoning')} <ReasoningTag state={log.thinking} />
                       </p>
                     )}
                     {log.input && (
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Input Prompt</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">{t('Input Prompt')}</p>
                         <pre className="text-xs text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-2 whitespace-pre-wrap break-words font-mono leading-relaxed">
                           {log.input}
                         </pre>
@@ -175,7 +178,7 @@ export function GeminiLogs() {
                     )}
                     {log.output && (
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Output Response</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">{t('Output Response')}</p>
                         <pre className="text-xs text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-2 whitespace-pre-wrap break-words font-mono leading-relaxed">
                           {log.output}
                         </pre>
@@ -183,9 +186,9 @@ export function GeminiLogs() {
                     )}
                     {log.error_message && (
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-red-400 mb-1">Error</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-red-400 mb-1">{t('Error')}</p>
                         <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg p-2">
-                          {log.error_message}
+                          {translateMessage(log.error_message)}
                         </p>
                       </div>
                     )}

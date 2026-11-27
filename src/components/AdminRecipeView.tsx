@@ -4,6 +4,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { parseIngredients } from '@/lib/recipeUtils';
 import { TagIcon, tagClass, tagLabel } from '@/lib/tags';
 import type { Recipe } from '@/types';
+import { useT, tn, dateLocale } from '@/i18n';
+import { rich } from '@/i18n/rich';
 import {
   IngredientTable, NutritionTiles, RecipeHero, RecipeTimes, SectionLabel, SectionRule, SourceLink, StepList,
 } from '@/components/recipe/RecipeParts';
@@ -33,7 +35,7 @@ const ACTION =
 
 function addedOn(iso: string | null | undefined): string | null {
   if (!iso) return null;
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return new Date(iso).toLocaleDateString(dateLocale('en-GB'), { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 /**
@@ -47,6 +49,7 @@ function addedOn(iso: string | null | undefined): string | null {
  * This view is for checking and fixing a recipe, which needs none of them.
  */
 export function AdminRecipeView({ recipe, title, imageUrl, ownerEmail, onClose, onEdit, onRegenerate, regenerating, nestedDialogs }: Props) {
+  const t = useT();
   const ingredients = recipe ? parseIngredients(recipe.ingredients) : [];
   const steps = (recipe?.instructions ?? '').split(/\n+/).map((s) => s.trim()).filter(Boolean);
   const added = addedOn(recipe?.created_at);
@@ -61,8 +64,8 @@ export function AdminRecipeView({ recipe, title, imageUrl, ownerEmail, onClose, 
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close recipe"
-          title="Close"
+          aria-label={t('Close recipe')}
+          title={t('Close')}
           className="absolute top-3 right-3 z-20 p-2.5 rounded-full glass glass-dark text-white"
         >
           <X className="w-4 h-4" />
@@ -80,9 +83,11 @@ export function AdminRecipeView({ recipe, title, imageUrl, ownerEmail, onClose, 
               <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
                 <ShieldCheck className="w-4 h-4 text-sk-primary dark:text-primary shrink-0" aria-hidden="true" />
                 <span>
-                  {ownerEmail ? <>Belongs to <span className="font-semibold text-sk-on-surface dark:text-foreground break-all">{ownerEmail}</span></> : 'Belongs to no account'}
+                  {ownerEmail
+                    ? rich(t, 'Belongs to <b>{email}</b>', { b: (text) => <span className="font-semibold text-sk-on-surface dark:text-foreground break-all">{text}</span> }, { email: ownerEmail })
+                    : t('Belongs to no account')}
                 </span>
-                {added && <><span aria-hidden="true" className="text-sk-outline-variant">·</span><span>added {added}</span></>}
+                {added && <><span aria-hidden="true" className="text-sk-outline-variant">·</span><span>{t('added {date}', { date: added })}</span></>}
               </p>
 
               {recipe && (
@@ -92,15 +97,15 @@ export function AdminRecipeView({ recipe, title, imageUrl, ownerEmail, onClose, 
                     onClick={() => onEdit(recipe)}
                     className="inline-flex items-center gap-2 pl-4 pr-5 py-2.5 rounded-full bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold font-sans text-sm transition-colors"
                   >
-                    <Pencil className="w-4 h-4" /> Edit
+                    <Pencil className="w-4 h-4" /> {t('Edit')}
                   </button>
                   <button type="button" onClick={() => onRegenerate('tag')} disabled={regenerating !== null} className={ACTION}>
                     <RefreshCw className={`w-4 h-4 ${regenerating === 'tag' ? 'animate-spin' : ''}`} />
-                    {regenerating === 'tag' ? 'Regenerating…' : 'Regenerate tags'}
+                    {regenerating === 'tag' ? t('Regenerating…') : t('Regenerate tags')}
                   </button>
                   <button type="button" onClick={() => onRegenerate('nutrition')} disabled={regenerating !== null} className={ACTION}>
                     <RefreshCw className={`w-4 h-4 ${regenerating === 'nutrition' ? 'animate-spin' : ''}`} />
-                    {regenerating === 'nutrition' ? 'Regenerating…' : 'Regenerate nutrition'}
+                    {regenerating === 'nutrition' ? t('Regenerating…') : t('Regenerate nutrition')}
                   </button>
                 </div>
               )}
@@ -110,11 +115,11 @@ export function AdminRecipeView({ recipe, title, imageUrl, ownerEmail, onClose, 
                   {recipe.servings ? (
                     <span className="inline-flex items-center gap-2 bg-sk-primary-fixed/30 dark:bg-primary/15 rounded-full px-3 py-1.5 text-xs font-sans font-semibold text-sk-primary dark:text-primary">
                       <Users className="w-4 h-4" aria-hidden="true" />
-                      {recipe.servings} {recipe.servings === 1 ? 'serving' : 'servings'}
+                      {tn(recipe.servings, '{n} serving', '{n} servings')}
                     </span>
                   ) : null}
                   <RecipeTimes prep={recipe.prep_time_mins} cook={recipe.cook_time_mins} />
-                  <span className="text-sm font-sans text-sk-outline dark:text-muted-foreground">{ingredients.length} ingredients</span>
+                  <span className="text-sm font-sans text-sk-outline dark:text-muted-foreground">{tn(ingredients.length, '{n} ingredients##one', '{n} ingredients')}</span>
                   <SourceLink sourceUrl={recipe.source_url} sourceName={recipe.source_name} />
                 </div>
               )}
@@ -130,35 +135,35 @@ export function AdminRecipeView({ recipe, title, imageUrl, ownerEmail, onClose, 
               <>
                 <div className="grid grid-cols-1 md:grid-cols-7 gap-8">
                   <div className="md:col-span-3">
-                    <SectionLabel>Ingredients</SectionLabel>
+                    <SectionLabel>{t('Ingredients')}</SectionLabel>
                     <IngredientTable ingredients={ingredients} />
                     {recipe.nutrition && <NutritionTiles nutrition={recipe.nutrition} />}
                   </div>
                   <div className="md:col-span-4">
-                    <SectionLabel>Instructions</SectionLabel>
+                    <SectionLabel>{t('Instructions')}</SectionLabel>
                     <StepList steps={steps} />
                   </div>
                 </div>
 
                 <div className="pt-6">
                   <SectionRule />
-                  <p className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground mb-3">Tags</p>
+                  <p className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground mb-3">{t('Tags')}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {(recipe.tags ?? []).map((tag) => (
                       <span key={tag} className={tagClass(false, 'md')}>
                         <TagIcon tag={tag} className="w-3.5 h-3.5 shrink-0" />
-                        {tagLabel(tag)}
+                        {t(tagLabel(tag))}
                       </span>
                     ))}
                     {(recipe.tags ?? []).length === 0 && (
-                      <span className="text-xs font-sans text-sk-outline dark:text-muted-foreground">No tags yet</span>
+                      <span className="text-xs font-sans text-sk-outline dark:text-muted-foreground">{t('No tags yet')}</span>
                     )}
                   </div>
                 </div>
               </>
             ) : (
               <div role="status" className="flex items-center justify-center py-16 text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin mr-2" aria-hidden="true" /> Loading the recipe…
+                <Loader2 className="w-4 h-4 animate-spin mr-2" aria-hidden="true" /> {t('Loading the recipe…')}
               </div>
             )}
           </div>

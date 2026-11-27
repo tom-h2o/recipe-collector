@@ -3,6 +3,7 @@ import { ChefHat, Users, X, Plus, ChevronLeft, ChevronRight, Search } from 'luci
 import { toast } from 'sonner';
 import type { Recipe, MealPlan, RecipeTranslation } from '@/types';
 import { MEAL_TYPES } from '@/lib/constants';
+import { useT, dateLocale } from '@/i18n';
 
 interface Props {
   recipes: Recipe[];
@@ -17,11 +18,12 @@ interface Props {
 export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPlan, onRemoveMealPlan, onRefreshMealPlans, onOpenRecipe }: Props) {
   const getTitle = useCallback((r: Recipe): string => {
     if (r.preferred_language) {
-      const t = translationsCache?.[`${r.id}:${r.preferred_language}`];
-      if (t?.title) return t.title;
+      const translation = translationsCache?.[`${r.id}:${r.preferred_language}`];
+      if (translation?.title) return translation.title;
     }
     return r.title;
   }, [translationsCache]);
+  const t = useT();
   const [weekOffset, setWeekOffset] = useState(0);
   // Track exactly which cell is being dragged over — CSS :hover is suppressed during drag
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
@@ -34,7 +36,7 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
     d.setDate(d.getDate() + weekOffset * 7 + i);
     const dateStr = d.toISOString().split('T')[0];
     const today = new Date().toISOString().split('T')[0];
-    return { date: dateStr, label: d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }), isToday: dateStr === today };
+    return { date: dateStr, label: d.toLocaleDateString(dateLocale(), { weekday: 'long', month: 'short', day: 'numeric' }), isToday: dateStr === today };
   });
 
   function getDayCalories(date: string): number {
@@ -57,7 +59,7 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
       setMobilePicker(null);
       setMobileSearch('');
     } catch {
-      toast.error('Failed to add meal plan.');
+      toast.error(t('Failed to add meal plan.'));
     }
   }
 
@@ -73,13 +75,13 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
       {/* Recipe sidebar — collapsible on mobile */}
       <div className="w-full lg:w-1/3 xl:w-1/4 space-y-4 hidden lg:block">
         <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-          <ChefHat className="w-5 h-5 text-sk-primary" /> Draggable Recipes
+          <ChefHat className="w-5 h-5 text-sk-primary" /> {t('Draggable Recipes')}
         </h2>
         {recipes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl">
             <ChefHat className="w-12 h-12 text-zinc-300 dark:text-zinc-700 mb-3" />
-            <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">No recipes yet</p>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">Add a recipe to start planning</p>
+            <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">{t('No recipes yet')}</p>
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">{t('Add a recipe to start planning')}</p>
           </div>
         ) : (
           <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2 pb-4">
@@ -114,18 +116,18 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
           <button
             onClick={() => setWeekOffset((w) => w - 1)}
             className="p-2 rounded-xl bg-sk-surface-highest dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary transition-colors"
-            title="Previous week"
+            title={t('Previous week')}
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
           <div className="flex flex-col items-center gap-1">
             <span className="font-serif text-sm text-sk-on-surface-variant dark:text-muted-foreground">
-              {weekOffset === 0 ? 'This week' : weekOffset === 1 ? 'Next week' : weekOffset === -1 ? 'Last week' : weekOffset > 0 ? `${weekOffset} weeks ahead` : `${Math.abs(weekOffset)} weeks ago`}
+              {weekOffset === 0 ? t('This week') : weekOffset === 1 ? t('Next week') : weekOffset === -1 ? t('Last week') : weekOffset > 0 ? t('{n} weeks ahead', { n: weekOffset }) : t('{n} weeks ago', { n: Math.abs(weekOffset) })}
             </span>
             <div className="flex items-center gap-2">
               {weeklyCalories > 0 && (
                 <span className="text-[11px] font-semibold font-sans text-sk-primary dark:text-primary bg-sk-primary-fixed/40 dark:bg-primary/15 px-2 py-0.5 rounded-full">
-                  ~{Math.round(weeklyCalories).toLocaleString()} kcal / week
+                  {t('~{kcal} kcal / week', { kcal: Math.round(weeklyCalories).toLocaleString(dateLocale()) })}
                 </span>
               )}
               {weekOffset !== 0 && (
@@ -133,7 +135,7 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
                   onClick={() => setWeekOffset(0)}
                   className="text-xs font-semibold font-sans px-2.5 py-1 rounded-full bg-sk-primary-fixed/40 dark:bg-primary/15 text-sk-primary dark:text-primary hover:bg-sk-primary-fixed dark:hover:bg-primary/30 transition-colors"
                 >
-                  Today
+                  {t('Today')}
                 </button>
               )}
             </div>
@@ -141,7 +143,7 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
           <button
             onClick={() => setWeekOffset((w) => w + 1)}
             className="p-2 rounded-xl bg-sk-surface-highest dark:bg-muted text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary transition-colors"
-            title="Next week"
+            title={t('Next week')}
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -152,7 +154,7 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
             <div key={date} className="bg-white dark:bg-zinc-900/50 p-3 sm:p-5 rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-800">
               <div className="flex items-center justify-between mb-3">
                 <h3 className={`font-serif font-bold text-base sm:text-lg ${isToday ? 'text-sk-primary dark:text-primary' : 'text-sk-on-surface dark:text-foreground'}`}>
-                  {label} {isToday && '(Today)'}
+                  {label} {isToday && t('(Today)')}
                 </h3>
                 {dayCalories > 0 && (
                   <span className="text-xs font-bold px-2.5 py-1 bg-sk-primary-fixed/40 dark:bg-primary/15 text-sk-primary dark:text-primary rounded-full">
@@ -186,7 +188,7 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
                             await onAddMealPlan(date, meal, recipeId);
                             onRefreshMealPlans();
                           } catch {
-                            toast.error('Failed to add meal plan.');
+                            toast.error(t('Failed to add meal plan.'));
                           }
                         }
                       }}
@@ -197,15 +199,15 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-                        <div className="font-bold text-[10px] sm:text-xs uppercase tracking-wider text-zinc-600 dark:text-zinc-400">{meal}</div>
+                        <div className="font-bold text-[10px] sm:text-xs uppercase tracking-wider text-zinc-600 dark:text-zinc-400">{t(meal)}</div>
                         {/* Tap-to-add, at every size. Dragging a recipe card still
                             works, but it was the only way to fill a slot on desktop
                             and there is no keyboard equivalent for a drag. */}
                         <button
                           onClick={() => { setMobilePicker({ date, meal }); setMobileSearch(''); }}
                           className="p-0.5 rounded text-sk-outline-variant dark:text-muted-foreground/50 hover:text-sk-primary dark:hover:text-primary transition-colors"
-                          aria-label={`Add a recipe to ${meal} on ${new Date(date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}`}
-                          title="Add recipe"
+                          aria-label={t('Add a recipe to {meal} on {date}', { meal: t(meal), date: new Date(date + 'T12:00:00').toLocaleDateString(dateLocale(), { weekday: 'long', month: 'short', day: 'numeric' }) })}
+                          title={t('Add recipe')}
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>
@@ -224,11 +226,11 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
                               try {
                                 await onRemoveMealPlan(m.id);
                               } catch {
-                                toast.error('Failed to remove meal.');
+                                toast.error(t('Failed to remove meal.'));
                               }
                             }}
                             className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 p-1 rounded-md transition-all shrink-0 ml-1 sm:ml-2"
-                            title="Remove"
+                            title={t('Remove')}
                           >
                             <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                           </button>
@@ -257,15 +259,15 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
           onClick={(e) => e.stopPropagation()}
           role="dialog"
           aria-modal="true"
-          aria-label={`Add a recipe to ${mobilePicker.meal}`}
+          aria-label={t('Add a recipe to {meal}', { meal: t(mobilePicker.meal) })}
         >
           <div className="flex items-center justify-between">
             <div>
               <p className="font-serif text-base font-bold text-sk-on-surface dark:text-foreground">
-                Add to {mobilePicker.meal}
+                {t('Add to {meal}', { meal: t(mobilePicker.meal) })}
               </p>
               <p className="font-sans text-xs text-sk-on-surface-variant dark:text-muted-foreground">
-                {new Date(mobilePicker.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
+                {new Date(mobilePicker.date + 'T12:00:00').toLocaleDateString(dateLocale(), { weekday: 'long', month: 'short', day: 'numeric' })}
               </p>
             </div>
             <button onClick={() => { setMobilePicker(null); setMobileSearch(''); }} className="p-2 rounded-full hover:bg-sk-surface-low dark:hover:bg-muted text-sk-outline transition-colors">
@@ -279,13 +281,13 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
               type="text"
               value={mobileSearch}
               onChange={(e) => setMobileSearch(e.target.value)}
-              placeholder="Search recipes…"
+              placeholder={t('Search recipes…')}
               className="w-full pl-9 pr-4 py-2.5 rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface dark:text-foreground text-sm font-sans focus:outline-none focus:ring-2 focus:ring-sk-primary/25 placeholder:text-sk-outline"
             />
           </div>
           <div className="overflow-y-auto flex-1 -mx-1 px-1 space-y-1">
             {mobileFilteredRecipes.length === 0 ? (
-              <p className="text-center py-8 text-sm font-sans text-sk-outline dark:text-muted-foreground">No recipes match</p>
+              <p className="text-center py-8 text-sm font-sans text-sk-outline dark:text-muted-foreground">{t('No recipes match')}</p>
             ) : mobileFilteredRecipes.map((r) => (
               <button
                 key={r.id}
@@ -301,7 +303,7 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
                 )}
                 <div className="overflow-hidden">
                   <p className="font-semibold text-sm text-sk-on-surface dark:text-foreground truncate">{getTitle(r)}</p>
-                  {r.servings && <p className="text-xs text-sk-on-surface-variant dark:text-muted-foreground">Serves {r.servings}</p>}
+                  {r.servings && <p className="text-xs text-sk-on-surface-variant dark:text-muted-foreground">{t('Serves {n}', { n: r.servings })}</p>}
                 </div>
               </button>
             ))}

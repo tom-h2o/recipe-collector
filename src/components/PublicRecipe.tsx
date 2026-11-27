@@ -7,7 +7,9 @@ import { SpeisekammerLogo } from '@/components/SpeisekammerLogo';
 import { usePrintTitle } from '@/hooks/usePrintTitle';
 import { supabase } from '@/lib/supabase';
 import { LANGUAGES } from '@/lib/constants';
-import { APP_NAME, AUTHOR_NAME, AUTHOR_URL, CAPABILITY_GROUPS } from '@/lib/appInfo';
+import { APP_NAME, AUTHOR_NAME, AUTHOR_URL, CAPABILITY_GROUPS, capabilityText } from '@/lib/appInfo';
+import { useT } from '@/i18n';
+import { rich } from '@/i18n/rich';
 import { isSignupOpen } from '@/lib/signupOpen';
 import type { Ingredient, Recipe } from '@/types';
 
@@ -53,6 +55,7 @@ interface Props {
  * but can never cause one to be made.
  */
 export function PublicRecipe({ recipe, shareToken }: Props) {
+  const t = useT();
   const signupOpen = isSignupOpen();
   const baseServings = recipe.original_servings || recipe.servings || 1;
   const [servings, setServings] = useState(baseServings);
@@ -79,7 +82,7 @@ export function PublicRecipe({ recipe, shareToken }: Props) {
   }, [shareToken]);
 
   const active = useMemo(
-    () => translations.find((t) => t.language_code === language) ?? null,
+    () => translations.find((tr) => tr.language_code === language) ?? null,
     [translations, language],
   );
 
@@ -117,7 +120,7 @@ export function PublicRecipe({ recipe, shareToken }: Props) {
 
   const heroImages = images.length > 0 ? images : (recipe.image_url ? [{ url: recipe.image_url, source: 'upload', sort_order: 0 }] : []);
   const hero = heroImages[Math.min(activeImage, heroImages.length - 1)];
-  const offeredLanguages = LANGUAGES.filter((l) => translations.some((t) => t.language_code === l.code));
+  const offeredLanguages = LANGUAGES.filter((l) => translations.some((tr) => tr.language_code === l.code));
 
   return (
     <>
@@ -131,7 +134,7 @@ export function PublicRecipe({ recipe, shareToken }: Props) {
                 <button
                   key={img.url}
                   onClick={() => setActiveImage(idx)}
-                  aria-label={`Show photo ${idx + 1}`}
+                  aria-label={t('Show photo {n}', { n: idx + 1 })}
                   aria-current={idx === activeImage}
                   className={`shrink-0 rounded-xl overflow-hidden border-2 transition-colors ${
                     idx === activeImage ? 'border-sk-primary' : 'border-transparent hover:border-zinc-300 dark:hover:border-zinc-700'
@@ -158,11 +161,11 @@ export function PublicRecipe({ recipe, shareToken }: Props) {
               onClick={() => setIsCookMode(true)}
               className="inline-flex items-center gap-2 px-4 py-3 rounded-full bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-bold transition"
             >
-              <Play className="w-4 h-4" /> Cook
+              <Play className="w-4 h-4" /> {t('Cook')}
             </button>
             <button
               onClick={() => window.print()}
-              aria-label="Print this recipe"
+              aria-label={t('Print this recipe')}
               className="p-3 rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 transition text-zinc-600 dark:text-zinc-300"
             >
               <Printer className="w-5 h-5" />
@@ -177,15 +180,15 @@ export function PublicRecipe({ recipe, shareToken }: Props) {
             <button
               onClick={() => setServings((s) => Math.max(1, s - 1))}
               disabled={servings <= 1}
-              aria-label="Fewer servings"
+              aria-label={t('Fewer servings')}
               className="print:hidden p-1 rounded-full hover:bg-sk-primary/10 disabled:opacity-40 transition"
             >
               <Minus className="w-4 h-4" />
             </button>
-            <span aria-live="polite">Serves {servings}</span>
+            <span aria-live="polite">{t('Serves {n}', { n: servings })}</span>
             <button
               onClick={() => setServings((s) => s + 1)}
-              aria-label="More servings"
+              aria-label={t('More servings')}
               className="print:hidden p-1 rounded-full hover:bg-sk-primary/10 transition"
             >
               <Plus className="w-4 h-4" />
@@ -197,13 +200,13 @@ export function PublicRecipe({ recipe, shareToken }: Props) {
               onClick={() => setServings(baseServings)}
               className="print:hidden inline-flex items-center gap-1.5 text-sm font-medium text-zinc-500 hover:text-sk-primary dark:text-zinc-400 transition"
             >
-              <RotateCcw className="w-3.5 h-3.5" /> Reset to {baseServings}
+              <RotateCcw className="w-3.5 h-3.5" /> {t('Reset to {n}', { n: baseServings })}
             </button>
           )}
 
           <button
             onClick={() => setUnit((u) => (u === 'C' ? 'F' : 'C'))}
-            aria-label={`Show temperatures in ${unit === 'C' ? 'Fahrenheit' : 'Celsius'}`}
+            aria-label={unit === 'C' ? t('Show temperatures in Fahrenheit') : t('Show temperatures in Celsius')}
             className="print:hidden inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-semibold border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 hover:border-sk-primary hover:text-sk-primary dark:hover:text-primary transition"
           >
             <Thermometer className="w-3.5 h-3.5" /> °{unit}
@@ -220,7 +223,7 @@ export function PublicRecipe({ recipe, shareToken }: Props) {
                     : 'text-zinc-500 dark:text-zinc-400 hover:text-sk-primary dark:hover:text-primary'
                 }`}
               >
-                Original
+                {t('Original')}
               </button>
               {offeredLanguages.map((l) => (
                 <button
@@ -243,7 +246,7 @@ export function PublicRecipe({ recipe, shareToken }: Props) {
           <div className="space-y-8">
             <div>
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 border-b pb-2">
-                <ChefHat className="text-sk-primary w-6 h-6" /> Ingredients
+                <ChefHat className="text-sk-primary w-6 h-6" /> {t('Ingredients')}
               </h2>
               <ul className="space-y-3">
                 {displayIngredients.map((i, idx) => (
@@ -262,15 +265,15 @@ export function PublicRecipe({ recipe, shareToken }: Props) {
             {recipe.nutrition && (
               <div>
                 <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-3">
-                  Per serving
+                  {t('Per serving')}
                 </h2>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { label: 'Calories', value: Math.round(recipe.nutrition.calories), unit: 'kcal' },
-                    { label: 'Protein', value: Math.round(recipe.nutrition.protein_g), unit: 'g' },
-                    { label: 'Carbs', value: Math.round(recipe.nutrition.carbs_g), unit: 'g' },
-                    { label: 'Fat', value: Math.round(recipe.nutrition.fat_g), unit: 'g' },
-                    { label: 'Fibre', value: Math.round(recipe.nutrition.fiber_g), unit: 'g' },
+                    { label: t('Calories'), value: Math.round(recipe.nutrition.calories), unit: 'kcal' },
+                    { label: t('Protein'), value: Math.round(recipe.nutrition.protein_g), unit: 'g' },
+                    { label: t('Carbs'), value: Math.round(recipe.nutrition.carbs_g), unit: 'g' },
+                    { label: t('Fat'), value: Math.round(recipe.nutrition.fat_g), unit: 'g' },
+                    { label: t('Fibre'), value: Math.round(recipe.nutrition.fiber_g), unit: 'g' },
                   ].map((n) => (
                     <div key={n.label} className="rounded-xl bg-zinc-50 dark:bg-zinc-900 px-3 py-2">
                       <div className="text-xs text-zinc-500 dark:text-zinc-400">{n.label}</div>
@@ -287,7 +290,7 @@ export function PublicRecipe({ recipe, shareToken }: Props) {
           </div>
 
           <div>
-            <h2 className="text-2xl font-bold mb-4 border-b pb-2">Instructions</h2>
+            <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('Instructions')}</h2>
             <ol className="space-y-6 list-decimal list-outside ml-5">
               {steps.map((step, idx) => (
                 <li key={idx} className="text-zinc-700 dark:text-zinc-300 pl-2 leading-relaxed font-medium">{step}</li>
@@ -314,24 +317,23 @@ export function PublicRecipe({ recipe, shareToken }: Props) {
             </h2>
           </div>
           <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
-            Someone sent you this from their recipe vault. It is where they keep
-            every recipe worth cooking twice — pulled in from links, cookbook
-            photos and PDFs, then searchable, scalable and ready for the week
-            ahead.{signupOpen ? ' You can have one too.' : ''}
+            {t('Someone sent you this from their recipe vault. It is where they keep every recipe worth cooking twice — pulled in from links, cookbook photos and PDFs, then searchable, scalable and ready for the week ahead.')}
+            {signupOpen ? ` ${t('You can have one too.')}` : ''}
           </p>
         </div>
 
         <ul className="grid sm:grid-cols-2 gap-x-8 gap-y-5">
           {HIGHLIGHTS.map((item) => {
             const Icon = item.icon;
+            const { title: itemTitle, blurb } = capabilityText(item, t);
             return (
               <li key={item.title} className="flex gap-3">
                 <span className="shrink-0 w-9 h-9 rounded-full bg-sk-primary-fixed/50 dark:bg-primary/15 flex items-center justify-center">
                   <Icon className="w-4 h-4 text-sk-primary dark:text-primary" />
                 </span>
                 <div className="space-y-0.5">
-                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">{item.title}</h3>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">{item.blurb}</p>
+                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">{itemTitle}</h3>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">{blurb}</p>
                 </div>
               </li>
             );
@@ -344,29 +346,31 @@ export function PublicRecipe({ recipe, shareToken }: Props) {
               href="/"
               className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold transition-colors"
             >
-              Create a free account <ArrowRight className="w-4 h-4" />
+              {t('Create a free account')} <ArrowRight className="w-4 h-4" />
             </a>
           )}
           <a
             href="/about"
             className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-zinc-200 dark:border-zinc-800 font-semibold text-zinc-700 dark:text-zinc-300 hover:border-sk-primary hover:text-sk-primary dark:hover:text-primary transition-colors"
           >
-            See everything it does
+            {t('See everything it does')}
           </a>
         </div>
       </div>
 
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-500 pb-4">
-        {APP_NAME} is designed and built by{' '}
-        <a
-          href={AUTHOR_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-semibold text-zinc-700 dark:text-zinc-300 hover:text-sk-primary dark:hover:text-primary hover:underline"
-        >
-          {AUTHOR_NAME}
-        </a>
-        .
+        {rich(t, '{app} is designed and built by <author>{name}</author>.', {
+          author: (name) => (
+            <a
+              href={AUTHOR_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-zinc-700 dark:text-zinc-300 hover:text-sk-primary dark:hover:text-primary hover:underline"
+            >
+              {name}
+            </a>
+          ),
+        }, { app: APP_NAME, name: AUTHOR_NAME })}
       </p>
     </aside>
     </>

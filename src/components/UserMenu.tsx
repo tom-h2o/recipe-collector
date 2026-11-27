@@ -16,6 +16,8 @@ import { FeedbackDialog } from '@/components/FeedbackDialog';
 import { Sheet } from '@/components/Sheet';
 import { cn } from '@/lib/utils';
 import { displayNameOf, initialsOf, MAX_NAME_LENGTH } from '@/lib/displayName';
+import { msg, tn, translateMessage, useT } from '@/i18n';
+import { rich } from '@/i18n/rich';
 
 interface Props {
   user: SupabaseUser;
@@ -54,7 +56,10 @@ export function UserMenu({
   user, variant, onSignOut, onOpenSettings, onOpenWhatsNew, hasUnreadReleases = false, currentView,
   isAdmin = false, onOpenAdmin, isDark, onToggleTheme,
 }: Props) {
+  const t = useT();
   const { updatePassword } = useAuth();
+  // The word typed to confirm deleting the account, in the app's language.
+  const confirmWord = t('delete##the word to type');
   const [open, setOpen] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -103,11 +108,11 @@ export function UserMenu({
       // Kept on the account itself (user metadata), so it follows the person
       // to every device. USER_UPDATED then hands useAuth the new user.
       const { error: failure } = await supabase.auth.updateUser({ data: { full_name: nameDraft.trim() } });
-      if (failure) { setNameError('The name could not be saved. Please try again.'); return; }
-      toast.success(nameDraft.trim() ? 'Name saved.' : 'Name removed.');
+      if (failure) { setNameError(t('The name could not be saved. Please try again.')); return; }
+      toast.success(nameDraft.trim() ? t('Name saved.') : t('Name removed.'));
       setShowName(false);
     } catch {
-      setNameError('The name could not be saved. Please try again.');
+      setNameError(t('The name could not be saved. Please try again.'));
     } finally {
       setIsSavingName(false);
     }
@@ -120,10 +125,10 @@ export function UserMenu({
     try {
       const { error } = await updatePassword(newPassword);
       if (error) { setError(error); return; }
-      toast.success('Password updated!');
+      toast.success(t('Password updated!'));
       setShowChangePassword(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.');
+      setError(err instanceof Error ? err.message : msg('Something went wrong.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -131,7 +136,7 @@ export function UserMenu({
 
   async function handleExportRecipes() {
     setShowExport(false);
-    const id = toast.loading('Exporting recipes…');
+    const id = toast.loading(t('Exporting recipes…'));
     try {
       const { data, error } = await supabase
         .from('recipes')
@@ -148,9 +153,9 @@ export function UserMenu({
       a.download = `speisekammer-recipes-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success(`Exported ${data?.length ?? 0} recipes`, { id });
+      toast.success(tn(data?.length ?? 0, 'Exported {n} recipe', 'Exported {n} recipes'), { id });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Export failed', { id });
+      toast.error(err instanceof Error ? translateMessage(err.message) : t('Export failed'), { id });
     }
   }
 
@@ -162,10 +167,10 @@ export function UserMenu({
         const data = await res.json();
         throw new Error(data.error || 'Failed to delete account');
       }
-      toast.success('Account deleted.');
+      toast.success(t('Account deleted.'));
       onSignOut();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to delete account');
+      toast.error(translateMessage(err instanceof Error ? err.message : msg('Failed to delete account')));
     } finally {
       setIsDeleting(false);
       setShowDeleteConfirm(false);
@@ -185,7 +190,7 @@ export function UserMenu({
       {initials}
     </span>
   );
-  const label = hasUnreadReleases ? 'Account menu, new updates available' : 'Account menu';
+  const label = hasUnreadReleases ? t('Account menu, new updates available') : t('Account menu');
 
   const entries = (
     <>
@@ -198,7 +203,7 @@ export function UserMenu({
           )}
           <p className="text-xs text-sk-on-surface-variant dark:text-muted-foreground truncate">{email}</p>
           {viaGoogle && (
-            <p className="text-xs text-sk-on-surface-variant dark:text-muted-foreground">Signed in with Google</p>
+            <p className="text-xs text-sk-on-surface-variant dark:text-muted-foreground">{t('Signed in with Google')}</p>
           )}
         </div>
       </div>
@@ -206,13 +211,13 @@ export function UserMenu({
       <div className="border-t border-sk-outline-variant/40 dark:border-border pt-1.5">
         <button type="button" onClick={go(openName)} className={ROW}>
           <UserRound className={ROW_ICON} />
-          <span className="flex-1">Your name</span>
-          <span className="max-w-[45%] truncate text-sk-on-surface-variant dark:text-muted-foreground">{displayName || 'Add'}</span>
+          <span className="flex-1">{t('Your name')}</span>
+          <span className="max-w-[45%] truncate text-sk-on-surface-variant dark:text-muted-foreground">{displayName || t('Add')}</span>
           <ChevronRight className="w-4 h-4 shrink-0 text-sk-outline-variant dark:text-muted-foreground/50" aria-hidden="true" />
         </button>
-        <button type="button" onClick={go(onOpenSettings)} className={ROW} title="Settings">
+        <button type="button" onClick={go(onOpenSettings)} className={ROW} title={t('Settings')}>
           <Settings className={ROW_ICON} />
-          Settings
+          {t('Settings')}
         </button>
         {/* Stays open: the change is visible behind it, and may be undone at once. */}
         <button
@@ -221,10 +226,10 @@ export function UserMenu({
           aria-checked={isDark}
           onClick={onToggleTheme}
           className={ROW}
-          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={isDark ? t('Switch to light mode') : t('Switch to dark mode')}
         >
           {isDark ? <Moon className={ROW_ICON} /> : <Sun className={ROW_ICON} />}
-          <span className="flex-1">Dark mode</span>
+          <span className="flex-1">{t('Dark mode')}</span>
           <span aria-hidden="true" className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${isDark ? 'bg-sk-primary dark:bg-primary' : 'bg-sk-outline-variant dark:bg-muted'}`}>
             <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${isDark ? 'translate-x-4' : ''}`} />
           </span>
@@ -232,7 +237,7 @@ export function UserMenu({
         {isAdmin && onOpenAdmin && (
           <button type="button" onClick={go(onOpenAdmin)} className={ROW}>
             <ShieldCheck className={ROW_ICON} />
-            Admin
+            {t('Admin')}
           </button>
         )}
       </div>
@@ -241,34 +246,34 @@ export function UserMenu({
         {onOpenWhatsNew && (
           <button type="button" onClick={go(onOpenWhatsNew)} className={ROW}>
             <Sparkles className={ROW_ICON} />
-            <span className="flex-1">What's new</span>
+            <span className="flex-1">{t("What's new")}</span>
             {hasUnreadReleases && (
-              <span className="w-2 h-2 rounded-full bg-sk-primary shrink-0" aria-label="unread updates" />
+              <span className="w-2 h-2 rounded-full bg-sk-primary shrink-0" aria-label={t('unread updates')} />
             )}
           </button>
         )}
         <button type="button" onClick={go(() => setShowFeedback(true))} className={ROW}>
           <MessageSquare className={ROW_ICON} />
-          Send feedback
+          {t('Send feedback')}
         </button>
         <button type="button" onClick={go(() => setShowExport(true))} className={ROW}>
           <Download className={ROW_ICON} />
-          Export recipes
+          {t('Export recipes')}
         </button>
         <button type="button" onClick={go(openChangePassword)} className={ROW}>
           <KeyRound className={ROW_ICON} />
-          Change password
+          {t('Change password')}
         </button>
       </div>
 
       <div className="mt-1.5 border-t border-sk-outline-variant/40 dark:border-border pt-1.5">
         <button type="button" onClick={go(onSignOut)} className={ROW}>
           <LogOut className={ROW_ICON} />
-          Sign out
+          {t('Sign out')}
         </button>
         <button type="button" onClick={go(openDeleteConfirm)} className={cn(ROW, 'text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20')}>
           <Trash2 className="w-4 h-4 shrink-0" />
-          Delete account
+          {t('Delete account')}
         </button>
       </div>
     </>
@@ -326,9 +331,9 @@ export function UserMenu({
                 <span aria-hidden="true" className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-sk-primary ring-2 ring-white dark:ring-zinc-900" />
               )}
             </span>
-            <span className="text-[10px] font-semibold font-sans">You</span>
+            <span className="text-[10px] font-semibold font-sans">{t('You')}</span>
           </button>
-          <Sheet open={open} onClose={close} title="You" className="[&>div:last-child]:px-2">
+          <Sheet open={open} onClose={close} title={t('You')} className="[&>div:last-child]:px-2">
             {entries}
           </Sheet>
         </>
@@ -339,14 +344,14 @@ export function UserMenu({
       <Sheet
         open={showName}
         onClose={() => setShowName(false)}
-        title="Your name"
-        description="Shown in your account and used for the letters on your avatar."
+        title={t('Your name')}
+        description={t('Shown in your account and used for the letters on your avatar.')}
         initialFocus={nameInput}
       >
         <form onSubmit={handleSaveName} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor={`display-name-${variant}`} className="font-sans font-semibold text-sk-on-surface-variant dark:text-muted-foreground text-xs uppercase tracking-widest">
-              Name
+              {t('Name')}
             </Label>
             <Input
               id={`display-name-${variant}`}
@@ -355,15 +360,15 @@ export function UserMenu({
               onChange={(e) => { setNameDraft(e.target.value); setNameError(null); }}
               maxLength={MAX_NAME_LENGTH}
               autoComplete="name"
-              placeholder="e.g. Anna Schmidt"
+              placeholder={t('e.g. Anna Schmidt')}
               className="bg-sk-surface-highest dark:bg-input border-0 focus-visible:ring-sk-primary/30 rounded-xl"
             />
           </div>
           {nameError && <p role="alert" className="text-sm text-destructive">{nameError}</p>}
           <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => setShowName(false)} className="flex-1 rounded-full">Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => setShowName(false)} className="flex-1 rounded-full">{t('Cancel')}</Button>
             <Button type="submit" disabled={isSavingName} className="flex-1 rounded-full bg-sk-primary hover:bg-sk-primary-container text-white dark:text-primary-foreground border-0">
-              {isSavingName ? 'Saving…' : 'Save'}
+              {isSavingName ? t('Saving…') : t('Save')}
             </Button>
           </div>
         </form>
@@ -372,13 +377,13 @@ export function UserMenu({
       <Sheet
         open={showExport}
         onClose={() => setShowExport(false)}
-        title="Export your recipes?"
-        description="Downloads one file (JSON) with all your own recipes: text, tags, nutrition and notes. Photo files are not in it, only their addresses."
+        title={t('Export your recipes?')}
+        description={t('Downloads one file (JSON) with all your own recipes: text, tags, nutrition and notes. Photo files are not in it, only their addresses.')}
       >
         <div className="flex gap-2">
-          <Button type="button" variant="outline" onClick={() => setShowExport(false)} className="flex-1 rounded-full">Cancel</Button>
+          <Button type="button" variant="outline" onClick={() => setShowExport(false)} className="flex-1 rounded-full">{t('Cancel')}</Button>
           <Button type="button" onClick={handleExportRecipes} className="flex-1 rounded-full bg-sk-primary hover:bg-sk-primary-container text-white dark:text-primary-foreground border-0">
-            Export
+            {t('Export')}
           </Button>
         </div>
       </Sheet>
@@ -388,9 +393,10 @@ export function UserMenu({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-xl p-6 space-y-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Change password</h2>
+              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{t('Change password')}</h2>
               <button
                 onClick={() => setShowChangePassword(false)}
+                aria-label={t('Close')}
                 className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-400"
               >
                 <X className="w-4 h-4" />
@@ -398,14 +404,14 @@ export function UserMenu({
             </div>
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="new-password" className="font-semibold text-zinc-700 dark:text-zinc-300">New password</Label>
+                <Label htmlFor="new-password" className="font-semibold text-zinc-700 dark:text-zinc-300">{t('New password')}</Label>
                 <div className="relative">
                   <Input
                     id="new-password"
                     type={showPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => { setNewPassword(e.target.value); setError(null); }}
-                    placeholder="Min. 8 characters"
+                    placeholder={t('Min. 8 characters')}
                     required
                     minLength={8}
                     autoComplete="new-password"
@@ -415,6 +421,7 @@ export function UserMenu({
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? t('Hide password') : t('Show password')}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -422,14 +429,14 @@ export function UserMenu({
                 </div>
               </div>
               {error && (
-                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                <p className="text-sm text-red-600 dark:text-red-400">{translateMessage(error)}</p>
               )}
               <div className="flex gap-2">
                 <Button type="button" variant="outline" onClick={() => setShowChangePassword(false)} className="flex-1">
-                  Cancel
+                  {t('Cancel')}
                 </Button>
                 <Button type="submit" disabled={isSubmitting} className="flex-1 bg-sk-primary hover:bg-sk-primary-container text-white dark:text-primary-foreground border-0">
-                  {isSubmitting ? 'Saving…' : 'Save password'}
+                  {isSubmitting ? t('Saving…') : t('Save password')}
                 </Button>
               </div>
             </form>
@@ -442,37 +449,40 @@ export function UserMenu({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-xl p-6 space-y-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-red-600 dark:text-red-400">Delete account</h2>
+              <h2 className="text-lg font-bold text-red-600 dark:text-red-400">{t('Delete account')}</h2>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
+                aria-label={t('Close')}
                 className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-400"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              This will permanently delete your account and all your recipes, meal plans, and settings. This cannot be undone.
+              {t('This will permanently delete your account and all your recipes, meal plans, and settings. This cannot be undone.')}
             </p>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Type <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">delete</span> to confirm.
+              {rich(t, 'Type <word>{word}</word> to confirm.', {
+                word: (text) => <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">{text}</span>,
+              }, { word: confirmWord })}
             </p>
             <Input
               value={deleteConfirmText}
               onChange={(e) => setDeleteConfirmText(e.target.value)}
-              placeholder="delete"
+              placeholder={confirmWord}
               autoFocus
             />
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={() => setShowDeleteConfirm(false)} className="flex-1">
-                Cancel
+                {t('Cancel')}
               </Button>
               <Button
                 type="button"
-                disabled={deleteConfirmText !== 'delete' || isDeleting}
+                disabled={deleteConfirmText.trim().toLowerCase() !== confirmWord || isDeleting}
                 onClick={handleDeleteAccount}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white border-0"
               >
-                {isDeleting ? 'Deleting…' : 'Delete account'}
+                {isDeleting ? t('Deleting…') : t('Delete account')}
               </Button>
             </div>
           </div>

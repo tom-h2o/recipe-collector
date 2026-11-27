@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
+import { msg } from '@/i18n';
 
 /**
  * The person's key for the iPhone Shortcut (api/account.ts, shortcut-key
@@ -25,7 +26,7 @@ export function useShortcutKey(enabled: boolean) {
       setStatus(await res.json());
       setError(null);
     } catch {
-      setError('Could not check the Shortcut key.');
+      setError(msg('Could not check the Shortcut key.'));
     }
   }, []);
 
@@ -43,7 +44,7 @@ export function useShortcutKey(enabled: boolean) {
       setStatus({ hasKey: true, created_at: body.created_at ?? new Date().toISOString(), last_used_at: null });
       setError(null);
     } catch {
-      setError('The key could not be made. Please try again.');
+      setError(msg('The key could not be made. Please try again.'));
     } finally {
       setBusy(false);
     }
@@ -58,7 +59,7 @@ export function useShortcutKey(enabled: boolean) {
       setStatus({ hasKey: false, created_at: null, last_used_at: null });
       setError(null);
     } catch {
-      setError('The key could not be removed. Please try again.');
+      setError(msg('The key could not be removed. Please try again.'));
     } finally {
       setBusy(false);
     }

@@ -3,6 +3,7 @@ import type { User } from '@supabase/supabase-js';
 import { openedFromInviteLink, openedFromRecoveryLink, supabase } from '@/lib/supabase';
 import { describeClosedSignup, isSignupOpen } from '@/lib/signupOpen';
 import { clearPrivateCaches } from '@/lib/clearPrivateCaches';
+import { msg } from '@/i18n';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -51,7 +52,7 @@ export function useAuth() {
   async function signInWithPassword(email: string, password: string): Promise<{ error: string | null }> {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error.message };
-    if (!data.session) return { error: 'Sign in failed — please try again or use a magic link.' };
+    if (!data.session) return { error: msg('Sign in failed — please try again or use a magic link.') };
     return { error: null };
   }
 

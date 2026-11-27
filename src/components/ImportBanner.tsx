@@ -1,5 +1,6 @@
 import { ImageUp, Loader2, X } from 'lucide-react';
 import type { RecipeImport } from '@/hooks/useRecipeImports';
+import { tn, translateMessage, useT } from '@/i18n';
 
 /**
  * What arrived from the iPhone Shortcuts since the person last looked: recipes
@@ -18,26 +19,27 @@ interface Props {
 }
 
 export function ImportBanner({ newCount, processing, failed, showingNew, onShowNew, onDismiss }: Props) {
+  const t = useT();
   if (newCount === 0 && processing.length === 0 && failed.length === 0) return null;
   const pages = processing.reduce((n, i) => n + i.page_count, 0);
   const reading = processing.length === 1
     ? processing[0].source === 'page'
-      ? 'Reading a page from Safari…'
+      ? t('Reading a page from Safari…')
       : processing[0].source === 'link'
-        ? 'Reading a shared link…'
-        : `Reading ${pages === 1 ? 'a picture' : `${pages} pages`} from your photos…`
-    : `Reading ${processing.length} recipes from your iPhone…`;
+        ? t('Reading a shared link…')
+        : tn(pages, 'Reading a picture from your photos…', 'Reading {n} pages from your photos…')
+    : t('Reading {n} recipes from your iPhone…', { n: processing.length });
 
   return (
     <section
-      aria-label="Recipes from your iPhone"
+      aria-label={t('Recipes from your iPhone')}
       className="mb-5 rounded-2xl border border-sk-outline-variant/50 dark:border-border bg-white dark:bg-card px-4 py-3 space-y-2 font-sans"
     >
       {newCount > 0 && (
         <div className="flex items-center gap-3">
           <ImageUp className="w-5 h-5 shrink-0 text-sk-primary dark:text-primary" aria-hidden="true" />
           <p className="flex-1 text-sm font-semibold text-sk-on-surface dark:text-foreground">
-            {newCount === 1 ? '1 new recipe from your iPhone' : `${newCount} new recipes from your iPhone`}
+            {tn(newCount, '1 new recipe from your iPhone', '{n} new recipes from your iPhone')}
           </p>
           {!showingNew && (
             <button
@@ -45,7 +47,7 @@ export function ImportBanner({ newCount, processing, failed, showingNew, onShowN
               onClick={onShowNew}
               className="shrink-0 px-3 py-1 rounded-full text-xs font-semibold bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground"
             >
-              Show
+              {t('Show')}
             </button>
           )}
         </div>
@@ -62,17 +64,17 @@ export function ImportBanner({ newCount, processing, failed, showingNew, onShowN
           <p className="flex-1 text-sk-on-surface dark:text-foreground">
             <span className="font-semibold">
               {f.source === 'page'
-                ? 'A page from Safari could not be read.'
+                ? t('A page from Safari could not be read.')
                 : f.source === 'link'
-                  ? 'A shared link could not be read.'
-                  : f.page_count === 1 ? 'A picture could not be read.' : `${f.page_count} pages could not be read.`}
+                  ? t('A shared link could not be read.')
+                  : tn(f.page_count, 'A picture could not be read.', '{n} pages could not be read.')}
             </span>{' '}
-            <span className="text-sk-on-surface-variant dark:text-muted-foreground">{f.error}</span>
+            <span className="text-sk-on-surface-variant dark:text-muted-foreground">{f.error ? translateMessage(f.error) : f.error}</span>
           </p>
           <button
             type="button"
             onClick={() => onDismiss(f.id)}
-            aria-label="Dismiss"
+            aria-label={t('Dismiss')}
             className="shrink-0 p-1 rounded-full text-sk-outline hover:text-sk-on-surface dark:text-muted-foreground"
           >
             <X className="w-4 h-4" />

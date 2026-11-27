@@ -25,6 +25,8 @@ import { ImportBanner } from '@/components/ImportBanner';
 import { NEW_FROM_IPHONE, useRecipeStore } from '@/store/recipeStore';
 import type { ActiveView, Recipe } from '@/types';
 import type { SortOption } from '@/lib/constants';
+import { useT, translateMessage } from '@/i18n';
+import { rich } from '@/i18n/rich';
 
 const RecipeVault = lazy(() => import('@/components/RecipeVault').then((m) => ({ default: m.RecipeVault })));
 const RecipeDetail = lazy(() => import('@/components/RecipeDetail').then((m) => ({ default: m.RecipeDetail })));
@@ -41,10 +43,12 @@ const RecipeInbox = lazy(() => import('@/components/RecipeInbox').then((m) => ({
 const AdminPanel = lazy(() => import('@/components/AdminPanel').then((m) => ({ default: m.AdminPanel })));
 
 function ViewFallback() {
-  return <div className="p-6 text-sm text-zinc-500 dark:text-zinc-400">Loading...</div>;
+  const t = useT();
+  return <div className="p-6 text-sm text-zinc-500 dark:text-zinc-400">{t('Loading...')}</div>;
 }
 
 export default function App() {
+  const t = useT();
   const { user, signOut } = useAuth();
   const isAdmin = useIsAdmin(user?.id);
   const { recipes, loading, processingIds, hasMore, fetchRecipes, loadMore, saveRecipe, deleteRecipe, toggleFavourite, updateRecipe } = useRecipes(user?.id);
@@ -237,7 +241,7 @@ export default function App() {
     } catch (err) {
       // Surfaced rather than swallowed: the store now rejects a write that RLS
       // refused, and the open drawer must not keep showing the change either.
-      toast.error(err instanceof Error ? err.message : 'Could not save that change.');
+      toast.error(err instanceof Error ? translateMessage(err.message) : t('Could not save that change.'));
       return false;
     }
     setSelectedRecipe((prev) => prev?.id === id ? { ...prev, ...changes } : prev);
@@ -296,10 +300,9 @@ export default function App() {
         <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans text-zinc-900 dark:text-zinc-50 flex items-center justify-center p-6">
           <ThemeSync />
           <div className="max-w-md text-center space-y-4">
-            <h1 className="text-3xl font-black">This link isn't available</h1>
+            <h1 className="text-3xl font-black">{t("This link isn't available")}</h1>
             <p className="text-zinc-600 dark:text-zinc-400">
-              The recipe may have been unshared by its owner, or the link may be
-              incomplete. Ask whoever sent it for a fresh link.
+              {t('The recipe may have been unshared by its owner, or the link may be incomplete. Ask whoever sent it for a fresh link.')}
             </p>
           </div>
         </div>
@@ -517,17 +520,17 @@ export default function App() {
         <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
           <AlertDialogContent className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete Recipe?</AlertDialogTitle>
+              <AlertDialogTitle>{t('Delete Recipe?')}</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete <strong>"{deleteTarget?.title}"</strong>? This action cannot be undone.
+                {rich(t, 'Are you sure you want to delete <b>"{title}"</b>? This action cannot be undone.', { b: (s) => <strong>{s}</strong> }, { title: deleteTarget?.title ?? '' })}
               </AlertDialogDescription>
             </AlertDialogHeader>
             {/* Two full-size buttons side by side: the default 32 px ones were
                 too small to hit with confidence on a phone, for a step that
                 cannot be undone. */}
             <AlertDialogFooter className="grid grid-cols-2 gap-3">
-              <AlertDialogCancel className="h-11 rounded-full text-base font-semibold">Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDelete} className="h-11 rounded-full text-base font-semibold bg-red-500 hover:bg-red-600 text-white">Delete</AlertDialogAction>
+              <AlertDialogCancel className="h-11 rounded-full text-base font-semibold">{t('Cancel')}</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="h-11 rounded-full text-base font-semibold bg-red-500 hover:bg-red-600 text-white">{t('Delete')}</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

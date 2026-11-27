@@ -5,6 +5,7 @@ import type { ActiveView } from '@/types';
 import { UserMenu } from '@/components/UserMenu';
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { usePillPosition } from '@/hooks/usePillPosition';
+import { msg, useT } from '@/i18n';
 
 interface Props {
   activeView: ActiveView;
@@ -22,13 +23,14 @@ interface Props {
 }
 
 const MOBILE_TABS = [
-  { view: 'vault' as const, icon: BookOpen, label: 'Vault' },
-  { view: 'planner' as const, icon: CalendarDays, label: 'Planner' },
-  { view: 'shopping' as const, icon: ShoppingCart, label: 'Shopping' },
-  { view: 'inbox' as const, icon: Inbox, label: 'Inbox' },
+  { view: 'vault' as const, icon: BookOpen, label: msg('Vault') },
+  { view: 'planner' as const, icon: CalendarDays, label: msg('Planner') },
+  { view: 'shopping' as const, icon: ShoppingCart, label: msg('Shopping') },
+  { view: 'inbox' as const, icon: Inbox, label: msg('Inbox') },
 ] as const;
 
 export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadReleases, inboxCount, onSetView, onOpenSettings, onOpenSuggest, onAddRecipe, onSignOut, children }: Props) {
+  const t = useT();
   const { isDark, toggle } = useDarkMode();
   // One pill per tab bar; each slides to whichever tab is current.
   const desktopTabs = useRef<HTMLDivElement>(null);
@@ -79,7 +81,7 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
                 Speisekammer
               </h1>
               <span className="hidden sm:block text-[10px] font-sans font-medium uppercase tracking-[0.15em] text-sk-on-surface-variant dark:text-muted-foreground">
-                Recipe Vault
+                {t('Recipe Vault')}
               </span>
             </div>
           </div>
@@ -106,13 +108,13 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
                       : 'text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary'
                   }`}
                 >
-                  {view === 'vault' ? 'Vault'
+                  {view === 'vault' ? t('Vault')
                     : view === 'planner'
                       // Labels stay on one line, so the long one is shortened
                       // where the header is narrow rather than left to wrap.
-                      ? <><span className="xl:hidden">Planner</span><span className="hidden xl:inline">Meal Planner</span></>
-                    : view === 'shopping' ? 'Shopping'
-                    : 'Inbox'}
+                      ? <><span className="xl:hidden">{t('Planner')}</span><span className="hidden xl:inline">{t('Meal Planner')}</span></>
+                    : view === 'shopping' ? t('Shopping')
+                    : t('Inbox')}
                   {view === 'inbox' && inboxCount > 0 && (
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sk-primary text-white dark:text-primary-foreground">
                       {inboxCount}
@@ -130,23 +132,23 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
             <button
               onClick={onOpenSuggest}
               className="inline-flex shrink-0 items-center justify-center gap-2 bg-sk-primary-fixed/60 hover:bg-sk-primary-fixed dark:bg-primary/15 dark:hover:bg-primary/25 text-sk-primary dark:text-primary font-semibold rounded-full transition-colors h-10 text-sm w-10 sm:w-auto sm:px-5 lg:w-10 lg:px-0"
-              title="Suggest a recipe"
-              aria-label="Suggest a recipe"
+              title={t('Suggest a recipe')}
+              aria-label={t('Suggest a recipe')}
             >
               <Wand2 className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline lg:hidden">Suggest</span>
+              <span className="hidden sm:inline lg:hidden">{t('Suggest')}</span>
             </button>
             <button
               onClick={onAddRecipe}
-              aria-label="Add recipe"
-              title="Add recipe"
+              aria-label={t('Add recipe')}
+              title={t('Add recipe')}
               className="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/80 text-white dark:text-primary-foreground font-semibold rounded-full shadow-ambient transition-all duration-200 hover:scale-[1.02] h-10 text-sm w-10 sm:w-auto sm:px-6"
             >
               <Plus className="w-4 h-4 shrink-0" />
               {/* "Add" alone between 1024 and 1280 px, where the desktop tabs
                   leave no room for "Add Recipe". */}
-              <span className="hidden sm:inline lg:hidden xl:inline">Add Recipe</span>
-              <span className="hidden lg:inline xl:hidden">Add</span>
+              <span className="hidden sm:inline lg:hidden xl:inline">{t('Add Recipe')}</span>
+              <span className="hidden lg:inline xl:hidden">{t('Add')}</span>
             </button>
             {/* From lg only (the component hides itself below): on a phone
                 the account is the bottom bar's last tab. */}
@@ -196,7 +198,7 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
                 }`}
               >
                 <Icon className="w-5 h-5" />
-                <span className="text-[10px] font-semibold font-sans">{label}</span>
+                <span className="text-[10px] font-semibold font-sans">{t(label)}</span>
                 {view === 'inbox' && inboxCount > 0 && (
                   <span className="absolute top-1.5 left-1/2 ml-1.5 w-4 h-4 bg-sk-primary text-white dark:text-primary-foreground text-[9px] font-bold rounded-full flex items-center justify-center">
                     {inboxCount}

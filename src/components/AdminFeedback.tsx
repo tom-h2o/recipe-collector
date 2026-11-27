@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { describeFeedbackContext } from '@/lib/feedback';
 import { chipClass } from '@/lib/tags';
 import type { AdminFeedbackRow, FeedbackKind, FeedbackStatus } from '@/types';
+import { msg, useT, dateLocale } from '@/i18n';
 
 /**
  * Admin → Feedback: what people sent from "Send feedback" and from the
@@ -14,19 +15,19 @@ import type { AdminFeedbackRow, FeedbackKind, FeedbackStatus } from '@/types';
 const PAGE_SIZE = 25;
 
 const KIND: Record<FeedbackKind, { label: string; icon: React.ElementType }> = {
-  bug: { label: 'Bug', icon: Bug },
-  idea: { label: 'Idea', icon: Lightbulb },
-  other: { label: 'Other', icon: MessageSquare },
+  bug: { label: msg('Bug'), icon: Bug },
+  idea: { label: msg('Idea'), icon: Lightbulb },
+  other: { label: msg('Other##feedback kind'), icon: MessageSquare },
 };
 
 const STATUSES: { id: FeedbackStatus; label: string }[] = [
-  { id: 'new', label: 'New' },
-  { id: 'seen', label: 'Seen' },
-  { id: 'done', label: 'Done' },
+  { id: 'new', label: msg('New##status') },
+  { id: 'seen', label: msg('Seen##status') },
+  { id: 'done', label: msg('Done##status') },
 ];
 
 function when(iso: string): string {
-  return new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleString(dateLocale('en-GB'), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 interface Props {
@@ -36,6 +37,7 @@ interface Props {
 }
 
 export function AdminFeedback({ reloadKey = 0, onNewCountChange }: Props) {
+  const t = useT();
   const [rows, setRows] = useState<AdminFeedbackRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -53,11 +55,11 @@ export function AdminFeedback({ reloadKey = 0, onNewCountChange }: Props) {
       setRows(data.feedback ?? []);
       setTotal(data.total ?? 0);
     } catch {
-      setError('The feedback could not be loaded. If this is right after a deploy, the database migration may still be running.');
+      setError(t('The feedback could not be loaded. If this is right after a deploy, the database migration may still be running.'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { load(page); }, [page, reloadKey, load]);
 
@@ -77,14 +79,14 @@ export function AdminFeedback({ reloadKey = 0, onNewCountChange }: Props) {
     } catch {
       // Put it back: the row must not claim a status the database does not hold.
       setRows(before);
-      setActionError('The status could not be saved. Please try again.');
+      setActionError(t('The status could not be saved. Please try again.'));
     }
   }
 
   if (loading && rows.length === 0) {
     return (
       <div className="flex items-center justify-center py-16 text-zinc-500 dark:text-zinc-400">
-        <Loader2 className="w-5 h-5 animate-spin" aria-label="Loading feedback" />
+        <Loader2 className="w-5 h-5 animate-spin" aria-label={t('Loading feedback')} />
       </div>
     );
   }
@@ -94,7 +96,7 @@ export function AdminFeedback({ reloadKey = 0, onNewCountChange }: Props) {
       <div role="alert" className="text-center py-12 space-y-3">
         <p className="text-sm text-zinc-600 dark:text-zinc-300">{error}</p>
         <Button variant="outline" size="sm" onClick={() => load(page)} className="gap-1.5">
-          <RefreshCw className="w-3.5 h-3.5" /> Retry
+          <RefreshCw className="w-3.5 h-3.5" /> {t('Retry')}
         </Button>
       </div>
     );
@@ -104,8 +106,8 @@ export function AdminFeedback({ reloadKey = 0, onNewCountChange }: Props) {
     return (
       <div className="text-center py-16 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
         <MessageSquare className="w-10 h-10 mx-auto mb-3 text-zinc-300 dark:text-zinc-700" aria-hidden />
-        <p className="font-semibold text-zinc-700 dark:text-zinc-200">No feedback yet</p>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Reports sent from the account menu appear here.</p>
+        <p className="font-semibold text-zinc-700 dark:text-zinc-200">{t('No feedback yet')}</p>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{t('Reports sent from the account menu appear here.')}</p>
       </div>
     );
   }
@@ -123,24 +125,24 @@ export function AdminFeedback({ reloadKey = 0, onNewCountChange }: Props) {
             <li key={row.id} className={`bg-white dark:bg-zinc-900 border rounded-2xl p-5 space-y-3 ${row.status === 'new' ? 'border-sk-primary/40 dark:border-primary/40' : 'border-zinc-200 dark:border-zinc-800'}`}>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
                 <span className="inline-flex items-center gap-1.5 font-semibold text-zinc-800 dark:text-zinc-100">
-                  <Icon className="w-3.5 h-3.5" aria-hidden /> {kind.label}
+                  <Icon className="w-3.5 h-3.5" aria-hidden /> {t(kind.label)}
                 </span>
-                <span className="min-w-0 truncate">{row.user_email ?? 'Unknown account'}</span>
+                <span className="min-w-0 truncate">{row.user_email ?? t('Unknown account')}</span>
                 <span>{when(row.created_at)}</span>
               </div>
               <p className="text-sm text-zinc-800 dark:text-zinc-100 whitespace-pre-wrap break-words">{row.message}</p>
               <details className="text-xs text-zinc-500 dark:text-zinc-400">
-                <summary className="cursor-pointer font-semibold">Context</summary>
+                <summary className="cursor-pointer font-semibold">{t('Context')}</summary>
                 <dl className="mt-2 space-y-1">
                   {describeFeedbackContext(row.context ?? {}).map((line) => (
                     <div key={line.label} className="flex gap-2">
-                      <dt className="shrink-0 w-24 text-zinc-400 dark:text-zinc-500">{line.label}</dt>
+                      <dt className="shrink-0 w-24 text-zinc-400 dark:text-zinc-500">{t(line.label)}</dt>
                       <dd className="min-w-0 break-words">{line.value}</dd>
                     </div>
                   ))}
                 </dl>
               </details>
-              <div role="group" aria-label="Status" className="flex gap-2">
+              <div role="group" aria-label={t('Status')} className="flex gap-2">
                 {STATUSES.map((s) => (
                   <button
                     key={s.id}
@@ -149,7 +151,7 @@ export function AdminFeedback({ reloadKey = 0, onNewCountChange }: Props) {
                     onClick={() => setStatus(row, s.id)}
                     className={chipClass(row.status === s.id)}
                   >
-                    {s.label}
+                    {t(s.label)}
                   </button>
                 ))}
               </div>
@@ -160,12 +162,12 @@ export function AdminFeedback({ reloadKey = 0, onNewCountChange }: Props) {
 
       {pages > 1 && (
         <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
-          <span>Page {page + 1} of {pages}</span>
+          <span>{t('Page {page} of {pages}', { page: page + 1, pages })}</span>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(page - 1)} aria-label="Previous page">
+            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(page - 1)} aria-label={t('Previous page')}>
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            <Button variant="outline" size="sm" disabled={page + 1 >= pages} onClick={() => setPage(page + 1)} aria-label="Next page">
+            <Button variant="outline" size="sm" disabled={page + 1 >= pages} onClick={() => setPage(page + 1)} aria-label={t('Next page')}>
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>

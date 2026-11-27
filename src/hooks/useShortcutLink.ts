@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { apiFetch } from '@/lib/api';
+import { msg } from '@/i18n';
 
 /**
  * The shared iPhone Shortcuts' iCloud links, on the global settings row:
@@ -57,7 +58,7 @@ export function useShortcutLink(enabled: boolean) {
       setError(null);
       return true;
     } catch (err) {
-      setError({ kind, message: err instanceof Error ? err.message : 'The link could not be saved.' });
+      setError({ kind, message: err instanceof Error ? err.message : msg('The link could not be saved.') });
       return false;
     } finally {
       setSaving(null);
