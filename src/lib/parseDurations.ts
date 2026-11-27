@@ -1,3 +1,5 @@
+import { t } from '@/i18n';
+
 /**
  * Finds cooking durations in a step so cook mode can offer a one-tap timer.
  *
@@ -45,21 +47,21 @@ function secondsForUnit(unit: string): number {
  * "2 min" — half a minute of overcooking for whoever trusted the label.
  */
 export function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds} sec`;
+  if (seconds < 60) return t('{s} sec', { s: seconds });
 
   if (seconds < 3600) {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
-    return s === 0 ? `${m} min` : `${m} min ${s} sec`;
+    return s === 0 ? t('{m} min', { m }) : t('{m} min {s} sec', { m, s });
   }
 
   const h = Math.floor(seconds / 3600);
   const remainder = seconds % 3600;
-  if (remainder === 0) return `${h} hr`;
+  if (remainder === 0) return t('{h} hr', { h });
   const m = Math.floor(remainder / 60);
   const s = remainder % 60;
-  if (s !== 0) return `${h} hr ${m} min ${s} sec`;
-  return `${h} hr ${m} min`;
+  if (s !== 0) return t('{h} hr {m} min {s} sec', { h, m, s });
+  return t('{h} hr {m} min', { h, m });
 }
 
 /** mm:ss, or h:mm:ss past an hour. For the running countdown. */

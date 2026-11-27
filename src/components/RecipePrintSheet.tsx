@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom';
 import { parseIngredients } from '@/lib/recipeUtils';
 import type { Ingredient, Recipe } from '@/types';
+import { useT } from '@/i18n';
 
 interface Props {
   recipe: Recipe;
@@ -27,6 +28,7 @@ interface Props {
  * print rules in index.css hide everything else with a single selector.
  */
 export function RecipePrintSheet({ recipe, ingredients, servings, title, description, instructions }: Props) {
+  const t = useT();
   const list = ingredients.length ? ingredients : parseIngredients(recipe.ingredients);
   const steps = (instructions ?? recipe.instructions ?? '')
     .split(/\n+/)
@@ -44,14 +46,14 @@ export function RecipePrintSheet({ recipe, ingredients, servings, title, descrip
       )}
 
       <p className="print-sheet-meta">
-        {`Serves ${servings}`}
-        {recipe.prep_time_mins ? ` · Prep ${recipe.prep_time_mins} min` : ''}
-        {recipe.cook_time_mins ? ` · Cook ${recipe.cook_time_mins} min` : ''}
-        {totalMins > 0 ? ` · Total ${totalMins} min` : ''}
+        {t('Serves {n}', { n: servings })}
+        {recipe.prep_time_mins ? ` · ${t('Prep {n} min', { n: recipe.prep_time_mins })}` : ''}
+        {recipe.cook_time_mins ? ` · ${t('Cook {n} min', { n: recipe.cook_time_mins })}` : ''}
+        {totalMins > 0 ? ` · ${t('Total {n} min', { n: totalMins })}` : ''}
       </p>
 
       <section className="print-sheet-section">
-        <h2 className="print-sheet-heading">Ingredients</h2>
+        <h2 className="print-sheet-heading">{t('Ingredients')}</h2>
         <ul className="print-sheet-ingredients">
           {list.map((ing, i) => (
             <li key={i}>
@@ -64,7 +66,7 @@ export function RecipePrintSheet({ recipe, ingredients, servings, title, descrip
       </section>
 
       <section className="print-sheet-section">
-        <h2 className="print-sheet-heading">Instructions</h2>
+        <h2 className="print-sheet-heading">{t('Instructions')}</h2>
         <ol className="print-sheet-steps">
           {steps.map((step, i) => <li key={i}>{step}</li>)}
         </ol>
@@ -72,14 +74,14 @@ export function RecipePrintSheet({ recipe, ingredients, servings, title, descrip
 
       {recipe.nutrition && (
         <section className="print-sheet-section">
-          <h2 className="print-sheet-heading">Nutrition, per serving</h2>
+          <h2 className="print-sheet-heading">{t('Nutrition, per serving')}</h2>
           <table className="print-sheet-nutrition">
             <tbody>
-              <tr><th>Calories</th><td>{recipe.nutrition.calories} kcal</td></tr>
-              <tr><th>Protein</th><td>{recipe.nutrition.protein_g} g</td></tr>
-              <tr><th>Carbs</th><td>{recipe.nutrition.carbs_g} g</td></tr>
-              <tr><th>Fat</th><td>{recipe.nutrition.fat_g} g</td></tr>
-              <tr><th>Fibre</th><td>{recipe.nutrition.fiber_g} g</td></tr>
+              <tr><th>{t('Calories')}</th><td>{recipe.nutrition.calories} kcal</td></tr>
+              <tr><th>{t('Protein')}</th><td>{recipe.nutrition.protein_g} g</td></tr>
+              <tr><th>{t('Carbs')}</th><td>{recipe.nutrition.carbs_g} g</td></tr>
+              <tr><th>{t('Fat')}</th><td>{recipe.nutrition.fat_g} g</td></tr>
+              <tr><th>{t('Fibre')}</th><td>{recipe.nutrition.fiber_g} g</td></tr>
             </tbody>
           </table>
         </section>
@@ -88,7 +90,7 @@ export function RecipePrintSheet({ recipe, ingredients, servings, title, descrip
       {(recipe.source_name || recipe.source_url) && (
         <p className="print-sheet-source">
           {/* On paper a link is only useful if it is written out. */}
-          Source: {recipe.source_name || recipe.source_url}
+          {t('Source: {source}', { source: recipe.source_name || recipe.source_url || '' })}
           {recipe.source_name && recipe.source_url ? ` — ${recipe.source_url}` : ''}
         </p>
       )}

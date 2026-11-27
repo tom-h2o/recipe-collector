@@ -2,6 +2,7 @@ import { Timer, Play, Pause, X, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { formatClock, formatDuration, type ParsedDuration } from '@/lib/parseDurations';
 import type { CookTimer as CookTimerState } from '@/hooks/useCookTimer';
+import { useT } from '@/i18n';
 
 interface Props {
   timer: CookTimerState;
@@ -19,6 +20,7 @@ const MANUAL_MINUTES = [1, 3, 5, 10, 15, 30];
  * not the fallback.
  */
 export function CookTimer({ timer, suggestions }: Props) {
+  const t = useT();
   const [showManual, setShowManual] = useState(false);
 
   if (timer.isDone) {
@@ -29,13 +31,13 @@ export function CookTimer({ timer, suggestions }: Props) {
       >
         <span className="flex items-center gap-2 font-bold text-white dark:text-primary-foreground">
           <Timer className="w-5 h-5" aria-hidden="true" />
-          Time's up
+          {t("Time's up")}
         </span>
         <button
           onClick={timer.dismiss}
           className="px-4 py-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white dark:text-primary-foreground font-semibold text-sm transition-colors"
         >
-          Dismiss
+          {t('Dismiss')}
         </button>
       </div>
     );
@@ -50,21 +52,21 @@ export function CookTimer({ timer, suggestions }: Props) {
             className="font-mono text-2xl font-bold text-white tabular-nums"
             role="timer"
             aria-live="off"
-            aria-label={`${formatClock(timer.remaining)} remaining`}
+            aria-label={t('{time} remaining', { time: formatClock(timer.remaining) })}
           >
             {formatClock(timer.remaining)}
           </span>
           <div className="flex items-center gap-2">
             <button
               onClick={timer.isRunning ? timer.pause : timer.resume}
-              aria-label={timer.isRunning ? 'Pause timer' : 'Resume timer'}
+              aria-label={timer.isRunning ? t('Pause timer') : t('Resume timer')}
               className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
             >
               {timer.isRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
             </button>
             <button
               onClick={timer.clear}
-              aria-label="Cancel timer"
+              aria-label={t('Cancel timer')}
               className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
             >
               <X className="w-4 h-4" />
@@ -104,10 +106,10 @@ export function CookTimer({ timer, suggestions }: Props) {
         : (
           <button
             onClick={() => setShowManual(true)}
-            aria-label="Set a timer"
+            aria-label={t('Set a timer')}
             className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/70 text-sm font-semibold transition-colors"
           >
-            <Plus className="w-3.5 h-3.5" /> Timer
+            <Plus className="w-3.5 h-3.5" /> {t('Timer')}
           </button>
         )}
     </div>

@@ -1,6 +1,8 @@
 import { Check, X, Inbox, ChefHat, ArrowLeft, Link2 } from 'lucide-react';
 import type { RecipeShare, LinkedPerson } from '@/types';
 import { isOwnPhotoUrl } from '../../shared/photoUrl';
+import { useT, dateLocale } from '@/i18n';
+import { rich } from '@/i18n/rich';
 
 interface Props {
   shares: RecipeShare[];
@@ -17,19 +19,20 @@ interface Props {
 }
 
 export function RecipeInbox({ shares, linkInvites = [], onAccept, onReject, onAcceptLink, onDeclineLink, onBack }: Props) {
+  const t = useT();
   const total = shares.length + linkInvites.length;
 
   if (total === 0) {
     return (
       <div className="max-w-2xl mx-auto text-center py-24 animate-in fade-in duration-500">
         <Inbox className="w-16 h-16 mx-auto text-zinc-300 dark:text-zinc-700 mb-4" />
-        <p className="text-xl font-bold text-zinc-500 dark:text-zinc-400">Your inbox is empty</p>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">Recipes people send you, and requests to connect accounts, appear here.</p>
+        <p className="text-xl font-bold text-zinc-500 dark:text-zinc-400">{t('Your inbox is empty')}</p>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">{t('Recipes people send you, and requests to connect accounts, appear here.')}</p>
         <button
           onClick={onBack}
           className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-sk-primary hover:text-sk-primary-container dark:text-primary transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to Vault
+          <ArrowLeft className="w-4 h-4" /> {t('Back to Vault')}
         </button>
       </div>
     );
@@ -41,13 +44,13 @@ export function RecipeInbox({ shares, linkInvites = [], onAccept, onReject, onAc
         <button
           onClick={onBack}
           className="p-1.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
-          title="Back to Vault"
+          title={t('Back to Vault')}
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h2 className="text-2xl font-bold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
           <Inbox className="w-6 h-6 text-sk-primary dark:text-primary" />
-          Recipe Inbox
+          {t('Recipe Inbox')}
           <span className="text-sm font-semibold px-2 py-0.5 bg-sk-primary-fixed/40 dark:bg-primary/15 text-sk-primary dark:text-primary rounded-full">
             {total}
           </span>
@@ -65,11 +68,11 @@ export function RecipeInbox({ shares, linkInvites = [], onAccept, onReject, onAc
 
           <div className="flex-1 min-w-0 p-4 flex flex-col justify-between gap-3">
             <div className="min-w-0">
-              <p className="font-bold text-zinc-900 dark:text-zinc-50 truncate">Connection request</p>
+              <p className="font-bold text-zinc-900 dark:text-zinc-50 truncate">{t('Connection request')}</p>
               <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-0.5">
-                <span className="font-semibold">{invite.email}</span> wants to connect.
-                You would each be able to browse the other’s recipes and save copies —
-                your whole collection, not selected recipes. Neither of you can edit the other’s.
+                {rich(t, '<b>{email}</b> wants to connect. You would each be able to browse the other’s recipes and save copies — your whole collection, not selected recipes. Neither of you can edit the other’s.', {
+                  b: (text) => <span className="font-semibold">{text}</span>,
+                }, { email: invite.email })}
               </p>
             </div>
 
@@ -78,13 +81,13 @@ export function RecipeInbox({ shares, linkInvites = [], onAccept, onReject, onAc
                 onClick={() => onAcceptLink?.(invite.linkId)}
                 className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground text-sm font-semibold transition-colors"
               >
-                <Check className="w-4 h-4" /> Connect
+                <Check className="w-4 h-4" /> {t('Connect')}
               </button>
               <button
                 onClick={() => onDeclineLink?.(invite.linkId)}
                 className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 text-sm font-semibold transition-colors"
               >
-                <X className="w-4 h-4" /> Decline
+                <X className="w-4 h-4" /> {t('Decline')}
               </button>
             </div>
           </div>
@@ -121,9 +124,11 @@ export function RecipeInbox({ shares, linkInvites = [], onAccept, onReject, onAc
                 <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-1 mt-0.5">{share.recipe_description}</p>
               )}
               <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
-                From <span className="font-semibold text-zinc-600 dark:text-zinc-300">{share.sender_email}</span>
+                {rich(t, 'From <b>{email}</b>', {
+                  b: (text) => <span className="font-semibold text-zinc-600 dark:text-zinc-300">{text}</span>,
+                }, { email: share.sender_email })}
                 {' · '}
-                {new Date(share.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                {new Date(share.created_at).toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' })}
               </p>
             </div>
 
@@ -132,13 +137,13 @@ export function RecipeInbox({ shares, linkInvites = [], onAccept, onReject, onAc
                 onClick={() => onAccept(share)}
                 className="flex items-center gap-1.5 px-4 py-2 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground text-sm font-semibold rounded-full transition-colors"
               >
-                <Check className="w-4 h-4" /> Add to vault
+                <Check className="w-4 h-4" /> {t('Add to vault')}
               </button>
               <button
                 onClick={() => onReject(share)}
                 className="flex items-center gap-1.5 px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 text-sm font-semibold rounded-xl transition-colors"
               >
-                <X className="w-4 h-4" /> Decline
+                <X className="w-4 h-4" /> {t('Decline')}
               </button>
             </div>
           </div>

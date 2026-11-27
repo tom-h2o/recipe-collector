@@ -9,6 +9,7 @@ import { parseDurations } from '@/lib/parseDurations';
 import { parseIngredients } from '@/lib/recipeUtils';
 import { ingredientsInStep } from '@/lib/stepIngredients';
 import type { Recipe, RecipeTranslation } from '@/types';
+import { useT } from '@/i18n';
 
 interface Props {
   recipe: Recipe | null;
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
+  const t = useT();
   const [cookStep, setCookStep] = useState(0);
   const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
   const [showIngredients, setShowIngredients] = useState(false);
@@ -33,9 +35,9 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
   const steps = rawInstructions.split(/\n+/).map((s) => s.trim()).filter(Boolean);
   const baseIngredients = parseIngredients(recipe.ingredients);
   const ingredients = baseIngredients.map((ing, i) => {
-    const t = translation?.ingredients?.[i];
-    if (!t) return ing;
-    return { amount: t.amount ?? ing.amount, name: t.name ?? ing.name, details: t.details ?? ing.details };
+    const translated = translation?.ingredients?.[i];
+    if (!translated) return ing;
+    return { amount: translated.amount ?? ing.amount, name: translated.name ?? ing.name, details: translated.details ?? ing.details };
   });
   const currentStep = steps[cookStep] || '';
   // Not memoised: this runs a regex over one step's text, and a useMemo here
@@ -92,15 +94,15 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
                 className="sm:hidden fixed inset-0 z-10 bg-black/60"
               />
               <section
-                aria-label="Ingredients"
+                aria-label={t('Ingredients')}
                 className="fixed inset-x-0 bottom-0 z-20 max-h-[72dvh] rounded-t-3xl border-t border-white/10 bg-zinc-900 pb-[var(--safe-bottom)] pl-[var(--safe-left)] pr-[var(--safe-right)] sm:static sm:z-auto sm:max-h-none sm:rounded-none sm:border-t-0 sm:border-r sm:bg-transparent sm:p-0 w-full sm:w-72 shrink-0 flex flex-col overflow-hidden"
               >
                 <div aria-hidden="true" className="sm:hidden mx-auto mt-2.5 h-1 w-10 rounded-full bg-white/20" />
                 <div className="shrink-0 px-5 py-3.5 border-b border-white/10 flex items-center justify-between">
-                  <span className="font-bold text-sm text-white/80 uppercase tracking-wider">Ingredients</span>
+                  <span className="font-bold text-sm text-white/80 uppercase tracking-wider">{t('Ingredients')}</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-white/40 tabular-nums">{checkedIngredients.size} of {ingredients.length} done</span>
-                    <button onClick={() => setShowIngredients(false)} aria-label="Hide ingredients" className="sm:hidden p-2 -mr-2 rounded-full hover:bg-white/10 text-white/60"><X className="w-5 h-5" /></button>
+                    <span className="text-xs text-white/40 tabular-nums">{t('{done} of {total} done', { done: checkedIngredients.size, total: ingredients.length })}</span>
+                    <button onClick={() => setShowIngredients(false)} aria-label={t('Hide ingredients')} className="sm:hidden p-2 -mr-2 rounded-full hover:bg-white/10 text-white/60"><X className="w-5 h-5" /></button>
                   </div>
                 </div>
                 <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-3 space-y-1">
@@ -140,16 +142,16 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
               <div className="flex items-center gap-3 shrink-0">
                 <button
                   onClick={() => setShowIngredients((v) => !v)}
-                  aria-label={showIngredients ? 'Hide ingredients' : 'Show ingredients'}
+                  aria-label={showIngredients ? t('Hide ingredients') : t('Show ingredients')}
                   aria-pressed={showIngredients}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-semibold ring-1 ring-inset transition-colors ${showIngredients ? 'bg-sk-primary/20 text-sk-primary-fixed ring-sk-primary/30' : 'ring-white/15 text-white/80 hover:bg-white/10 hover:text-white'}`}
                 >
                   <List className="w-4 h-4" aria-hidden="true" />
                   {/* Labelled on a phone too: an unlabelled list icon was not found. */}
-                  <span>Ingredients</span>
+                  <span>{t('Ingredients')}</span>
                 </button>
                 <span className="text-sm font-semibold text-white/50">{cookStep + 1}/{steps.length}</span>
-                <button onClick={handleClose} aria-label="Exit cook mode" className="p-2 rounded-full hover:bg-white/10 transition-colors">
+                <button onClick={handleClose} aria-label={t('Exit cook mode')} className="p-2 rounded-full hover:bg-white/10 transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -165,8 +167,8 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
                   {currentStep.replace(/^step\s*\d+[.:)]\s*/i, '')}
                 </p>
                 {stepIngredients.length > 0 && (
-                  <section aria-label="For this step" className="w-full max-w-2xl">
-                    <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40 text-center mb-2.5">For this step</p>
+                  <section aria-label={t('For this step')} className="w-full max-w-2xl">
+                    <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40 text-center mb-2.5">{t('For this step')}</p>
                     <div className="flex flex-wrap justify-center gap-2">
                       {stepIngredients.map((i) => {
                         const ing = ingredients[i];
@@ -197,7 +199,7 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
                 <button
                   key={i}
                   onClick={() => setCookStep(i)}
-                  aria-label={`Go to step ${i + 1} of ${steps.length}`}
+                  aria-label={t('Go to step {n} of {total}', { n: i + 1, total: steps.length })}
                   aria-current={i === cookStep ? 'step' : undefined}
                   className="p-2 flex items-center justify-center"
                 >
@@ -214,15 +216,15 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
                 variant="outline"
                 className="flex-1 h-12 sm:h-14 text-base sm:text-lg font-bold rounded-2xl border-white/20 text-white hover:bg-white/10 bg-transparent"
               >
-                ← Previous
+                {t('← Previous')}
               </Button>
               {isLast ? (
                 <Button onClick={handleClose} className="flex-1 h-12 sm:h-14 text-base sm:text-lg font-bold rounded-2xl bg-sk-primary hover:bg-sk-primary-container">
-                  ✓ Done!
+                  {t('✓ Done!')}
                 </Button>
               ) : (
                 <Button onClick={() => setCookStep((s) => Math.min(steps.length - 1, s + 1))} className="flex-1 h-12 sm:h-14 text-base sm:text-lg font-bold rounded-2xl bg-sk-primary hover:bg-sk-primary-container">
-                  Next →
+                  {t('Next →')}
                 </Button>
               )}
             </div>
