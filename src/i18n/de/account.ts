@@ -8,7 +8,7 @@
  */
 const account: Record<string, string> = {
   // ── Sign-in screen (AuthGate) ──────────────────────────────────────────────
-  'Something went wrong. Please try again.': 'Etwas ist schiefgegangen. Bitte versuch es noch einmal.',
+  'Something went wrong. Please try again.': 'Etwas ist schiefgegangen. Bitte versuche es noch einmal.',
   'Something went wrong.': 'Etwas ist schiefgegangen.',
   'Confirmation email resent! Check your inbox.': 'Bestätigungsmail erneut gesendet! Schau in dein Postfach.',
   'Password set. Welcome to Speisekammer!': 'Passwort festgelegt. Willkommen bei Speisekammer!',
@@ -54,7 +54,7 @@ const account: Record<string, string> = {
   'Use a different email': 'Andere E-Mail-Adresse verwenden',
   'What happens to your data': 'Was mit deinen Daten passiert',
   'Sign in failed — please try again or use a magic link.':
-    'Anmeldung fehlgeschlagen. Bitte versuch es noch einmal oder nimm einen Magic Link.',
+    'Anmeldung fehlgeschlagen. Bitte versuche es noch einmal oder nimm einen Magic Link.',
 
   // What Supabase Auth (GoTrue) answers, shown inline
   'Invalid login credentials': 'E-Mail-Adresse oder Passwort stimmt nicht.',
@@ -68,7 +68,7 @@ const account: Record<string, string> = {
   'For security purposes, you can only request this once every {n} seconds':
     'Aus Sicherheitsgründen kannst du das nur alle {n} Sekunden anfordern.',
   'New password should be different from the old password.': 'Das neue Passwort muss sich vom alten unterscheiden.',
-  'Email rate limit exceeded': 'Zu viele E-Mails in kurzer Zeit. Bitte versuch es später noch einmal.',
+  'Email rate limit exceeded': 'Zu viele E-Mails in kurzer Zeit. Bitte versuche es später noch einmal.',
   'Signups not allowed for this instance': 'Neue Konten können hier zurzeit nicht angelegt werden.',
   'Signups not allowed for otp': 'Für diese Adresse gibt es kein Konto.',
   'Unable to validate email address: invalid format': 'Das ist keine gültige E-Mail-Adresse.',
@@ -76,13 +76,12 @@ const account: Record<string, string> = {
   'Auth session missing!': 'Du bist nicht mehr angemeldet. Bitte melde dich neu an.',
   'Password is known to be weak and easy to guess, please choose a different one.':
     'Dieses Passwort ist bekannt und leicht zu erraten. Bitte wähle ein anderes.',
-  'Request rate limit reached': 'Zu viele Anfragen. Bitte versuch es gleich noch einmal.',
+  'Request rate limit reached': 'Zu viele Anfragen. Bitte versuche es gleich noch einmal.',
   'Failed to fetch': 'Keine Verbindung. Bitte prüfe deine Internetverbindung.',
   'Network error': 'Netzwerkfehler',
 
   // ── Account menu (UserMenu) ────────────────────────────────────────────────
   'delete##the word to type': 'löschen',
-  'The name could not be saved. Please try again.': 'Der Name konnte nicht gespeichert werden. Bitte versuch es noch einmal.',
   'Name saved.': 'Name gespeichert.',
   'Name removed.': 'Name entfernt.',
   'Password updated!': 'Passwort geändert!',
@@ -192,10 +191,10 @@ const account: Record<string, string> = {
   'You have already invited that person.': 'Diese Person hast du schon eingeladen.',
   'Invitation sent to {email}': 'Einladung an {email} gesendet',
   'Could not send the invitation.': 'Die Einladung konnte nicht gesendet werden.',
-  'Connected — you can now see each other’s recipes.': 'Verknüpft: Ihr seht jetzt die Rezepte des anderen.',
+  'Connected — you can now see each other’s recipes.': 'Verknüpft – ihr seht jetzt gegenseitig eure Rezepte.',
   'Could not accept the invitation.': 'Die Einladung konnte nicht angenommen werden.',
   'Could not disconnect. Please reload and try again.':
-    'Die Verknüpfung konnte nicht getrennt werden. Bitte lade neu und versuch es noch einmal.',
+    'Die Verknüpfung konnte nicht getrennt werden. Bitte lade neu und versuche es noch einmal.',
   'Disconnected': 'Verknüpfung getrennt',
   'Could not disconnect.': 'Die Verknüpfung konnte nicht getrennt werden.',
   'Could not save the name.': 'Der Name konnte nicht gespeichert werden.',
@@ -256,8 +255,8 @@ const account: Record<string, string> = {
   'Anyone with this key can add recipes to your vault (nothing else). If it gets out, make a new one.':
     'Wer diesen Schlüssel hat, kann Rezepte in deinen Vault legen (sonst nichts). Gerät er in fremde Hände, erstell einen neuen.',
   'Could not check the Shortcut key.': 'Der Schlüssel konnte nicht geprüft werden.',
-  'The key could not be made. Please try again.': 'Der Schlüssel konnte nicht erstellt werden. Bitte versuch es noch einmal.',
-  'The key could not be removed. Please try again.': 'Der Schlüssel konnte nicht entfernt werden. Bitte versuch es noch einmal.',
+  'The key could not be made. Please try again.': 'Der Schlüssel konnte nicht erstellt werden. Bitte versuche es noch einmal.',
+  'The key could not be removed. Please try again.': 'Der Schlüssel konnte nicht entfernt werden. Bitte versuche es noch einmal.',
   'The link could not be saved.': 'Der Link konnte nicht gespeichert werden.',
   'From the Photos app': 'Aus der Fotos-App',
   'Select one or more pictures, tap Share, then <b>{name}</b>. Several pages become one recipe.':
@@ -340,7 +339,7 @@ const account: Record<string, string> = {
   'That is a lot of feedback for one day. Please send the rest tomorrow.':
     'Das ist viel Feedback für einen Tag. Bitte schick den Rest morgen.',
   'The feedback could not be sent. Please try again in a moment.':
-    'Das Feedback konnte nicht gesendet werden. Bitte versuch es gleich noch einmal.',
+    'Das Feedback konnte nicht gesendet werden. Bitte versuche es gleich noch einmal.',
 
   // ── When the app cannot draw itself (LoadFailure, ErrorBoundary) ───────────
   'Updating…': 'Wird aktualisiert…',
