@@ -136,7 +136,7 @@ export function AdminFeedback({ reloadKey = 0, onNewCountChange }: Props) {
                 <dl className="mt-2 space-y-1">
                   {describeFeedbackContext(row.context ?? {}).map((line) => (
                     <div key={line.label} className="flex gap-2">
-                      <dt className="shrink-0 w-24 text-zinc-400 dark:text-zinc-500">{t(line.label)}</dt>
+                      <dt className="shrink-0 w-24 text-zinc-400 dark:text-zinc-500">{line.label}</dt>
                       <dd className="min-w-0 break-words">{line.value}</dd>
                     </div>
                   ))}

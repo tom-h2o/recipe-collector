@@ -491,7 +491,7 @@ export function AdminPanel() {
                       <span className="min-w-0 flex-1 space-y-1">
                         <span className="flex items-center gap-1.5">
                           <span className="font-semibold font-sans text-sk-on-surface dark:text-foreground truncate">{r.title}</span>
-                          {r.is_favourite && <Star className="w-3.5 h-3.5 shrink-0 fill-sk-primary text-sk-primary dark:fill-primary dark:text-primary" aria-label={t('Favourite')} />}
+                          {r.is_favourite && <Star className="w-3.5 h-3.5 shrink-0 fill-sk-primary text-sk-primary dark:fill-primary dark:text-primary" aria-label={t('Favourite##marked')} />}
                         </span>
                         <span className="block text-xs font-sans text-sk-on-surface-variant dark:text-muted-foreground truncate">
                           {r.user_email ?? t('No account')} · {formatDate(r.created_at)}

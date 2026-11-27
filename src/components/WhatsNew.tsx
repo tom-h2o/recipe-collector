@@ -104,7 +104,7 @@ function WhatsNewDialog({ releases, unreadCount, onClose }: Omit<Props, 'isOpen'
             onClick={onClose}
             className="w-full bg-sk-primary hover:bg-sk-primary-container text-white dark:text-primary-foreground font-semibold border-0 rounded-full"
           >
-            {t('Got it')}
+            {t('Got it##dismiss')}
           </Button>
         </div>
       </div>
