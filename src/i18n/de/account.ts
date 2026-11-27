@@ -120,6 +120,7 @@ const account: Record<string, string> = {
   'AI models': 'KI-Modelle',
   'AI': 'KI',
   'Connections': 'Verknüpfungen',
+  'Connections##phone tab': 'Konten',
   'Usage': 'Nutzung',
   'Preferences, Shortcuts, AI models and more.': 'Vorlieben, Kurzbefehle, KI-Modelle und mehr.',
   'Settings sections': 'Bereiche der Einstellungen',

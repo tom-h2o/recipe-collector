@@ -21,7 +21,8 @@ const TABS: readonly SegmentedTab<Tab>[] = [
   { id: 'settings', label: msg('General'), icon: Settings },
   // "AI" on a phone, where four labels have to share one row.
   { id: 'ai', label: msg('AI models'), short: msg('AI'), icon: Sparkles },
-  { id: 'connections', label: msg('Connections'), icon: Link2 },
+  // German's "Verknüpfungen" pushed the fourth tab off a phone's row.
+  { id: 'connections', label: msg('Connections'), short: msg('Connections##phone tab'), icon: Link2 },
   { id: 'logs', label: msg('Usage'), icon: BarChart2 },
 ];
 

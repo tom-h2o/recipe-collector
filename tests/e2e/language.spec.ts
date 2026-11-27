@@ -23,7 +23,7 @@ test.describe('on a German device', () => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await installMockBackend(page);
     await page.goto('/');
-    const nav = page.getByRole('navigation').first();
+    const nav = page.getByRole('banner');
     await expect(nav.getByRole('button', { name: /Vault/ })).toBeVisible();
     await expect(nav.getByRole('button', { name: /Wochenplan/ })).toBeVisible();
     await expect(nav.getByRole('button', { name: /Einkauf/ })).toBeVisible();
@@ -42,7 +42,7 @@ test.describe('on a German device', () => {
   test('Settings switches to English at once, and the choice survives a reload', async ({ page }) => {
     await installMockBackend(page);
     await page.goto('/');
-    await openAccount(page);
+    await page.getByRole('button', { name: /^Kontomenü/ }).click();
     await page.getByRole('button', { name: 'Einstellungen', exact: true }).click();
 
     const language = page.getByRole('group', { name: 'Sprache' });

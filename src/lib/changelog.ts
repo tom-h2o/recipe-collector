@@ -25,6 +25,15 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-20',
+    title: msg('Speisekammer now speaks German'),
+    items: [
+      msg('The whole app is available in German as well as English. It follows the language of your phone or computer.'),
+      msg('To choose yourself, open Settings → General → Language. The choice is kept on that device.'),
+      msg('Your recipes stay in the language they were written in; translating a recipe works as before.'),
+    ],
+  },
+  {
     id: '2026-12-19',
     title: msg('A calmer top bar, and everything about you in one place'),
     items: [

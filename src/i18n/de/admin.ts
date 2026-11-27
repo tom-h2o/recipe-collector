@@ -476,6 +476,15 @@ const admin: Record<string, string> = {
     'Das Notizfeld nennt sich nicht mehr „Persönlich“. Es sagt jetzt, wer es tatsächlich lesen kann.',
   'Installed app on a phone: new versions arrive on their own rather than needing a reinstall.':
     'Installierte App auf dem Handy: Neue Versionen kommen von selbst an, ohne Neuinstallation.',
+
+  // 2026-12-20
+  'Speisekammer now speaks German': 'Speisekammer spricht jetzt Deutsch',
+  'The whole app is available in German as well as English. It follows the language of your phone or computer.':
+    'Die ganze App gibt es jetzt auf Deutsch und Englisch, passend zur Sprache deines Handys oder Computers.',
+  'To choose yourself, open Settings → General → Language. The choice is kept on that device.':
+    'Wenn du selbst wählen möchtest: Einstellungen → Allgemein → Sprache. Die Wahl wird auf dem jeweiligen Gerät gespeichert.',
+  'Your recipes stay in the language they were written in; translating a recipe works as before.':
+    'Deine Rezepte bleiben in der Sprache, in der sie geschrieben wurden; ein Rezept übersetzen kannst du wie bisher.',
 };
 
 export default admin;

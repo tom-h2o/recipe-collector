@@ -2,6 +2,8 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { de, fragments } from './de';
+import { AVAILABLE_TAGS, TAG_GROUPS } from '../../shared/tags';
+import { tagLabel, TRANSLATED_TAG_TEXT } from '@/lib/tags';
 import { t, tn, translateMessage, setLanguagePreference, systemLanguage, getLanguage, dateLocale } from './index';
 
 const SRC = join(__dirname, '..');
@@ -64,6 +66,15 @@ describe('the German dictionary', () => {
     expect(Object.entries(de).filter(([, german]) => !german.trim()).map(([key]) => key)).toEqual([]);
     const formal = Object.entries(de).filter(([, german]) => /\b(Ihre?[mnrs]?|Ihnen)\b/.test(german) || /(^|[.!?:] )Sie\b|\bkönnen Sie\b|\bSie (können|haben|müssen|sind)\b/.test(german));
     expect(formal.map(([key]) => key)).toEqual([]);
+  });
+});
+
+describe('tags', () => {
+  it('have a German name for every tag and group in shared/tags.ts', () => {
+    // shared/tags.ts is read by the server and cannot mark its own text, so
+    // src/lib/tags.ts lists it again; a tag added there needs a line here.
+    const shown = [...TAG_GROUPS.map((g) => g.label), ...AVAILABLE_TAGS.map((tag) => tagLabel(tag))];
+    expect(shown.filter((text) => !TRANSLATED_TAG_TEXT.includes(text) && !(text in de))).toEqual([]);
   });
 });
 
