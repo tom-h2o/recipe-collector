@@ -68,6 +68,7 @@ const CONFIG: ConfigItem[] = [
   { id: 'unsplash-key', label: 'Unsplash key', names: ['UNSPLASH_ACCESS_KEY'], required: false, missing: 'Image search is off.' },
   { id: 'sentry-server', label: 'Sentry, server', names: ['SENTRY_DSN'], required: false, missing: 'Errors in the server functions are not reported anywhere.' },
   { id: 'sentry-browser', label: 'Sentry, browser', names: ['VITE_SENTRY_DSN'], required: false, missing: 'Errors in the app itself are not reported anywhere.' },
+  { id: 'sentry-sourcemaps', label: 'Sentry, source maps', names: ['SENTRY_AUTH_TOKEN'], required: false, missing: 'Errors from the app arrive, but their stack traces show minified code.' },
   { id: 'allowed-origin', label: 'Allowed origin (CORS)', names: ['ALLOWED_ORIGIN'], required: false, missing: 'Any website may call the API. Sign-in still protects it, because the token travels in a header rather than a cookie.' },
 ];
 
