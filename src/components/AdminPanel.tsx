@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, BookOpen, Sparkles, Trash2, RefreshCw, Calendar, TrendingUp, Star, ChevronLeft, ChevronRight, X, Loader2, Pencil, LayoutDashboard, Activity } from 'lucide-react';
+import { Users, BookOpen, Sparkles, Trash2, RefreshCw, Calendar, TrendingUp, Star, ChevronLeft, ChevronRight, X, Loader2, Pencil, LayoutDashboard, Activity, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -8,9 +8,10 @@ import { RecipeForm } from '@/components/RecipeForm';
 import type { AdminUser, AdminStats, AdminLog, AdminRecipe, Recipe } from '@/types';
 import { ReasoningTag } from '@/components/ReasoningTag';
 import { SystemCheck } from '@/components/SystemCheck';
+import { AdminUsage } from '@/components/AdminUsage';
 import { SegmentedTabs, type SegmentedTab } from '@/components/SegmentedTabs';
 
-type Tab = 'overview' | 'users' | 'recipes' | 'logs' | 'system';
+type Tab = 'overview' | 'usage' | 'users' | 'recipes' | 'logs' | 'system';
 
 const PAGE_SIZE = 25;
 
@@ -53,6 +54,8 @@ function Pager({ page, setPage, pageSize, total }: { page: number; setPage: (fn:
 
 export function AdminPanel() {
   const [tab, setTab] = useState<Tab>('overview');
+  // Bumped by Refresh, so the Usage tab (which loads its own data) reloads too.
+  const [usageReload, setUsageReload] = useState(0);
 
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -169,6 +172,7 @@ export function AdminPanel() {
 
   function refresh() {
     loadStats();
+    if (tab === 'usage') setUsageReload((n) => n + 1);
     if (tab === 'users') loadUsers(usersPage);
     if (tab === 'recipes') loadRecipes(recipesPage, recipeSearchDebounced, ownerFilter?.id ?? null);
     if (tab === 'logs') loadLogs(logsPage);
@@ -302,6 +306,7 @@ export function AdminPanel() {
 
   const TABS: SegmentedTab<Tab>[] = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+    { id: 'usage', label: 'Usage', icon: BarChart3 },
     { id: 'users', label: 'Users', icon: Users, count: stats.total_users },
     { id: 'recipes', label: 'Recipes', icon: BookOpen, count: stats.total_recipes },
     { id: 'logs', label: 'AI Logs', icon: Sparkles, count: stats.total_ai_calls },
@@ -324,6 +329,7 @@ export function AdminPanel() {
 
       <div id="admin-panel" role="tabpanel" aria-labelledby={`admin-tab-${tab}`} className="space-y-6">
       {tab === 'system' && <SystemCheck />}
+      {tab === 'usage' && <AdminUsage reloadKey={usageReload} />}
 
       {/* Overview tab */}
       {tab === 'overview' && (

@@ -107,7 +107,8 @@ test('Admin: the tabs scroll on a phone instead of squeezing, and the chosen one
   await page.getByRole('navigation').getByRole('button', { name: 'Admin' }).click();
 
   const tabs = page.getByRole('tablist', { name: 'Admin sections' });
-  await expect(tabs.getByRole('tab')).toHaveCount(5);
+  // Overview, Usage, Users, Recipes, AI Logs, System.
+  await expect(tabs.getByRole('tab')).toHaveCount(6);
   for (const t of await tabsFit(page, 'Admin sections')) {
     expect(t, t.name).toMatchObject({ oneLine: true, spills: false });
   }
