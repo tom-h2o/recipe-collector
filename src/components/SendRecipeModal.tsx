@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogTitle } from '@/components/ui/dialog';
 import type { Recipe, Contact } from '@/types';
+import { useT } from '@/i18n';
 
 interface Props {
   recipe: Recipe;
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function SendRecipeModal({ recipe, contacts, isOpen, onClose, onSend }: Props) {
+  const t = useT();
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,13 +67,13 @@ export function SendRecipeModal({ recipe, contacts, isOpen, onClose, onSend }: P
       >
         <div className="flex items-center justify-between">
           <div className="min-w-0">
-            <DialogTitle className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Send recipe</DialogTitle>
+            <DialogTitle className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{t('Send recipe')}</DialogTitle>
             <DialogDescription className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5 truncate max-w-[220px]">{recipe.title}</DialogDescription>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('Close')}
             className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-400"
           >
             <X className="w-4 h-4" />
@@ -81,7 +83,7 @@ export function SendRecipeModal({ recipe, contacts, isOpen, onClose, onSend }: P
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5 relative">
             <Label htmlFor="recipient-email" className="font-semibold text-zinc-700 dark:text-zinc-300">
-              Recipient email
+              {t('Recipient email')}
             </Label>
             <Input
               ref={inputRef}
@@ -118,12 +120,12 @@ export function SendRecipeModal({ recipe, contacts, isOpen, onClose, onSend }: P
           )}
 
           <p className="text-xs text-zinc-400 dark:text-zinc-500">
-            The recipient will see this recipe in their inbox and can choose to add it to their vault.
+            {t('The recipient will see this recipe in their inbox and can choose to add it to their vault.')}
           </p>
 
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               type="submit"
@@ -131,7 +133,7 @@ export function SendRecipeModal({ recipe, contacts, isOpen, onClose, onSend }: P
               className="flex-1 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground border-0"
             >
               <Send className="w-4 h-4 mr-2" />
-              {isSubmitting ? 'Sending…' : 'Send'}
+              {isSubmitting ? t('Sending…') : t('Send')}
             </Button>
           </div>
         </form>

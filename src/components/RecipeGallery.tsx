@@ -2,11 +2,12 @@ import { useRef, useState } from 'react';
 import { Images, ImagePlus, Star, Trash2, X, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { RecipeImage, RecipeImageSource } from '@/types';
+import { useT, msg } from '@/i18n';
 
 const SOURCE_LABEL: Record<RecipeImageSource, string> = {
-  upload: 'Uploaded',
-  website: 'From website',
-  stock: 'Stock photo',
+  upload: msg('Uploaded'),
+  website: msg('From website'),
+  stock: msg('Stock photo'),
 };
 
 interface Props {
@@ -25,6 +26,7 @@ interface Props {
  * removed unless the user deletes it explicitly.
  */
 export function RecipeGallery({ images, coverUrl, busy, onAdd, onDelete, onSetCover }: Props) {
+  const t = useT();
   const inputRef = useRef<HTMLInputElement>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<RecipeImage | null>(null);
@@ -40,7 +42,7 @@ export function RecipeGallery({ images, coverUrl, busy, onAdd, onDelete, onSetCo
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-bold font-sans text-sk-on-surface dark:text-foreground">
           <Images className="w-4 h-4 text-sk-primary dark:text-primary" />
-          Photos
+          {t('Photos')}
           {images.length > 0 && (
             <span className="text-xs font-semibold text-sk-on-surface-variant dark:text-muted-foreground">
               {images.length}
@@ -67,13 +69,13 @@ export function RecipeGallery({ images, coverUrl, busy, onAdd, onDelete, onSetCo
           onClick={() => inputRef.current?.click()}
           className="gap-1.5"
         >
-          <ImagePlus className="w-3.5 h-3.5" /> Add photo
+          <ImagePlus className="w-3.5 h-3.5" /> {t('Add photo')}
         </Button>
       </div>
 
       {images.length === 0 ? (
         <p className="text-xs font-sans text-sk-outline dark:text-muted-foreground">
-          No photos yet. Add one to remember how yours turned out.
+          {t('No photos yet. Add one to remember how yours turned out.')}
         </p>
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
@@ -84,7 +86,7 @@ export function RecipeGallery({ images, coverUrl, busy, onAdd, onDelete, onSetCo
                 <button
                   type="button"
                   onClick={() => setLightboxIndex(i)}
-                  aria-label={`View photo ${i + 1} of ${images.length}`}
+                  aria-label={t('View photo {n} of {total}', { n: i + 1, total: images.length })}
                   className="w-full h-full"
                 >
                   <img src={img.url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover rounded-lg" />
@@ -92,12 +94,12 @@ export function RecipeGallery({ images, coverUrl, busy, onAdd, onDelete, onSetCo
 
                 {isCover && (
                   <span className="absolute top-1 left-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-sk-primary text-white dark:text-primary-foreground text-[10px] font-bold leading-none">
-                    <Star className="w-2.5 h-2.5 fill-current" /> Cover
+                    <Star className="w-2.5 h-2.5 fill-current" /> {t('Cover')}
                   </span>
                 )}
 
                 <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-full bg-black/65 text-white text-[10px] font-semibold leading-none">
-                  {SOURCE_LABEL[img.source]}
+                  {t(SOURCE_LABEL[img.source])}
                 </span>
 
                 <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover/photo:opacity-100 focus-within:opacity-100 transition-opacity">
@@ -106,8 +108,8 @@ export function RecipeGallery({ images, coverUrl, busy, onAdd, onDelete, onSetCo
                       type="button"
                       onClick={() => onSetCover(img)}
                       disabled={busy}
-                      aria-label={`Use photo ${i + 1} as the recipe image`}
-                      title="Use as recipe image"
+                      aria-label={t('Use photo {n} as the recipe image', { n: i + 1 })}
+                      title={t('Use as recipe image')}
                       className="p-1 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
                     >
                       <Star className="w-3 h-3" />
@@ -117,8 +119,8 @@ export function RecipeGallery({ images, coverUrl, busy, onAdd, onDelete, onSetCo
                     type="button"
                     onClick={() => setConfirmDelete(img)}
                     disabled={busy}
-                    aria-label={`Delete photo ${i + 1}`}
-                    title="Delete photo"
+                    aria-label={t('Delete photo {n}', { n: i + 1 })}
+                    title={t('Delete photo')}
                     className="p-1 rounded-full bg-black/60 text-white hover:bg-red-600 transition-colors"
                   >
                     <Trash2 className="w-3 h-3" />
@@ -144,7 +146,7 @@ export function RecipeGallery({ images, coverUrl, busy, onAdd, onDelete, onSetCo
           <button
             type="button"
             onClick={() => setLightboxIndex(null)}
-            aria-label="Close photo"
+            aria-label={t('Close photo')}
             className="absolute top-[calc(var(--safe-top)+1rem)] right-[calc(var(--safe-right)+1rem)] p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
           >
             <X className="w-6 h-6" />
@@ -155,7 +157,7 @@ export function RecipeGallery({ images, coverUrl, busy, onAdd, onDelete, onSetCo
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); step(-1); }}
-                aria-label="Previous photo"
+                aria-label={t('Previous photo')}
                 className="absolute left-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
               >
                 <ChevronLeft className="w-6 h-6" />
@@ -163,7 +165,7 @@ export function RecipeGallery({ images, coverUrl, busy, onAdd, onDelete, onSetCo
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); step(1); }}
-                aria-label="Next photo"
+                aria-label={t('Next photo')}
                 className="absolute right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
               >
                 <ChevronRight className="w-6 h-6" />
@@ -183,7 +185,7 @@ export function RecipeGallery({ images, coverUrl, busy, onAdd, onDelete, onSetCo
             onClick={(e) => e.stopPropagation()}
             role="presentation"
           >
-            <span className="px-2 py-1 rounded-full bg-white/15">{SOURCE_LABEL[open.source]}</span>
+            <span className="px-2 py-1 rounded-full bg-white/15">{t(SOURCE_LABEL[open.source])}</span>
             <span className="text-white/80">{lightboxIndex! + 1} / {images.length}</span>
             <a
               href={open.url}
@@ -191,7 +193,7 @@ export function RecipeGallery({ images, coverUrl, busy, onAdd, onDelete, onSetCo
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/15 hover:bg-white/25 transition-colors"
             >
-              <ExternalLink className="w-3 h-3" /> Open original
+              <ExternalLink className="w-3 h-3" /> {t('Open original')}
             </a>
           </div>
         </div>
@@ -201,20 +203,20 @@ export function RecipeGallery({ images, coverUrl, busy, onAdd, onDelete, onSetCo
       {confirmDelete && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50">
           <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-xl p-6 space-y-4">
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Delete this photo?</h2>
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">{t('Delete this photo?')}</h2>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
               {confirmDelete.storage_path
-                ? 'The file is removed permanently and cannot be recovered.'
-                : 'This removes the link from the gallery. The original stays on the website it came from.'}
-              {coverUrl === confirmDelete.url && ' It is currently the recipe image, so pick another one afterwards.'}
+                ? t('The file is removed permanently and cannot be recovered.')
+                : t('This removes the link from the gallery. The original stays on the website it came from.')}
+              {coverUrl === confirmDelete.url && ` ${t('It is currently the recipe image, so pick another one afterwards.')}`}
             </p>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setConfirmDelete(null)} className="flex-1">Cancel</Button>
+              <Button variant="outline" onClick={() => setConfirmDelete(null)} className="flex-1">{t('Cancel')}</Button>
               <Button
                 onClick={() => { onDelete(confirmDelete); setConfirmDelete(null); if (lightboxIndex !== null) setLightboxIndex(null); }}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white border-0"
               >
-                Delete
+                {t('Delete')}
               </Button>
             </div>
           </div>

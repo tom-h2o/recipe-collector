@@ -4,6 +4,8 @@ import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { AI_TASKS, MODEL_OPTIONS } from '@/lib/constants';
 import type { AiTask, ThinkingState } from '@/types';
+import { msg, t, tn, useT, translateMessage, dateLocale, type Translate } from '@/i18n';
+import { rich } from '@/i18n/rich';
 
 /**
  * The admin System tab. Shapes mirror api/_lib/systemCheck.ts.
@@ -64,28 +66,31 @@ interface LiveReport {
 }
 
 const STATUS: Record<CheckStatus, { icon: React.ElementType; label: string; className: string }> = {
-  ok: { icon: CheckCircle2, label: 'OK', className: 'text-emerald-600 dark:text-emerald-400' },
-  warn: { icon: AlertTriangle, label: 'Warning', className: 'text-amber-500 dark:text-amber-400' },
-  fail: { icon: XCircle, label: 'Failing', className: 'text-red-600 dark:text-red-400' },
-  skipped: { icon: MinusCircle, label: 'Not checked', className: 'text-zinc-400 dark:text-zinc-500' },
+  ok: { icon: CheckCircle2, label: msg('OK'), className: 'text-emerald-600 dark:text-emerald-400' },
+  warn: { icon: AlertTriangle, label: msg('Warning'), className: 'text-amber-500 dark:text-amber-400' },
+  fail: { icon: XCircle, label: msg('Failing'), className: 'text-red-600 dark:text-red-400' },
+  skipped: { icon: MinusCircle, label: msg('Not checked'), className: 'text-zinc-400 dark:text-zinc-500' },
 };
 
 function StatusIcon({ status }: { status: CheckStatus }) {
+  const t = useT();
   const { icon: Icon, label, className } = STATUS[status];
   return (
-    <span className={`shrink-0 mt-0.5 ${className}`} title={label}>
+    <span className={`shrink-0 mt-0.5 ${className}`} title={t(label)}>
       <Icon className="w-4 h-4" aria-hidden="true" />
-      <span className="sr-only">{label}</span>
+      <span className="sr-only">{t(label)}</span>
     </span>
   );
 }
 
 function Summary({ items }: { items: { status: CheckStatus }[] }) {
+  const t = useT();
   const failing = items.filter((i) => i.status === 'fail').length;
   const warnings = items.filter((i) => i.status === 'warn').length;
-  if (failing) return <span className="text-xs font-semibold text-red-600 dark:text-red-400">{failing} failing{warnings ? `, ${warnings} warning${warnings > 1 ? 's' : ''}` : ''}</span>;
-  if (warnings) return <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">{warnings} warning{warnings > 1 ? 's' : ''}</span>;
-  return <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">All OK</span>;
+  const warningText = tn(warnings, '{n} warning##checks', '{n} warnings##checks');
+  if (failing) return <span className="text-xs font-semibold text-red-600 dark:text-red-400">{t('{n} failing##checks', { n: failing })}{warnings ? `, ${warningText}` : ''}</span>;
+  if (warnings) return <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">{warningText}</span>;
+  return <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{t('All OK')}</span>;
 }
 
 function Card({ title, aside, children }: { title: string; aside?: React.ReactNode; children: React.ReactNode }) {
@@ -121,34 +126,35 @@ function ms(value: number | null | undefined): string | null {
   return value < 1000 ? `${value} ms` : `${(value / 1000).toFixed(1)} s`;
 }
 
-const TASK_LABEL = Object.fromEntries(AI_TASKS.map((t) => [t.task, t.label])) as Record<AiTask, string>;
+const TASK_LABEL = Object.fromEntries(AI_TASKS.map((task) => [task.task, task.label])) as Record<AiTask, string>;
 const TIER_NAME = Object.fromEntries(MODEL_OPTIONS.map((m) => [m.id, m.name])) as Record<string, string>;
 
-function modelTitle(probe: ModelProbe): string {
-  if (probe.kind === 'embedding') return 'Recipe search';
-  return TIER_NAME[probe.model] ?? 'Chosen by a user';
+function modelTitle(probe: ModelProbe, t: Translate): string {
+  if (probe.kind === 'embedding') return t('Recipe search');
+  return TIER_NAME[probe.model] ?? t('Chosen by a user');
 }
 
 function UsageSummary({ usage, available }: { usage: ReasoningUsage[]; available: boolean }) {
-  if (!available) return <span className="text-zinc-400">Not recorded yet</span>;
-  if (usage.length === 0) return <span className="text-zinc-400">No calls</span>;
+  const t = useT();
+  if (!available) return <span className="text-zinc-400">{t('Not recorded yet')}</span>;
+  if (usage.length === 0) return <span className="text-zinc-400">{t('No calls')}</span>;
   return (
     <ul className="space-y-0.5">
       {usage.map((u) => {
         const parts = [
-          u.off ? `${u.off} off` : null,
-          u.minimal ? `${u.minimal} minimal` : null,
-          u.low ? `${u.low} low` : null,
-          u.on ? `${u.on} on` : null,
-          u.unrecorded ? `${u.unrecorded} before recording` : null,
+          u.off ? t('{n} off##reasoning', { n: u.off }) : null,
+          u.minimal ? t('{n} minimal##reasoning', { n: u.minimal }) : null,
+          u.low ? t('{n} low##reasoning', { n: u.low }) : null,
+          u.on ? t('{n} on##reasoning', { n: u.on }) : null,
+          u.unrecorded ? t('{n} before recording', { n: u.unrecorded }) : null,
         ].filter(Boolean).join(' · ');
         return (
           <li key={u.model}>
             <span className="font-mono text-zinc-500 dark:text-zinc-400">{u.model}</span>{' '}
             <span className="text-zinc-600 dark:text-zinc-300">{parts}</span>
             {u.refused > 0 && (
-              <span className="text-amber-600 dark:text-amber-400 font-semibold" title="Reasoning was meant to be lowered, but this model refused every lower setting">
-                {parts ? ' · ' : ''}{u.refused} refused
+              <span className="text-amber-600 dark:text-amber-400 font-semibold" title={t('Reasoning was meant to be lowered, but this model refused every lower setting')}>
+                {parts ? ' · ' : ''}{t('{n} refused##reasoning', { n: u.refused })}
               </span>
             )}
           </li>
@@ -161,13 +167,14 @@ function UsageSummary({ usage, available }: { usage: ReasoningUsage[]; available
 async function readError(res: Response): Promise<string> {
   try {
     const body = await res.json();
-    return body.error ?? `Request failed (${res.status})`;
+    return body.error ? translateMessage(String(body.error)) : t('Request failed ({status})', { status: res.status });
   } catch {
-    return `Request failed (${res.status})`;
+    return t('Request failed ({status})', { status: res.status });
   }
 }
 
 export function SystemCheck() {
+  const t = useT();
   const [overview, setOverview] = useState<HealthOverview | null>(null);
   const [overviewError, setOverviewError] = useState<string | null>(null);
   const [live, setLive] = useState<LiveReport | null>(null);
@@ -181,9 +188,9 @@ export function SystemCheck() {
       if (!res.ok) throw new Error(await readError(res));
       setOverview(await res.json());
     } catch (err) {
-      setOverviewError(err instanceof Error ? err.message : 'Could not load the configuration.');
+      setOverviewError(err instanceof Error ? err.message : t('Could not load the configuration.'));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { loadOverview(); }, [loadOverview]);
 
@@ -197,7 +204,7 @@ export function SystemCheck() {
       // The probes have just been logged, so the evidence column may have moved.
       loadOverview();
     } catch (err) {
-      setLiveError(err instanceof Error ? err.message : 'The check could not be run.');
+      setLiveError(err instanceof Error ? err.message : t('The check could not be run.'));
     } finally {
       setRunning(false);
     }
@@ -207,18 +214,18 @@ export function SystemCheck() {
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-2xl">
-          Configuration and reasoning are read without calling anything outside the app.
-          {' '}<strong className="font-semibold text-zinc-700 dark:text-zinc-200">Run check</strong> also sends one small request to every AI model, Claude and Gemini,
-          an embedding and an Unsplash search. Those calls appear in the AI logs as <code className="font-mono text-xs">health-check</code> and
-          do not count against the daily limit.
+          {rich(t, 'Configuration and reasoning are read without calling anything outside the app. <b>Run check</b> also sends one small request to every AI model, Claude and Gemini, an embedding and an Unsplash search. Those calls appear in the AI logs as <code>health-check</code> and do not count against the daily limit.', {
+            b: (text) => <strong className="font-semibold text-zinc-700 dark:text-zinc-200">{text}</strong>,
+            code: (text) => <code className="font-mono text-xs">{text}</code>,
+          })}
         </p>
         <div className="flex flex-col items-start sm:items-end gap-1 shrink-0">
           <Button onClick={runCheck} disabled={running} className="gap-1.5">
             {running ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Play className="w-4 h-4" aria-hidden="true" />}
-            {running ? 'Checking…' : 'Run check'}
+            {running ? t('Checking…') : t('Run check')}
           </Button>
           {live && (
-            <span className="text-[11px] text-zinc-400">Last run {new Date(live.checked_at).toLocaleTimeString()}</span>
+            <span className="text-[11px] text-zinc-400">{t('Last run {time}', { time: new Date(live.checked_at).toLocaleTimeString(dateLocale()) })}</span>
           )}
         </div>
       </div>
@@ -227,81 +234,81 @@ export function SystemCheck() {
         <p role="alert" className="text-sm text-red-600 dark:text-red-400">{liveError}</p>
       )}
 
-      <Card title="Services" aside={live ? <Summary items={live.services} /> : null}>
+      <Card title={t('Services')} aside={live ? <Summary items={live.services} /> : null}>
         {live ? (
           <ul className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
             {live.services.map((s) => (
-              <CheckRow key={s.id} status={s.status} title={s.label} detail={s.detail} meta={ms(s.latency_ms) && <span>{ms(s.latency_ms)}</span>} />
+              <CheckRow key={s.id} status={s.status} title={translateMessage(s.label)} detail={translateMessage(s.detail)} meta={ms(s.latency_ms) && <span>{ms(s.latency_ms)}</span>} />
             ))}
           </ul>
         ) : (
-          <p className="px-5 py-4 text-sm text-zinc-400">{running ? 'Checking…' : 'Not checked yet. Press Run check.'}</p>
+          <p className="px-5 py-4 text-sm text-zinc-400">{running ? t('Checking…') : t('Not checked yet. Press Run check.')}</p>
         )}
       </Card>
 
-      <Card title="AI models" aside={live ? <Summary items={live.models} /> : null}>
+      <Card title={t('AI models')} aside={live ? <Summary items={live.models} /> : null}>
         {live ? (
           <ul className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
             {live.models.map((m) => (
               <CheckRow
                 key={m.model}
                 status={m.status}
-                title={modelTitle(m)}
+                title={modelTitle(m, t)}
                 subtitle={m.model}
-                detail={m.detail}
+                detail={translateMessage(m.detail)}
                 meta={<>
-                  {(m.reasoning === 'off' || m.reasoning === 'minimal' || m.reasoning === 'low') && <span>Lowest reasoning: {m.reasoning}</span>}
-                  {m.reasoning === 'refused' && <span className="text-amber-600 dark:text-amber-400 font-semibold">Lowest reasoning: refused</span>}
-                  {m.model_version && m.model_version !== m.model && <span>Answered as <span className="font-mono">{m.model_version}</span></span>}
+                  {(m.reasoning === 'off' || m.reasoning === 'minimal' || m.reasoning === 'low') && <span>{t('Lowest reasoning: {level}', { level: m.reasoning })}</span>}
+                  {m.reasoning === 'refused' && <span className="text-amber-600 dark:text-amber-400 font-semibold">{t('Lowest reasoning: refused')}</span>}
+                  {m.model_version && m.model_version !== m.model && <span>{rich(t, 'Answered as <mono>{version}</mono>', { mono: (text) => <span className="font-mono">{text}</span> }, { version: m.model_version })}</span>}
                   {ms(m.latency_ms) && <span>{ms(m.latency_ms)}</span>}
                 </>}
               />
             ))}
           </ul>
         ) : (
-          <p className="px-5 py-4 text-sm text-zinc-400">{running ? 'Checking…' : 'Not checked yet. Press Run check.'}</p>
+          <p className="px-5 py-4 text-sm text-zinc-400">{running ? t('Checking…') : t('Not checked yet. Press Run check.')}</p>
         )}
       </Card>
 
-      <Card title="Reasoning per task" aside={overview ? <span className="text-[11px] text-zinc-400">Calls in the last 7 days</span> : null}>
+      <Card title={t('Reasoning per task')} aside={overview ? <span className="text-[11px] text-zinc-400">{t('Calls in the last 7 days')}</span> : null}>
         {overviewError ? (
           <p role="alert" className="px-5 py-4 text-sm text-red-600 dark:text-red-400">{overviewError}</p>
         ) : !overview ? (
-          <p className="px-5 py-4 text-sm text-zinc-400"><Loader2 className="w-4 h-4 animate-spin inline mr-2" aria-hidden="true" />Loading…</p>
+          <p className="px-5 py-4 text-sm text-zinc-400"><Loader2 className="w-4 h-4 animate-spin inline mr-2" aria-hidden="true" />{t('Loading…')}</p>
         ) : (
           // A table from 640px up; below that each task stacks, because four
           // columns do not fit a phone and the last one is the one that matters.
           <table className="w-full text-sm">
             <thead className="hidden sm:table-header-group">
               <tr className="border-b border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                <th className="text-left px-5 py-2.5 font-semibold">Task</th>
-                <th className="text-left px-3 py-2.5 font-semibold">Reasoning</th>
-                <th className="text-left px-3 py-2.5 font-semibold">Model (your settings)</th>
-                <th className="text-left px-3 py-2.5 font-semibold">What ran</th>
+                <th className="text-left px-5 py-2.5 font-semibold">{t('Task')}</th>
+                <th className="text-left px-3 py-2.5 font-semibold">{t('Reasoning')}</th>
+                <th className="text-left px-3 py-2.5 font-semibold">{t('Model (your settings)')}</th>
+                <th className="text-left px-3 py-2.5 font-semibold">{t('What ran')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
-              {overview.reasoning.tasks.map((t) => (
-                <tr key={t.task} data-task={t.task} className="block sm:table-row px-5 py-3 sm:p-0">
-                  <td className="inline sm:table-cell sm:px-5 sm:py-2.5 font-medium text-zinc-800 dark:text-zinc-200 sm:whitespace-nowrap">{TASK_LABEL[t.task] ?? t.task}</td>
+              {overview.reasoning.tasks.map((row) => (
+                <tr key={row.task} data-task={row.task} className="block sm:table-row px-5 py-3 sm:p-0">
+                  <td className="inline sm:table-cell sm:px-5 sm:py-2.5 font-medium text-zinc-800 dark:text-zinc-200 sm:whitespace-nowrap">{TASK_LABEL[row.task] ? t(TASK_LABEL[row.task]) : row.task}</td>
                   <td className="inline sm:table-cell ml-2 sm:ml-0 sm:px-3 sm:py-2.5">
                     <span
-                      title={t.reasoning === 'off'
-                        ? 'Runs at the lowest reasoning the model accepts: low effort on Claude; off on Gemini 2.5, minimal or low on Gemini 3 and later'
-                        : 'Runs at the model\'s default reasoning'}
-                      className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${t.reasoning === 'off'
+                      title={row.reasoning === 'off'
+                        ? t('Runs at the lowest reasoning the model accepts: low effort on Claude; off on Gemini 2.5, minimal or low on Gemini 3 and later')
+                        : t("Runs at the model's default reasoning")}
+                      className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${row.reasoning === 'off'
                         ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300'
                         : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'}`}
                     >
-                      {t.reasoning === 'off' ? 'lowest' : 'default'}
+                      {row.reasoning === 'off' ? t('lowest##reasoning') : t('default##reasoning')}
                     </span>
                   </td>
                   <td className="block sm:table-cell mt-1 sm:mt-0 sm:px-3 sm:py-2.5 font-mono text-xs text-zinc-500 dark:text-zinc-400 sm:whitespace-nowrap break-all">
-                    <span className="sm:hidden font-sans text-zinc-400">Model </span>{t.model}
+                    <span className="sm:hidden font-sans text-zinc-400">{t('Model')} </span>{row.model}
                   </td>
                   <td className="block sm:table-cell mt-1 sm:mt-0 sm:px-3 sm:py-2.5 text-xs">
-                    <span className="block sm:hidden text-zinc-400">Last 7 days</span>
-                    <UsageSummary usage={t.usage} available={overview.reasoning.usage_available} />
+                    <span className="block sm:hidden text-zinc-400">{t('Last 7 days')}</span>
+                    <UsageSummary usage={row.usage} available={overview.reasoning.usage_available} />
                   </td>
                 </tr>
               ))}
@@ -310,15 +317,15 @@ export function SystemCheck() {
         )}
       </Card>
 
-      <Card title="Configuration" aside={overview ? <Summary items={overview.config} /> : null}>
+      <Card title={t('Configuration')} aside={overview ? <Summary items={overview.config} /> : null}>
         {overview ? (
           <ul className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
             {overview.config.map((c) => (
-              <CheckRow key={c.id} status={c.status} title={c.label} detail={c.detail} />
+              <CheckRow key={c.id} status={c.status} title={translateMessage(c.label)} detail={translateMessage(c.detail)} />
             ))}
           </ul>
         ) : (
-          <p className="px-5 py-4 text-sm text-zinc-400">{overviewError ?? 'Loading…'}</p>
+          <p className="px-5 py-4 text-sm text-zinc-400">{overviewError ?? t('Loading…')}</p>
         )}
       </Card>
     </div>

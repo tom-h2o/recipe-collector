@@ -14,6 +14,8 @@ import { MAX_EXTRACT_PHOTOS, encodePhotosForExtraction } from '@/lib/imageUtils'
 import { imageKind } from '@/lib/imageKind';
 import { uploadRecipeImage, attachRecipeImages } from '@/hooks/useRecipeImages';
 import { VaultAnimation } from '@/components/VaultAnimation';
+import { useT, msg, translateMessage } from '@/i18n';
+import { rich } from '@/i18n/rich';
 import type { RecipeImageSource } from '@/types';
 import type { Recipe, Ingredient } from '@/types';
 
@@ -39,17 +41,17 @@ const MIN_PASTE_LENGTH = 30;
 const MAX_PASTE_LENGTH = 20000;
 
 const IMPORT_OPTIONS: { id: ImportKind; title: string; hint: string; icon: typeof Globe }[] = [
-  { id: 'url', title: 'From a website', hint: 'Paste the link to a recipe page', icon: Globe },
-  { id: 'photo', title: 'From photos', hint: 'Cookbook pages, recipe cards or screenshots', icon: Camera },
-  { id: 'pdf', title: 'From a PDF', hint: 'A saved or scanned recipe', icon: FileText },
-  { id: 'text', title: 'From text', hint: 'A recipe from a message or a note', icon: ClipboardPaste },
+  { id: 'url', title: msg('From a website'), hint: msg('Paste the link to a recipe page'), icon: Globe },
+  { id: 'photo', title: msg('From photos'), hint: msg('Cookbook pages, recipe cards or screenshots'), icon: Camera },
+  { id: 'pdf', title: msg('From a PDF'), hint: msg('A saved or scanned recipe'), icon: FileText },
+  { id: 'text', title: msg('From text'), hint: msg('A recipe from a message or a note'), icon: ClipboardPaste },
 ];
 
 const STEP_COPY: Record<ImportKind, { title: string; description: string }> = {
-  url: { title: 'From a website', description: 'Paste the link to the recipe page.' },
-  photo: { title: 'From photos', description: `Up to ${MAX_EXTRACT_PHOTOS} pages of the same recipe, in order.` },
-  pdf: { title: 'From a PDF', description: 'One recipe per PDF.' },
-  text: { title: 'From text', description: 'Paste the ingredients and the steps, in any order.' },
+  url: { title: msg('From a website'), description: msg('Paste the link to the recipe page.') },
+  photo: { title: msg('From photos'), description: msg('Up to {max} pages of the same recipe, in order.') },
+  pdf: { title: msg('From a PDF'), description: msg('One recipe per PDF.') },
+  text: { title: msg('From text'), description: msg('Paste the ingredients and the steps, in any order.') },
 };
 
 interface Props {
@@ -89,6 +91,7 @@ function prefersReducedMotion(): boolean {
 const DONE_PAUSE_MS = 900;
 
 export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: Props) {
+  const t = useT();
   const [step, setStep] = useState<Step>(editingRecipe ? 'edit' : 'choose');
   const [extractUrl, setExtractUrl] = useState('');
   // A site that would not hand its page over (see describePageRefusal in
@@ -186,12 +189,12 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
 
     const room = MAX_EXTRACT_PHOTOS - photoFiles.length;
     if (room <= 0) {
-      setImportError(`You can add at most ${MAX_EXTRACT_PHOTOS} photos.`);
+      setImportError(t('You can add at most {max} photos.', { max: MAX_EXTRACT_PHOTOS }));
       return;
     }
     const accepted = selected.slice(0, room);
     setImportError(accepted.length < selected.length
-      ? `Only the first ${accepted.length} of ${selected.length} photos were added (at most ${MAX_EXTRACT_PHOTOS}).`
+      ? t('Only the first {added} of {chosen} photos were added (at most {max}).', { added: accepted.length, chosen: selected.length, max: MAX_EXTRACT_PHOTOS })
       : null);
     setPhotoFiles((prev) => [...prev, ...accepted]);
     setPhotoPreviews((prev) => [...prev, ...accepted.map((f) => URL.createObjectURL(f))]);
@@ -252,7 +255,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
       if (controller.signal.aborted) return;
       if (!res.ok) {
         if (kind === 'url' && (data.code === 'site_blocked' || data.code === 'page_unavailable')) {
-          setUrlProblem({ code: data.code, site: data.site || domainFrom(extractUrl), error: data.error ?? '' });
+          setUrlProblem({ code: data.code, site: data.site || domainFrom(extractUrl), error: translateMessage(data.error ?? '') });
           if (data.code === 'site_blocked') {
             // Whichever way the recipe comes in instead, it keeps its link.
             setSourceUrl(extractUrl);
@@ -260,7 +263,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
           }
           return;
         }
-        throw new Error(data.error || 'The recipe could not be read. Please try again.');
+        throw new Error(data.error ? translateMessage(data.error) : t('The recipe could not be read. Please try again.'));
       }
       applyExtracted(data);
       onRead(data);
@@ -271,7 +274,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
       setStep('edit');
     } catch (err: unknown) {
       if (controller.signal.aborted) return;
-      setImportError(err instanceof Error ? err.message : 'The recipe could not be read. Please try again.');
+      setImportError(err instanceof Error ? err.message : t('The recipe could not be read. Please try again.'));
     } finally {
       if (abortRef.current === controller) {
         abortRef.current = null;
@@ -300,7 +303,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
       setImageUrl(data.image_url || '');
       setSourceUrl(url);
       setSourceName((prev) => prev || data.source_name || domainFrom(url));
-    }, domainFrom(url) || 'the website');
+    }, domainFrom(url) || t('the website##read from'));
   }
 
   function handlePhotoExtract() {
@@ -315,7 +318,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
       // The first photo becomes the recipe's picture.
       setImagePreview(previews[0] ?? null);
       setImageFile(files[0] ?? null);
-    }, files.length === 1 ? 'your photo' : `your ${files.length} photos`);
+    }, files.length === 1 ? t('your photo##read from') : t('your {n} photos##read from', { n: files.length }));
   }
 
   function handlePdfExtract() {
@@ -329,7 +332,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
     if (text.length < MIN_PASTE_LENGTH) return;
     // The pasted text stays in the box: after a failure the person fixes it or
     // tries again, and should not have to find it twice.
-    return readRecipe('text', async () => ({ text }), () => {}, 'your text');
+    return readRecipe('text', async () => ({ text }), () => {}, t('your text##read from'));
   }
 
   function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -390,27 +393,33 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
         } catch (err) {
           // The recipe itself saved; losing the gallery rows should not read as
           // a failed save, but the user should know the photos did not stick.
-          toast.error(err instanceof Error ? err.message : 'Recipe saved, but the photos could not be attached.');
+          toast.error(err instanceof Error ? translateMessage(err.message) : t('Recipe saved, but the photos could not be attached.'));
         }
       }
 
-      toast.success(editingRecipe ? 'Recipe updated!' : 'Recipe saved!');
+      toast.success(editingRecipe ? t('Recipe updated!') : t('Recipe saved!'));
       onClose();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to save recipe');
+      toast.error(err instanceof Error ? translateMessage(err.message) : t('Failed to save recipe'));
     } finally {
       setIsSaving(false);
       setIsUploadingImage(false);
     }
   }
 
-  const savingLabel = isUploadingImage ? 'Uploading image...' : isSaving ? 'Saving...' : editingRecipe ? 'Update Recipe' : 'Save Recipe';
+  const savingLabel = isUploadingImage ? t('Uploading image...') : isSaving ? t('Saving...') : editingRecipe ? t('Update Recipe') : t('Save Recipe');
 
   const readingPhases: Record<ImportKind, string[]> = {
-    url: [`Opening ${domainFrom(extractUrl) || 'the page'}…`, 'Finding the ingredients…', 'Writing down the steps…', 'Almost there…'],
-    photo: [photoFiles.length > 1 ? `Looking at ${photoFiles.length} pages…` : 'Looking at the picture…', 'Reading the ingredients…', 'Writing down the steps…', 'Almost there…'],
-    pdf: ['Opening the PDF…', 'Reading the ingredients…', 'Writing down the steps…', 'Almost there…'],
-    text: ['Reading your text…', 'Sorting ingredients and steps…', 'Almost there…'],
+    url: [
+      domainFrom(extractUrl) ? t('Opening {site}…', { site: domainFrom(extractUrl) }) : t('Opening the page…'),
+      t('Finding the ingredients…'), t('Writing down the steps…'), t('Almost there…'),
+    ],
+    photo: [
+      photoFiles.length > 1 ? t('Looking at {n} pages…', { n: photoFiles.length }) : t('Looking at the picture…'),
+      t('Reading the ingredients…'), t('Writing down the steps…'), t('Almost there…'),
+    ],
+    pdf: [t('Opening the PDF…'), t('Reading the ingredients…'), t('Writing down the steps…'), t('Almost there…')],
+    text: [t('Reading your text…'), t('Sorting ingredients and steps…'), t('Almost there…')],
   };
 
   const back = (to: Step) => (
@@ -419,9 +428,11 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
       onClick={() => goTo(to)}
       className="-ml-2 mb-1 inline-flex items-center gap-0.5 px-2 py-1 rounded-full text-sm font-semibold text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-surface-container dark:hover:bg-muted transition-colors"
     >
-      <ChevronLeft className="w-4 h-4" /> Back
+      <ChevronLeft className="w-4 h-4" /> {t('Back')}
     </button>
   );
+
+  const bold = { b: (text: string) => <b>{text}</b> };
 
   const primary = 'w-full h-11 rounded-full font-semibold text-base bg-sk-primary hover:bg-sk-primary-container text-white dark:text-primary-foreground border-0';
 
@@ -454,19 +465,19 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
   if (reading) {
     content = (
       <div className="flex-1 flex flex-col items-center justify-center py-14 min-h-[26rem]">
-        <DialogTitle className="sr-only">Reading the recipe</DialogTitle>
+        <DialogTitle className="sr-only">{t('Reading the recipe')}</DialogTitle>
         <VaultAnimation
-          title={readDone ? 'Got it' : 'Reading the recipe'}
+          title={readDone ? t('Got it') : t('Reading the recipe')}
           phases={readingPhases[reading]}
           done={readDone}
-          doneText="Have a look before you save it."
+          doneText={t('Have a look before you save it.')}
           onCancel={cancelReading}
         />
       </div>
     );
   } else if (step === 'choose') {
     content = frame(
-      heading('Add a recipe', 'Let Speisekammer read it for you, or type it in yourself.'),
+      heading(t('Add a recipe'), t('Let Speisekammer read it for you, or type it in yourself.')),
       <>
         <div className="space-y-2.5">
           {IMPORT_OPTIONS.map(({ id, title: optionTitle, hint, icon: Icon }) => (
@@ -480,18 +491,18 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
                 <Icon className="w-5 h-5" aria-hidden="true" />
               </span>
               <span className="flex-1 min-w-0">
-                <span className="block text-sm font-semibold text-sk-on-surface dark:text-foreground">{optionTitle}</span>
-                <span className="block text-xs text-sk-on-surface-variant dark:text-muted-foreground">{hint}</span>
+                <span className="block text-sm font-semibold text-sk-on-surface dark:text-foreground">{t(optionTitle)}</span>
+                <span className="block text-xs text-sk-on-surface-variant dark:text-muted-foreground">{t(hint)}</span>
               </span>
               <ChevronRight className="w-4 h-4 shrink-0 text-sk-outline dark:text-muted-foreground" aria-hidden="true" />
             </button>
           ))}
         </div>
         <div className="flex items-center gap-3 py-1 text-xs font-medium text-sk-outline dark:text-muted-foreground" aria-hidden="true">
-          <span className="h-px flex-1 bg-sk-outline-variant/60 dark:bg-border" /> or <span className="h-px flex-1 bg-sk-outline-variant/60 dark:bg-border" />
+          <span className="h-px flex-1 bg-sk-outline-variant/60 dark:bg-border" /> {t('or')} <span className="h-px flex-1 bg-sk-outline-variant/60 dark:bg-border" />
         </div>
         <Button type="button" variant="outline" onClick={() => goTo('edit')} className="w-full h-11 rounded-full font-semibold">
-          <PenLine className="w-4 h-4 mr-1.5" aria-hidden="true" /> Enter it manually
+          <PenLine className="w-4 h-4 mr-1.5" aria-hidden="true" /> {t('Enter it manually')}
         </Button>
       </>,
     );
@@ -501,41 +512,41 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
         <div className="overflow-y-auto flex-1 p-6 pb-2">
           {!editingRecipe && back('choose')}
           {heading(
-            editingRecipe ? 'Edit recipe' : 'New recipe',
-            editingRecipe ? 'Update the details of your recipe.' : filledFrom ? undefined : 'Fill in the details by hand.',
+            editingRecipe ? t('Edit recipe') : t('New recipe'),
+            editingRecipe ? t('Update the details of your recipe.') : filledFrom ? undefined : t('Fill in the details by hand.'),
           )}
           <div className="space-y-4 py-2">
           {filledFrom && (
             <p className="flex items-start gap-2 rounded-xl bg-sk-primary-fixed/40 dark:bg-primary/15 px-3 py-2.5 text-sm text-sk-on-surface dark:text-foreground">
               <CircleCheck className="w-4 h-4 mt-0.5 shrink-0 text-sk-primary dark:text-primary" aria-hidden="true" />
-              <span>Read from <b>{filledFrom}</b>. Check it over, then save.</span>
+              <span>{rich(t, 'Read from <b>{source}</b>. Check it over, then save.', { b: (text) => <b>{text}</b> }, { source: filledFrom })}</span>
             </p>
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="title" className="font-semibold text-zinc-700 dark:text-zinc-300">Title</Label>
-            <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Spaghetti Bolognese" required />
+            <Label htmlFor="title" className="font-semibold text-zinc-700 dark:text-zinc-300">{t('Title')}</Label>
+            <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('e.g. Spaghetti Bolognese')} required />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="servings" className="font-semibold text-zinc-700 dark:text-zinc-300">Servings</Label>
-              <Input id="servings" type="number" min="1" value={servings} onChange={(e) => setServings(e.target.value)} placeholder="e.g. 4" />
+              <Label htmlFor="servings" className="font-semibold text-zinc-700 dark:text-zinc-300">{t('Servings')}</Label>
+              <Input id="servings" type="number" min="1" value={servings} onChange={(e) => setServings(e.target.value)} placeholder={t('e.g. 4')} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="prep-time" className="font-semibold text-zinc-700 dark:text-zinc-300">Prep <span className="text-xs font-normal text-zinc-600 dark:text-zinc-400">mins</span></Label>
+              <Label htmlFor="prep-time" className="font-semibold text-zinc-700 dark:text-zinc-300">{t('Prep')} <span className="text-xs font-normal text-zinc-600 dark:text-zinc-400">{t('mins')}</span></Label>
               <Input id="prep-time" type="number" min="0" value={prepTime} onChange={(e) => setPrepTime(e.target.value)} placeholder="15" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cook-time" className="font-semibold text-zinc-700 dark:text-zinc-300">Cook <span className="text-xs font-normal text-zinc-600 dark:text-zinc-400">mins</span></Label>
+              <Label htmlFor="cook-time" className="font-semibold text-zinc-700 dark:text-zinc-300">{t('Cook##time')} <span className="text-xs font-normal text-zinc-600 dark:text-zinc-400">{t('mins')}</span></Label>
               <Input id="cook-time" type="number" min="0" value={cookTime} onChange={(e) => setCookTime(e.target.value)} placeholder="30" />
             </div>
           </div>
           <div className="space-y-2">
-            <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Recipe Image</Label>
+            <Label className="font-semibold text-zinc-700 dark:text-zinc-300">{t('Recipe Image')}</Label>
             <div className="flex gap-2">
                 {imagePreview ? (
                   <div className="relative flex-1">
-                    <img src={imagePreview} alt="Preview" className="h-8 w-full object-cover rounded-lg border border-zinc-200 dark:border-zinc-700" />
+                    <img src={imagePreview} alt={t('Preview')} className="h-8 w-full object-cover rounded-lg border border-zinc-200 dark:border-zinc-700" />
                     <button
                       type="button"
                       onClick={() => { setImageFile(null); setImagePreview(null); }}
@@ -551,7 +562,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
                   type="button"
                   onClick={() => imageInputRef.current?.click()}
                   className="shrink-0 p-2 rounded-lg border border-sk-outline-variant/40 dark:border-border text-sk-outline hover:text-sk-primary hover:border-sk-primary transition-colors"
-                  title="Upload image"
+                  title={t('Upload image')}
                 >
                   <ImagePlus className="w-4 h-4" />
                 </button>
@@ -559,18 +570,18 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
               </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="description" className="font-semibold text-zinc-700 dark:text-zinc-300">Description (optional)</Label>
-            <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="A quick summary of the dish..." className="min-h-[70px]" />
+            <Label htmlFor="description" className="font-semibold text-zinc-700 dark:text-zinc-300">{t('Description (optional)')}</Label>
+            <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('A quick summary of the dish...')} className="min-h-[70px]" />
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Ingredients</Label>
+              <Label className="font-semibold text-zinc-700 dark:text-zinc-300">{t('Ingredients')}</Label>
               <button
                 type="button"
                 onClick={() => setIngredients((prev) => [...prev, { amount: '', name: '', details: '' }])}
                 className="flex items-center gap-1 text-xs font-semibold text-sk-primary hover:text-sk-primary-container transition-colors"
               >
-                <Plus className="w-3.5 h-3.5" /> Add
+                <Plus className="w-3.5 h-3.5" /> {t('Add')}
               </button>
             </div>
             <div className="space-y-1.5">
@@ -594,13 +605,13 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
                     <Input
                       value={ing.amount}
                       onChange={(e) => setIngredients((prev) => prev.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))}
-                      placeholder="qty"
+                      placeholder={t('qty')}
                       className="w-14 shrink-0 text-sm"
                     />
                     <Input
                       value={ing.name}
                       onChange={(e) => setIngredients((prev) => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
-                      placeholder="ingredient"
+                      placeholder={t('ingredient')}
                       className="flex-1 min-w-0 text-sm"
                     />
                     <button
@@ -617,8 +628,8 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
                     <Input
                       value={ing.details || ''}
                       onChange={(e) => setIngredients((prev) => prev.map((x, j) => j === i ? { ...x, details: e.target.value } : x))}
-                      placeholder="prep notes (optional)"
-                      aria-label={`Prep notes for ingredient ${i + 1}`}
+                      placeholder={t('prep notes (optional)')}
+                      aria-label={t('Prep notes for ingredient {n}', { n: i + 1 })}
                       className="text-sm text-zinc-500 dark:text-zinc-400"
                     />
                   </div>
@@ -630,22 +641,22 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
                   onClick={() => setIngredients([{ amount: '', name: '', details: '' }])}
                   className="w-full py-5 border-2 border-dashed border-sk-outline-variant dark:border-border rounded-xl text-sk-outline text-sm hover:border-sk-primary hover:text-sk-primary transition-colors flex items-center justify-center gap-2"
                 >
-                  <Plus className="w-4 h-4" /> Add first ingredient
+                  <Plus className="w-4 h-4" /> {t('Add first ingredient')}
                 </button>
               )}
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="instructions" className="font-semibold text-zinc-700 dark:text-zinc-300">Instructions</Label>
-            <Textarea id="instructions" value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Step by step instructions..." required className="min-h-[120px]" />
+            <Label htmlFor="instructions" className="font-semibold text-zinc-700 dark:text-zinc-300">{t('Instructions')}</Label>
+            <Textarea id="instructions" value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder={t('Step by step instructions...')} required className="min-h-[120px]" />
           </div>
 
           {/* Original Language */}
           <div className="space-y-2">
-            <Label htmlFor="original-language" className="font-semibold text-zinc-700 dark:text-zinc-300">Original Language {originalLanguage && `(${originalLanguage})`}</Label>
+            <Label htmlFor="original-language" className="font-semibold text-zinc-700 dark:text-zinc-300">{t('Original Language')} {originalLanguage && `(${originalLanguage})`}</Label>
             <Select value={originalLanguage ?? ''} onValueChange={(v) => setOriginalLanguage(v && v.length > 0 ? v : null)}>
               <SelectTrigger id="original-language" className="w-full">
-                <SelectValue placeholder="Auto-detected language..." />
+                <SelectValue placeholder={t('Auto-detected language...')} />
               </SelectTrigger>
               <SelectContent>
                 {LANGUAGES.map((lang) => (
@@ -655,21 +666,21 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">Language the recipe is written in. Auto-detected during extraction, but can be corrected here.</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">{t('Language the recipe is written in. Auto-detected during extraction, but can be corrected here.')}</p>
           </div>
 
           {/* Source */}
           <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4 space-y-3">
             <Label className="font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
-              <Link className="w-4 h-4 text-zinc-400" /> Source <span className="text-xs font-normal text-zinc-600 dark:text-zinc-400">optional</span>
+              <Link className="w-4 h-4 text-zinc-400" /> {t('Source')} <span className="text-xs font-normal text-zinc-600 dark:text-zinc-400">{t('optional')}</span>
             </Label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="source-name" className="text-xs text-zinc-500 dark:text-zinc-400">Display name</Label>
-                <Input id="source-name" value={sourceName} onChange={(e) => setSourceName(e.target.value)} placeholder="e.g. NYT Cooking, Grandma's book" />
+                <Label htmlFor="source-name" className="text-xs text-zinc-500 dark:text-zinc-400">{t('Display name')}</Label>
+                <Input id="source-name" value={sourceName} onChange={(e) => setSourceName(e.target.value)} placeholder={t("e.g. NYT Cooking, Grandma's book")} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="source-url" className="text-xs text-zinc-500 dark:text-zinc-400">URL (optional)</Label>
+                <Label htmlFor="source-url" className="text-xs text-zinc-500 dark:text-zinc-400">{t('URL (optional)')}</Label>
                 <Input id="source-url" type="url" value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} placeholder="https://..." />
               </div>
             </div>
@@ -687,9 +698,9 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
     );
   } else if (step === 'url') {
     content = frame(
-      <>{back('choose')}{heading(STEP_COPY.url.title, STEP_COPY.url.description)}</>,
+      <>{back('choose')}{heading(t(STEP_COPY.url.title), t(STEP_COPY.url.description))}</>,
       <>
-        <Label htmlFor="recipe-link" className="sr-only">Recipe link</Label>
+        <Label htmlFor="recipe-link" className="sr-only">{t('Recipe link')}</Label>
         <Input
           id="recipe-link"
           type="url"
@@ -706,29 +717,29 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
             <p className="font-semibold">{urlProblem.error}</p>
             {urlProblem.code === 'site_blocked' && (
               <>
-                <p>Open the page in your browser and bring the recipe in another way. The link is kept as the recipe's source.</p>
+                <p>{t("Open the page in your browser and bring the recipe in another way. The link is kept as the recipe's source.")}</p>
                 <ul className="list-disc pl-4 space-y-1">
-                  <li><b>iPhone:</b> open the page in Safari, tap Share, then <b>Save page to Speisekammer</b> (set it up once under Settings → iPhone Shortcuts).</li>
-                  <li><b>Text:</b> select the recipe on the page, copy it and paste it.</li>
-                  <li><b>PDF</b> on an iPhone: take a screenshot in Safari, choose <b>Full Page</b>, and save it as a PDF to Files.</li>
-                  <li><b>Photo:</b> screenshots of the recipe, several if it is long.</li>
+                  <li>{rich(t, '<b>iPhone:</b> open the page in Safari, tap Share, then <b>Save page to Speisekammer</b> (set it up once under Settings → iPhone Shortcuts).', bold)}</li>
+                  <li>{rich(t, '<b>Text:</b> select the recipe on the page, copy it and paste it.', bold)}</li>
+                  <li>{rich(t, '<b>PDF</b> on an iPhone: take a screenshot in Safari, choose <b>Full Page</b>, and save it as a PDF to Files.', bold)}</li>
+                  <li>{rich(t, '<b>Photo:</b> screenshots of the recipe, several if it is long.', bold)}</li>
                 </ul>
                 <div className="flex flex-wrap gap-2 pt-1">
-                  <Button type="button" variant="outline" className="h-8 rounded-full text-xs" onClick={() => goTo('text')}>Paste text</Button>
-                  <Button type="button" variant="outline" className="h-8 rounded-full text-xs" onClick={() => goTo('pdf')}>Upload PDF</Button>
-                  <Button type="button" variant="outline" className="h-8 rounded-full text-xs" onClick={() => goTo('photo')}>Screenshots</Button>
+                  <Button type="button" variant="outline" className="h-8 rounded-full text-xs" onClick={() => goTo('text')}>{t('Paste text')}</Button>
+                  <Button type="button" variant="outline" className="h-8 rounded-full text-xs" onClick={() => goTo('pdf')}>{t('Upload PDF')}</Button>
+                  <Button type="button" variant="outline" className="h-8 rounded-full text-xs" onClick={() => goTo('photo')}>{t('Screenshots')}</Button>
                 </div>
               </>
             )}
           </div>
         )}
       </>,
-      <Button type="submit" disabled={!extractUrl} className={primary}>Read recipe</Button>,
+      <Button type="submit" disabled={!extractUrl} className={primary}>{t('Read recipe')}</Button>,
       () => { void handleExtractUrl(); },
     );
   } else if (step === 'photo') {
     content = frame(
-      <>{back('choose')}{heading(STEP_COPY.photo.title, STEP_COPY.photo.description)}</>,
+      <>{back('choose')}{heading(t(STEP_COPY.photo.title), t(STEP_COPY.photo.description, { max: MAX_EXTRACT_PHOTOS }))}</>,
       <>
         {!photoPreviews.length ? (
           <button
@@ -737,22 +748,22 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
             className="w-full h-36 border-2 border-dashed border-sk-outline-variant dark:border-border rounded-2xl flex flex-col items-center justify-center gap-2 text-sk-outline hover:border-sk-primary hover:text-sk-primary transition-colors"
           >
             <Camera className="w-7 h-7" />
-            <span className="text-sm font-semibold">Choose photos or screenshots</span>
-            <span className="text-xs">Up to {MAX_EXTRACT_PHOTOS} pages of the same recipe</span>
+            <span className="text-sm font-semibold">{t('Choose photos or screenshots')}</span>
+            <span className="text-xs">{t('Up to {max} pages of the same recipe', { max: MAX_EXTRACT_PHOTOS })}</span>
           </button>
         ) : (
           <>
             <div className="grid grid-cols-3 gap-2">
               {photoPreviews.map((preview, i) => (
                 <div key={preview} className="relative group/photo aspect-[4/3]">
-                  <img src={preview} alt={`Recipe page ${i + 1}`} className="w-full h-full object-cover rounded-lg" />
+                  <img src={preview} alt={t('Recipe page {n}', { n: i + 1 })} className="w-full h-full object-cover rounded-lg" />
                   <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-bold leading-none">
                     {i + 1}
                   </span>
                   <button
                     type="button"
                     onClick={() => removePhoto(i)}
-                    aria-label={`Remove page ${i + 1}`}
+                    aria-label={t('Remove page {n}', { n: i + 1 })}
                     className="absolute top-1 right-1 p-1 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
                   >
                     <X className="w-3 h-3" />
@@ -763,7 +774,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
                         type="button"
                         onClick={() => movePhoto(i, -1)}
                         disabled={i === 0}
-                        aria-label={`Move page ${i + 1} earlier`}
+                        aria-label={t('Move page {n} earlier', { n: i + 1 })}
                         className="p-1 rounded-full bg-black/50 text-white hover:bg-black/70 disabled:opacity-30 transition-colors"
                       >
                         <ChevronUp className="w-3 h-3 -rotate-90" />
@@ -772,7 +783,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
                         type="button"
                         onClick={() => movePhoto(i, 1)}
                         disabled={i === photoPreviews.length - 1}
-                        aria-label={`Move page ${i + 1} later`}
+                        aria-label={t('Move page {n} later', { n: i + 1 })}
                         className="p-1 rounded-full bg-black/50 text-white hover:bg-black/70 disabled:opacity-30 transition-colors"
                       >
                         <ChevronDown className="w-3 h-3 -rotate-90" />
@@ -788,27 +799,27 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
                   className="aspect-[4/3] border-2 border-dashed border-sk-outline-variant dark:border-border rounded-lg flex flex-col items-center justify-center gap-1 text-sk-outline hover:border-sk-primary hover:text-sk-primary transition-colors"
                 >
                   <Plus className="w-5 h-5" />
-                  <span className="text-[11px] font-semibold">Add page</span>
+                  <span className="text-[11px] font-semibold">{t('Add page')}</span>
                 </button>
               )}
             </div>
             <p className="text-xs text-sk-outline">
               {photoPreviews.length === 1
-                ? 'Add more pages if this recipe continues on another page.'
-                : `${photoPreviews.length} pages will be read together as one recipe, in this order.`}
+                ? t('Add more pages if this recipe continues on another page.')
+                : t('{n} pages will be read together as one recipe, in this order.', { n: photoPreviews.length })}
             </p>
           </>
         )}
         {importError_}
       </>,
       <Button type="submit" disabled={photoFiles.length === 0} className={primary}>
-        {photoFiles.length > 1 ? `Read recipe from ${photoFiles.length} pages` : 'Read recipe'}
+        {photoFiles.length > 1 ? t('Read recipe from {n} pages', { n: photoFiles.length }) : t('Read recipe')}
       </Button>,
       () => { void handlePhotoExtract(); },
     );
   } else if (step === 'pdf') {
     content = frame(
-      <>{back('choose')}{heading(STEP_COPY.pdf.title, STEP_COPY.pdf.description)}</>,
+      <>{back('choose')}{heading(t(STEP_COPY.pdf.title), t(STEP_COPY.pdf.description))}</>,
       <>
         {!pdfFile ? (
           <button
@@ -817,7 +828,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
             className="w-full h-36 border-2 border-dashed border-sk-outline-variant dark:border-border rounded-2xl flex flex-col items-center justify-center gap-2 text-sk-outline hover:border-sk-primary hover:text-sk-primary transition-colors"
           >
             <FileText className="w-7 h-7" />
-            <span className="text-sm font-semibold">Choose a PDF</span>
+            <span className="text-sm font-semibold">{t('Choose a PDF')}</span>
           </button>
         ) : (
           <div className="flex items-center gap-3 px-3 py-3 bg-sk-surface-low dark:bg-muted/50 rounded-xl ring-1 ring-inset ring-sk-outline-variant/40 dark:ring-white/5">
@@ -826,7 +837,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
             <button
               type="button"
               onClick={() => setPdfFile(null)}
-              aria-label="Remove the PDF"
+              aria-label={t('Remove the PDF')}
               className="shrink-0 p-1 rounded-full text-zinc-400 hover:text-red-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
             >
               <X className="w-3.5 h-3.5" />
@@ -835,14 +846,14 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
         )}
         {importError_}
       </>,
-      <Button type="submit" disabled={!pdfFile} className={primary}>Read recipe</Button>,
+      <Button type="submit" disabled={!pdfFile} className={primary}>{t('Read recipe')}</Button>,
       () => { void handlePdfExtract(); },
     );
   } else {
     content = frame(
-      <>{back('choose')}{heading(STEP_COPY.text.title, STEP_COPY.text.description)}</>,
+      <>{back('choose')}{heading(t(STEP_COPY.text.title), t(STEP_COPY.text.description))}</>,
       <>
-        <Label htmlFor="paste-recipe" className="sr-only">Recipe text</Label>
+        <Label htmlFor="paste-recipe" className="sr-only">{t('Recipe text')}</Label>
         <Textarea
           id="paste-recipe"
           autoFocus
@@ -850,12 +861,12 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
           onChange={(e) => setPastedText(e.target.value)}
           maxLength={MAX_PASTE_LENGTH}
           rows={8}
-          placeholder="Paste a recipe from a message, a note or another app."
+          placeholder={t('Paste a recipe from a message, a note or another app.')}
           className="min-h-40 max-h-72 overflow-y-auto"
         />
         {importError_}
       </>,
-      <Button type="submit" disabled={pastedText.trim().length < MIN_PASTE_LENGTH} className={primary}>Read recipe</Button>,
+      <Button type="submit" disabled={pastedText.trim().length < MIN_PASTE_LENGTH} className={primary}>{t('Read recipe')}</Button>,
       () => { void handleTextExtract(); },
     );
   }
@@ -868,8 +879,8 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
           type="button"
           onClick={close}
           className="absolute top-3 right-3 z-20 p-2.5 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white transition-colors shadow-md ring-1 ring-white/20"
-          title="Close"
-          aria-label="Close"
+          title={t('Close')}
+          aria-label={t('Close')}
         ><X className="w-4 h-4" /></button>
 
         {/* Always mounted, so choosing photos or a PDF can open the picker in the same tap. */}

@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { apiFetch } from '@/lib/api';
 import { PAGE_SIZE } from '@/lib/constants';
+import { t, tn, translateMessage } from '@/i18n';
 import { parseIngredients } from '@/lib/recipeUtils';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { Recipe, MealPlan, ShoppingItem, PantryItem } from '@/types';
@@ -346,7 +347,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       set({ pollingIntervals: intervals, realtimeChannels: channels, processingIds: nextProcessingIds });
 
       if (timedOut) {
-        toast.warning('Auto-tagging took too long — you can edit tags manually.', { duration: 5000 });
+        toast.warning(t('Auto-tagging took too long — you can edit tags manually.'), { duration: 5000 });
       }
       if (row) {
         set({ recipes: get().recipes.map((r) => (r.id === recipeId ? { ...r, ...row } : r)) });
@@ -517,7 +518,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
     const { data, error } = await supabase.from('recipes').update(changes).eq('id', id).select('id');
     if (error) throw error;
     if (!data || data.length === 0) {
-      throw new Error('That recipe belongs to someone else, so the change was not saved.');
+      throw new Error(t('That recipe belongs to someone else, so the change was not saved.'));
     }
     set({
       recipes: get().recipes.map((r) => (r.id === id ? { ...r, ...changes } : r))
@@ -586,7 +587,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
 
   generateShoppingList: async (mealPlans, userId) => {
     set({ isGeneratingShopping: true });
-    const toastId = toast.loading('Building your shopping list with AI...');
+    const toastId = toast.loading(t('Building your shopping list with AI...'));
     try {
       const today = new Date();
       const nextWeek = new Date();
@@ -594,7 +595,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       const upcoming = mealPlans.filter(
         (m) => new Date(m.date) >= today && new Date(m.date) <= nextWeek,
       );
-      if (upcoming.length === 0) throw new Error('No meals planned for the next 7 days!');
+      if (upcoming.length === 0) throw new Error(t('No meals planned for the next 7 days!'));
 
       const rawIngredients = upcoming.flatMap((m) =>
         parseIngredients(m.recipe?.ingredients ?? []).map((i) => `${i.amount} ${i.name}`.trim()),
@@ -635,12 +636,12 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       const kept = get().shoppingList.filter((i) => !i.from_plan).length;
       toast.success(
         kept > 0
-          ? `Shopping list generated. Your own ${kept === 1 ? 'item was' : `${kept} items were`} kept.`
-          : 'Shopping list generated!',
+          ? tn(kept, 'Shopping list generated. Your own item was kept.', 'Shopping list generated. Your own {n} items were kept.')
+          : t('Shopping list generated!'),
         { id: toastId },
       );
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to generate list';
+      const message = err instanceof Error ? translateMessage(err.message) : t('Failed to generate list');
       toast.error(message, { id: toastId });
     } finally {
       set({ isGeneratingShopping: false });
@@ -655,7 +656,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       .select()
       .single();
     if (error) {
-      toast.error('Failed to add the item.');
+      toast.error(t('Failed to add the item.'));
       return;
     }
     if (data) set({ shoppingList: [...get().shoppingList, data as ShoppingItem] });
@@ -664,7 +665,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
   toggleShoppingItem: async (id, checked) => {
     const { error } = await supabase.from('shopping_list').update({ is_checked: checked }).eq('id', id);
     if (error) {
-      toast.error('Failed to update shopping item.');
+      toast.error(t('Failed to update shopping item.'));
       throw error;
     }
     set({
@@ -675,7 +676,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
   deleteShoppingItem: async (id) => {
     const { error } = await supabase.from('shopping_list').delete().eq('id', id);
     if (error) {
-      toast.error('Failed to delete shopping item.');
+      toast.error(t('Failed to delete shopping item.'));
       throw error;
     }
     set({
@@ -687,7 +688,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
     if (!userId) return;
     const { error } = await supabase.from('shopping_list').delete().eq('user_id', userId);
     if (error) {
-      toast.error('Failed to clear shopping list.');
+      toast.error(t('Failed to clear shopping list.'));
       throw error;
     }
     set({ shoppingList: [] });
@@ -701,12 +702,12 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       .select()
       .single();
     if (error) {
-      toast.error('Failed to add to pantry.');
+      toast.error(t('Failed to add to pantry.'));
       return;
     }
     const { error: deleteError } = await supabase.from('shopping_list').delete().eq('id', item.id);
     if (deleteError) {
-      toast.error('Added to pantry, but failed to remove from shopping list.');
+      toast.error(t('Added to pantry, but failed to remove from shopping list.'));
       return;
     }
     set({
@@ -723,12 +724,12 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       .select()
       .single();
     if (error) {
-      toast.error('Failed to move to shopping list.');
+      toast.error(t('Failed to move to shopping list.'));
       return;
     }
     const { error: deleteError } = await supabase.from('pantry_items').delete().eq('id', item.id);
     if (deleteError) {
-      toast.error('Added to shopping list, but failed to remove from pantry.');
+      toast.error(t('Added to shopping list, but failed to remove from pantry.'));
       return;
     }
     set({
@@ -744,7 +745,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
   deletePantryItem: async (id) => {
     const { error } = await supabase.from('pantry_items').delete().eq('id', id);
     if (error) {
-      toast.error('Failed to delete pantry item.');
+      toast.error(t('Failed to delete pantry item.'));
       throw error;
     }
     set({
@@ -760,7 +761,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       .select()
       .single();
     if (error) {
-      toast.error('Failed to add to pantry.');
+      toast.error(t('Failed to add to pantry.'));
       return;
     }
     if (data) {

@@ -6,6 +6,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { QUICK_TAG, TAG_GROUPS, groupOfTag, type TagGroupId } from '../../shared/tags';
+import { msg, t } from '../i18n';
 
 /**
  * How filters and tags are shown: a plain label and, where one fits, an icon.
@@ -19,11 +20,33 @@ import { QUICK_TAG, TAG_GROUPS, groupOfTag, type TagGroupId } from '../../shared
  */
 
 const LABELS: Record<string, string> = {
-  '⭐ Favourites': 'Favourites',
-  '🔗 Shared': 'Shared',
-  '🆕 New from iPhone': 'New from iPhone',
-  'Quick (<30min)': 'Under 30 min',
+  '⭐ Favourites': msg('Favourites'),
+  '🔗 Shared': msg('Shared'),
+  '🆕 New from iPhone': msg('New from iPhone'),
+  'Quick (<30min)': msg('Under 30 min'),
 };
+
+/*
+ * The tags and group names of shared/tags.ts, listed again only so that the
+ * dictionary test sees them as text to translate (that file is read by the
+ * server and stays free of the app's i18n). Stored tag values stay English;
+ * tagLabel() translates what is drawn. A tag or group added there needs a line
+ * here and a German entry in src/i18n/de/vault.ts.
+ */
+export const TRANSLATED_TAG_TEXT: readonly string[] = [
+  // Groups
+  msg('Diet'), msg('Cuisine'), msg('Meal'), msg('Main ingredient'), msg('More'),
+  // Diet
+  msg('Vegetarian'), msg('Vegan'), msg('Gluten-Free'), msg('Dairy-Free'), msg('High Protein'), msg('Low Carb'),
+  // Cuisine
+  msg('German'), msg('Italian'), msg('Mediterranean'), msg('Asian'), msg('Indian'), msg('Mexican'), msg('American'),
+  // Meal
+  msg('Breakfast'), msg('Lunch'), msg('Dinner'), msg('Dessert'), msg('Snack'), msg('Soup'), msg('Salad'), msg('Pasta'), msg('Casserole'),
+  // Main ingredient
+  msg('Chicken'), msg('Meat'), msg('Fish & Seafood'),
+  // More
+  msg('One-Pot'), msg('Baking'), msg('Grilling'), msg('Meal Prep'), msg('Comfort Food'),
+];
 
 const ICONS: Record<string, LucideIcon> = {
   '⭐ Favourites': Star,
@@ -55,9 +78,12 @@ const ICONS: Record<string, LucideIcon> = {
   'Meal Prep': Refrigerator,
 };
 
-/** What a filter or tag reads as on screen. */
+/**
+ * What a filter or tag reads as on screen, in the app's language. A tag the
+ * list does not know (an older or hand-typed one) is shown as it is stored.
+ */
 export function tagLabel(tag: string): string {
-  return LABELS[tag] ?? tag.replace(/^\p{Extended_Pictographic}️?\s*/u, '');
+  return t(LABELS[tag] ?? tag.replace(/^\p{Extended_Pictographic}️?\s*/u, ''));
 }
 
 /**
@@ -104,7 +130,7 @@ export function setGroupFilter(active: readonly string[], group: TagGroupId, tag
 export const MENU_GROUPS = TAG_GROUPS.map((g) => ({
   id: g.id as TagGroupId,
   label: g.label,
-  tags: (g.tags as readonly string[]).filter((t) => t !== QUICK_TAG),
+  tags: (g.tags as readonly string[]).filter((tag) => tag !== QUICK_TAG),
 }));
 
 /**

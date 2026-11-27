@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet } from '@/components/Sheet';
 import { addChipClass, chipClass } from '@/lib/tags';
+import { tn, useT } from '@/i18n';
 import type { Collection, RecipeCollection } from '@/types';
 
 interface Props {
@@ -30,6 +31,7 @@ const PRIMARY = 'rounded-full bg-sk-primary hover:bg-sk-primary-container text-w
  * sheet now, and deleting asks first.
  */
 export function CollectionBar({ collections, memberships, activeCollectionId, onChange, onCreate, onRename, onDelete }: Props) {
+  const t = useT();
   const [creating, setCreating] = useState(false);
   const [managing, setManaging] = useState(false);
   const [name, setName] = useState('');
@@ -59,7 +61,7 @@ export function CollectionBar({ collections, memberships, activeCollectionId, on
       setName('');
       setCreating(false);
     } catch {
-      setError('The collection could not be created. Please try again.');
+      setError(t('The collection could not be created. Please try again.'));
     } finally {
       setBusy(false);
     }
@@ -74,7 +76,7 @@ export function CollectionBar({ collections, memberships, activeCollectionId, on
       await onRename(renaming.id, renaming.name.trim());
       setRenaming(null);
     } catch {
-      setError('The name could not be saved. Please try again.');
+      setError(t('The name could not be saved. Please try again.'));
     } finally {
       setBusy(false);
     }
@@ -88,7 +90,7 @@ export function CollectionBar({ collections, memberships, activeCollectionId, on
       await onDelete(deleting.id);
       setDeleting(null);
     } catch {
-      setError('The collection could not be deleted. Please try again.');
+      setError(t('The collection could not be deleted. Please try again.'));
     } finally {
       setBusy(false);
     }
@@ -98,7 +100,7 @@ export function CollectionBar({ collections, memberships, activeCollectionId, on
     <>
       {/* One line that scrolls sideways on a phone, from the screen's edge;
           from sm there is room to wrap. */}
-      <div role="group" aria-label="Collections" className="flex items-center gap-2 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible">
+      <div role="group" aria-label={t('Collections')} className="flex items-center gap-2 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible">
         <FolderOpen className="w-4 h-4 text-sk-outline dark:text-muted-foreground shrink-0" aria-hidden="true" />
         {collections.map((c) => (
           <button
@@ -112,14 +114,14 @@ export function CollectionBar({ collections, memberships, activeCollectionId, on
             <span className="text-[11px] tabular-nums opacity-60">{countOf(c.id)}</span>
           </button>
         ))}
-        <button type="button" onClick={() => { setName(''); setError(null); setCreating(true); }} className={addChipClass()} aria-label="New collection">
+        <button type="button" onClick={() => { setName(''); setError(null); setCreating(true); }} className={addChipClass()} aria-label={t('New collection')}>
           <Plus className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
           {/* Named while there are none yet; a bare + once the row has chips. */}
-          {collections.length === 0 && 'New collection'}
+          {collections.length === 0 && t('New collection')}
         </button>
         {collections.length > 0 && (
-          <button type="button" onClick={() => { setError(null); setManaging(true); }} className={chipClass(false)} aria-label="Edit collections">
-            <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> Edit
+          <button type="button" onClick={() => { setError(null); setManaging(true); }} className={chipClass(false)} aria-label={t('Edit collections')}>
+            <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> {t('Edit')}
           </button>
         )}
       </div>
@@ -127,8 +129,8 @@ export function CollectionBar({ collections, memberships, activeCollectionId, on
       <Sheet
         open={creating}
         onClose={() => setCreating(false)}
-        title="New collection"
-        description="A named group of recipes, such as “Weeknight” or “For guests”. Add recipes to it from a recipe’s ⋯ menu."
+        title={t('New collection')}
+        description={t('A named group of recipes, such as “Weeknight” or “For guests”. Add recipes to it from a recipe’s ⋯ menu.')}
         initialFocus={nameInput}
       >
         <form onSubmit={handleCreate} className="space-y-4">
@@ -137,15 +139,15 @@ export function CollectionBar({ collections, memberships, activeCollectionId, on
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={MAX_COLLECTION_NAME}
-            aria-label="Collection name"
-            placeholder="Collection name"
+            aria-label={t('Collection name')}
+            placeholder={t('Collection name')}
             className={FIELD}
           />
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => setCreating(false)} className="flex-1 rounded-full">Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => setCreating(false)} className="flex-1 rounded-full">{t('Cancel')}</Button>
             <Button type="submit" disabled={!name.trim() || busy} className={`flex-1 ${PRIMARY}`}>
-              {busy ? 'Creating…' : 'Create'}
+              {busy ? t('Creating…') : t('Create')}
             </Button>
           </div>
         </form>
@@ -154,19 +156,19 @@ export function CollectionBar({ collections, memberships, activeCollectionId, on
       <Sheet
         open={managing}
         onClose={closeManage}
-        title={deleting ? `Delete “${deleting.name}”?` : 'Collections'}
+        title={deleting ? t('Delete “{name}”?', { name: deleting.name }) : t('Collections')}
         description={deleting
           ? (countOf(deleting.id) > 0
-            ? `Only the collection goes. Its ${countOf(deleting.id) === 1 ? 'recipe stays' : `${countOf(deleting.id)} recipes stay`} in your vault.`
-            : 'It has no recipes in it.')
-          : 'Rename or delete a collection. Recipes are never deleted with it.'}
+            ? tn(countOf(deleting.id), 'Only the collection goes. Its recipe stays in your vault.', 'Only the collection goes. Its {n} recipes stay in your vault.')
+            : t('It has no recipes in it.'))
+          : t('Rename or delete a collection. Recipes are never deleted with it.')}
       >
         {error && <p role="alert" className="mb-3 text-sm text-destructive">{error}</p>}
         {deleting ? (
           <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => setDeleting(null)} className="flex-1 rounded-full">Keep it</Button>
+            <Button type="button" variant="outline" onClick={() => setDeleting(null)} className="flex-1 rounded-full">{t('Keep it')}</Button>
             <Button type="button" onClick={handleDelete} disabled={busy} className="flex-1 rounded-full bg-destructive hover:bg-destructive/90 text-white border-0">
-              {busy ? 'Deleting…' : 'Delete'}
+              {busy ? t('Deleting…') : t('Delete')}
             </Button>
           </div>
         ) : (
@@ -181,22 +183,22 @@ export function CollectionBar({ collections, memberships, activeCollectionId, on
                       onChange={(e) => setRenaming({ id: c.id, name: e.target.value })}
                       onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setRenaming(null); } }}
                       maxLength={MAX_COLLECTION_NAME}
-                      aria-label={`New name for ${c.name}`}
+                      aria-label={t('New name for {name}', { name: c.name })}
                       className={`${FIELD} flex-1 min-w-0`}
                     />
-                    <Button type="button" variant="outline" size="sm" onClick={() => setRenaming(null)} className="rounded-full">Cancel</Button>
-                    <Button type="submit" size="sm" disabled={!renaming.name.trim() || busy} className={PRIMARY}>Save</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setRenaming(null)} className="rounded-full">{t('Cancel')}</Button>
+                    <Button type="submit" size="sm" disabled={!renaming.name.trim() || busy} className={PRIMARY}>{t('Save')}</Button>
                   </form>
                 ) : (
                   <div className="flex items-center gap-1 pl-3 pr-1 min-h-12 rounded-xl">
                     <span className="flex-1 min-w-0 truncate text-sm font-sans text-sk-on-surface dark:text-foreground">{c.name}</span>
                     <span className="text-xs tabular-nums text-sk-on-surface-variant dark:text-muted-foreground mr-1">
-                      {countOf(c.id)} {countOf(c.id) === 1 ? 'recipe' : 'recipes'}
+                      {tn(countOf(c.id), '{n} recipe', '{n} recipes')}
                     </span>
                     <button
                       type="button"
                       onClick={() => setRenaming({ id: c.id, name: c.name })}
-                      aria-label={`Rename ${c.name}`}
+                      aria-label={t('Rename {name}', { name: c.name })}
                       className="inline-flex h-10 w-10 items-center justify-center rounded-full text-sk-outline dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted hover:text-sk-primary dark:hover:text-primary transition-colors"
                     >
                       <Pencil className="w-4 h-4" />
@@ -204,7 +206,7 @@ export function CollectionBar({ collections, memberships, activeCollectionId, on
                     <button
                       type="button"
                       onClick={() => setDeleting(c)}
-                      aria-label={`Delete ${c.name}`}
+                      aria-label={t('Delete {name}', { name: c.name })}
                       className="inline-flex h-10 w-10 items-center justify-center rounded-full text-sk-outline dark:text-muted-foreground hover:bg-destructive/8 hover:text-destructive transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />

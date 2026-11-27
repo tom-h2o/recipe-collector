@@ -8,6 +8,7 @@ import {
 } from '@/lib/feedback';
 import { chipClass } from '@/lib/tags';
 import type { FeedbackKind } from '@/types';
+import { useT } from '@/i18n';
 
 interface Props {
   isOpen: boolean;
@@ -22,6 +23,7 @@ interface Props {
  * in the form and the text is kept; only success is a toast.
  */
 export function FeedbackDialog({ isOpen, onClose, view }: Props) {
+  const t = useT();
   const [kind, setKind] = useState<FeedbackKind>('bug');
   const [message, setMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +45,7 @@ export function FeedbackDialog({ isOpen, onClose, view }: Props) {
     const failure = await submitFeedback(kind, message, context);
     setIsSending(false);
     if (failure) { setError(failure); return; }
-    toast.success('Thank you! Your feedback was sent.');
+    toast.success(t('Thank you! Your feedback was sent.'));
     setMessage('');
     setKind('bug');
     onClose();
@@ -58,15 +60,15 @@ export function FeedbackDialog({ isOpen, onClose, view }: Props) {
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <DialogTitle className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Send feedback</DialogTitle>
+            <DialogTitle className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{t('Send feedback')}</DialogTitle>
             <DialogDescription className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-              A fault, an idea, anything. It goes to the person who runs Speisekammer.
+              {t('A fault, an idea, anything. It goes to the person who runs Speisekammer.')}
             </DialogDescription>
           </div>
           <button
             type="button"
             onClick={close}
-            aria-label="Close"
+            aria-label={t('Close')}
             className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-400"
           >
             <X className="w-4 h-4" />
@@ -74,7 +76,7 @@ export function FeedbackDialog({ isOpen, onClose, view }: Props) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div role="radiogroup" aria-label="What is it about?" className="flex flex-wrap gap-2">
+          <div role="radiogroup" aria-label={t('What is it about?')} className="flex flex-wrap gap-2">
             {FEEDBACK_KINDS.map((option) => (
               <button
                 key={option.id}
@@ -84,14 +86,14 @@ export function FeedbackDialog({ isOpen, onClose, view }: Props) {
                 onClick={() => setKind(option.id)}
                 className={chipClass(kind === option.id)}
               >
-                {option.label}
+                {t(option.label)}
               </button>
             ))}
           </div>
 
           <div className="space-y-1.5">
             <label htmlFor="feedback-message" className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-              {kind === 'bug' ? 'What happened, and what did you expect?' : 'Your message'}
+              {kind === 'bug' ? t('What happened, and what did you expect?') : t('Your message')}
             </label>
             <textarea
               id="feedback-message"
@@ -106,7 +108,7 @@ export function FeedbackDialog({ isOpen, onClose, view }: Props) {
           </div>
 
           <details className="text-xs text-zinc-500 dark:text-zinc-400">
-            <summary className="cursor-pointer font-semibold text-zinc-600 dark:text-zinc-300">Sent along with it</summary>
+            <summary className="cursor-pointer font-semibold text-zinc-600 dark:text-zinc-300">{t('Sent along with it')}</summary>
             <dl className="mt-2 space-y-1">
               {describeFeedbackContext(context).map((line) => (
                 <div key={line.label} className="flex gap-2">
@@ -115,7 +117,7 @@ export function FeedbackDialog({ isOpen, onClose, view }: Props) {
                 </div>
               ))}
             </dl>
-            <p className="mt-2">None of your recipes are attached.</p>
+            <p className="mt-2">{t('None of your recipes are attached.')}</p>
           </details>
 
           {error && (
@@ -123,13 +125,13 @@ export function FeedbackDialog({ isOpen, onClose, view }: Props) {
           )}
 
           <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={close} className="flex-1">Cancel</Button>
+            <Button type="button" variant="outline" onClick={close} className="flex-1">{t('Cancel')}</Button>
             <Button
               type="submit"
               disabled={isSending || !message.trim()}
               className="flex-1 bg-sk-primary hover:bg-sk-primary-container text-white dark:text-primary-foreground border-0"
             >
-              {isSending ? 'Sending…' : 'Send'}
+              {isSending ? t('Sending…') : t('Send')}
             </Button>
           </div>
         </form>

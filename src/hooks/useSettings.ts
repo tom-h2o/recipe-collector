@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
+import { msg, t, translateMessage } from '@/i18n';
 import { supabase } from '@/lib/supabase';
 import { apiFetch } from '@/lib/api';
 import { DEFAULT_MODEL } from '@/lib/constants';
@@ -65,7 +66,7 @@ export function useSettings(userId?: string | null) {
       setIsSavingSettings(true);
       try {
         if (!userId) {
-          toast.error('You must be signed in to save settings.');
+          toast.error(t('You must be signed in to save settings.'));
           return;
         }
 
@@ -73,7 +74,7 @@ export function useSettings(userId?: string | null) {
           .from('settings')
           .upsert({ user_id: userId, temperature_unit: updated.temperature_unit }, { onConflict: 'user_id' });
         if (error) {
-          toast.error('Failed to save settings: ' + error.message);
+          toast.error(t('Failed to save settings: {message}', { message: translateMessage(error.message) }));
           return;
         }
 
@@ -91,18 +92,18 @@ export function useSettings(userId?: string | null) {
               message = (body as { error?: string }).error || `HTTP ${res.status}`;
             }
           } catch (err) {
-            message = err instanceof Error ? err.message : 'Network error';
+            message = err instanceof Error ? err.message : msg('Network error');
           }
           if (message) {
             // The unit was saved; the models were not, so keep showing the old ones.
             setSettings({ ...before, temperature_unit: updated.temperature_unit });
-            toast.error('Failed to save the AI models: ' + message);
+            toast.error(t('Failed to save the AI models: {message}', { message: translateMessage(message) }));
             return;
           }
         }
 
         setSettings(updated);
-        toast.success('Settings saved!');
+        toast.success(t('Settings saved!'));
       } finally {
         setIsSavingSettings(false);
       }

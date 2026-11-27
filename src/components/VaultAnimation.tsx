@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useT } from '@/i18n';
 
 /**
  * What the add-recipe dialog shows while a recipe is being read: the app's key
@@ -30,7 +31,8 @@ interface Props {
   onCancel?: () => void;
 }
 
-export function VaultAnimation({ title, phases, done = false, doneText = 'In the vault', onCancel }: Props) {
+export function VaultAnimation({ title, phases, done = false, doneText, onCancel }: Props) {
+  const t = useT();
   const [phase, setPhase] = useState(0);
   const [patience, setPatience] = useState(false);
 
@@ -41,7 +43,7 @@ export function VaultAnimation({ title, phases, done = false, doneText = 'In the
     return () => { clearInterval(step); clearTimeout(wait); };
   }, [done, phases.length]);
 
-  const line = done ? doneText : phases[Math.min(phase, phases.length - 1)];
+  const line = done ? (doneText ?? t('In the vault')) : phases[Math.min(phase, phases.length - 1)];
 
   return (
     <div className="vault-anim flex flex-col items-center gap-5 px-8 text-center" data-done={done || undefined}>
@@ -94,7 +96,7 @@ export function VaultAnimation({ title, phases, done = false, doneText = 'In the
         <p role="status" className="font-serif text-xl text-sk-on-surface dark:text-foreground">{title}</p>
         <p key={line} className="vault-line text-sm text-sk-on-surface-variant dark:text-muted-foreground" aria-hidden="true">{line}</p>
         {patience && !done && (
-          <p className="vault-line text-xs text-sk-outline dark:text-muted-foreground/80">Long recipes can take up to a minute.</p>
+          <p className="vault-line text-xs text-sk-outline dark:text-muted-foreground/80">{t('Long recipes can take up to a minute.')}</p>
         )}
       </div>
 
@@ -104,7 +106,7 @@ export function VaultAnimation({ title, phases, done = false, doneText = 'In the
           onClick={onCancel}
           className="px-4 py-1.5 rounded-full text-sm font-semibold text-sk-on-surface-variant dark:text-muted-foreground hover:bg-sk-surface-container dark:hover:bg-muted transition-colors"
         >
-          Cancel
+          {t('Cancel')}
         </button>
       )}
     </div>

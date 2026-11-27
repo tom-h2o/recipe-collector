@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/Sheet';
 import { FAVOURITES_FILTER, SHARED_FILTER, QUICK_TAG } from '@/lib/constants';
 import { NEW_FROM_IPHONE } from '@/store/recipeStore';
+import { tn, useLanguage, useT } from '@/i18n';
 import { MENU_GROUPS, TagIcon, chipClass, chosenInGroup, setGroupFilter, tagLabel, toggleFilter } from '@/lib/tags';
 
 /**
@@ -34,6 +35,8 @@ interface Props {
 }
 
 export function FilterBar({ active, onChange, showNew, searching, onClearAll }: Props) {
+  const t = useT();
+  const lang = useLanguage();
   const [open, setOpen] = useState(false);
   // What the sheet holds: one chosen tag per group, in the groups' order.
   const chosen = MENU_GROUPS
@@ -42,11 +45,11 @@ export function FilterBar({ active, onChange, showNew, searching, onClearAll }: 
 
   return (
     <>
-      <div role="group" aria-label="Filters" className="flex gap-2 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible">
+      <div role="group" aria-label={t('Filters')} className="flex gap-2 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible">
         {(searching || active.length > 0) && (
           // A bare ✕ on a phone, so what was chosen stays on screen beside it.
-          <button type="button" onClick={onClearAll} aria-label="Clear" title="Clear search and filters" className={`${chipClass(false)} max-sm:w-8 max-sm:justify-center max-sm:px-0`}>
-            <X className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> <span className="max-sm:hidden">Clear</span>
+          <button type="button" onClick={onClearAll} aria-label={t('Clear')} title={t('Clear search and filters')} className={`${chipClass(false)} max-sm:w-8 max-sm:justify-center max-sm:px-0`}>
+            <X className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> <span className="max-sm:hidden">{t('Clear')}</span>
           </button>
         )}
         {showNew && (
@@ -56,11 +59,11 @@ export function FilterBar({ active, onChange, showNew, searching, onClearAll }: 
           type="button"
           onClick={() => setOpen(true)}
           aria-haspopup="dialog"
-          aria-label={chosen.length > 0 ? `Filters, ${chosen.length} chosen` : 'Filters'}
+          aria-label={chosen.length > 0 ? tn(chosen.length, 'Filters, {n} chosen', 'Filters, {n} chosen') : t('Filters')}
           className={chipClass(false)}
         >
           <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-          Filters
+          {t('Filters')}
           {chosen.length > 0 && (
             <span aria-hidden="true" className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-sk-primary dark:bg-primary px-1 text-[10px] font-bold text-white dark:text-primary-foreground">
               {chosen.length}
@@ -70,14 +73,15 @@ export function FilterBar({ active, onChange, showNew, searching, onClearAll }: 
         {chosen.map(({ group, tag }) => (
           // Two buttons in one pill: back to the sheet, or drop this one.
           <span key={group.id} className={`${chipClass(true)} pr-1`}>
-            <button type="button" onClick={() => setOpen(true)} aria-label={`${group.label}: ${tagLabel(tag)}`} className="inline-flex items-center gap-1.5 h-full">
+            <button type="button" onClick={() => setOpen(true)} aria-label={`${t(group.label)}: ${tagLabel(tag)}`} className="inline-flex items-center gap-1.5 h-full">
               <TagIcon tag={tag} className="w-3.5 h-3.5 shrink-0" />
               {tagLabel(tag)}
             </button>
             <button
               type="button"
               onClick={() => onChange(setGroupFilter(active, group.id, null))}
-              aria-label={`Clear ${group.label.toLowerCase()} filter`}
+              // English writes the group in lower case inside the sentence; German nouns keep their capital.
+              aria-label={t('Clear {group} filter', { group: lang === 'en' ? group.label.toLowerCase() : t(group.label) })}
               className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/10"
             >
               <X className="w-3.5 h-3.5" aria-hidden="true" />
@@ -93,16 +97,16 @@ export function FilterBar({ active, onChange, showNew, searching, onClearAll }: 
       <Sheet
         open={open}
         onClose={() => setOpen(false)}
-        title="Filters"
-        description="One per group. Together they narrow the list: Vegetarian and Italian shows recipes that are both."
+        title={t('Filters')}
+        description={t('One per group. Together they narrow the list: Vegetarian and Italian shows recipes that are both.')}
       >
         <div className="space-y-5">
           {MENU_GROUPS.map((group) => {
             const current = chosenInGroup(active, group.id);
             return (
-              <section key={group.id} role="group" aria-label={group.label} className="space-y-2">
+              <section key={group.id} role="group" aria-label={t(group.label)} className="space-y-2">
                 <h3 className="text-[11px] font-sans font-semibold uppercase tracking-[0.12em] text-sk-on-surface-variant dark:text-muted-foreground">
-                  {group.label}
+                  {t(group.label)}
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {group.tags.map((tag) => (
@@ -132,10 +136,10 @@ export function FilterBar({ active, onChange, showNew, searching, onClearAll }: 
             onClick={() => onChange(active.filter((f) => !chosen.some((c) => c.tag === f)))}
             className="flex-1 rounded-full"
           >
-            Clear
+            {t('Clear')}
           </Button>
           <Button type="button" onClick={() => setOpen(false)} className="flex-1 rounded-full bg-sk-primary hover:bg-sk-primary-container text-white dark:text-primary-foreground border-0">
-            Show recipes
+            {t('Show recipes')}
           </Button>
         </div>
       </Sheet>

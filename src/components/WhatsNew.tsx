@@ -2,6 +2,7 @@ import { Sparkles, X } from 'lucide-react';
 import { useFocusTrap, useReturnFocus } from '@/components/ui/useFocusTrap';
 import { Button } from '@/components/ui/button';
 import type { ReleaseNote } from '@/lib/changelog';
+import { useT, tn, dateLocale } from '@/i18n';
 
 interface Props {
   isOpen: boolean;
@@ -15,7 +16,7 @@ function formatDate(id: string): string {
   const d = new Date(`${id}T00:00:00Z`);
   return Number.isNaN(d.getTime())
     ? id
-    : d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+    : d.toLocaleDateString(dateLocale(), { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
 }
 
 export function WhatsNew({ isOpen, releases, unreadCount, onClose }: Props) {
@@ -29,6 +30,7 @@ export function WhatsNew({ isOpen, releases, unreadCount, onClose }: Props) {
  * dialog, capturing the wrong element to return focus to.
  */
 function WhatsNewDialog({ releases, unreadCount, onClose }: Omit<Props, 'isOpen'>) {
+  const t = useT();
   const handleTrapKeyDown = useFocusTrap();
   useReturnFocus();
 
@@ -48,17 +50,17 @@ function WhatsNewDialog({ releases, unreadCount, onClose }: Omit<Props, 'isOpen'
         <div className="shrink-0 flex items-start justify-between gap-3 p-5 pb-3">
           <div>
             <h2 id="whats-new-title" className="text-xl font-bold flex items-center gap-2 text-zinc-900 dark:text-zinc-50">
-              <Sparkles className="w-5 h-5 text-sk-primary" aria-hidden="true" /> What's new
+              <Sparkles className="w-5 h-5 text-sk-primary" aria-hidden="true" /> {t("What's new")}
             </h2>
             {unreadCount > 0 && (
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                {unreadCount === 1 ? '1 update since your last visit' : `${unreadCount} updates since your last visit`}
+                {tn(unreadCount, '{n} update since your last visit', '{n} updates since your last visit')}
               </p>
             )}
           </div>
           <button
             onClick={onClose}
-            aria-label="Close what's new"
+            aria-label={t("Close what's new")}
             className="shrink-0 p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
           >
             <X className="w-4 h-4" />
@@ -72,15 +74,15 @@ function WhatsNewDialog({ releases, unreadCount, onClose }: Omit<Props, 'isOpen'
         <div
           tabIndex={0}
           role="region"
-          aria-label="Release notes"
+          aria-label={t('Release notes')}
           className="flex-1 overflow-y-auto px-5 pb-2 space-y-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sk-primary/40 rounded-lg"
         >
           {releases.length === 0 ? (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 py-4">Nothing to report yet.</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 py-4">{t('Nothing to report yet.')}</p>
           ) : (
             releases.map((release) => (
               <section key={release.id}>
-                <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">{release.title}</h3>
+                <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">{t(release.title)}</h3>
                 <p className="text-[11px] uppercase tracking-widest text-zinc-600 dark:text-zinc-400 mb-2">
                   {formatDate(release.id)}
                 </p>
@@ -88,7 +90,7 @@ function WhatsNewDialog({ releases, unreadCount, onClose }: Omit<Props, 'isOpen'
                   {release.items.map((item, i) => (
                     <li key={i} className="flex gap-2 text-sm text-zinc-700 dark:text-zinc-300">
                       <span aria-hidden="true" className="mt-1.5 w-1 h-1 rounded-full bg-sk-primary shrink-0" />
-                      <span>{item}</span>
+                      <span>{t(item)}</span>
                     </li>
                   ))}
                 </ul>
@@ -102,7 +104,7 @@ function WhatsNewDialog({ releases, unreadCount, onClose }: Omit<Props, 'isOpen'
             onClick={onClose}
             className="w-full bg-sk-primary hover:bg-sk-primary-container text-white dark:text-primary-foreground font-semibold border-0 rounded-full"
           >
-            Got it
+            {t('Got it##dismiss')}
           </Button>
         </div>
       </div>

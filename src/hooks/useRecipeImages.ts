@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { encodeForGallery } from '@/lib/imageUtils';
 import type { RecipeImage, RecipeImageSource } from '@/types';
+import { t, translateMessage } from '@/i18n';
 
 const BUCKET = 'recipe-images';
 
@@ -55,7 +56,7 @@ export function useRecipeImages(recipeId: string | null, userId: string | null) 
       .eq('recipe_id', recipeId)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true });
-    if (error) toast.error('Could not load the recipe photos.');
+    if (error) toast.error(t('Could not load the recipe photos.'));
     setImages((data as RecipeImage[]) ?? []);
     setLoading(false);
   }, [recipeId]);
@@ -65,7 +66,7 @@ export function useRecipeImages(recipeId: string | null, userId: string | null) 
     async (files: File[]) => {
       if (!recipeId || !userId || files.length === 0) return;
       setBusy(true);
-      const id = toast.loading(files.length === 1 ? 'Adding photo…' : `Adding ${files.length} photos…`);
+      const id = toast.loading(files.length === 1 ? t('Adding photo…') : t('Adding {n} photos…', { n: files.length }));
       try {
         const uploaded = await Promise.all(
           files.map(async (file) => {
@@ -75,9 +76,9 @@ export function useRecipeImages(recipeId: string | null, userId: string | null) 
         );
         await attachRecipeImages(recipeId, userId, uploaded, images.length);
         await fetchImages();
-        toast.success(files.length === 1 ? 'Photo added' : `${files.length} photos added`, { id });
+        toast.success(files.length === 1 ? t('Photo added') : t('{n} photos added', { n: files.length }), { id });
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Could not add the photos.', { id });
+        toast.error(err instanceof Error ? translateMessage(err.message) : t('Could not add the photos.'), { id });
       } finally {
         setBusy(false);
       }
@@ -101,9 +102,9 @@ export function useRecipeImages(recipeId: string | null, userId: string | null) 
           supabase.storage.from(BUCKET).remove([image.storage_path]).then(() => {}, () => {});
         }
         setImages((prev) => prev.filter((i) => i.id !== image.id));
-        toast.success('Photo removed');
+        toast.success(t('Photo removed'));
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Could not remove the photo.');
+        toast.error(err instanceof Error ? translateMessage(err.message) : t('Could not remove the photo.'));
       } finally {
         setBusy(false);
       }

@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/react';
 import { supabase } from '@/lib/supabase';
 import type { FeedbackContext, FeedbackKind } from '@/types';
+import { msg, t } from '@/i18n';
 
 /**
  * Feedback and bug reports sent from inside the app (migration 0078).
@@ -12,9 +13,9 @@ import type { FeedbackContext, FeedbackKind } from '@/types';
 export const MAX_FEEDBACK_LENGTH = 4000;
 
 export const FEEDBACK_KINDS: { id: FeedbackKind; label: string }[] = [
-  { id: 'bug', label: 'Something is broken' },
-  { id: 'idea', label: 'An idea' },
-  { id: 'other', label: 'Something else' },
+  { id: 'bug', label: msg('Something is broken') },
+  { id: 'idea', label: msg('An idea') },
+  { id: 'other', label: msg('Something else') },
 ];
 
 /** The build this page is running: the deployed commit, shortened. */
@@ -48,13 +49,17 @@ export function collectFeedbackContext(view?: string, error?: string): FeedbackC
 export function describeFeedbackContext(context: FeedbackContext): { label: string; value: string }[] {
   const lines: { label: string; value: string }[] = [];
   const add = (label: string, value: string | undefined) => { if (value) lines.push({ label, value }); };
-  add('App version', context.build);
-  add('Where you are', [context.view, context.path].filter(Boolean).join(' · '));
-  add('Screen', [context.screen, context.theme, context.installed ? 'installed app' : 'browser'].filter(Boolean).join(' · '));
-  add('Language', context.language);
-  add('Device', context.userAgent);
-  add('Last error', context.lastErrorId);
-  add('Error', context.error);
+  add(t('App version'), context.build);
+  add(t('Where you are'), [context.view, context.path].filter(Boolean).join(' · '));
+  add(t('Screen'), [
+    context.screen,
+    context.theme === 'dark' ? t('dark') : context.theme === 'light' ? t('light') : context.theme,
+    context.installed ? t('installed app') : t('browser'),
+  ].filter(Boolean).join(' · '));
+  add(t('Language'), context.language);
+  add(t('Device'), context.userAgent);
+  add(t('Last error'), context.lastErrorId);
+  add(t('Error'), context.error);
   return lines;
 }
 
@@ -64,12 +69,12 @@ export function describeFeedbackContext(context: FeedbackContext): { label: stri
  */
 export async function submitFeedback(kind: FeedbackKind, message: string, context: FeedbackContext): Promise<string | null> {
   const text = message.trim();
-  if (!text) return 'Please write a few words first.';
-  if (text.length > MAX_FEEDBACK_LENGTH) return `Please keep it under ${MAX_FEEDBACK_LENGTH} characters.`;
+  if (!text) return t('Please write a few words first.');
+  if (text.length > MAX_FEEDBACK_LENGTH) return t('Please keep it under {max} characters.', { max: MAX_FEEDBACK_LENGTH });
   const { error } = await supabase.from('feedback').insert({ kind, message: text, context });
   if (!error) return null;
   // 42501: refused by the row policy. For a signed-in person that is the
   // daily bound; the other conditions cannot be reached from this form.
-  if (error.code === '42501') return 'That is a lot of feedback for one day. Please send the rest tomorrow.';
-  return 'The feedback could not be sent. Please try again in a moment.';
+  if (error.code === '42501') return t('That is a lot of feedback for one day. Please send the rest tomorrow.');
+  return t('The feedback could not be sent. Please try again in a moment.');
 }

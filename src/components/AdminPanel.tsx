@@ -12,6 +12,8 @@ import { AdminUsage } from '@/components/AdminUsage';
 import { AdminFeedback } from '@/components/AdminFeedback';
 import { SegmentedTabs, type SegmentedTab } from '@/components/SegmentedTabs';
 import { chipClass, tagClass, tagLabel } from '@/lib/tags';
+import { t, useT, translateMessage, dateLocale } from '@/i18n';
+import { rich } from '@/i18n/rich';
 
 type Tab = 'overview' | 'usage' | 'feedback' | 'users' | 'recipes' | 'logs' | 'system';
 
@@ -20,9 +22,9 @@ const PAGE_SIZE = 25;
 async function readError(res: Response): Promise<string> {
   try {
     const body = await res.json();
-    return body.error ?? `Request failed (${res.status})`;
+    return body.error ? translateMessage(String(body.error)) : t('Request failed ({status})', { status: res.status });
   } catch {
-    return `Request failed (${res.status})`;
+    return t('Request failed ({status})', { status: res.status });
   }
 }
 
@@ -41,11 +43,12 @@ function StatCard({ icon: Icon, label, value }: { icon: React.ElementType; label
 }
 
 function Pager({ page, setPage, pageSize, total }: { page: number; setPage: (fn: (p: number) => number) => void; pageSize: number; total: number }) {
+  const t = useT();
   const totalPages = Math.ceil(total / pageSize);
   if (totalPages <= 1) return null;
   return (
     <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
-      <span>{page * pageSize + 1}–{Math.min((page + 1) * pageSize, total)} of {total}</span>
+      <span>{t('{from}–{to} of {total}', { from: page * pageSize + 1, to: Math.min((page + 1) * pageSize, total), total })}</span>
       <div className="flex gap-1">
         <button onClick={() => setPage((p) => p - 1)} disabled={page === 0} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
         <button onClick={() => setPage((p) => p + 1)} disabled={page >= totalPages - 1} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors"><ChevronRight className="w-4 h-4" /></button>
@@ -55,6 +58,7 @@ function Pager({ page, setPage, pageSize, total }: { page: number; setPage: (fn:
 }
 
 export function AdminPanel() {
+  const t = useT();
   const [tab, setTab] = useState<Tab>('overview');
   // Bumped by Refresh, so the Usage tab (which loads its own data) reloads too.
   const [usageReload, setUsageReload] = useState(0);
@@ -99,13 +103,13 @@ export function AdminPanel() {
       const json = await res.json();
       setStats(json.stats);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load admin stats';
+      const message = err instanceof Error ? err.message : t('Failed to load admin stats');
       setStatsError(message);
       toast.error(message);
     } finally {
       setStatsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { loadStats(); }, [loadStats]);
 
@@ -118,11 +122,11 @@ export function AdminPanel() {
       setUsers(json.users);
       setUsersTotal(json.total);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to load users');
+      toast.error(err instanceof Error ? err.message : t('Failed to load users'));
     } finally {
       setUsersLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { if (tab === 'users') loadUsers(usersPage); }, [tab, usersPage, loadUsers]);
 
@@ -138,15 +142,15 @@ export function AdminPanel() {
       setRecipes(json.recipes);
       setRecipesTotal(json.total);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to load recipes');
+      toast.error(err instanceof Error ? err.message : t('Failed to load recipes'));
     } finally {
       setRecipesLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
-    const t = setTimeout(() => setRecipeSearchDebounced(recipeSearch), 300);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setRecipeSearchDebounced(recipeSearch), 300);
+    return () => clearTimeout(timer);
   }, [recipeSearch]);
 
   useEffect(() => { setRecipesPage(0); }, [recipeSearchDebounced, ownerFilter]);
@@ -164,11 +168,11 @@ export function AdminPanel() {
       setLogs(json.logs);
       setLogsTotal(json.total);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to load logs');
+      toast.error(err instanceof Error ? err.message : t('Failed to load logs'));
     } finally {
       setLogsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { if (tab === 'logs') loadLogs(logsPage); }, [tab, logsPage, loadLogs]);
 
@@ -190,11 +194,11 @@ export function AdminPanel() {
     try {
       const res = await apiFetch(`/api/account?userId=${user.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error(await readError(res));
-      toast.success(`Deleted ${user.email}`);
+      toast.success(t('Deleted {email}', { email: user.email }));
       setUsers((prev) => prev.filter((u) => u.id !== user.id));
       setUsersTotal((prev) => Math.max(0, prev - 1));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to delete user');
+      toast.error(err instanceof Error ? err.message : t('Failed to delete user'));
     } finally {
       setDeletingId(null);
       setConfirmDelete(null);
@@ -225,7 +229,7 @@ export function AdminPanel() {
           : prev,
       );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to load recipe');
+      toast.error(err instanceof Error ? err.message : t('Failed to load recipe'));
       setViewingRecipe(null);
     }
   }
@@ -249,7 +253,7 @@ export function AdminPanel() {
     const recipe = viewingRecipe?.recipe;
     if (!recipe) return;
     setRerunning(kind);
-    const id = toast.loading(kind === 'tag' ? 'Regenerating tags…' : 'Regenerating nutrition…');
+    const id = toast.loading(kind === 'tag' ? t('Regenerating tags…') : t('Regenerating nutrition…'));
     try {
       const payload =
         kind === 'tag'
@@ -267,9 +271,9 @@ export function AdminPanel() {
       applyRecipeUpdate(
         kind === 'tag' ? { ...recipe, tags: body.tags } : { ...recipe, nutrition: body.nutrition },
       );
-      toast.success(kind === 'tag' ? 'Tags regenerated' : 'Nutrition regenerated', { id });
+      toast.success(kind === 'tag' ? t('Tags regenerated') : t('Nutrition regenerated'), { id });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : `Failed to re-run ${kind}`, { id });
+      toast.error(err instanceof Error ? err.message : kind === 'tag' ? t('Failed to re-run tag') : t('Failed to re-run nutrition'), { id });
     } finally {
       setRerunning(null);
     }
@@ -277,17 +281,17 @@ export function AdminPanel() {
 
   function formatDate(iso: string | null) {
     if (!iso) return '—';
-    return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    return new Date(iso).toLocaleDateString(dateLocale('en-GB'), { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
   function formatTime(iso: string) {
-    return new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return new Date(iso).toLocaleString(dateLocale('en-GB'), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   }
 
   if (statsLoading) {
     return (
       <div className="flex items-center justify-center py-32 text-sk-on-surface-variant dark:text-muted-foreground">
-        <RefreshCw className="w-5 h-5 animate-spin mr-2" /> Loading admin data…
+        <RefreshCw className="w-5 h-5 animate-spin mr-2" /> {t('Loading admin data…')}
       </div>
     );
   }
@@ -295,41 +299,41 @@ export function AdminPanel() {
   if (!stats) {
     return (
       <div className="space-y-4 py-16 text-center">
-        <h2 className="text-lg font-semibold text-red-600 dark:text-red-400">Admin data unavailable</h2>
+        <h2 className="text-lg font-semibold text-red-600 dark:text-red-400">{t('Admin data unavailable')}</h2>
         <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto">
-          {statsError ?? 'The dashboard could not be loaded.'}
+          {statsError ?? t('The dashboard could not be loaded.')}
         </p>
         <Button variant="outline" size="sm" onClick={loadStats} className="gap-1.5">
-          <RefreshCw className="w-3.5 h-3.5" /> Retry
+          <RefreshCw className="w-3.5 h-3.5" /> {t('Retry')}
         </Button>
       </div>
     );
   }
 
   const TABS: SegmentedTab<Tab>[] = [
-    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { id: 'usage', label: 'Usage', icon: BarChart3 },
+    { id: 'overview', label: t('Overview'), icon: LayoutDashboard },
+    { id: 'usage', label: t('Usage'), icon: BarChart3 },
     // The count is what nobody has looked at yet, and only shown when there is some.
-    { id: 'feedback', label: 'Feedback', icon: MessageSquare, count: stats.new_feedback || undefined },
-    { id: 'users', label: 'Users', icon: Users, count: stats.total_users },
-    { id: 'recipes', label: 'Recipes', icon: BookOpen, count: stats.total_recipes },
-    { id: 'logs', label: 'AI Logs', icon: Sparkles, count: stats.total_ai_calls },
-    { id: 'system', label: 'System', icon: Activity },
+    { id: 'feedback', label: t('Feedback'), icon: MessageSquare, count: stats.new_feedback || undefined },
+    { id: 'users', label: t('Users'), icon: Users, count: stats.total_users },
+    { id: 'recipes', label: t('Recipes'), icon: BookOpen, count: stats.total_recipes },
+    { id: 'logs', label: t('AI Logs'), icon: Sparkles, count: stats.total_ai_calls },
+    { id: 'system', label: t('System'), icon: Activity },
   ];
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-serif font-normal text-zinc-900 dark:text-zinc-50">Admin Dashboard</h2>
+        <h2 className="text-2xl font-serif font-normal text-zinc-900 dark:text-zinc-50">{t('Admin Dashboard')}</h2>
         <Button variant="outline" size="sm" onClick={refresh} className="gap-1.5">
-          <RefreshCw className="w-3.5 h-3.5" /> Refresh
+          <RefreshCw className="w-3.5 h-3.5" /> {t('Refresh')}
         </Button>
       </div>
 
       {/* Scrolls sideways on a narrow phone, from the screen's edge, rather
           than squeezing the tabs or pushing the page wider. */}
-      <SegmentedTabs tabs={TABS} value={tab} onChange={setTab} label="Admin sections" idPrefix="admin" layout="fit" className="-mx-4 px-4 sm:mx-0 sm:px-0" />
+      <SegmentedTabs tabs={TABS} value={tab} onChange={setTab} label={t('Admin sections')} idPrefix="admin" layout="fit" className="-mx-4 px-4 sm:mx-0 sm:px-0" />
 
       <div id="admin-panel" role="tabpanel" aria-labelledby={`admin-tab-${tab}`} className="space-y-6">
       {tab === 'system' && <SystemCheck />}
@@ -345,16 +349,16 @@ export function AdminPanel() {
       {tab === 'overview' && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            <StatCard icon={Users} label="Total users" value={stats.total_users} />
-            <StatCard icon={BookOpen} label="Total recipes" value={stats.total_recipes} />
-            <StatCard icon={Sparkles} label="AI calls total" value={stats.total_ai_calls} />
-            <StatCard icon={Calendar} label="AI calls today" value={stats.calls_today} />
-            <StatCard icon={TrendingUp} label="AI calls this week" value={stats.calls_this_week} />
+            <StatCard icon={Users} label={t('Total users')} value={stats.total_users} />
+            <StatCard icon={BookOpen} label={t('Total recipes')} value={stats.total_recipes} />
+            <StatCard icon={Sparkles} label={t('AI calls total')} value={stats.total_ai_calls} />
+            <StatCard icon={Calendar} label={t('AI calls today')} value={stats.calls_today} />
+            <StatCard icon={TrendingUp} label={t('AI calls this week')} value={stats.calls_this_week} />
           </div>
 
           {stats.model_breakdown.length > 0 && (
             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 space-y-4">
-              <h3 className="font-bold text-zinc-900 dark:text-zinc-50">Model usage</h3>
+              <h3 className="font-bold text-zinc-900 dark:text-zinc-50">{t('Model usage')}</h3>
               <div className="space-y-2">
                 {stats.model_breakdown.map(({ model, count }) => {
                   const pct = Math.round((count / stats.total_ai_calls) * 100);
@@ -382,17 +386,17 @@ export function AdminPanel() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                    <th className="text-left px-6 py-3 font-semibold">Email</th>
-                    <th className="text-left px-4 py-3 font-semibold">Joined</th>
-                    <th className="text-left px-4 py-3 font-semibold">Last seen</th>
-                    <th className="text-right px-4 py-3 font-semibold">Recipes</th>
-                    <th className="text-right px-4 py-3 font-semibold">AI calls</th>
+                    <th className="text-left px-6 py-3 font-semibold">{t('Email')}</th>
+                    <th className="text-left px-4 py-3 font-semibold">{t('Joined')}</th>
+                    <th className="text-left px-4 py-3 font-semibold">{t('Last seen')}</th>
+                    <th className="text-right px-4 py-3 font-semibold">{t('Recipes')}</th>
+                    <th className="text-right px-4 py-3 font-semibold">{t('AI calls')}</th>
                     <th className="px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
                   {usersLoading ? (
-                    <tr><td colSpan={6} className="px-6 py-10 text-center text-zinc-400"><Loader2 className="w-4 h-4 animate-spin inline mr-2" />Loading…</td></tr>
+                    <tr><td colSpan={6} className="px-6 py-10 text-center text-zinc-400"><Loader2 className="w-4 h-4 animate-spin inline mr-2" />{t('Loading…')}</td></tr>
                   ) : users.map((u) => (
                     <tr key={u.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
                       <td className="px-6 py-3 font-medium text-zinc-900 dark:text-zinc-100">{u.email}</td>
@@ -403,7 +407,7 @@ export function AdminPanel() {
                       </td>
                       <td className="px-4 py-3 text-right text-zinc-700 dark:text-zinc-300">{u.ai_call_count}</td>
                       <td className="px-4 py-3">
-                        <button onClick={() => setConfirmDelete(u)} disabled={deletingId === u.id} className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Delete user">
+                        <button onClick={() => setConfirmDelete(u)} disabled={deletingId === u.id} className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title={t('Delete user')}>
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </td>
@@ -427,15 +431,15 @@ export function AdminPanel() {
                 type="text"
                 value={recipeSearch}
                 onChange={(e) => setRecipeSearch(e.target.value)}
-                placeholder="Search everyone's recipes by title…"
-                aria-label="Search recipes by title"
+                placeholder={t("Search everyone's recipes by title…")}
+                aria-label={t('Search recipes by title')}
                 className="w-full pl-10 pr-10 py-2.5 rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface dark:text-foreground text-sm font-sans focus:outline-none focus:ring-2 focus:ring-sk-primary/25 dark:focus:ring-primary/25 transition placeholder:text-sk-outline dark:placeholder:text-muted-foreground"
               />
               {recipeSearch && (
                 <button
                   type="button"
                   onClick={() => setRecipeSearch('')}
-                  aria-label="Clear search"
+                  aria-label={t('Clear search')}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-sk-outline hover:text-sk-primary dark:hover:text-primary"
                 >
                   <X className="w-4 h-4" />
@@ -449,7 +453,7 @@ export function AdminPanel() {
                 <button
                   type="button"
                   onClick={() => setOwnerFilter(null)}
-                  aria-label="Show everyone's recipes"
+                  aria-label={t("Show everyone's recipes")}
                   className="-mr-1 p-0.5 rounded hover:text-destructive transition-colors"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -461,14 +465,14 @@ export function AdminPanel() {
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
             {recipesLoading ? (
               <p role="status" className="px-6 py-10 text-center text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin inline mr-2" aria-hidden="true" />Loading…
+                <Loader2 className="w-4 h-4 animate-spin inline mr-2" aria-hidden="true" />{t('Loading…')}
               </p>
             ) : recipes.length === 0 ? (
               <p className="px-6 py-10 text-center text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
-                {recipeSearch || ownerFilter ? 'No recipes match.' : 'No recipes yet.'}
+                {recipeSearch || ownerFilter ? t('No recipes match.') : t('No recipes yet.')}
               </p>
             ) : (
-              <ul aria-label="Recipes" className="divide-y divide-sk-outline-variant/30 dark:divide-white/5">
+              <ul aria-label={t('Recipes')} className="divide-y divide-sk-outline-variant/30 dark:divide-white/5">
                 {recipes.map((r) => (
                   <li key={r.id}>
                     <button
@@ -487,15 +491,15 @@ export function AdminPanel() {
                       <span className="min-w-0 flex-1 space-y-1">
                         <span className="flex items-center gap-1.5">
                           <span className="font-semibold font-sans text-sk-on-surface dark:text-foreground truncate">{r.title}</span>
-                          {r.is_favourite && <Star className="w-3.5 h-3.5 shrink-0 fill-sk-primary text-sk-primary dark:fill-primary dark:text-primary" aria-label="Favourite" />}
+                          {r.is_favourite && <Star className="w-3.5 h-3.5 shrink-0 fill-sk-primary text-sk-primary dark:fill-primary dark:text-primary" aria-label={t('Favourite##marked')} />}
                         </span>
                         <span className="block text-xs font-sans text-sk-on-surface-variant dark:text-muted-foreground truncate">
-                          {r.user_email ?? 'No account'} · {formatDate(r.created_at)}
+                          {r.user_email ?? t('No account')} · {formatDate(r.created_at)}
                         </span>
                         {r.tags && r.tags.length > 0 && (
                           <span className="hidden sm:flex gap-1 flex-wrap">
                             {r.tags.slice(0, 4).map((tag) => (
-                              <span key={tag} className={tagClass()}>{tagLabel(tag)}</span>
+                              <span key={tag} className={tagClass()}>{t(tagLabel(tag))}</span>
                             ))}
                           </span>
                         )}
@@ -519,18 +523,18 @@ export function AdminPanel() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                    <th className="text-left px-6 py-3 font-semibold">Time</th>
-                    <th className="text-left px-4 py-3 font-semibold">User</th>
-                    <th className="text-left px-4 py-3 font-semibold">Endpoint</th>
-                    <th className="text-left px-4 py-3 font-semibold">Model</th>
-                    <th className="text-left px-4 py-3 font-semibold">Status</th>
-                    <th className="text-left px-4 py-3 font-semibold">Reasoning</th>
-                    <th className="text-right px-4 py-3 font-semibold">Latency</th>
+                    <th className="text-left px-6 py-3 font-semibold">{t('Time')}</th>
+                    <th className="text-left px-4 py-3 font-semibold">{t('User')}</th>
+                    <th className="text-left px-4 py-3 font-semibold">{t('Endpoint')}</th>
+                    <th className="text-left px-4 py-3 font-semibold">{t('Model')}</th>
+                    <th className="text-left px-4 py-3 font-semibold">{t('Status')}</th>
+                    <th className="text-left px-4 py-3 font-semibold">{t('Reasoning')}</th>
+                    <th className="text-right px-4 py-3 font-semibold">{t('Latency')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
                   {logsLoading ? (
-                    <tr><td colSpan={7} className="px-6 py-10 text-center text-zinc-400"><Loader2 className="w-4 h-4 animate-spin inline mr-2" />Loading…</td></tr>
+                    <tr><td colSpan={7} className="px-6 py-10 text-center text-zinc-400"><Loader2 className="w-4 h-4 animate-spin inline mr-2" />{t('Loading…')}</td></tr>
                   ) : logs.map((l) => (
                     <tr key={l.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
                       <td className="px-6 py-2.5 text-zinc-500 dark:text-zinc-400 whitespace-nowrap text-xs">{formatTime(l.created_at)}</td>
@@ -538,13 +542,13 @@ export function AdminPanel() {
                       <td className="px-4 py-2.5 font-mono text-xs text-zinc-700 dark:text-zinc-300">{l.endpoint}</td>
                       <td
                         className="px-4 py-2.5 font-mono text-xs text-zinc-500 dark:text-zinc-400"
-                        title={l.model_version && l.model_version !== l.model ? `${l.model} resolved to ${l.model_version}` : undefined}
+                        title={l.model_version && l.model_version !== l.model ? t('{model} resolved to {version}', { model: l.model ?? '', version: l.model_version }) : undefined}
                       >
                         {l.model_version ?? l.model ?? '—'}
                       </td>
                       <td className="px-4 py-2.5">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${l.status === 'success' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>
-                          {l.status}
+                          {l.status === 'success' ? t('success##log status') : l.status === 'error' ? t('error##log status') : l.status}
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-xs"><ReasoningTag state={l.thinking} /></td>
@@ -592,14 +596,16 @@ export function AdminPanel() {
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-xl p-6 space-y-4">
-            <h2 className="text-lg font-bold text-red-600 dark:text-red-400">Delete user?</h2>
+            <h2 className="text-lg font-bold text-red-600 dark:text-red-400">{t('Delete user?')}</h2>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              This will permanently delete <span className="font-semibold text-zinc-900 dark:text-zinc-100">{confirmDelete.email}</span> and all their recipes, meal plans, and settings.
+              {rich(t, 'This will permanently delete <b>{email}</b> and all their recipes, meal plans, and settings.', {
+                b: (text) => <span className="font-semibold text-zinc-900 dark:text-zinc-100">{text}</span>,
+              }, { email: confirmDelete.email })}
             </p>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setConfirmDelete(null)} className="flex-1">Cancel</Button>
+              <Button variant="outline" onClick={() => setConfirmDelete(null)} className="flex-1">{t('Cancel')}</Button>
               <Button onClick={() => handleDeleteUser(confirmDelete)} disabled={deletingId === confirmDelete.id} className="flex-1 bg-red-600 hover:bg-red-700 text-white border-0">
-                {deletingId === confirmDelete.id ? 'Deleting…' : 'Delete'}
+                {deletingId === confirmDelete.id ? t('Deleting…') : t('Delete')}
               </Button>
             </div>
           </div>

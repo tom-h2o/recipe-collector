@@ -6,6 +6,18 @@ import { useShortcutKey } from '@/hooks/useShortcutKey';
 import { useShortcutLink, type ShortcutKind } from '@/hooks/useShortcutLink';
 import { findShortcutLink } from '../../shared/shortcutLink';
 import { SAFARI_SHORTCUT_NAME, SAFARI_SHORTCUT_SCRIPT } from '../../shared/safariShortcut';
+import { dateLocale, translateMessage, useT } from '@/i18n';
+import { rich } from '@/i18n/rich';
+
+/** The Photos Shortcut's name: a name, the same in every language (the shared Shortcut carries it). */
+const PHOTOS_SHORTCUT_NAME = 'Send to Speisekammer';
+
+/** The elements the instructions are marked up with. */
+const MARKS = {
+  b: (text: string) => <b>{text}</b>,
+  i: (text: string) => <i>{text}</i>,
+  code: (text: string) => <code>{text}</code>,
+};
 
 /**
  * Settings → iPhone Shortcuts: the personal key, and the two Shortcuts that
@@ -30,6 +42,7 @@ import { SAFARI_SHORTCUT_NAME, SAFARI_SHORTCUT_SCRIPT } from '../../shared/safar
  * Shortcuts" button for it and its build steps become a fallback.
  */
 export function ShortcutSettings({ open, isAdmin = false }: { open: boolean; isAdmin?: boolean }) {
+  const t = useT();
   const { status, freshKey, busy, error, create, revoke } = useShortcutKey(open);
   const links = useShortcutLink(open);
   const [copied, setCopied] = useState<string | null>(null);
@@ -45,13 +58,13 @@ export function ShortcutSettings({ open, isAdmin = false }: { open: boolean; isA
     }
   };
 
-  const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : null);
+  const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(dateLocale()) : null);
 
   const address = (kind: ShortcutKind) => (
     <div className="flex items-center gap-2">
       <code className="flex-1 min-w-0 break-all font-mono text-[11px]">{endpoint}</code>
       <Button type="button" variant="outline" className="shrink-0 h-7 rounded-full text-[11px]" onClick={() => void copy(`url-${kind}`, endpoint)}>
-        {copied === `url-${kind}` ? 'Copied' : 'Copy address'}
+        {copied === `url-${kind}` ? t('Copied') : t('Copy address')}
       </Button>
     </div>
   );
@@ -60,30 +73,29 @@ export function ShortcutSettings({ open, isAdmin = false }: { open: boolean; isA
     <section aria-labelledby="shortcut-heading" className="space-y-3">
       <div>
         <Label id="shortcut-heading" className="font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
-          <Smartphone className="w-4 h-4" aria-hidden="true" /> iPhone Shortcuts
+          <Smartphone className="w-4 h-4" aria-hidden="true" /> {t('iPhone Shortcuts')}
         </Label>
         <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
-          Two Shortcuts put Speisekammer in your iPhone&apos;s share sheet: one for pictures in the Photos app, one
-          for pages and links from Safari, Instagram or any other app. Recipes are saved right away and marked as new
-          here. Both use the same key.
+          {t("Two Shortcuts put Speisekammer in your iPhone's share sheet: one for pictures in the Photos app, one for pages and links from Safari, Instagram or any other app. Recipes are saved right away and marked as new here. Both use the same key.")}
         </p>
       </div>
 
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 space-y-3">
-        {status === null && !error && <p className="text-xs text-zinc-500">Checking…</p>}
+        {status === null && !error && <p className="text-xs text-zinc-500">{t('Checking…')}</p>}
         {status && !status.hasKey && (
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm text-zinc-700 dark:text-zinc-300">No key yet. The Shortcuts need one to send recipes to your vault.</p>
+            <p className="text-sm text-zinc-700 dark:text-zinc-300">{t('No key yet. The Shortcuts need one to send recipes to your vault.')}</p>
             <Button type="button" onClick={() => void create()} disabled={busy} className="shrink-0 rounded-full">
-              <KeyRound className="w-4 h-4 mr-1" /> Create key
+              <KeyRound className="w-4 h-4 mr-1" /> {t('Create key')}
             </Button>
           </div>
         )}
         {status?.hasKey && (
           <div className="space-y-2">
             <p className="text-sm text-zinc-700 dark:text-zinc-300">
-              Key made {date(status.created_at)}
-              {status.last_used_at ? `, last used ${date(status.last_used_at)}` : ', not used yet'}.
+              {status.last_used_at
+                ? t('Key made {made}, last used {used}.', { made: date(status.created_at) ?? '', used: date(status.last_used_at) ?? '' })
+                : t('Key made {made}, not used yet.', { made: date(status.created_at) ?? '' })}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button
@@ -91,18 +103,18 @@ export function ShortcutSettings({ open, isAdmin = false }: { open: boolean; isA
                 variant="outline"
                 disabled={busy}
                 className="rounded-full h-8 text-xs"
-                onClick={() => { if (window.confirm('Make a new key? The old one stops working at once, so the Shortcuts need the new one.')) void create(); }}
+                onClick={() => { if (window.confirm(t('Make a new key? The old one stops working at once, so the Shortcuts need the new one.'))) void create(); }}
               >
-                New key
+                {t('New key')}
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 disabled={busy}
                 className="rounded-full h-8 text-xs"
-                onClick={() => { if (window.confirm('Remove the key? The Shortcuts will stop working until you make a new one.')) void revoke(); }}
+                onClick={() => { if (window.confirm(t('Remove the key? The Shortcuts will stop working until you make a new one.'))) void revoke(); }}
               >
-                Remove key
+                {t('Remove key')}
               </Button>
             </div>
           </div>
@@ -111,87 +123,71 @@ export function ShortcutSettings({ open, isAdmin = false }: { open: boolean; isA
         {freshKey && (
           <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2">
             <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">
-              Your key: copy it now. It is shown only this once.
+              {t('Your key: copy it now. It is shown only this once.')}
             </p>
             <div className="flex items-center gap-2">
               <code data-testid="shortcut-key" className="flex-1 min-w-0 break-all text-xs font-mono text-zinc-800 dark:text-zinc-100">{freshKey}</code>
               <Button type="button" variant="outline" className="shrink-0 h-8 rounded-full text-xs" onClick={() => void copy('key', freshKey)}>
                 {copied === 'key' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                <span className="ml-1">{copied === 'key' ? 'Copied' : 'Copy'}</span>
+                <span className="ml-1">{copied === 'key' ? t('Copied') : t('Copy')}</span>
               </Button>
             </div>
             <p className="text-[11px] text-amber-900/80 dark:text-amber-200/80">
-              Anyone with this key can add recipes to your vault (nothing else). If it gets out, make a new one.
+              {t('Anyone with this key can add recipes to your vault (nothing else). If it gets out, make a new one.')}
             </p>
           </div>
         )}
-        {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+        {error && <p role="alert" className="text-xs text-destructive">{translateMessage(error)}</p>}
       </div>
 
       <ShortcutCard
         kind="photos"
         icon={<Images className="w-4 h-4" aria-hidden="true" />}
-        heading="From the Photos app"
-        name="Send to Speisekammer"
-        intro={<>Select one or more pictures, tap Share, then <b>Send to Speisekammer</b>. Several pages become one recipe.</>}
+        heading={t('From the Photos app')}
+        name={PHOTOS_SHORTCUT_NAME}
+        intro={rich(t, 'Select one or more pictures, tap Share, then <b>{name}</b>. Several pages become one recipe.', MARKS, { name: PHOTOS_SHORTCUT_NAME })}
         link={links.urls.photos}
         isAdmin={isAdmin}
-        formLabel="Shared Shortcut link"
+        formLabel={t('Shared Shortcut link')}
         saving={links.saving === 'photos'}
         error={links.error?.kind === 'photos' ? links.error.message : null}
         onSave={(value) => void links.save('photos', value)}
       >
         {address('photos')}
         <ol className="list-decimal pl-4 space-y-1.5">
-          <li>In the <b>Shortcuts</b> app, tap <b>+</b> and name the shortcut <b>Send to Speisekammer</b>.</li>
-          <li>Open its details (ⓘ), turn on <b>Show in Share Sheet</b>, and let it receive <b>Images</b> only.</li>
+          <li>{rich(t, 'In the <b>Shortcuts</b> app, tap <b>+</b> and name the shortcut <b>{name}</b>.', MARKS, { name: PHOTOS_SHORTCUT_NAME })}</li>
+          <li>{rich(t, 'Open its details (ⓘ), turn on <b>Show in Share Sheet</b>, and let it receive <b>Images</b> only.', MARKS)}</li>
           <li>
-            Add <b>Count</b> (items in Shortcut Input), then <b>If</b> Count is greater than 1:
-            <b> Choose from Menu</b> with “One recipe (several pages)” → <b>Text</b> <code>single</code>, and
-            “One recipe per picture” → <b>Text</b> <code>each</code>. Otherwise: <b>Text</b> <code>single</code>.
-            After the If, add <b>Set Variable</b> <i>Mode</i> to the If Result.
+            {rich(t, 'Add <b>Count</b> (items in Shortcut Input), then <b>If</b> Count is greater than 1: <b>Choose from Menu</b> with “One recipe (several pages)” → <b>Text</b> <code>single</code>, and “One recipe per picture” → <b>Text</b> <code>each</code>. Otherwise: <b>Text</b> <code>single</code>. After the If, add <b>Set Variable</b> <i>Mode</i> to the If Result.', MARKS)}
           </li>
           <li>
-            Add <b>Repeat with Each</b> item in Shortcut Input, and inside it:
-            <b> Resize Image</b> to width 1280 (height automatic),
-            <b> Convert Image</b> to JPEG (quality about 70%, keep metadata on),
-            <b> Base64 Encode</b> with Line Breaks set to <b>None</b>.
+            {rich(t, 'Add <b>Repeat with Each</b> item in Shortcut Input, and inside it: <b>Resize Image</b> to width 1280 (height automatic), <b>Convert Image</b> to JPEG (quality about 70%, keep metadata on), <b>Base64 Encode</b> with Line Breaks set to <b>None</b>.', MARKS)}
           </li>
           <li>
-            After the repeat, add <b>Get Contents of URL</b> with the address above, Method <b>POST</b>,
-            a header <code>X-Speisekammer-Key</code> with your key, and Request Body <b>JSON</b> with
-            <code> images</code> = Repeat Results and <code>mode</code> = <i>Mode</i>.
+            {rich(t, 'After the repeat, add <b>Get Contents of URL</b> with the address above, Method <b>POST</b>, a header <code>X-Speisekammer-Key</code> with your key, and Request Body <b>JSON</b> with <code>images</code> = Repeat Results and <code>mode</code> = <i>Mode</i>.', MARKS)}
           </li>
-          <li>Add <b>Get Dictionary Value</b> for <code>message</code>, then <b>Show Notification</b> with it.</li>
+          <li>{rich(t, 'Add <b>Get Dictionary Value</b> for <code>message</code>, then <b>Show Notification</b> with it.', MARKS)}</li>
         </ol>
         <EmptyHeaderNote />
         <p className="text-zinc-500 dark:text-zinc-400">
-          Up to 8 pictures at a time. The notification says “Got it” as soon as they have arrived; the recipe appears here about a minute later, marked New.
+          {t('Up to 8 pictures at a time. The notification says “Got it” as soon as they have arrived; the recipe appears here about a minute later, marked New.')}
         </p>
       </ShortcutCard>
 
       <ShortcutCard
         kind="safari"
         icon={<Compass className="w-4 h-4" aria-hidden="true" />}
-        heading="From Safari, Instagram and other apps"
+        heading={t('From Safari, Instagram and other apps')}
         name={SAFARI_SHORTCUT_NAME}
         intro={
-          <>
-            In Safari, tap Share, then <b>{SAFARI_SHORTCUT_NAME}</b>: it reads the page you have open, so sites that
-            block the link import (REWE, EDEKA) work too. On an Instagram post or reel, or a link in any other app, the
-            same Shortcut sends the link; a post&apos;s recipe is read from its caption, and one that is only in the
-            video cannot be read.
-          </>
+          rich(t, "In Safari, tap Share, then <b>{name}</b>: it reads the page you have open, so sites that block the link import (REWE, EDEKA) work too. On an Instagram post or reel, or a link in any other app, the same Shortcut sends the link; a post's recipe is read from its caption, and one that is only in the video cannot be read.", MARKS, { name: SAFARI_SHORTCUT_NAME })
         }
         note={
-          <>
-            Once on each iPhone: <b>Settings → Apps → Shortcuts → Advanced</b>, turn on <b>Allow Running Scripts</b>. The
-            Shortcut reads the page you have open in Safari, so it needs that. If it asks to run on a site, allow it.
-          </>
+          rich(t, 'Once on each iPhone: <b>Settings → Apps → Shortcuts → Advanced</b>, turn on <b>Allow Running Scripts</b>. The Shortcut reads the page you have open in Safari, so it needs that. If it asks to run on a site, allow it.', MARKS)
         }
         link={links.urls.safari}
         isAdmin={isAdmin}
-        formLabel="Shared Safari Shortcut link"
+        formLabel={t('Shared Safari Shortcut link')}
         saving={links.saving === 'safari'}
         error={links.error?.kind === 'safari' ? links.error.message : null}
         onSave={(value) => void links.save('safari', value)}
@@ -202,40 +198,31 @@ export function ShortcutSettings({ open, isAdmin = false }: { open: boolean; isA
             a URL too, so a separate link Shortcut sat beside this one in
             Safari. Get Type tells the two apart. */}
         <ol className="list-decimal pl-4 space-y-1.5">
-          <li>In the <b>Shortcuts</b> app, tap <b>+</b> and name the shortcut <b>{SAFARI_SHORTCUT_NAME}</b>.</li>
-          <li>Open its details (ⓘ), turn on <b>Show in Share Sheet</b>, and let it receive <b>Safari web pages</b> and <b>URLs</b>.</li>
+          <li>{rich(t, 'In the <b>Shortcuts</b> app, tap <b>+</b> and name the shortcut <b>{name}</b>.', MARKS, { name: SAFARI_SHORTCUT_NAME })}</li>
+          <li>{rich(t, 'Open its details (ⓘ), turn on <b>Show in Share Sheet</b>, and let it receive <b>Safari web pages</b> and <b>URLs</b>.', MARKS)}</li>
           <li>
-            Add <b>Get Type</b> of Shortcut Input, then <b>If</b> Type <b>is</b> <code>Safari web page</code>. (The
-            text can differ by language: put <b>Show Result</b> after Get Type once, share a page from Safari, and use
-            what it shows.)
+            {rich(t, 'Add <b>Get Type</b> of Shortcut Input, then <b>If</b> Type <b>is</b> <code>Safari web page</code>. (The text can differ by language: put <b>Show Result</b> after Get Type once, share a page from Safari, and use what it shows.)', MARKS)}
           </li>
           <li>
-            Inside the If: <b>Run JavaScript on Web Page</b> (on Shortcut Input), with this script in place of its own:
+            {rich(t, 'Inside the If: <b>Run JavaScript on Web Page</b> (on Shortcut Input), with this script in place of its own:', MARKS)}
             <pre data-testid="safari-script" className="mt-1.5 p-2 rounded-lg bg-zinc-50 dark:bg-zinc-800 font-mono text-[10px] leading-snug whitespace-pre-wrap break-all">{SAFARI_SHORTCUT_SCRIPT}</pre>
             <Button type="button" variant="outline" className="mt-1.5 h-7 rounded-full text-[11px]" onClick={() => void copy('script', SAFARI_SHORTCUT_SCRIPT)}>
-              {copied === 'script' ? 'Copied' : 'Copy script'}
+              {copied === 'script' ? t('Copied') : t('Copy script')}
             </Button>
             <span className="block mt-1.5">
-              then <b>Get Contents of URL</b> with the address above, Method <b>POST</b>, a header
-              <code> X-Speisekammer-Key</code> with your key, and Request Body <b>JSON</b> with
-              <code> page</code> = JavaScript Result (as Text).
+              {rich(t, 'then <b>Get Contents of URL</b> with the address above, Method <b>POST</b>, a header <code>X-Speisekammer-Key</code> with your key, and Request Body <b>JSON</b> with <code>page</code> = JavaScript Result (as Text).', MARKS)}
             </span>
           </li>
           <li>
-            Under <b>Otherwise</b>: <b>Get Contents of URL</b> with the same address, method and header, and Request
-            Body <b>JSON</b> with <code>url</code> = Shortcut Input.
+            {rich(t, 'Under <b>Otherwise</b>: <b>Get Contents of URL</b> with the same address, method and header, and Request Body <b>JSON</b> with <code>url</code> = Shortcut Input.', MARKS)}
           </li>
           <li>
-            After <b>End If</b>: <b>Get Dictionary Value</b> for <code>message</code> in the <b>If Result</b>, then
-            <b> Show Notification</b> with it. Not in <i>Contents of URL</i>: that names one of the two requests, and is
-            empty whenever the other one ran, so the notification would come up blank.
+            {rich(t, 'After <b>End If</b>: <b>Get Dictionary Value</b> for <code>message</code> in the <b>If Result</b>, then <b>Show Notification</b> with it. Not in <i>Contents of URL</i>: that names one of the two requests, and is empty whenever the other one ran, so the notification would come up blank.', MARKS)}
           </li>
         </ol>
         <EmptyHeaderNote />
         <p className="text-zinc-500 dark:text-zinc-400">
-          The first time, the Shortcut may be under <b>More</b> at the end of the share sheet&apos;s app row, or in its
-          list of actions; <b>Edit Actions</b> there puts it among the favourites. Private Instagram posts come back with
-          a notification saying so: open those in Safari and share from there.
+          {rich(t, "The first time, the Shortcut may be under <b>More</b> at the end of the share sheet's app row, or in its list of actions; <b>Edit Actions</b> there puts it among the favourites. Private Instagram posts come back with a notification saying so: open those in Safari and share from there.", MARKS)}
         </p>
       </ShortcutCard>
     </section>
@@ -251,10 +238,10 @@ export function ShortcutSettings({ open, isAdmin = false }: { open: boolean; isA
  * it. The steps do instead.
  */
 function EmptyHeaderNote() {
+  const t = useT();
   return (
     <p className="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-2 text-amber-900 dark:text-amber-200">
-      Under <b>Headers</b>, delete every empty row (the grey <i>Key / Text</i> placeholders) with the red minus. Shortcuts
-      sends them as headers without a name, and the request then fails with “The network connection was lost”.
+      {rich(t, 'Under <b>Headers</b>, delete every empty row (the grey <i>Key / Text</i> placeholders) with the red minus. Shortcuts sends them as headers without a name, and the request then fails with “The network connection was lost”.', MARKS)}
     </p>
   );
 }
@@ -278,6 +265,7 @@ interface CardProps {
 
 /** One Shortcut: what it does, Add to Shortcuts once shared, the admin's link field, and the build steps. */
 function ShortcutCard({ kind, icon, heading, name, intro, note, link, isAdmin, formLabel, saving, error, onSave, children }: CardProps) {
+  const t = useT();
   const [draft, setDraft] = useState('');
   const [notFound, setNotFound] = useState(false);
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -322,10 +310,10 @@ function ShortcutCard({ kind, icon, heading, name, intro, note, link, isAdmin, f
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold bg-sk-primary text-white dark:bg-primary dark:text-primary-foreground"
           >
-            <Plus className="w-4 h-4" aria-hidden="true" /> Add to Shortcuts
+            <Plus className="w-4 h-4" aria-hidden="true" /> {t('Add to Shortcuts')}
           </a>
           <p className="text-xs text-zinc-600 dark:text-zinc-400">
-            Opens the Shortcuts app with <b>{name}</b>. When it asks for the key, paste the one from above.
+            {rich(t, 'Opens the Shortcuts app with <b>{name}</b>. When it asks for the key, paste the one from above.', MARKS, { name })}
           </p>
         </div>
       )}
@@ -337,13 +325,10 @@ function ShortcutCard({ kind, icon, heading, name, intro, note, link, isAdmin, f
           onSubmit={(e) => { e.preventDefault(); submit(); }}
         >
           <Label htmlFor={`shortcut-link-${kind}`} className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-            {formLabel} (admin)
+            {t('{label} (admin)', { label: formLabel })}
           </Label>
           <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
-            Build the Shortcut once with the steps below, with your key in a <b>Text</b> action at the top and that
-            Text used in the header. Then <b>ⓘ</b> → <b>Setup</b> → <b>Add New Question</b> and pick that Text action,
-            so each person is asked for their own key (Apple clears yours when you share). Then <b>Share</b> →
-            <b> Copy iCloud Link</b> and paste it here. It is saved at once, and everyone gets the Add to Shortcuts button.
+            {rich(t, 'Build the Shortcut once with the steps below, with your key in a <b>Text</b> action at the top and that Text used in the header. Then <b>ⓘ</b> → <b>Setup</b> → <b>Add New Question</b> and pick that Text action, so each person is asked for their own key (Apple clears yours when you share). Then <b>Share</b> → <b>Copy iCloud Link</b> and paste it here. It is saved at once, and everyone gets the Add to Shortcuts button.', MARKS)}
           </p>
           <div className="flex gap-2">
             {/* Plain text, not type="url": a paste with the Shortcut's name in
@@ -363,32 +348,32 @@ function ShortcutCard({ kind, icon, heading, name, intro, note, link, isAdmin, f
             />
             {saved ? (
               <Button type="button" variant="outline" disabled={saving} onClick={() => { setDraft(''); onSave(''); }} className="shrink-0 h-9 rounded-full text-xs">
-                Remove link
+                {t('Remove link')}
               </Button>
             ) : (
               <Button type="submit" disabled={saving || (!draft.trim() && !link)} className="shrink-0 h-9 rounded-full text-xs">
-                {draft.trim() ? 'Save link' : 'Remove link'}
+                {draft.trim() ? t('Save link') : t('Remove link')}
               </Button>
             )}
           </div>
-          {saving && <p className="text-xs text-zinc-500" role="status">Saving…</p>}
+          {saving && <p className="text-xs text-zinc-500" role="status">{t('Saving…')}</p>}
           {!saving && saved && !error && (
             <p className="text-xs text-sk-primary dark:text-primary flex items-center gap-1" role="status">
-              <Check className="w-3.5 h-3.5" aria-hidden="true" /> Saved. Everyone sees Add to Shortcuts for this one.
+              <Check className="w-3.5 h-3.5" aria-hidden="true" /> {t('Saved. Everyone sees Add to Shortcuts for this one.')}
             </p>
           )}
           {notFound && (
             <p role="alert" className="text-xs text-destructive">
-              No iCloud link found in that. In Shortcuts: open the Shortcut, <b>Share</b> → <b>Copy iCloud Link</b>, then paste here.
+              {rich(t, 'No iCloud link found in that. In Shortcuts: open the Shortcut, <b>Share</b> → <b>Copy iCloud Link</b>, then paste here.', MARKS)}
             </p>
           )}
-          {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+          {error && <p role="alert" className="text-xs text-destructive">{translateMessage(error)}</p>}
         </form>
       )}
 
       <details className="text-xs text-zinc-700 dark:text-zinc-300">
         <summary className="cursor-pointer font-semibold">
-          {link ? 'Build the Shortcut yourself instead' : 'How to set up the Shortcut (once, about 5 minutes)'}
+          {link ? t('Build the Shortcut yourself instead') : t('How to set up the Shortcut (once, about 5 minutes)')}
         </summary>
         <div className="mt-3 space-y-3">{children}</div>
       </details>

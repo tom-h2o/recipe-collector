@@ -9,6 +9,8 @@ import { FilterBar } from './FilterBar';
 import { CollectionBar } from './CollectionBar';
 import { SortButton } from './SortButton';
 import { useRecipeStore } from '@/store/recipeStore';
+import { useT } from '@/i18n';
+import { rich } from '@/i18n/rich';
 import type { Recipe, RecipeTranslation, Collection, RecipeCollection, LinkedPerson } from '@/types';
 
 interface Props {
@@ -58,6 +60,7 @@ export function RecipeVault({
   onLoadMore, onOpenRecipe, onToggleFavourite,
   banner, newRecipeIds,
 }: Props) {
+  const t = useT();
   const searchRef = useRef<HTMLInputElement>(null);
 
   // '/' keyboard shortcut focuses search
@@ -97,16 +100,16 @@ export function RecipeVault({
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Search recipes, ingredients…"
-              aria-label="Search recipes"
-              title="Press / to search"
+              placeholder={t('Search recipes, ingredients…')}
+              aria-label={t('Search recipes')}
+              title={t('Press / to search')}
               // Room on the right only while there is something to clear.
               className={`w-full h-10 pl-10 ${searchQuery ? 'pr-10' : 'pr-3'} rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface dark:text-foreground text-sm font-sans focus:outline-none focus:ring-2 focus:ring-sk-primary/25 dark:focus:ring-primary/25 transition placeholder:text-sk-outline dark:placeholder:text-muted-foreground`}
             />
             {searchQuery && (
               <button
                 onClick={() => onSearchChange('')}
-                aria-label="Clear search"
+                aria-label={t('Clear search')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-sk-outline hover:text-sk-primary dark:hover:text-primary"
               >
                 <X className="w-4 h-4" />
@@ -119,10 +122,10 @@ export function RecipeVault({
         {/* Whose recipes — only worth showing once something is connected */}
         {linkedPeople.length > 0 && onOwnerChange && (
           <div className="flex items-center gap-2 flex-wrap">
-            <Users className="w-4 h-4 text-sk-outline dark:text-muted-foreground shrink-0" aria-label="Whose recipes" />
+            <Users className="w-4 h-4 text-sk-outline dark:text-muted-foreground shrink-0" aria-label={t('Whose recipes')} />
             {[
-              { id: null, label: 'Everyone' },
-              { id: currentUserId, label: 'Mine' },
+              { id: null, label: t('Everyone') },
+              { id: currentUserId, label: t('Mine') },
               ...linkedPeople.map((p) => ({ id: p.userId, label: p.label })),
             ]
               .filter((c) => c.id !== undefined)
@@ -181,16 +184,16 @@ export function RecipeVault({
           </div>
         ) : loadError ? (
           <div role="alert" className="text-center py-24 px-6 bg-white dark:bg-card rounded-3xl shadow-ambient">
-            <p className="font-serif text-xl font-normal text-sk-on-surface dark:text-foreground mb-1">The recipes could not be loaded</p>
+            <p className="font-serif text-xl font-normal text-sk-on-surface dark:text-foreground mb-1">{t('The recipes could not be loaded')}</p>
             <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground mb-5">
-              Nothing is lost. Check the connection and try again.
+              {t('Nothing is lost. Check the connection and try again.')}
             </p>
             <button
               type="button"
               onClick={retryLoad}
               className="inline-flex items-center h-10 px-5 rounded-full bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground text-sm font-semibold font-sans transition-colors"
             >
-              Try again
+              {t('Try again')}
             </button>
           </div>
         ) : recipes.length === 0 && !isNarrowed ? (
@@ -203,11 +206,12 @@ export function RecipeVault({
               <line x1="23" y1="21.5" x2="26" y2="24.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.4"/>
               <line x1="26" y1="24.5" x2="29" y2="21.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.4"/>
             </svg>
-            <p className="font-serif text-2xl font-normal text-sk-on-surface dark:text-foreground mb-2">The vault is empty</p>
+            <p className="font-serif text-2xl font-normal text-sk-on-surface dark:text-foreground mb-2">{t('The vault is empty')}</p>
             <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground">
-              Click <strong>Add Recipe</strong> or press{' '}
-              <kbd className="px-1.5 py-0.5 rounded-md bg-sk-surface-highest dark:bg-muted text-xs font-mono text-sk-on-surface-variant">n</kbd>{' '}
-              to get started!
+              {rich(t, 'Click <b>Add Recipe</b> or press <kbd>n</kbd> to get started!', {
+                b: (s) => <strong>{s}</strong>,
+                kbd: (s) => <kbd className="px-1.5 py-0.5 rounded-md bg-sk-surface-highest dark:bg-muted text-xs font-mono text-sk-on-surface-variant">{s}</kbd>,
+              })}
             </p>
           </div>
         ) : filteredRecipes.length === 0 ? (
@@ -216,17 +220,20 @@ export function RecipeVault({
               <>
                 <FolderOpen className="w-14 h-14 mx-auto mb-4 text-sk-primary-fixed dark:text-muted" />
                 <p className="font-serif text-xl font-normal text-sk-on-surface dark:text-foreground mb-1">
-                  {collections.find((c) => c.id === activeCollectionId)?.name ?? 'This collection'} is empty
+                  {(() => {
+                    const name = collections.find((c) => c.id === activeCollectionId)?.name;
+                    return name ? t('{name} is empty', { name }) : t('This collection is empty');
+                  })()}
                 </p>
                 <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground">
-                  Open a recipe and use <strong>⋯ → Add to collection</strong> to populate it.
+                  {rich(t, 'Open a recipe and use <b>⋯ → Add to collection</b> to populate it.', { b: (s) => <strong>{s}</strong> })}
                 </p>
               </>
             ) : (
               <>
                 <Search className="w-14 h-14 mx-auto mb-4 text-sk-primary-fixed dark:text-muted" />
-                <p className="font-serif text-xl font-normal text-sk-on-surface dark:text-foreground mb-1">No results found</p>
-                <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground">Try a different search or clear the filters.</p>
+                <p className="font-serif text-xl font-normal text-sk-on-surface dark:text-foreground mb-1">{t('No results found')}</p>
+                <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground">{t('Try a different search or clear the filters.')}</p>
               </>
             )}
           </div>
@@ -259,7 +266,7 @@ export function RecipeVault({
                   variant="outline"
                   className="px-8 rounded-full font-semibold font-sans border-sk-outline-variant dark:border-border text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary hover:border-sk-primary dark:hover:text-primary dark:hover:border-primary"
                 >
-                  Load more
+                  {t('Load more')}
                 </Button>
               </div>
             )}

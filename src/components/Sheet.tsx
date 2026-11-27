@@ -2,6 +2,7 @@ import type { ReactNode, RefObject } from 'react';
 import { X } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { useT } from '@/i18n';
 
 interface Props {
   open: boolean;
@@ -29,6 +30,7 @@ interface Props {
  * home indicator's strip, so nothing tappable sits under it.
  */
 export function Sheet({ open, onClose, title, description, children, initialFocus, className }: Props) {
+  const t = useT();
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent
@@ -60,7 +62,7 @@ export function Sheet({ open, onClose, title, description, children, initialFocu
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('Close')}
             className="shrink-0 -mr-1.5 inline-flex h-9 w-9 items-center justify-center rounded-full text-sk-outline dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted hover:text-sk-on-surface dark:hover:text-foreground transition-colors"
           >
             <X className="w-4 h-4" />

@@ -1,8 +1,10 @@
 import { ArrowRight, ExternalLink } from 'lucide-react';
 import { SpeisekammerLogo } from '@/components/SpeisekammerLogo';
 import {
-  APP_NAME, APP_TAGLINE, AUTHOR_NAME, AUTHOR_URL, PITCH, CAPABILITY_GROUPS, DATA_NOTE,
+  APP_NAME, APP_TAGLINE, AUTHOR_NAME, AUTHOR_URL, PITCH, CAPABILITY_GROUPS, DATA_NOTE, capabilityText,
 } from '@/lib/appInfo';
+import { useT } from '@/i18n';
+import { rich } from '@/i18n/rich';
 import { isSignupOpen } from '@/lib/signupOpen';
 
 interface Props {
@@ -15,6 +17,7 @@ interface Props {
  * someone with no account — it makes no queries and reads no session.
  */
 export function AboutPage({ signUpHref = '/' }: Props) {
+  const t = useT();
   const signupOpen = isSignupOpen();
   return (
     <div className="min-h-screen bg-sk-surface dark:bg-zinc-950 text-sk-on-surface dark:text-foreground font-sans">
@@ -29,41 +32,42 @@ export function AboutPage({ signUpHref = '/' }: Props) {
             </h1>
           </div>
           <p className="text-xs uppercase tracking-[0.15em] text-sk-on-surface-variant dark:text-muted-foreground">
-            {APP_TAGLINE}
+            {t(APP_TAGLINE)}
           </p>
         </header>
 
         {/* ── The problem, then the answer ─────────────────────────────── */}
         <section className="space-y-6 max-w-2xl mx-auto">
-          <h2 className="font-serif text-2xl sm:text-3xl font-normal">Why it exists</h2>
+          <h2 className="font-serif text-2xl sm:text-3xl font-normal">{t('Why it exists')}</h2>
           <p className="text-lg leading-relaxed text-sk-on-surface-variant dark:text-muted-foreground">
-            {PITCH.problem}
+            {t(PITCH.problem)}
           </p>
           <p className="text-lg leading-relaxed text-sk-on-surface-variant dark:text-muted-foreground">
-            {PITCH.solution}
+            {t(PITCH.solution)}
           </p>
         </section>
 
         {/* ── What it does ─────────────────────────────────────────────── */}
         <section className="space-y-12">
-          <h2 className="font-serif text-2xl sm:text-3xl font-normal text-center">What it does</h2>
+          <h2 className="font-serif text-2xl sm:text-3xl font-normal text-center">{t('What it does')}</h2>
           {CAPABILITY_GROUPS.map((group) => (
             <div key={group.heading} className="space-y-5">
               <h3 className="text-xs uppercase tracking-[0.15em] text-sk-primary dark:text-primary font-semibold border-b border-sk-outline-variant dark:border-border pb-2">
-                {group.heading}
+                {t(group.heading)}
               </h3>
               <ul className="grid sm:grid-cols-2 gap-x-8 gap-y-6">
                 {group.items.map((item) => {
                   const Icon = item.icon;
+                  const { title, blurb } = capabilityText(item, t);
                   return (
                     <li key={item.title} className="flex gap-4">
                       <span className="shrink-0 w-10 h-10 rounded-full bg-sk-primary-fixed/50 dark:bg-primary/15 flex items-center justify-center">
                         <Icon className="w-5 h-5 text-sk-primary dark:text-primary" />
                       </span>
                       <div className="space-y-1">
-                        <h4 className="font-semibold leading-snug">{item.title}</h4>
+                        <h4 className="font-semibold leading-snug">{title}</h4>
                         <p className="text-sm leading-relaxed text-sk-on-surface-variant dark:text-muted-foreground">
-                          {item.blurb}
+                          {blurb}
                         </p>
                       </div>
                     </li>
@@ -76,13 +80,13 @@ export function AboutPage({ signUpHref = '/' }: Props) {
 
         {/* ── What happens to your data ────────────────────────────────── */}
         <section id="your-data" className="space-y-6 max-w-2xl mx-auto scroll-mt-8">
-          <h2 className="font-serif text-2xl sm:text-3xl font-normal">What happens to your data</h2>
+          <h2 className="font-serif text-2xl sm:text-3xl font-normal">{t('What happens to your data')}</h2>
           <dl className="space-y-5">
             {DATA_NOTE.map((item) => (
               <div key={item.title} className="space-y-1">
-                <dt className="font-semibold">{item.title}</dt>
+                <dt className="font-semibold">{t(item.title)}</dt>
                 <dd className="text-sm leading-relaxed text-sk-on-surface-variant dark:text-muted-foreground">
-                  {item.text}
+                  {t(item.text)}
                 </dd>
               </div>
             ))}
@@ -93,30 +97,28 @@ export function AboutPage({ signUpHref = '/' }: Props) {
         <section className="text-center space-y-6 bg-sk-surface-low dark:bg-card rounded-3xl p-10 sm:p-14">
           {signupOpen ? (
             <>
-              <h2 className="font-serif text-2xl sm:text-3xl font-normal">Start your own vault</h2>
+              <h2 className="font-serif text-2xl sm:text-3xl font-normal">{t('Start your own vault')}</h2>
               <p className="text-sk-on-surface-variant dark:text-muted-foreground max-w-xl mx-auto leading-relaxed">
-                Making an account takes a moment, and the first recipe takes about as
-                long as pasting a link.
+                {t('Making an account takes a moment, and the first recipe takes about as long as pasting a link.')}
               </p>
               <a
                 href={signUpHref}
                 className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold transition-colors"
               >
-                Create a free account <ArrowRight className="w-4 h-4" />
+                {t('Create a free account')} <ArrowRight className="w-4 h-4" />
               </a>
             </>
           ) : (
             <>
-              <h2 className="font-serif text-2xl sm:text-3xl font-normal">By invitation, for now</h2>
+              <h2 className="font-serif text-2xl sm:text-3xl font-normal">{t('By invitation, for now')}</h2>
               <p className="text-sk-on-surface-variant dark:text-muted-foreground max-w-xl mx-auto leading-relaxed">
-                {APP_NAME} is being tried out by family and friends. If you were
-                invited, sign in with the address the invitation went to.
+                {t('{app} is being tried out by family and friends. If you were invited, sign in with the address the invitation went to.', { app: APP_NAME })}
               </p>
               <a
                 href={signUpHref}
                 className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold transition-colors"
               >
-                Sign in <ArrowRight className="w-4 h-4" />
+                {t('Sign in')} <ArrowRight className="w-4 h-4" />
               </a>
             </>
           )}
@@ -125,8 +127,9 @@ export function AboutPage({ signUpHref = '/' }: Props) {
         {/* ── Who made it ──────────────────────────────────────────────── */}
         <footer className="text-center space-y-3 pt-4 border-t border-sk-outline-variant dark:border-border">
           <p className="text-sm text-sk-on-surface-variant dark:text-muted-foreground pt-8">
-            {APP_NAME} is designed and built by{' '}
-            <span className="font-semibold text-sk-on-surface dark:text-foreground">{AUTHOR_NAME}</span>.
+            {rich(t, '{app} is designed and built by <author>{name}</author>.', {
+              author: (name) => <span className="font-semibold text-sk-on-surface dark:text-foreground">{name}</span>,
+            }, { app: APP_NAME, name: AUTHOR_NAME })}
           </p>
           <a
             href={AUTHOR_URL}

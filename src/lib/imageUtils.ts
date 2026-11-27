@@ -1,3 +1,5 @@
+import { t } from '@/i18n';
+
 /** A single recipe can span several photos (e.g. a two-page cookbook spread). */
 export const MAX_EXTRACT_PHOTOS = 8;
 
@@ -66,14 +68,14 @@ export async function encodeForGallery(file: File): Promise<Blob> {
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Could not process the image.');
+  if (!ctx) throw new Error(t('Could not process the image.'));
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
 
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, 'image/jpeg', GALLERY_QUALITY),
   );
-  if (!blob) throw new Error('Could not encode the image.');
+  if (!blob) throw new Error(t('Could not encode the image.'));
   return blob;
 }
 
@@ -97,7 +99,7 @@ export async function downscaleToBase64(
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Could not process the image.');
+  if (!ctx) throw new Error(t('Could not process the image.'));
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
 
@@ -116,6 +118,9 @@ export async function encodePhotosForExtraction(files: File[]): Promise<ExtractI
     if (totalBase64Bytes(images) <= MAX_EXTRACT_PAYLOAD_BYTES) return images;
   }
   throw new Error(
-    `These ${files.length} photos are too large to send together (${formatBytes(totalBase64Bytes(images))}). Remove a page or two and try again.`,
+    t('These {count} photos are too large to send together ({size}). Remove a page or two and try again.', {
+      count: files.length,
+      size: formatBytes(totalBase64Bytes(images)),
+    }),
   );
 }

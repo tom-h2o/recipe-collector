@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { chipClass } from '@/lib/tags';
 import type { AdminUsage as Usage } from '@/types';
 import { IMPORT_LABELS, featureLabel, shortDay } from '@/lib/usageLabels';
+import { useT, tn, translateMessage, dateLocale } from '@/i18n';
+import { rich } from '@/i18n/rich';
 
 /**
  * Admin → Usage: who uses the app, how often and for what, from
@@ -18,11 +20,11 @@ import { IMPORT_LABELS, featureLabel, shortDay } from '@/lib/usageLabels';
 
 const PERIODS = [7, 30] as const;
 
-const count = (n: number) => n.toLocaleString('en');
+const count = (n: number) => n.toLocaleString(dateLocale('en'));
 
 function longDay(day: string | null): string {
   if (!day) return '—';
-  return new Date(`${day.slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  return new Date(`${day.slice(0, 10)}T00:00:00Z`).toLocaleDateString(dateLocale('en-GB'), { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
 
 function Tile({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: number }) {
@@ -50,7 +52,8 @@ function WeekChart({ title, weeks, valueOf, describe }: {
   title: string;
   weeks: Usage['weeks'];
   valueOf: (week: Usage['weeks'][number]) => number;
-  describe: (n: number) => string;
+  /** The whole sentence for one column: "Week of 16 Nov: 3 people". */
+  describe: (n: number, day: string) => string;
 }) {
   const values = weeks.map(valueOf);
   const max = Math.max(0, ...values);
@@ -61,7 +64,7 @@ function WeekChart({ title, weeks, valueOf, describe }: {
       <ol className="flex items-end gap-0.5 border-b border-zinc-200 dark:border-zinc-700" style={{ height: BAR_AREA + 20 }}>
         {weeks.map((week, i) => {
           const n = values[i];
-          const text = `Week of ${shortDay(week.week_start)}: ${describe(n)}`;
+          const text = describe(n, shortDay(week.week_start));
           const labelled = n > 0 && (i === last || n === max);
           return (
             <li key={week.week_start} title={text} className="flex-1 h-full flex flex-col items-center justify-end">
@@ -110,6 +113,7 @@ function BarRow({ label, value, max, detail }: { label: string; value: number; m
 }
 
 export function AdminUsage({ reloadKey = 0 }: { reloadKey?: number }) {
+  const t = useT();
   const [days, setDays] = useState<(typeof PERIODS)[number]>(30);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -121,22 +125,22 @@ export function AdminUsage({ reloadKey = 0 }: { reloadKey?: number }) {
     try {
       const res = await apiFetch(`/api/account?tab=usage&days=${period}`);
       const body = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(body?.error ?? `Request failed (${res.status})`);
+      if (!res.ok) throw new Error(body?.error ? translateMessage(String(body.error)) : t('Request failed ({status})', { status: res.status }));
       setUsage(body.usage as Usage);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'The usage report could not be loaded.');
+      setError(err instanceof Error ? err.message : t('The usage report could not be loaded.'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { load(days); }, [days, reloadKey, load]);
 
   const periods = (
-    <div className="flex gap-2" role="group" aria-label="Period">
+    <div className="flex gap-2" role="group" aria-label={t('Period')}>
       {PERIODS.map((p) => (
         <button key={p} type="button" aria-pressed={days === p} onClick={() => setDays(p)} className={chipClass(days === p)}>
-          Last {p} days
+          {t('Last {n} days', { n: p })}
         </button>
       ))}
     </div>
@@ -149,7 +153,7 @@ export function AdminUsage({ reloadKey = 0 }: { reloadKey?: number }) {
         <div role="alert" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 space-y-3">
           <p className="text-sm text-zinc-700 dark:text-zinc-300">{error}</p>
           <Button variant="outline" size="sm" onClick={() => load(days)} className="gap-1.5">
-            <RefreshCw className="w-3.5 h-3.5" /> Retry
+            <RefreshCw className="w-3.5 h-3.5" /> {t('Retry')}
           </Button>
         </div>
       </div>
@@ -160,7 +164,7 @@ export function AdminUsage({ reloadKey = 0 }: { reloadKey?: number }) {
     return (
       <div className="space-y-4">
         {periods}
-        <p className="text-sm text-zinc-500 dark:text-zinc-400"><Loader2 className="w-4 h-4 animate-spin inline mr-2" />Loading…</p>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400"><Loader2 className="w-4 h-4 animate-spin inline mr-2" />{t('Loading…')}</p>
       </div>
     );
   }
@@ -174,32 +178,32 @@ export function AdminUsage({ reloadKey = 0 }: { reloadKey?: number }) {
       {periods}
 
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <Tile icon={Users} label="Active people" value={totals.active_people} />
-        <Tile icon={BookOpen} label="Recipes added" value={totals.recipes_added} />
-        <Tile icon={Sparkles} label="AI calls" value={totals.ai_calls} />
-        <Tile icon={Smartphone} label="iPhone imports" value={totals.iphone_imports} />
-        <Tile icon={Send} label="Recipes sent" value={totals.shares_sent} />
-        <Tile icon={Link2} label="Accounts connected" value={totals.connections_made} />
+        <Tile icon={Users} label={t('Active people')} value={totals.active_people} />
+        <Tile icon={BookOpen} label={t('Recipes added')} value={totals.recipes_added} />
+        <Tile icon={Sparkles} label={t('AI calls')} value={totals.ai_calls} />
+        <Tile icon={Smartphone} label={t('iPhone imports')} value={totals.iphone_imports} />
+        <Tile icon={Send} label={t('Recipes sent')} value={totals.shares_sent} />
+        <Tile icon={Link2} label={t('Accounts connected')} value={totals.connections_made} />
       </div>
       <p className="text-xs text-zinc-500 dark:text-zinc-400 -mt-3">
-        Since {longDay(usage.first_day)}. Active means opened the app or saved something: a recipe, a plan, a list item, a rating, a share.{' '}
+        {t('Since {date}. Active means opened the app or saved something: a recipe, a plan, a list item, a rating, a share.', { date: longDay(usage.first_day) })}{' '}
         {usage.tracking_since
-          ? <>Opening the app counts from {longDay(usage.tracking_since)}; before that, only saving did.</>
-          : <>Opening the app will count from the first visit after this release; until then, only saving does.</>}
+          ? t('Opening the app counts from {date}; before that, only saving did.', { date: longDay(usage.tracking_since) })
+          : t('Opening the app will count from the first visit after this release; until then, only saving does.')}
       </p>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <WeekChart title="Active people per week" weeks={weeks} valueOf={(w) => w.active_people} describe={(n) => `${count(n)} ${n === 1 ? 'person' : 'people'}`} />
-        <WeekChart title="Recipes added per week" weeks={weeks} valueOf={(w) => w.recipes_added} describe={(n) => `${count(n)} ${n === 1 ? 'recipe' : 'recipes'}`} />
+        <WeekChart title={t('Active people per week')} weeks={weeks} valueOf={(w) => w.active_people} describe={(n, day) => tn(n, 'Week of {day}: {n} person', 'Week of {day}: {n} people', { n: count(n), day })} />
+        <WeekChart title={t('Recipes added per week')} weeks={weeks} valueOf={(w) => w.recipes_added} describe={(n, day) => tn(n, 'Week of {day}: {n} recipe', 'Week of {day}: {n} recipes', { n: count(n), day })} />
       </div>
       <details className="text-sm">
-        <summary className="cursor-pointer text-zinc-500 dark:text-zinc-400">Weekly numbers as a table</summary>
+        <summary className="cursor-pointer text-zinc-500 dark:text-zinc-400">{t('Weekly numbers as a table')}</summary>
         <table className="mt-2 text-sm">
           <thead>
             <tr className="text-xs text-zinc-500 dark:text-zinc-400">
-              <th className="text-left pr-6 py-1 font-semibold">Week of</th>
-              <th className="text-right pr-6 py-1 font-semibold">Active people</th>
-              <th className="text-right py-1 font-semibold">Recipes added</th>
+              <th className="text-left pr-6 py-1 font-semibold">{t('Week of')}</th>
+              <th className="text-right pr-6 py-1 font-semibold">{t('Active people')}</th>
+              <th className="text-right py-1 font-semibold">{t('Recipes added')}</th>
             </tr>
           </thead>
           <tbody>
@@ -217,20 +221,24 @@ export function AdminUsage({ reloadKey = 0 }: { reloadKey?: number }) {
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 space-y-4">
           <div>
-            <h3 className="font-bold text-zinc-900 dark:text-zinc-50">Features used</h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">From the AI log, which keeps 30 days. Cook mode, timers, filters and printing never reach the server and cannot appear here.</p>
+            <h3 className="font-bold text-zinc-900 dark:text-zinc-50">{t('Features used')}</h3>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">{t('From the AI log, which keeps 30 days. Cook mode, timers, filters and printing never reach the server and cannot appear here.')}</p>
           </div>
           {features.length === 0 ? (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">Nothing in this period.</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">{t('Nothing in this period.')}</p>
           ) : (
             <ul className="space-y-2">
               {features.map((f) => (
                 <BarRow
                   key={f.endpoint}
-                  label={featureLabel(f.endpoint)}
+                  label={t(featureLabel(f.endpoint))}
                   value={f.calls}
                   max={maxFeature}
-                  detail={`${count(f.calls)} ${f.calls === 1 ? 'time' : 'times'} · ${count(f.people)} ${f.people === 1 ? 'person' : 'people'}${f.failed ? ` · ${count(f.failed)} failed` : ''}`}
+                  detail={[
+                    tn(f.calls, '{n} time##usage', '{n} times##usage', { n: count(f.calls) }),
+                    tn(f.people, '{n} person##usage', '{n} people##usage', { n: count(f.people) }),
+                    f.failed ? t('{n} failed##usage', { n: count(f.failed) }) : null,
+                  ].filter(Boolean).join(' · ')}
                 />
               ))}
             </ul>
@@ -239,20 +247,20 @@ export function AdminUsage({ reloadKey = 0 }: { reloadKey?: number }) {
 
         <section className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 space-y-4">
           <div>
-            <h3 className="font-bold text-zinc-900 dark:text-zinc-50">From the iPhone</h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">Recipes sent with the Shortcuts, by what was shared.</p>
+            <h3 className="font-bold text-zinc-900 dark:text-zinc-50">{t('From the iPhone')}</h3>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">{t('Recipes sent with the Shortcuts, by what was shared.')}</p>
           </div>
           {imports.length === 0 ? (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">Nothing in this period.</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">{t('Nothing in this period.')}</p>
           ) : (
             <ul className="space-y-2">
               {imports.map((i) => (
                 <BarRow
                   key={i.source}
-                  label={IMPORT_LABELS[i.source] ?? i.source}
+                  label={t(IMPORT_LABELS[i.source] ?? i.source)}
                   value={i.count}
                   max={maxImport}
-                  detail={`${count(i.count)}${i.failed ? ` · ${count(i.failed)} failed` : ''}`}
+                  detail={[count(i.count), i.failed ? t('{n} failed##usage', { n: count(i.failed) }) : null].filter(Boolean).join(' · ')}
                 />
               ))}
             </ul>
@@ -261,16 +269,16 @@ export function AdminUsage({ reloadKey = 0 }: { reloadKey?: number }) {
       </div>
 
       <section className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
-        <h3 className="font-bold text-zinc-900 dark:text-zinc-50 px-6 pt-5 pb-2">People</h3>
+        <h3 className="font-bold text-zinc-900 dark:text-zinc-50 px-6 pt-5 pb-2">{t('People')}</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                <th className="text-left px-6 py-3 font-semibold">Email</th>
-                <th className="text-left px-4 py-3 font-semibold">Last active</th>
-                <th className="text-right px-4 py-3 font-semibold">Days active</th>
-                <th className="text-right px-4 py-3 font-semibold">Recipes added</th>
-                <th className="text-right px-4 py-3 font-semibold">AI calls</th>
+                <th className="text-left px-6 py-3 font-semibold">{t('Email')}</th>
+                <th className="text-left px-4 py-3 font-semibold">{t('Last active')}</th>
+                <th className="text-right px-4 py-3 font-semibold">{t('Days active')}</th>
+                <th className="text-right px-4 py-3 font-semibold">{t('Recipes added')}</th>
+                <th className="text-right px-4 py-3 font-semibold">{t('AI calls')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
@@ -280,7 +288,9 @@ export function AdminUsage({ reloadKey = 0 }: { reloadKey?: number }) {
                   <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{longDay(p.last_active ?? p.last_sign_in_at)}</td>
                   <td className="px-4 py-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{count(p.active_days)}</td>
                   <td className="px-4 py-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
-                    {count(p.recipes_added)} <span className="text-zinc-400 dark:text-zinc-500">of {count(p.recipes_total)}</span>
+                    {rich(t, '{added} <dim>of {total}</dim>', {
+                      dim: (text) => <span className="text-zinc-400 dark:text-zinc-500">{text}</span>,
+                    }, { added: count(p.recipes_added), total: count(p.recipes_total) })}
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{count(p.ai_calls)}</td>
                 </tr>
@@ -288,7 +298,7 @@ export function AdminUsage({ reloadKey = 0 }: { reloadKey?: number }) {
             </tbody>
           </table>
         </div>
-        <p className="px-6 py-3 text-xs text-zinc-500 dark:text-zinc-400">Days active, recipes added and AI calls are for the period above.</p>
+        <p className="px-6 py-3 text-xs text-zinc-500 dark:text-zinc-400">{t('Days active, recipes added and AI calls are for the period above.')}</p>
       </section>
     </div>
   );

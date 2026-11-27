@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Clock, ExternalLink } from 'lucide-react';
 import type { Nutrition } from '@/types';
+import { useT } from '@/i18n';
 
 /**
  * The pieces a recipe is drawn from, shared by the recipe drawer
@@ -71,18 +72,19 @@ export function IngredientTable({ ingredients }: { ingredients: { amount?: strin
  * batch. Scaling them once made 8 servings report twice the calories each.
  */
 export function NutritionTiles({ nutrition }: { nutrition: Nutrition }) {
+  const t = useT();
   const fmt = (v: number) => Math.round(v);
   return (
     <div className="mt-4">
       <p className="font-sans text-[10px] font-semibold uppercase tracking-widest text-sk-outline dark:text-muted-foreground mb-2">
-        Per serving
+        {t('Per serving')}
       </p>
       <div className="grid grid-cols-2 gap-2">
         {[
-          { label: 'Calories', value: fmt(nutrition.calories), unit: 'kcal' },
-          { label: 'Protein', value: fmt(nutrition.protein_g), unit: 'g' },
-          { label: 'Carbs', value: fmt(nutrition.carbs_g), unit: 'g' },
-          { label: 'Fat', value: fmt(nutrition.fat_g), unit: 'g' },
+          { label: t('Calories'), value: fmt(nutrition.calories), unit: 'kcal' },
+          { label: t('Protein'), value: fmt(nutrition.protein_g), unit: 'g' },
+          { label: t('Carbs'), value: fmt(nutrition.carbs_g), unit: 'g' },
+          { label: t('Fat'), value: fmt(nutrition.fat_g), unit: 'g' },
         ].map((stat) => (
           <div key={stat.label} className="rounded-xl p-2.5 text-center bg-sk-surface-low dark:bg-muted">
             <div className="font-sans text-lg font-bold text-sk-primary dark:text-primary">
@@ -116,15 +118,16 @@ export function StepList({ steps }: { steps: string[] }) {
 
 /** Prep and cook time, whichever are known; nothing when neither is. */
 export function RecipeTimes({ prep, cook }: { prep?: number | null; cook?: number | null }) {
+  const t = useT();
   const hasPrep = prep != null && prep > 0;
   const hasCook = cook != null && cook > 0;
   if (!hasPrep && !hasCook) return null;
   return (
     <div className="inline-flex items-center gap-1.5 text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
       <Clock className="w-4 h-4" />
-      {hasPrep && <span>Prep {prep}m</span>}
+      {hasPrep && <span>{t('Prep {n}m', { n: prep })}</span>}
       {hasPrep && hasCook && <span className="text-sk-outline-variant">·</span>}
-      {hasCook && <span>Cook {cook}m</span>}
+      {hasCook && <span>{t('Cook {n}m', { n: cook })}</span>}
     </div>
   );
 }

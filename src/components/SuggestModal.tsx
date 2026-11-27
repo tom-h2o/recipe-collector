@@ -4,6 +4,7 @@ import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/Sheet';
 import { parseIngredients } from '@/lib/recipeUtils';
+import { useT, tn, translateMessage } from '@/i18n';
 import type { Recipe } from '@/types';
 
 interface Props {
@@ -28,6 +29,7 @@ export function SuggestModal({ isOpen, onClose, onSelectRecipe }: Props) {
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
+  const t = useT();
 
   async function handleSuggest(e: React.FormEvent) {
     e.preventDefault();
@@ -42,11 +44,11 @@ export function SuggestModal({ isOpen, onClose, onSelectRecipe }: Props) {
         body: JSON.stringify({ ingredients }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'The suggestions could not be made.');
+      if (!res.ok) throw new Error(data.error ? translateMessage(data.error) : t('The suggestions could not be made.'));
       setSuggested(data.suggestions || []);
     } catch (err: unknown) {
       setSuggested(null);
-      setError(err instanceof Error && err.message ? err.message : 'The suggestions could not be made. Please try again.');
+      setError(err instanceof Error && err.message ? err.message : t('The suggestions could not be made. Please try again.'));
     } finally {
       setIsSuggesting(false);
     }
@@ -63,8 +65,8 @@ export function SuggestModal({ isOpen, onClose, onSelectRecipe }: Props) {
     <Sheet
       open={isOpen}
       onClose={handleClose}
-      title="What can I cook?"
-      description="Type what you have, separated by commas. You get the recipes from your vault that fit best."
+      title={t('What can I cook?')}
+      description={t('Type what you have, separated by commas. You get the recipes from your vault that fit best.')}
       initialFocus={input}
       className="sm:max-w-lg"
     >
@@ -75,8 +77,8 @@ export function SuggestModal({ isOpen, onClose, onSelectRecipe }: Props) {
             ref={input}
             value={ingredientInput}
             onChange={(e) => { setIngredientInput(e.target.value); setError(null); }}
-            aria-label="Ingredients you have"
-            placeholder="tomatoes, pasta, garlic…"
+            aria-label={t('Ingredients you have')}
+            placeholder={t('tomatoes, pasta, garlic…')}
             enterKeyHint="search"
             className="w-full h-10 pl-10 pr-3 rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface dark:text-foreground text-sm font-sans focus:outline-none focus:ring-2 focus:ring-sk-primary/25 dark:focus:ring-primary/25 transition placeholder:text-sk-outline dark:placeholder:text-muted-foreground"
           />
@@ -86,14 +88,14 @@ export function SuggestModal({ isOpen, onClose, onSelectRecipe }: Props) {
           disabled={isSuggesting || !ingredientInput.trim()}
           className="h-10 shrink-0 rounded-full px-5 bg-sk-primary hover:bg-sk-primary-container text-white dark:text-primary-foreground border-0"
         >
-          Suggest
+          {t('Suggest')}
         </Button>
       </form>
 
       <div aria-live="polite">
         {isSuggesting && (
           <p className="mt-5 flex items-center gap-2 text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
-            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Looking through your vault…
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> {t('Looking through your vault…')}
           </p>
         )}
       </div>
@@ -103,18 +105,18 @@ export function SuggestModal({ isOpen, onClose, onSelectRecipe }: Props) {
       )}
 
       {suggested !== null && !isSuggesting && (
-        <section aria-label="Suggestions" className="mt-5 pt-4 border-t border-sk-outline-variant/40 dark:border-border">
+        <section aria-label={t('Suggestions')} className="mt-5 pt-4 border-t border-sk-outline-variant/40 dark:border-border">
           {suggested.length === 0 ? (
             <>
-              <p className="font-serif text-lg text-sk-on-surface dark:text-foreground">Nothing fits yet</p>
+              <p className="font-serif text-lg text-sk-on-surface dark:text-foreground">{t('Nothing fits yet')}</p>
               <p className="mt-1 text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
-                No recipe in your vault matches these well. Try a staple or two more, or leave one out.
+                {t('No recipe in your vault matches these well. Try a staple or two more, or leave one out.')}
               </p>
             </>
           ) : (
             <>
               <h3 className="text-[11px] font-sans font-semibold uppercase tracking-[0.12em] text-sk-on-surface-variant dark:text-muted-foreground">
-                {suggested.length === 1 ? '1 recipe fits' : `${suggested.length} recipes fit`}
+                {tn(suggested.length, '{n} recipe fits', '{n} recipes fit')}
               </h3>
               <ul className="mt-2 -mx-2 space-y-0.5">
                 {suggested.map((recipe) => (

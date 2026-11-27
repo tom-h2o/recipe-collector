@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { apiFetch } from '@/lib/api';
 import type { RecipeShare, Contact, Recipe } from '@/types';
+import { t, translateMessage } from '@/i18n';
 
 export function useRecipeShares(userId?: string | null, userEmail?: string | null) {
   const [inboxShares, setInboxShares] = useState<RecipeShare[]>([]);
@@ -42,13 +43,13 @@ export function useRecipeShares(userId?: string | null, userEmail?: string | nul
         }),
       });
       const data = await res.json();
-      if (!res.ok) { toast.error(data.error ?? 'Failed to send recipe.'); return false; }
-      toast.success(`Recipe sent to ${recipientEmail}!`);
+      if (!res.ok) { toast.error(data.error ? translateMessage(data.error) : t('Failed to send recipe.')); return false; }
+      toast.success(t('Recipe sent to {email}!', { email: recipientEmail }));
       // Refresh contacts in background
       fetchContacts();
       return true;
     } catch {
-      toast.error('Failed to send recipe. Check your connection.');
+      toast.error(t('Failed to send recipe. Check your connection.'));
       return false;
     }
   }, [userId, fetchContacts]);
@@ -65,12 +66,12 @@ export function useRecipeShares(userId?: string | null, userEmail?: string | nul
         }),
       });
       const data = await res.json();
-      if (!res.ok) { toast.error(data.error ?? 'Failed to accept recipe.'); return null; }
+      if (!res.ok) { toast.error(data.error ? translateMessage(data.error) : t('Failed to accept recipe.')); return null; }
       setInboxShares((prev) => prev.filter((s) => s.id !== share.id));
-      toast.success(`"${share.recipe_title}" added to your vault!`);
+      toast.success(t('"{title}" added to your vault!', { title: share.recipe_title }));
       return data.newRecipeId ?? null;
     } catch {
-      toast.error('Failed to accept recipe. Check your connection.');
+      toast.error(t('Failed to accept recipe. Check your connection.'));
       return null;
     }
   }, [userId]);
@@ -85,10 +86,10 @@ export function useRecipeShares(userId?: string | null, userEmail?: string | nul
           shareId: share.id,
         }),
       });
-      if (!res.ok) { toast.error('Failed to reject recipe.'); return; }
+      if (!res.ok) { toast.error(t('Failed to reject recipe.')); return; }
       setInboxShares((prev) => prev.filter((s) => s.id !== share.id));
     } catch {
-      toast.error('Failed to reject recipe.');
+      toast.error(t('Failed to reject recipe.'));
     }
   }, []);
 

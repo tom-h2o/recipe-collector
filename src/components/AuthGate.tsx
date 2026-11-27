@@ -9,6 +9,8 @@ import { useDarkMode } from '@/hooks/useDarkMode';
 import { SpeisekammerLogo } from '@/components/SpeisekammerLogo';
 import { isSignupOpen } from '@/lib/signupOpen';
 import { DATA_NOTE_SHORT } from '@/lib/appInfo';
+import { msg, translateMessage, useT } from '@/i18n';
+import { rich } from '@/i18n/rich';
 
 interface Props {
   children: React.ReactNode;
@@ -24,6 +26,7 @@ export function AuthGate({ children }: Props) {
     sendPasswordReset, updatePassword, resendConfirmation,
   } = useAuth();
   const { isDark, toggle: toggleDark } = useDarkMode();
+  const t = useT();
   const signupOpen = isSignupOpen();
   const [mode, setMode] = useState<AuthMode>('password');
   const [passwordStep, setPasswordStep] = useState<PasswordStep>('signin');
@@ -68,7 +71,7 @@ export function AuthGate({ children }: Props) {
         }
       }
     } catch (err) {
-      setLoginError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      setLoginError(err instanceof Error ? err.message : msg('Something went wrong. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -81,7 +84,7 @@ export function AuthGate({ children }: Props) {
     try {
       const { error } = await resendConfirmation(unconfirmedEmail);
       if (error) { setResendError(error); return; }
-      toast.success('Confirmation email resent! Check your inbox.');
+      toast.success(t('Confirmation email resent! Check your inbox.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -97,7 +100,7 @@ export function AuthGate({ children }: Props) {
       if (error) { setResetError(error); return; }
       setResetSent(true);
     } catch (err) {
-      setResetError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      setResetError(err instanceof Error ? err.message : msg('Something went wrong. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -111,9 +114,9 @@ export function AuthGate({ children }: Props) {
     try {
       const { error } = await updatePassword(newPassword);
       if (error) { setRecoveryError(error); return; }
-      toast.success(isInvite ? 'Password set. Welcome to Speisekammer!' : 'Password updated! You are now signed in.');
+      toast.success(isInvite ? t('Password set. Welcome to Speisekammer!') : t('Password updated! You are now signed in.'));
     } catch (err) {
-      setRecoveryError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      setRecoveryError(err instanceof Error ? err.message : msg('Something went wrong. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -129,7 +132,7 @@ export function AuthGate({ children }: Props) {
       if (error) { setMagicError(error); return; }
       setMagicSent(true);
     } catch (err) {
-      setMagicError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      setMagicError(err instanceof Error ? err.message : msg('Something went wrong. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -154,19 +157,19 @@ export function AuthGate({ children }: Props) {
             <div className="flex items-center justify-center gap-3">
               <KeyRound className="w-9 h-9 text-sk-primary dark:text-primary" />
               <h1 className="font-serif text-3xl font-normal text-sk-on-surface dark:text-foreground">
-                {isInvite ? 'Welcome to Speisekammer' : 'Set New Password'}
+                {isInvite ? t('Welcome to Speisekammer') : t('Set New Password')}
               </h1>
             </div>
             <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground">
               {isInvite
-                ? 'Your invitation worked. Choose a password, so you can sign in again later.'
-                : 'Choose a new password for your account.'}
+                ? t('Your invitation worked. Choose a password, so you can sign in again later.')
+                : t('Choose a new password for your account.')}
             </p>
           </div>
           <form onSubmit={handleSetNewPassword} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="new-password" className="font-sans font-semibold text-sk-on-surface-variant dark:text-muted-foreground text-xs uppercase tracking-widest">
-                New password
+                {t('New password')}
               </Label>
               <div className="relative">
                 <Input
@@ -174,7 +177,7 @@ export function AuthGate({ children }: Props) {
                   type={showPassword ? 'text' : 'password'}
                   value={newPassword}
                   onChange={(e) => { setNewPassword(e.target.value); setRecoveryError(null); }}
-                  placeholder="Min. 8 characters"
+                  placeholder={t('Min. 8 characters')}
                   required
                   minLength={8}
                   autoComplete="new-password"
@@ -183,7 +186,7 @@ export function AuthGate({ children }: Props) {
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showPassword ? t('Hide password') : t('Show password')}
                   aria-pressed={showPassword}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-sk-outline hover:text-sk-primary"
                 >
@@ -193,7 +196,7 @@ export function AuthGate({ children }: Props) {
             </div>
             {recoveryError && (
               <div role="alert" className="p-3 bg-destructive/8 border border-destructive/20 rounded-xl text-sm text-destructive">
-                {recoveryError}
+                {translateMessage(recoveryError)}
               </div>
             )}
             <Button
@@ -201,7 +204,7 @@ export function AuthGate({ children }: Props) {
               disabled={isSubmitting}
               className="w-full h-11 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold rounded-full border-0"
             >
-              {isSubmitting ? 'Saving…' : isInvite ? 'Set password' : 'Set new password'}
+              {isSubmitting ? t('Saving…') : isInvite ? t('Set password') : t('Set new password')}
             </Button>
           </form>
         </div>
@@ -215,7 +218,7 @@ export function AuthGate({ children }: Props) {
         <button
           onClick={toggleDark}
           className="fixed top-[calc(var(--safe-top)+1rem)] right-[calc(var(--safe-right)+1rem)] p-2 rounded-full hover:bg-sk-surface-low dark:hover:bg-muted text-sk-outline dark:text-muted-foreground transition-colors"
-          aria-label="Toggle dark mode"
+          aria-label={t('Toggle dark mode')}
         >
           {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </button>
@@ -229,23 +232,23 @@ export function AuthGate({ children }: Props) {
               </h1>
             </div>
             <p className="font-sans text-xs uppercase tracking-[0.15em] text-sk-on-surface-variant dark:text-muted-foreground">
-              Your Curated Recipe Vault
+              {t('Your Curated Recipe Vault')}
             </p>
             <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground mt-2">
-              Sign in to access your recipes
+              {t('Sign in to access your recipes')}
             </p>
             <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground">
-              New here?{' '}
-              <a
-                href="/about"
-                className="font-semibold text-sk-primary dark:text-primary hover:underline"
-              >
-                See what Speisekammer does
-              </a>
+              {rich(t, 'New here? <a>See what Speisekammer does</a>', {
+                a: (text) => (
+                  <a href="/about" className="font-semibold text-sk-primary dark:text-primary hover:underline">
+                    {text}
+                  </a>
+                ),
+              })}
             </p>
             {!signupOpen && (
               <p className="font-sans text-xs text-sk-on-surface-variant dark:text-muted-foreground">
-                Accounts are by invitation for now.
+                {t('Accounts are by invitation for now.')}
               </p>
             )}
           </div>
@@ -260,7 +263,7 @@ export function AuthGate({ children }: Props) {
                   : 'text-sk-on-surface-variant hover:text-sk-primary dark:hover:text-primary'
               }`}
             >
-              <Lock className="w-3.5 h-3.5" /> Password
+              <Lock className="w-3.5 h-3.5" /> {t('Password')}
             </button>
             <button
               onClick={() => { setMode('magic'); setMagicSent(false); setUnconfirmedEmail(null); setMagicError(null); }}
@@ -270,7 +273,7 @@ export function AuthGate({ children }: Props) {
                   : 'text-sk-on-surface-variant hover:text-sk-primary dark:hover:text-primary'
               }`}
             >
-              <Mail className="w-3.5 h-3.5" /> Magic Link
+              <Mail className="w-3.5 h-3.5" /> {t('Magic Link')}
             </button>
           </div>
 
@@ -282,14 +285,14 @@ export function AuthGate({ children }: Props) {
               <form onSubmit={handlePasswordSubmit} className="space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="email" className="font-sans font-semibold text-sk-on-surface-variant dark:text-muted-foreground text-xs uppercase tracking-widest">
-                    Email address
+                    {t('Email address')}
                   </Label>
                   <Input
                     id="email"
                     type="email"
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); setLoginError(null); }}
-                    placeholder="you@example.com"
+                    placeholder={t('you@example.com')}
                     required
                     autoComplete="email"
                     className="bg-sk-surface-highest dark:bg-input border-0 focus-visible:ring-sk-primary/30 rounded-xl"
@@ -297,7 +300,7 @@ export function AuthGate({ children }: Props) {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="password" className="font-sans font-semibold text-sk-on-surface-variant dark:text-muted-foreground text-xs uppercase tracking-widest">
-                    Password
+                    {t('Password')}
                   </Label>
                   <div className="relative">
                     <Input
@@ -305,7 +308,7 @@ export function AuthGate({ children }: Props) {
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => { setPassword(e.target.value); setLoginError(null); }}
-                      placeholder={isSignUp ? 'Min. 8 characters' : '••••••••'}
+                      placeholder={isSignUp ? t('Min. 8 characters') : '••••••••'}
                       required
                       minLength={isSignUp ? 8 : undefined}
                       autoComplete={isSignUp ? 'new-password' : 'current-password'}
@@ -314,7 +317,7 @@ export function AuthGate({ children }: Props) {
                     <button
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      aria-label={showPassword ? t('Hide password') : t('Show password')}
                       aria-pressed={showPassword}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-sk-outline hover:text-sk-primary"
                     >
@@ -325,14 +328,14 @@ export function AuthGate({ children }: Props) {
 
                 {loginError && (
                   <div role="alert" className="p-3 bg-destructive/8 border border-destructive/20 rounded-xl text-sm space-y-1.5">
-                    <p className="text-destructive dark:text-destructive">{loginError}</p>
+                    <p className="text-destructive dark:text-destructive">{translateMessage(loginError)}</p>
                     {!isSignUp && (
                       <button
                         type="button"
                         onClick={() => { setPasswordStep('forgot'); setResetSent(false); setLoginError(null); }}
                         className="font-semibold text-destructive underline"
                       >
-                        Reset password or set one for the first time →
+                        {t('Reset password or set one for the first time →')}
                       </button>
                     )}
                   </div>
@@ -343,7 +346,7 @@ export function AuthGate({ children }: Props) {
                   disabled={isSubmitting}
                   className="w-full h-11 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold rounded-full border-0"
                 >
-                  {isSubmitting ? 'Please wait…' : isSignUp ? 'Create account' : 'Sign in'}
+                  {isSubmitting ? t('Please wait…') : isSignUp ? t('Create account') : t('Sign in')}
                 </Button>
                 {!isSignUp && !loginError && (
                   <button
@@ -351,7 +354,7 @@ export function AuthGate({ children }: Props) {
                     onClick={() => { setPasswordStep('forgot'); setResetSent(false); }}
                     className="w-full text-sm text-sk-outline hover:text-sk-primary dark:hover:text-primary transition-colors font-sans"
                   >
-                    Forgot password?
+                    {t('Forgot password?')}
                   </button>
                 )}
                 {signupOpen && (
@@ -360,25 +363,25 @@ export function AuthGate({ children }: Props) {
                     onClick={() => { setIsSignUp((v) => !v); setUnconfirmedEmail(null); setLoginError(null); }}
                     className="w-full text-sm text-sk-on-surface-variant hover:text-sk-on-surface dark:hover:text-foreground transition-colors font-sans"
                   >
-                    {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+                    {isSignUp ? t('Already have an account? Sign in') : t("Don't have an account? Sign up")}
                   </button>
                 )}
               </form>
 
               {unconfirmedEmail && (
                 <div className="p-4 bg-sk-primary-fixed/30 border border-sk-primary-fixed rounded-2xl text-sm space-y-2 mt-4">
-                  <p className="font-semibold text-sk-primary dark:text-primary">Check your inbox</p>
+                  <p className="font-semibold text-sk-primary dark:text-primary">{t('Check your inbox')}</p>
                   <p className="text-sk-on-surface-variant dark:text-muted-foreground">
-                    We sent a confirmation link to <strong>{unconfirmedEmail}</strong>. Click it to activate your account, then sign in here.
+                    {rich(t, 'We sent a confirmation link to <b>{email}</b>. Click it to activate your account, then sign in here.', { b: (text) => <strong>{text}</strong> }, { email: unconfirmedEmail })}
                   </p>
                   <button
                     onClick={handleResendConfirmation}
                     disabled={isSubmitting}
                     className="text-sk-primary dark:text-primary underline font-semibold disabled:opacity-50 text-xs"
                   >
-                    {isSubmitting ? 'Sending…' : 'Resend confirmation email'}
+                    {isSubmitting ? t('Sending…') : t('Resend confirmation email')}
                   </button>
-                  {resendError && <p role="alert" className="text-destructive text-xs">{resendError}</p>}
+                  {resendError && <p role="alert" className="text-destructive text-xs">{translateMessage(resendError)}</p>}
                 </div>
               )}
             </>
@@ -388,18 +391,18 @@ export function AuthGate({ children }: Props) {
             !resetSent ? (
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <p className="text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
-                  Enter your email and we'll send a link to set a new password. This also works if you've never set a password (e.g. you always used magic link).
+                  {t("Enter your email and we'll send a link to set a new password. This also works if you've never set a password (e.g. you always used magic link).")}
                 </p>
                 <div className="space-y-1.5">
                   <Label htmlFor="reset-email" className="font-sans font-semibold text-sk-on-surface-variant dark:text-muted-foreground text-xs uppercase tracking-widest">
-                    Email address
+                    {t('Email address')}
                   </Label>
                   <Input
                     id="reset-email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
+                    placeholder={t('you@example.com')}
                     required
                     autoComplete="email"
                     className="bg-sk-surface-highest dark:bg-input border-0 focus-visible:ring-sk-primary/30 rounded-xl"
@@ -407,7 +410,7 @@ export function AuthGate({ children }: Props) {
                 </div>
                 {resetError && (
                   <div role="alert" className="p-3 bg-destructive/8 border border-destructive/20 rounded-xl text-sm text-destructive">
-                    {resetError}
+                    {translateMessage(resetError)}
                   </div>
                 )}
                 <Button
@@ -415,27 +418,27 @@ export function AuthGate({ children }: Props) {
                   disabled={isSubmitting}
                   className="w-full h-11 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold rounded-full border-0"
                 >
-                  {isSubmitting ? 'Sending…' : 'Send reset link'}
+                  {isSubmitting ? t('Sending…') : t('Send reset link')}
                 </Button>
                 <button
                   type="button"
                   onClick={() => { setPasswordStep('signin'); setResetError(null); }}
                   className="w-full text-sm text-sk-outline hover:text-sk-primary dark:hover:text-primary transition-colors font-sans"
                 >
-                  ← Back to sign in
+                  {t('← Back to sign in')}
                 </button>
               </form>
             ) : (
               <div className="text-center p-6 bg-sk-primary-fixed/30 rounded-2xl border border-sk-primary-fixed">
-                <p className="font-serif font-normal text-lg text-sk-primary dark:text-primary">Check your inbox!</p>
+                <p className="font-serif font-normal text-lg text-sk-primary dark:text-primary">{t('Check your inbox!')}</p>
                 <p className="text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground mt-1">
-                  We sent a password reset link to <strong>{email}</strong>
+                  {rich(t, 'We sent a password reset link to <b>{email}</b>', { b: (text) => <strong>{text}</strong> }, { email })}
                 </p>
                 <button
                   onClick={() => { setPasswordStep('signin'); setResetSent(false); }}
                   className="mt-3 text-xs text-sk-outline underline font-sans"
                 >
-                  Back to sign in
+                  {t('Back to sign in')}
                 </button>
               </div>
             )
@@ -446,21 +449,21 @@ export function AuthGate({ children }: Props) {
               <form onSubmit={handleMagicSubmit} className="space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="magic-email" className="font-sans font-semibold text-sk-on-surface-variant dark:text-muted-foreground text-xs uppercase tracking-widest">
-                    Email address
+                    {t('Email address')}
                   </Label>
                   <Input
                     id="magic-email"
                     type="email"
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); setMagicError(null); }}
-                    placeholder="you@example.com"
+                    placeholder={t('you@example.com')}
                     required
                     className="bg-sk-surface-highest dark:bg-input border-0 focus-visible:ring-sk-primary/30 rounded-xl"
                   />
                 </div>
                 {magicError && (
                   <div role="alert" className="p-3 bg-destructive/8 border border-destructive/20 rounded-xl text-sm text-destructive">
-                    {magicError}
+                    {translateMessage(magicError)}
                   </div>
                 )}
                 <Button
@@ -469,20 +472,20 @@ export function AuthGate({ children }: Props) {
                   className="w-full h-11 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold rounded-full border-0"
                 >
                   <Mail className="w-4 h-4 mr-2" />
-                  {isSubmitting ? 'Sending…' : 'Send Magic Link'}
+                  {isSubmitting ? t('Sending…') : t('Send Magic Link')}
                 </Button>
               </form>
             ) : (
               <div className="text-center p-6 bg-sk-primary-fixed/30 rounded-2xl border border-sk-primary-fixed">
-                <p className="font-serif font-normal text-lg text-sk-primary dark:text-primary">Check your inbox!</p>
+                <p className="font-serif font-normal text-lg text-sk-primary dark:text-primary">{t('Check your inbox!')}</p>
                 <p className="text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground mt-1">
-                  We sent a magic link to <strong>{email}</strong>
+                  {rich(t, 'We sent a magic link to <b>{email}</b>', { b: (text) => <strong>{text}</strong> }, { email })}
                 </p>
                 <button
                   onClick={() => setMagicSent(false)}
                   className="mt-3 text-xs text-sk-outline underline font-sans"
                 >
-                  Use a different email
+                  {t('Use a different email')}
                 </button>
               </div>
             )
@@ -491,9 +494,9 @@ export function AuthGate({ children }: Props) {
           </div>{/* end form area */}
 
           <p className="mt-6 text-center text-xs font-sans leading-relaxed text-sk-on-surface-variant dark:text-muted-foreground">
-            {DATA_NOTE_SHORT}{' '}
+            {t(DATA_NOTE_SHORT)}{' '}
             <a href="/about#your-data" className="font-semibold text-sk-primary dark:text-primary hover:underline">
-              What happens to your data
+              {t('What happens to your data')}
             </a>
           </p>
         </div>
