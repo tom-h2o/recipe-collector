@@ -20,6 +20,20 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-19',
+    title: 'A calmer top bar, and everything about you in one place',
+    items: [
+      'On a phone, your account is now the last tab at the bottom (“You”). Settings, dark mode, What’s new, feedback and sign-out are all there, so the top bar keeps just Suggest and Add recipe. On a computer the same list opens from your avatar.',
+      'You can set your name (You → Your name). Your avatar then shows your initials instead of the first letter of your email address.',
+      'Filters: one “Filters” button shows every tag at once, by group. What you choose appears beside it and can be removed with ✕. “Shared” moved to the end of the row.',
+      'Collections sit on one line. “+” adds one, and “Edit” lets you rename or delete them, which was not possible on a phone before. Deleting asks first and never deletes recipes.',
+      'A recipe can start a new collection right from its own page.',
+      'The sort order is a small button beside the search, which gives the search field the room.',
+      '“What can I cook?” has been redrawn to match the rest of the app.',
+      'Exporting your recipes now asks before it downloads.',
+    ],
+  },
+  {
     id: '2026-12-18',
     title: 'Better search, a screen that stays on, and a way to tell us',
     items: [

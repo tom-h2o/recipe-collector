@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { installMockBackend } from './support/mockBackend';
+import { openAccount, openAdmin } from './support/nav';
 
 /**
  * Feedback from inside the app: "Send feedback" in the account menu writes a
@@ -21,7 +22,7 @@ async function openForm(page: Page, width = 390) {
   });
   await page.goto('/');
   await expect(page.locator('.recipe-card').first()).toBeVisible();
-  await page.getByRole('button', { name: /^Account menu/ }).click();
+  await openAccount(page);
   await page.getByRole('button', { name: 'Send feedback' }).click();
   const form = page.getByRole('dialog', { name: 'Send feedback' });
   await expect(form).toBeVisible();
@@ -101,7 +102,7 @@ test('the admin reads reports and marks one as done', async ({ page }) => {
   });
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'Admin' }).last().click();
+  await openAdmin(page);
   const tab = page.getByRole('tab', { name: /Feedback/ });
   // One report nobody has looked at.
   await expect(tab).toContainText('1');

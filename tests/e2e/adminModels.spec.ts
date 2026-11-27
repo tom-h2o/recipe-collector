@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { installMockBackend } from './support/mockBackend';
+import { openSettings } from './support/nav';
 
 /**
  * The AI models are the admin's choice, for everyone (migration 0068).
@@ -54,7 +55,7 @@ test('everyone else sees the model per task, and nothing to change it with', asy
   await installMockBackend(page, { email: 'cook@example.com' });
   await serveSettings(page);
   await page.goto('/');
-  await page.getByTitle('Settings').click();
+  await openSettings(page);
   await page.getByRole('tab', { name: 'AI models' }).click();
 
   const list = page.getByRole('list', { name: 'AI model per task' });
@@ -74,7 +75,7 @@ test('the admin changes a task\'s model for everyone through the admin endpoint'
   await installMockBackend(page);
   const { rowWrites, modelPosts } = await serveSettings(page);
   await page.goto('/');
-  await page.getByTitle('Settings').click();
+  await openSettings(page);
   await page.getByRole('tab', { name: 'AI models' }).click();
 
   await expect(page.getByText('apply to everyone using the app')).toBeVisible();

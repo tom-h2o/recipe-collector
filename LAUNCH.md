@@ -1,10 +1,11 @@
 # Launch checklist
 
 For sharing Speisekammer with the first invited people. Work from top to
-bottom; part 4 is the one to repeat before every wider round.
+bottom; part 5 is the one to repeat before every wider round.
 
-`<app>` below is the address the app is served from (the production domain in
-Vercel).
+`<app>` below is the address the app is served from: your own domain once
+part 2 is done (for example `speisekammer.040labs.de`), until then the
+production domain in Vercel.
 
 ## 1. After the deploy
 
@@ -17,7 +18,56 @@ Vercel).
 - [ ] `VITE_SIGNUP_OPEN` is **not** set in Vercel (Production). Unset means
       invitation only.
 
-## 2. Supabase switches
+## 2. Move to your own domain
+
+Do this before inviting anyone: installed apps, Shortcuts and share links are
+tied to the address people first used. Nothing in the code holds the address,
+so this is settings only.
+
+A subdomain (for example `speisekammer.040labs.de`) keeps the domain itself
+free for other things, and its DNS record does not touch the domain's mail
+records.
+
+**Vercel**
+
+- [ ] Project → Settings → Domains → add the new address.
+- [ ] Add the DNS record Vercel shows (a CNAME for a subdomain) at your domain
+      provider, and wait until Vercel shows the domain as valid. The
+      certificate is issued automatically.
+- [ ] Keep the old `…vercel.app` address in the list. Links already sent and
+      apps already installed keep working through it.
+- [ ] If `ALLOWED_ORIGIN` is set (Settings → Environment Variables), **Edit**
+      it to `https://<app>` and redeploy. It decides which address link
+      previews of shared recipes point to. It does not block anyone: people
+      still on the old address are not affected. If it is not set, leave it.
+
+**Supabase** (Authentication → URL Configuration; also in part 3)
+
+- [ ] Site URL: `https://<app>`. Invitation, magic-link and reset emails send
+      people there.
+- [ ] Redirect URLs: add `https://<app>`, and leave the old address in for as
+      long as anyone uses it, or a magic link or reset requested from the old
+      address does not come back to it.
+
+**Your own devices**
+
+- [ ] Home Screen app: remove it and add it again from the new address. You
+      sign in again, and what is kept on the device (theme, which release
+      notes you have seen) starts fresh. Recipes are in the database and are
+      not affected.
+- [ ] iPhone Shortcuts: both hold the old address in their *Get Contents of
+      URL* step. Open the app on the new address, Settings → General → iPhone
+      Shortcuts shows the address to use, and change it in both.
+- [ ] If the Shortcuts were already shared by iCloud link: share the changed
+      ones again and paste the new links into the same place in Settings.
+
+**Check**
+
+- [ ] Open `https://<app>`, sign in, and request a magic link: it lands on the
+      new address.
+- [ ] Admin → System → Run check.
+
+## 3. Supabase switches
 
 Supabase dashboard → Authentication.
 
@@ -29,10 +79,29 @@ Supabase dashboard → Authentication.
 - [ ] **Sign In / Providers → Email → Confirm email: on** (the admin check and
       recipe sharing only trust a confirmed address).
 
-## 3. Sign-in emails through your own domain
+## 4. Sign-in emails through your own domain
 
 Supabase's built-in mailer sends about two emails an hour and is meant for
-testing; do this before inviting anyone.
+testing; do this before inviting anyone. Either of two ways: your existing
+iCloud mailbox on the domain (enough for the first few people, no DNS
+changes), or Resend (the one to move to when the app opens up). Switching
+later is only a change of the SMTP fields.
+
+**With iCloud Mail on your domain**
+
+- [ ] In iCloud Mail settings → Custom Email Domain, add the address the mail
+      comes from, e.g. `speisekammer@<your-domain>`. Replies arrive there.
+- [ ] account.apple.com → Sign-In and Security → App-Specific Passwords: make
+      one for Supabase. Changing the Apple Account password revokes it, and
+      sign-in emails then fail until a new one is entered.
+- [ ] Supabase → Authentication → Emails → **SMTP Settings** → enable custom
+      SMTP: host `smtp.mail.me.com`, port `587`, username your iCloud Mail
+      address (if that is refused, the custom-domain address), password the
+      app-specific password, sender the address from the first step, sender
+      name `Speisekammer`. These settings were not tested from this
+      repository; the invitation in part 5 is the test.
+
+**With Resend**
 
 - [ ] Create an account at resend.com and add your domain, best as a subdomain
       such as `mail.<your-domain>`.
@@ -43,6 +112,9 @@ testing; do this before inviting anyone.
       SMTP: host `smtp.resend.com`, port `465`, user `resend`, password the
       API key, sender e.g. `speisekammer@mail.<your-domain>`, sender name
       `Speisekammer`.
+
+**Either way**
+
 - [ ] Supabase → Authentication → **Rate Limits**: emails per hour to 30.
 - [ ] Supabase → Authentication → Emails → **Templates**: replace the default
       wording of *Invite user*, *Magic Link* and *Reset Password*. They are
@@ -77,7 +149,7 @@ testing; do this before inviting anyone.
   <p>Wenn du das nicht warst, kannst du diese E-Mail ignorieren.</p>
   ```
 
-## 4. Run-through with a second account (about 15 minutes, on an iPhone)
+## 5. Run-through with a second account (about 15 minutes, on an iPhone)
 
 Use an address that is not the admin's.
 
@@ -130,7 +202,7 @@ Use an address that is not the admin's.
 - [ ] Account menu → Delete account. In Supabase the user is gone, and so are
       their recipes and the feedback they sent.
 
-## 5. Known and accepted for this round
+## 6. Known and accepted for this round
 
 - **No backups.** A free Supabase project has none, and pauses after a week
   without use. Account menu → Export recipes (JSON) gives each person a copy

@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { installMockBackend } from './support/mockBackend';
 import { MODEL_OPTIONS, DEFAULT_MODEL } from '../../src/lib/constants';
+import { openSettings } from './support/nav';
 
 /**
  * The select trigger is a fixed-height, `whitespace-nowrap` box, and Base UI
@@ -15,7 +16,7 @@ import { MODEL_OPTIONS, DEFAULT_MODEL } from '../../src/lib/constants';
 test('no settings dropdown overflows its trigger', async ({ page }) => {
   await installMockBackend(page);
   await page.goto('/');
-  await page.getByTitle('Settings').click();
+  await openSettings(page);
   await page.getByRole('tab', { name: 'AI models' }).click();
   await page.getByText('Main model', { exact: true }).waitFor();
 
@@ -39,7 +40,7 @@ test('no settings dropdown overflows its trigger', async ({ page }) => {
 test('the model trigger shows the tier, not the whole option block', async ({ page }) => {
   await installMockBackend(page);
   await page.goto('/');
-  await page.getByTitle('Settings').click();
+  await openSettings(page);
   await page.getByRole('tab', { name: 'AI models' }).click();
 
   // Derived, not hardcoded: this test is about the trigger showing the tier

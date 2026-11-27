@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { installMockBackend, MOCK_RECIPES, MOCK_USER } from './support/mockBackend';
+import { openAdmin } from './support/nav';
 
 /**
  * Admin → Recipes: the list, and someone's recipe opened from it. The recipe
@@ -54,8 +55,7 @@ async function openRecipes(page: Page, viewport = { width: 1280, height: 900 }) 
 
   await page.goto('/');
   await expect(page.getByText('Classic Margherita Pizza').first()).toBeVisible();
-  const nav = viewport.width >= 1024 ? page.locator('header') : page.getByRole('navigation');
-  await nav.getByRole('button', { name: 'Admin' }).click();
+  await openAdmin(page);
   await page.getByRole('tab', { name: /Recipes/ }).click();
   const list = page.getByRole('list', { name: 'Recipes' });
   await expect(list.getByRole('button', { name: /Avocado Toast/ })).toBeVisible();

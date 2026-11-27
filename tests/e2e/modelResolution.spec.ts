@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { installMockBackend } from './support/mockBackend';
+import { openSettings as openSettingsPanel } from './support/nav';
 
 /**
  * An alias hides which model is really doing the work, and Google moves them
@@ -13,7 +14,7 @@ async function openSettings(page: import('@playwright/test').Page, logs: unknown
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(logs) });
   });
   await page.goto('/');
-  await page.getByTitle('Settings').click();
+  await openSettingsPanel(page);
   await page.getByRole('tab', { name: 'AI models' }).click();
   await page.getByText('Main model', { exact: true }).waitFor();
 }

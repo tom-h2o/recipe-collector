@@ -54,6 +54,8 @@ interface Props {
   recipeCollectionIds?: string[];
   onAddToCollection?: (collectionId: string) => Promise<void>;
   onRemoveFromCollection?: (collectionId: string) => Promise<void>;
+  /** Makes a collection with this name and puts this recipe into it. */
+  onCreateCollection?: (name: string) => Promise<void>;
 }
 
 /** One look for every row in the options menu, so they read as one list. */
@@ -71,9 +73,11 @@ function isLinkedRecipe(recipe: Recipe | null, userId?: string | null): boolean 
   return !!recipe && !!userId && !!recipe.user_id && recipe.user_id !== userId;
 }
 
-export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', translationsCache, onLanguageChange, onTranslationCached, onTranslationRemoved, onClose, onEdit, onDelete, onSend, nestedDialogs, onUpdateRecipe, userId, ownerLabel, linkedPeople = [], onAddMealPlan, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection }: Props) {
+export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', translationsCache, onLanguageChange, onTranslationCached, onTranslationRemoved, onClose, onEdit, onDelete, onSend, nestedDialogs, onUpdateRecipe, userId, ownerLabel, linkedPeople = [], onAddMealPlan, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection, onCreateCollection }: Props) {
   const baseServings0 = recipe?.original_servings || recipe?.servings || 1;
   const [scaledServings, setScaledServings] = useState(baseServings0);
+  // The "New collection" chip turned into a field: null while it is a chip.
+  const [newCollectionName, setNewCollectionName] = useState<string | null>(null);
   const [aiIngredients, setAiIngredients] = useState<{ amount: string; name: string; details: string }[] | null>(null);
   const [isAiScaling, setIsAiScaling] = useState(false);
   const [isCookMode, setIsCookMode] = useState(false);
@@ -683,8 +687,9 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                 </div>
               </div>
 
-              {/* Collections — always visible if any collections exist */}
-              {collections && collections.length > 0 && (
+              {/* Collections: which ones this recipe is in, and a way to start
+                  a new one from here, also when there are none yet. */}
+              {collections && (collections.length > 0 || onCreateCollection) && (
                 <div className="flex items-center gap-2 flex-wrap py-0.5">
                   <FolderOpen className="w-3.5 h-3.5 text-sk-outline dark:text-muted-foreground shrink-0" />
                   {collections.map((c) => {
@@ -703,6 +708,46 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                       </button>
                     );
                   })}
+                  {onCreateCollection && (
+                    newCollectionName === null ? (
+                      <button
+                        type="button"
+                        onClick={() => setNewCollectionName('')}
+                        className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold font-sans border border-dashed border-sk-outline-variant dark:border-border text-sk-on-surface-variant dark:text-muted-foreground hover:text-sk-primary dark:hover:text-primary hover:border-sk-primary/50 transition-colors"
+                      >
+                        <Plus className="w-3 h-3" aria-hidden="true" /> New collection
+                      </button>
+                    ) : (
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          const name = newCollectionName.trim();
+                          if (!name) return;
+                          try {
+                            await onCreateCollection(name);
+                            setNewCollectionName(null);
+                          } catch {
+                            toast.error('The collection could not be created.');
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5"
+                      >
+                        <input
+                          autoFocus
+                          value={newCollectionName}
+                          onChange={(e) => setNewCollectionName(e.target.value)}
+                          // Escape closes this field, not the recipe behind it.
+                          onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setNewCollectionName(null); } }}
+                          maxLength={40}
+                          aria-label="New collection name"
+                          placeholder="Collection name"
+                          className="h-7 w-36 px-3 rounded-full text-xs border-0 bg-sk-surface-highest dark:bg-input focus:outline-none focus:ring-2 focus:ring-sk-primary/25 text-sk-on-surface dark:text-foreground font-sans"
+                        />
+                        <button type="submit" disabled={!newCollectionName.trim()} className="text-xs font-semibold text-sk-primary dark:text-primary disabled:opacity-40 px-1 font-sans">Add</button>
+                        <button type="button" onClick={() => setNewCollectionName(null)} className="text-xs text-sk-outline hover:text-sk-on-surface-variant px-1 font-sans">Cancel</button>
+                      </form>
+                    )
+                  )}
                 </div>
               )}
 

@@ -1,5 +1,8 @@
 import { useCallback, useRef, useState } from 'react';
-import { LogOut, User, KeyRound, Eye, EyeOff, X, Download, Trash2, Sparkles, MessageSquare } from 'lucide-react';
+import {
+  LogOut, KeyRound, Eye, EyeOff, X, Download, Trash2, Sparkles, MessageSquare,
+  Settings, Sun, Moon, ShieldCheck, UserRound, ChevronRight,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,23 +13,57 @@ import { Input } from '@/components/ui/input';
 import { AnchoredMenu } from '@/components/AnchoredMenu';
 import { Label } from '@/components/ui/label';
 import { FeedbackDialog } from '@/components/FeedbackDialog';
+import { Sheet } from '@/components/Sheet';
+import { cn } from '@/lib/utils';
+import { displayNameOf, initialsOf, MAX_NAME_LENGTH } from '@/lib/displayName';
 
 interface Props {
   user: SupabaseUser;
+  /**
+   * Where the avatar sits. `header`: top right on a computer, opening a menu
+   * under it. `tab`: the last tab of the phone's bottom bar ("You"), opening
+   * a sheet. Both offer the same entries.
+   */
+  variant: 'header' | 'tab';
   onSignOut: () => void;
+  onOpenSettings: () => void;
   onOpenWhatsNew?: () => void;
   /** Dot on the avatar and the menu entry when there are unread release notes. */
   hasUnreadReleases?: boolean;
   /** The view on screen, added to a feedback report. */
   currentView?: string;
+  isAdmin?: boolean;
+  onOpenAdmin?: () => void;
+  isDark: boolean;
+  onToggleTheme: () => void;
 }
 
-export function UserMenu({ user, onSignOut, onOpenWhatsNew, hasUnreadReleases = false, currentView }: Props) {
+const ROW = 'w-full flex items-center gap-3 px-3 min-h-11 rounded-xl text-sm font-sans text-sk-on-surface dark:text-foreground hover:bg-sk-surface-low dark:hover:bg-muted transition-colors text-left';
+const ROW_ICON = 'w-4 h-4 shrink-0 text-sk-outline dark:text-muted-foreground';
+
+/**
+ * The account: who is signed in, and everything that is about the person or
+ * the app rather than about recipes (Settings, light or dark, the admin
+ * dashboard, release notes, feedback, export, password, sign-out).
+ *
+ * These used to be spread over the top bar (theme, Settings, avatar) and the
+ * tab bars (Admin), which left a phone's top bar with five buttons beside the
+ * name. They are one list now, reached from the avatar.
+ */
+export function UserMenu({
+  user, variant, onSignOut, onOpenSettings, onOpenWhatsNew, hasUnreadReleases = false, currentView,
+  isAdmin = false, onOpenAdmin, isDark, onToggleTheme,
+}: Props) {
   const { updatePassword } = useAuth();
   const [open, setOpen] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showExport, setShowExport] = useState(false);
+  const [showName, setShowName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [isSavingName, setIsSavingName] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -34,10 +71,13 @@ export function UserMenu({ user, onSignOut, onOpenWhatsNew, hasUnreadReleases = 
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const anchor = useRef<HTMLButtonElement>(null);
+  const nameInput = useRef<HTMLInputElement>(null);
   const close = useCallback(() => setOpen(false), []);
 
+  /** Closes the list, then does the thing: no entry leaves the list open behind it. */
+  const go = (action: () => void) => () => { setOpen(false); action(); };
+
   function openChangePassword() {
-    setOpen(false);
     setNewPassword('');
     setError(null);
     setShowPassword(false);
@@ -45,9 +85,32 @@ export function UserMenu({ user, onSignOut, onOpenWhatsNew, hasUnreadReleases = 
   }
 
   function openDeleteConfirm() {
-    setOpen(false);
     setDeleteConfirmText('');
     setShowDeleteConfirm(true);
+  }
+
+  function openName() {
+    setNameDraft(displayNameOf(user));
+    setNameError(null);
+    setShowName(true);
+  }
+
+  async function handleSaveName(e: React.FormEvent) {
+    e.preventDefault();
+    setIsSavingName(true);
+    setNameError(null);
+    try {
+      // Kept on the account itself (user metadata), so it follows the person
+      // to every device. USER_UPDATED then hands useAuth the new user.
+      const { error: failure } = await supabase.auth.updateUser({ data: { full_name: nameDraft.trim() } });
+      if (failure) { setNameError('The name could not be saved. Please try again.'); return; }
+      toast.success(nameDraft.trim() ? 'Name saved.' : 'Name removed.');
+      setShowName(false);
+    } catch {
+      setNameError('The name could not be saved. Please try again.');
+    } finally {
+      setIsSavingName(false);
+    }
   }
 
   async function handleChangePassword(e: React.FormEvent) {
@@ -67,7 +130,7 @@ export function UserMenu({ user, onSignOut, onOpenWhatsNew, hasUnreadReleases = 
   }
 
   async function handleExportRecipes() {
-    setOpen(false);
+    setShowExport(false);
     const id = toast.loading('Exporting recipes…');
     try {
       const { data, error } = await supabase
@@ -110,123 +173,215 @@ export function UserMenu({ user, onSignOut, onOpenWhatsNew, hasUnreadReleases = 
   }
 
   const avatarUrl: string | undefined = user.user_metadata?.avatar_url;
-  const displayName: string = user.user_metadata?.full_name || user.user_metadata?.name || '';
+  const displayName = displayNameOf(user);
   const email = user.email ?? '';
-  const initials = displayName
-    ? displayName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
-    : email[0]?.toUpperCase() ?? '?';
+  const initials = initialsOf(user);
+  const viaGoogle = user.app_metadata?.provider === 'google';
 
   const avatar = avatarUrl ? (
-    <img src={avatarUrl} alt={displayName || email} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+    <img src={avatarUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
   ) : (
-    <span className="w-full h-full bg-sk-primary text-white dark:text-primary-foreground text-sm font-bold flex items-center justify-center">
+    <span className="w-full h-full bg-sk-primary text-white dark:text-primary-foreground font-bold flex items-center justify-center">
       {initials}
     </span>
+  );
+  const label = hasUnreadReleases ? 'Account menu, new updates available' : 'Account menu';
+
+  const entries = (
+    <>
+      {/* Who is signed in. Not a button: it used to be drawn as one. */}
+      <div className="flex items-center gap-3 px-3 pt-1 pb-3">
+        <div className="shrink-0 w-11 h-11 rounded-full overflow-hidden text-base">{avatar}</div>
+        <div className="min-w-0">
+          {displayName && (
+            <p className="text-sm font-semibold text-sk-on-surface dark:text-foreground truncate">{displayName}</p>
+          )}
+          <p className="text-xs text-sk-on-surface-variant dark:text-muted-foreground truncate">{email}</p>
+          {viaGoogle && (
+            <p className="text-xs text-sk-on-surface-variant dark:text-muted-foreground">Signed in with Google</p>
+          )}
+        </div>
+      </div>
+
+      <div className="border-t border-sk-outline-variant/40 dark:border-border pt-1.5">
+        <button type="button" onClick={go(openName)} className={ROW}>
+          <UserRound className={ROW_ICON} />
+          <span className="flex-1">Your name</span>
+          <span className="max-w-[45%] truncate text-sk-on-surface-variant dark:text-muted-foreground">{displayName || 'Add'}</span>
+          <ChevronRight className="w-4 h-4 shrink-0 text-sk-outline-variant dark:text-muted-foreground/50" aria-hidden="true" />
+        </button>
+        <button type="button" onClick={go(onOpenSettings)} className={ROW} title="Settings">
+          <Settings className={ROW_ICON} />
+          Settings
+        </button>
+        {/* Stays open: the change is visible behind it, and may be undone at once. */}
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isDark}
+          onClick={onToggleTheme}
+          className={ROW}
+          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {isDark ? <Moon className={ROW_ICON} /> : <Sun className={ROW_ICON} />}
+          <span className="flex-1">Dark mode</span>
+          <span aria-hidden="true" className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${isDark ? 'bg-sk-primary dark:bg-primary' : 'bg-sk-outline-variant dark:bg-muted'}`}>
+            <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${isDark ? 'translate-x-4' : ''}`} />
+          </span>
+        </button>
+        {isAdmin && onOpenAdmin && (
+          <button type="button" onClick={go(onOpenAdmin)} className={ROW}>
+            <ShieldCheck className={ROW_ICON} />
+            Admin
+          </button>
+        )}
+      </div>
+
+      <div className="mt-1.5 border-t border-sk-outline-variant/40 dark:border-border pt-1.5">
+        {onOpenWhatsNew && (
+          <button type="button" onClick={go(onOpenWhatsNew)} className={ROW}>
+            <Sparkles className={ROW_ICON} />
+            <span className="flex-1">What's new</span>
+            {hasUnreadReleases && (
+              <span className="w-2 h-2 rounded-full bg-sk-primary shrink-0" aria-label="unread updates" />
+            )}
+          </button>
+        )}
+        <button type="button" onClick={go(() => setShowFeedback(true))} className={ROW}>
+          <MessageSquare className={ROW_ICON} />
+          Send feedback
+        </button>
+        <button type="button" onClick={go(() => setShowExport(true))} className={ROW}>
+          <Download className={ROW_ICON} />
+          Export recipes
+        </button>
+        <button type="button" onClick={go(openChangePassword)} className={ROW}>
+          <KeyRound className={ROW_ICON} />
+          Change password
+        </button>
+      </div>
+
+      <div className="mt-1.5 border-t border-sk-outline-variant/40 dark:border-border pt-1.5">
+        <button type="button" onClick={go(onSignOut)} className={ROW}>
+          <LogOut className={ROW_ICON} />
+          Sign out
+        </button>
+        <button type="button" onClick={go(openDeleteConfirm)} className={cn(ROW, 'text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20')}>
+          <Trash2 className="w-4 h-4 shrink-0" />
+          Delete account
+        </button>
+      </div>
+    </>
   );
 
   return (
     <>
-      <div className="relative">
-        <button
-          ref={anchor}
-          onClick={() => setOpen((v) => !v)}
-          className="relative flex items-center justify-center w-9 h-9 rounded-full overflow-hidden ring-2 ring-transparent hover:ring-sk-primary transition-all focus:outline-none focus-visible:ring-sk-primary"
-          aria-label={hasUnreadReleases ? 'Account menu, new updates available' : 'Account menu'}
-          aria-expanded={open}
-        >
-          {avatar}
-        </button>
-        {hasUnreadReleases && (
-          // Outside the button so `overflow-hidden` on the avatar cannot clip it.
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-sk-primary ring-2 ring-white dark:ring-zinc-900"
-          />
-        )}
-
-        {/* Through AnchoredMenu (a portal), not inside the header: the header is
-            glass itself, and a backdrop-filter inside another one can only blur
-            what lies within its parent. Hanging below the header, the menu
-            blurred nothing, so the recipes behind it showed through sharp.
-            AnchoredMenu also closes it on Escape and on a tap outside. */}
-        <AnchoredMenu open={open} onClose={close} anchorRef={anchor} className="w-64 glass glass-menu rounded-2xl">
-            {/* User info */}
-            <div className="flex items-center gap-3 px-4 py-4 border-b border-zinc-100 dark:border-zinc-800">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full overflow-hidden">
-                {avatar}
-              </div>
-              <div className="min-w-0">
-                {displayName && (
-                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 truncate">{displayName}</p>
-                )}
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{email}</p>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="p-1.5">
-              <button
-                onClick={() => { setOpen(false); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"
-              >
-                <User className="w-4 h-4 text-zinc-400" />
-                <span className="flex-1">Signed in with {user.app_metadata?.provider === 'google' ? 'Google' : 'email'}</span>
-              </button>
-              <button
-                onClick={openChangePassword}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"
-              >
-                <KeyRound className="w-4 h-4 text-zinc-400" />
-                Change password
-              </button>
-              {onOpenWhatsNew && (
-                <button
-                  onClick={() => { setOpen(false); onOpenWhatsNew(); }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"
-                >
-                  <Sparkles className="w-4 h-4 text-zinc-400" />
-                  <span className="flex-1">What's new</span>
-                  {hasUnreadReleases && (
-                    <span className="w-2 h-2 rounded-full bg-sk-primary shrink-0" aria-label="unread updates" />
-                  )}
-                </button>
+      {variant === 'header' ? (
+        <div className="relative hidden lg:block">
+          <button
+            ref={anchor}
+            onClick={() => setOpen((v) => !v)}
+            className="relative flex items-center justify-center w-10 h-10 rounded-full overflow-hidden text-sm ring-2 ring-transparent hover:ring-sk-primary transition-all focus:outline-none focus-visible:ring-sk-primary"
+            aria-label={label}
+            aria-expanded={open}
+          >
+            {avatar}
+          </button>
+          {hasUnreadReleases && (
+            // Outside the button so `overflow-hidden` on the avatar cannot clip it.
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-sk-primary ring-2 ring-white dark:ring-zinc-900"
+            />
+          )}
+          {/* Through AnchoredMenu (a portal), not inside the header: the header
+              is glass itself, and a backdrop-filter inside another one can only
+              blur what lies within its parent. */}
+          <AnchoredMenu
+            open={open}
+            onClose={close}
+            anchorRef={anchor}
+            className="w-72 glass glass-menu rounded-2xl p-2 animate-in fade-in zoom-in-95 duration-200"
+          >
+            {entries}
+          </AnchoredMenu>
+        </div>
+      ) : (
+        <>
+          {/* A tab like the others, so it takes its share of the bar. It is
+              "current" while the admin dashboard is open, which is reached
+              from here. */}
+          <button
+            onClick={() => setOpen(true)}
+            aria-label={label}
+            aria-haspopup="dialog"
+            aria-current={currentView === 'admin' ? 'page' : undefined}
+            className={`relative z-10 flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0 rounded-full transition-colors ${
+              currentView === 'admin' ? 'text-sk-primary dark:text-primary' : 'text-sk-on-surface-variant dark:text-muted-foreground'
+            }`}
+          >
+            <span className="relative block w-5 h-5">
+              <span className="block w-full h-full rounded-full overflow-hidden text-[10px] leading-none">{avatar}</span>
+              {hasUnreadReleases && (
+                <span aria-hidden="true" className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-sk-primary ring-2 ring-white dark:ring-zinc-900" />
               )}
-              <button
-                onClick={handleExportRecipes}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"
-              >
-                <Download className="w-4 h-4 text-zinc-400" />
-                Export recipes (JSON)
-              </button>
-              <button
-                onClick={() => { setOpen(false); setShowFeedback(true); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"
-              >
-                <MessageSquare className="w-4 h-4 text-zinc-400" />
-                Send feedback
-              </button>
-
-              <div className="my-1 border-t border-zinc-100 dark:border-zinc-800" />
-
-              <button
-                onClick={() => { setOpen(false); onSignOut(); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left"
-              >
-                <LogOut className="w-4 h-4 text-zinc-400" />
-                Sign out
-              </button>
-              <button
-                onClick={openDeleteConfirm}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete account
-              </button>
-            </div>
-        </AnchoredMenu>
-      </div>
+            </span>
+            <span className="text-[10px] font-semibold font-sans">You</span>
+          </button>
+          <Sheet open={open} onClose={close} title="You" className="[&>div:last-child]:px-2">
+            {entries}
+          </Sheet>
+        </>
+      )}
 
       <FeedbackDialog isOpen={showFeedback} onClose={() => setShowFeedback(false)} view={currentView} />
+
+      <Sheet
+        open={showName}
+        onClose={() => setShowName(false)}
+        title="Your name"
+        description="Shown in your account and used for the letters on your avatar."
+        initialFocus={nameInput}
+      >
+        <form onSubmit={handleSaveName} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor={`display-name-${variant}`} className="font-sans font-semibold text-sk-on-surface-variant dark:text-muted-foreground text-xs uppercase tracking-widest">
+              Name
+            </Label>
+            <Input
+              id={`display-name-${variant}`}
+              ref={nameInput}
+              value={nameDraft}
+              onChange={(e) => { setNameDraft(e.target.value); setNameError(null); }}
+              maxLength={MAX_NAME_LENGTH}
+              autoComplete="name"
+              placeholder="e.g. Anna Schmidt"
+              className="bg-sk-surface-highest dark:bg-input border-0 focus-visible:ring-sk-primary/30 rounded-xl"
+            />
+          </div>
+          {nameError && <p role="alert" className="text-sm text-destructive">{nameError}</p>}
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={() => setShowName(false)} className="flex-1 rounded-full">Cancel</Button>
+            <Button type="submit" disabled={isSavingName} className="flex-1 rounded-full bg-sk-primary hover:bg-sk-primary-container text-white dark:text-primary-foreground border-0">
+              {isSavingName ? 'Saving…' : 'Save'}
+            </Button>
+          </div>
+        </form>
+      </Sheet>
+
+      <Sheet
+        open={showExport}
+        onClose={() => setShowExport(false)}
+        title="Export your recipes?"
+        description="Downloads one file (JSON) with all your own recipes: text, tags, nutrition and notes. Photo files are not in it, only their addresses."
+      >
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" onClick={() => setShowExport(false)} className="flex-1 rounded-full">Cancel</Button>
+          <Button type="button" onClick={handleExportRecipes} className="flex-1 rounded-full bg-sk-primary hover:bg-sk-primary-container text-white dark:text-primary-foreground border-0">
+            Export
+          </Button>
+        </div>
+      </Sheet>
 
       {/* Change password modal */}
       {showChangePassword && (

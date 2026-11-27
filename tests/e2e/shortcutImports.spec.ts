@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { installMockBackend } from './support/mockBackend';
 import { SAFARI_SHORTCUT_SCRIPT } from '../../shared/safariShortcut';
+import { openSettings } from './support/nav';
 
 /**
  * Recipes sent from the iPhone Shortcuts (Photos and Safari) are saved straight
@@ -123,7 +124,7 @@ test('Settings makes a Shortcut key and shows it once', async ({ page }) => {
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ key: 'spk_test-key-shown-once', created_at: '2026-11-22T10:00:00Z' }) });
   });
   await page.goto('/');
-  await page.getByTitle('Settings').click();
+  await openSettings(page);
 
   const section = page.getByRole('region', { name: 'iPhone Shortcut' });
   await expect(section).toContainText('No key yet');
@@ -155,7 +156,7 @@ test('once the admin has shared the Shortcut, everyone gets an Add to Shortcuts 
   await installMockBackend(page, { email: 'cook@example.com' });
   await serveSettingsRow(page, LINK);
   await page.goto('/');
-  await page.getByTitle('Settings').click();
+  await openSettings(page);
 
   const section = page.getByRole('region', { name: 'iPhone Shortcuts' });
   const photos = section.getByRole('region', { name: 'From the Photos app' });
@@ -174,7 +175,7 @@ test('without a shared link there is no button, only the build steps', async ({ 
   await installMockBackend(page, { email: 'cook@example.com' });
   await serveSettingsRow(page, null);
   await page.goto('/');
-  await page.getByTitle('Settings').click();
+  await openSettings(page);
   const section = page.getByRole('region', { name: 'iPhone Shortcuts' });
   await expect(section.getByText('How to set up the Shortcut')).toHaveCount(2);
   await expect(section.getByRole('link', { name: 'Add to Shortcuts' })).toHaveCount(0);
@@ -190,7 +191,7 @@ test('the admin pastes the iCloud link: saved at once, whatever came with it', a
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: body.url }) });
   });
   await page.goto('/');
-  await page.getByTitle('Settings').click();
+  await openSettings(page);
 
   // Text without a link: said so on the spot, nothing sent.
   const form = page.getByRole('form', { name: 'Shared Shortcut link', exact: true });
@@ -227,7 +228,7 @@ test('the Safari Shortcut: its button, the one setting it needs, and the script 
   await installMockBackend(page, { email: 'cook@example.com' });
   await serveSettingsRow(page, null, SAFARI_LINK);
   await page.goto('/');
-  await page.getByTitle('Settings').click();
+  await openSettings(page);
 
   const safari = page.getByRole('region', { name: 'From Safari' });
   await expect(safari.getByRole('link', { name: 'Add to Shortcuts' })).toHaveAttribute('href', SAFARI_LINK);
@@ -243,7 +244,7 @@ test('one Shortcut for pages and links: Safari reads the page, anything else sen
   await installMockBackend(page, { email: 'cook@example.com' });
   await serveSettingsRow(page, null);
   await page.goto('/');
-  await page.getByTitle('Settings').click();
+  await openSettings(page);
 
   const section = page.getByRole('region', { name: 'iPhone Shortcuts' });
   await expect(section).toContainText('Two Shortcuts');

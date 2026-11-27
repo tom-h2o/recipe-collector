@@ -331,7 +331,6 @@ export default function App() {
           isAdmin={isAdmin}
           onOpenWhatsNew={changelog.open}
           hasUnreadReleases={changelog.hasUnread}
-          recipeCount={recipes.length}
           inboxCount={inboxCount + linkInvites.length}
           onSetView={setActiveView}
           onOpenSettings={() => setIsSettingsOpen(true)}
@@ -363,7 +362,7 @@ export default function App() {
               onSearchChange={setSearchQuery}
               onFiltersChange={setActiveFilters}
               onCollectionChange={setActiveCollectionId}
-              onCreateCollection={createCollection}
+              onCreateCollection={async (name) => { await createCollection(name); }}
               onDeleteCollection={deleteCollection}
               onRenameCollection={renameCollection}
               onLoadMore={loadMore}
@@ -469,6 +468,10 @@ export default function App() {
             recipeCollectionIds={memberships.filter((m) => m.recipe_id === selectedRecipe.id).map((m) => m.collection_id)}
             onAddToCollection={(colId) => addToCollection(colId, selectedRecipe.id)}
             onRemoveFromCollection={(colId) => removeFromCollection(colId, selectedRecipe.id)}
+            onCreateCollection={async (name) => {
+              const created = await createCollection(name);
+              if (created) await addToCollection(created.id, selectedRecipe.id);
+            }}
           />
           </ErrorBoundary>
         )}

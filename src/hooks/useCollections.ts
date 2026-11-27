@@ -28,6 +28,8 @@ export function useCollections(userId?: string | null) {
       .single();
     if (error) throw error;
     setCollections((prev) => [...prev, data as Collection]);
+    // Handed back so a recipe can be put into it straight away.
+    return data as Collection;
   }, [userId]);
 
   const deleteCollection = useCallback(async (id: string) => {

@@ -1,10 +1,8 @@
-import { useState } from 'react';
-import { Wand2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { useRef, useState } from 'react';
+import { ChevronRight, Loader2, Search } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Sheet } from '@/components/Sheet';
 import { parseIngredients } from '@/lib/recipeUtils';
 import type { Recipe } from '@/types';
 
@@ -14,30 +12,41 @@ interface Props {
   onSelectRecipe: (r: Recipe) => void;
 }
 
+/**
+ * "What can I cook?": type what is in the house, get the recipes from your
+ * own vault that fit best.
+ *
+ * Drawn in the app's own language: the sheet every short task uses, the
+ * vault's search field, the green primary button, serif recipe titles. It
+ * used to be a violet button and icon on a default dialog, opened from an
+ * orange button, colours nothing else here has. Progress and failures are
+ * said in the sheet, not in a toast in the corner, and what was typed is kept.
+ */
 export function SuggestModal({ isOpen, onClose, onSelectRecipe }: Props) {
   const [ingredientInput, setIngredientInput] = useState('');
   const [suggested, setSuggested] = useState<Recipe[] | null>(null);
   const [isSuggesting, setIsSuggesting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
 
   async function handleSuggest(e: React.FormEvent) {
     e.preventDefault();
-    if (!ingredientInput.trim()) return;
+    const ingredients = ingredientInput.split(',').map((s) => s.trim()).filter(Boolean);
+    if (ingredients.length === 0) return;
     setIsSuggesting(true);
-    const id = toast.loading('Finding matches with AI...');
+    setError(null);
     try {
-      const ingredientsList = ingredientInput.split(',').map((s) => s.trim()).filter(Boolean);
       const res = await apiFetch('/api/suggest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ingredients: ingredientsList }),
+        body: JSON.stringify({ ingredients }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to suggest recipes');
+      if (!res.ok) throw new Error(data.error || 'The suggestions could not be made.');
       setSuggested(data.suggestions || []);
-      toast.success('Found some delicious matches!', { id });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Couldn't suggest recipes.";
-      toast.error(message, { id });
+      setSuggested(null);
+      setError(err instanceof Error && err.message ? err.message : 'The suggestions could not be made. Please try again.');
     } finally {
       setIsSuggesting(false);
     }
@@ -47,67 +56,94 @@ export function SuggestModal({ isOpen, onClose, onSelectRecipe }: Props) {
     onClose();
     setSuggested(null);
     setIngredientInput('');
+    setError(null);
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(v) => { if (!v) handleClose(); }}>
-      <DialogContent className="sm:max-w-[600px] rounded-2xl bg-white dark:bg-zinc-900 shadow-2xl border border-zinc-200 dark:border-zinc-800">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-            <Wand2 className="w-6 h-6 text-purple-500" /> What can I cook?
-          </DialogTitle>
-          <DialogDescription>
-            Enter the ingredients you have available, separated by commas. We'll ask the AI to find the best matching recipes from your vault.
-          </DialogDescription>
-        </DialogHeader>
+    <Sheet
+      open={isOpen}
+      onClose={handleClose}
+      title="What can I cook?"
+      description="Type what you have, separated by commas. You get the recipes from your vault that fit best."
+      initialFocus={input}
+      className="sm:max-w-lg"
+    >
+      <form onSubmit={handleSuggest} className="flex gap-2">
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-sk-outline dark:text-muted-foreground pointer-events-none" aria-hidden="true" />
+          <input
+            ref={input}
+            value={ingredientInput}
+            onChange={(e) => { setIngredientInput(e.target.value); setError(null); }}
+            aria-label="Ingredients you have"
+            placeholder="tomatoes, pasta, garlic…"
+            enterKeyHint="search"
+            className="w-full h-10 pl-10 pr-3 rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface dark:text-foreground text-sm font-sans focus:outline-none focus:ring-2 focus:ring-sk-primary/25 dark:focus:ring-primary/25 transition placeholder:text-sk-outline dark:placeholder:text-muted-foreground"
+          />
+        </div>
+        <Button
+          type="submit"
+          disabled={isSuggesting || !ingredientInput.trim()}
+          className="h-10 shrink-0 rounded-full px-5 bg-sk-primary hover:bg-sk-primary-container text-white dark:text-primary-foreground border-0"
+        >
+          Suggest
+        </Button>
+      </form>
 
-        <form onSubmit={handleSuggest} className="space-y-4 pt-2">
-          <div className="flex gap-2">
-            <Input
-              value={ingredientInput}
-              onChange={(e) => setIngredientInput(e.target.value)}
-              placeholder="e.g. tomatoes, pasta, garlic, chicken..."
-              className="flex-1"
-            />
-            <Button type="submit" disabled={isSuggesting || !ingredientInput} className="bg-purple-600 hover:bg-purple-700 text-white min-w-[100px]">
-              {isSuggesting ? 'Thinking...' : 'Suggest!'}
-            </Button>
-          </div>
-        </form>
-
-        {suggested !== null && (
-          <div className="mt-6 pt-6 border-t border-zinc-100 dark:border-zinc-800 space-y-4">
-            <h3 className="font-bold text-lg text-zinc-900 dark:text-zinc-100">
-              Found {suggested.length} suggestion{suggested.length !== 1 ? 's' : ''}
-            </h3>
-            {suggested.length === 0 ? (
-              <p className="text-zinc-500 text-sm">No great matches found. Try adding a few more staples!</p>
-            ) : (
-              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                {suggested.map((recipe) => (
-                  <div
-                    key={recipe.id}
-                    onClick={() => { handleClose(); onSelectRecipe(recipe); }}
-                    className="flex gap-4 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 hover:bg-purple-50 dark:hover:bg-purple-900/20 cursor-pointer border border-zinc-100 dark:border-zinc-800 transition-colors"
-                  >
-                    {recipe.image_url && (
-                      <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0">
-                        <img src={recipe.image_url} alt="" className="w-full h-full object-cover" />
-                      </div>
-                    )}
-                    <div>
-                      <h4 className="font-bold text-zinc-900 dark:text-zinc-100">{recipe.title}</h4>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2">
-                        {parseIngredients(recipe.ingredients).map((i) => i.name).join(', ')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+      <div aria-live="polite">
+        {isSuggesting && (
+          <p className="mt-5 flex items-center gap-2 text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Looking through your vault…
+          </p>
         )}
-      </DialogContent>
-    </Dialog>
+      </div>
+
+      {error && !isSuggesting && (
+        <p role="alert" className="mt-5 p-3 rounded-xl bg-destructive/8 border border-destructive/20 text-sm text-destructive">{error}</p>
+      )}
+
+      {suggested !== null && !isSuggesting && (
+        <section aria-label="Suggestions" className="mt-5 pt-4 border-t border-sk-outline-variant/40 dark:border-border">
+          {suggested.length === 0 ? (
+            <>
+              <p className="font-serif text-lg text-sk-on-surface dark:text-foreground">Nothing fits yet</p>
+              <p className="mt-1 text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
+                No recipe in your vault matches these well. Try a staple or two more, or leave one out.
+              </p>
+            </>
+          ) : (
+            <>
+              <h3 className="text-[11px] font-sans font-semibold uppercase tracking-[0.12em] text-sk-on-surface-variant dark:text-muted-foreground">
+                {suggested.length === 1 ? '1 recipe fits' : `${suggested.length} recipes fit`}
+              </h3>
+              <ul className="mt-2 -mx-2 space-y-0.5">
+                {suggested.map((recipe) => (
+                  <li key={recipe.id}>
+                    <button
+                      type="button"
+                      onClick={() => { handleClose(); onSelectRecipe(recipe); }}
+                      className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-sk-surface-low dark:hover:bg-muted transition-colors"
+                    >
+                      <span className="shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-sk-primary-fixed/50 dark:bg-primary/15 flex items-center justify-center font-serif text-xl text-sk-primary/50 dark:text-primary/60">
+                        {recipe.image_url
+                          ? <img src={recipe.image_url} alt="" className="w-full h-full object-cover" />
+                          : (recipe.title[0] ?? '').toUpperCase()}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-serif text-base text-sk-on-surface dark:text-foreground truncate">{recipe.title}</span>
+                        <span className="block mt-0.5 text-xs font-sans text-sk-on-surface-variant dark:text-muted-foreground line-clamp-2">
+                          {parseIngredients(recipe.ingredients).map((i) => i.name).join(' · ')}
+                        </span>
+                      </span>
+                      <ChevronRight className="w-4 h-4 shrink-0 text-sk-outline-variant dark:text-muted-foreground/50" aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+      )}
+    </Sheet>
   );
 }

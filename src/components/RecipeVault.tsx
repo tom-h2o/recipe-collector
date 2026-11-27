@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
-import { Search, X, ArrowUpDown, FolderOpen, Plus, Trash2, Pencil, Check, Users } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { Search, X, FolderOpen, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RecipeCard } from './RecipeCard';
-import { SORT_OPTIONS, type SortOption } from '@/lib/constants';
+import type { SortOption } from '@/lib/constants';
 import { NEW_FROM_IPHONE } from '@/store/recipeStore';
-import { addChipClass, chipClass, toggleFilter } from '@/lib/tags';
+import { chipClass, toggleFilter } from '@/lib/tags';
 import { FilterBar } from './FilterBar';
+import { CollectionBar } from './CollectionBar';
+import { SortButton } from './SortButton';
 import { useRecipeStore } from '@/store/recipeStore';
 import type { Recipe, RecipeTranslation, Collection, RecipeCollection, LinkedPerson } from '@/types';
 
@@ -57,10 +59,6 @@ export function RecipeVault({
   banner, newRecipeIds,
 }: Props) {
   const searchRef = useRef<HTMLInputElement>(null);
-  const [newCollectionName, setNewCollectionName] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState('');
 
   // '/' keyboard shortcut focuses search
   useEffect(() => {
@@ -99,30 +97,23 @@ export function RecipeVault({
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Search recipes, ingredients… (press / to focus)"
-              className="w-full pl-10 pr-10 py-2.5 rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface dark:text-foreground text-sm font-sans focus:outline-none focus:ring-2 focus:ring-sk-primary/25 dark:focus:ring-primary/25 transition placeholder:text-sk-outline dark:placeholder:text-muted-foreground"
+              placeholder="Search recipes, ingredients…"
+              aria-label="Search recipes"
+              title="Press / to search"
+              // Room on the right only while there is something to clear.
+              className={`w-full h-10 pl-10 ${searchQuery ? 'pr-10' : 'pr-3'} rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface dark:text-foreground text-sm font-sans focus:outline-none focus:ring-2 focus:ring-sk-primary/25 dark:focus:ring-primary/25 transition placeholder:text-sk-outline dark:placeholder:text-muted-foreground`}
             />
             {searchQuery && (
               <button
                 onClick={() => onSearchChange('')}
+                aria-label="Clear search"
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-sk-outline hover:text-sk-primary dark:hover:text-primary"
               >
                 <X className="w-4 h-4" />
               </button>
             )}
           </div>
-          {/* Sort selector */}
-          <div className="relative">
-            <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-sk-outline dark:text-muted-foreground pointer-events-none" />
-            <select
-              aria-label="Sort recipes"
-              value={sortBy}
-              onChange={(e) => onSortChange(e.target.value as SortOption)}
-              className="pl-8 pr-3 py-2.5 rounded-xl border-0 bg-sk-surface-highest dark:bg-input text-sk-on-surface-variant dark:text-muted-foreground text-sm font-sans focus:outline-none focus:ring-2 focus:ring-sk-primary/25 dark:focus:ring-primary/25 transition appearance-none cursor-pointer"
-            >
-              {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </div>
+          <SortButton value={sortBy} onChange={onSortChange} />
         </div>
 
         {/* Whose recipes — only worth showing once something is connected */}
@@ -148,88 +139,15 @@ export function RecipeVault({
           </div>
         )}
 
-        {/* Collections */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <FolderOpen className="w-4 h-4 text-sk-outline dark:text-muted-foreground shrink-0" aria-label="Collections" />
-          {collections.map((c) => (
-            <div key={c.id} className="inline-flex items-center gap-0.5 group/chip">
-              {renamingId === c.id ? (
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    if (!renameValue.trim()) return;
-                    await onRenameCollection(c.id, renameValue);
-                    setRenamingId(null);
-                  }}
-                  className="flex items-center gap-1"
-                >
-                  <input
-                    autoFocus
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Escape') setRenamingId(null); }}
-                    onBlur={() => setRenamingId(null)}
-                    className="h-8 px-3 rounded-lg text-[13px] border-0 bg-sk-surface-highest dark:bg-input focus:outline-none focus:ring-2 focus:ring-sk-primary/25 text-sk-on-surface dark:text-foreground w-32 font-sans"
-                  />
-                  <button type="submit" className="p-1 text-sk-primary dark:text-primary">
-                    <Check className="w-3 h-3" />
-                  </button>
-                </form>
-              ) : (
-                <>
-                  <button
-                    onClick={() => onCollectionChange(activeCollectionId === c.id ? null : c.id)}
-                    aria-pressed={activeCollectionId === c.id}
-                    className={chipClass(activeCollectionId === c.id)}
-                  >
-                    {c.name}
-                    <span className="text-[11px] tabular-nums opacity-60">
-                      {memberships.filter((m) => m.collection_id === c.id).length}
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => { setRenamingId(c.id); setRenameValue(c.name); }}
-                    className="p-1 text-sk-outline-variant dark:text-muted-foreground/40 hover:text-sk-primary dark:hover:text-primary transition-colors opacity-0 group-hover/chip:opacity-100"
-                    title="Rename collection"
-                  >
-                    <Pencil className="w-3 h-3" />
-                  </button>
-                  <button
-                    onClick={() => onDeleteCollection(c.id)}
-                    className="p-1 text-sk-outline-variant dark:text-muted-foreground/40 hover:text-destructive transition-colors opacity-0 group-hover/chip:opacity-100"
-                    title="Delete collection"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </>
-              )}
-            </div>
-          ))}
-          {isCreating ? (
-            <form
-              onSubmit={async (e) => { e.preventDefault(); if (!newCollectionName.trim()) return; await onCreateCollection(newCollectionName); setNewCollectionName(''); setIsCreating(false); }}
-              className="flex items-center gap-1"
-            >
-              <input
-                autoFocus
-                value={newCollectionName}
-                onChange={(e) => setNewCollectionName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Escape') { setIsCreating(false); setNewCollectionName(''); } }}
-                placeholder="Collection name"
-                className="h-8 px-3 rounded-lg text-[13px] border-0 bg-sk-surface-highest dark:bg-input focus:outline-none focus:ring-2 focus:ring-sk-primary/25 text-sk-on-surface dark:text-foreground w-40 font-sans"
-              />
-              <button type="submit" className="text-xs font-semibold text-sk-primary dark:text-primary hover:text-sk-primary-container px-1 font-sans">Save</button>
-              <button type="button" onClick={() => { setIsCreating(false); setNewCollectionName(''); }} className="text-xs text-sk-outline hover:text-sk-on-surface-variant px-1 font-sans">Cancel</button>
-            </form>
-          ) : (
-            <button
-              onClick={() => setIsCreating(true)}
-              className={addChipClass()}
-            >
-              <Plus className="w-3.5 h-3.5" aria-hidden="true" /> New collection
-            </button>
-          )}
-        </div>
+        <CollectionBar
+          collections={collections}
+          memberships={memberships}
+          activeCollectionId={activeCollectionId}
+          onChange={onCollectionChange}
+          onCreate={onCreateCollection}
+          onRename={onRenameCollection}
+          onDelete={onDeleteCollection}
+        />
 
         <FilterBar
           active={activeFilters}

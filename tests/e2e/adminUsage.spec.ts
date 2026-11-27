@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { installMockBackend } from './support/mockBackend';
+import { openAdmin } from './support/nav';
 
 /**
  * Admin → Usage (migration 0075): the report admin_usage() returns, shown as
@@ -43,8 +44,7 @@ async function openUsage(page: Page, viewport = { width: 1280, height: 900 }) {
   });
   await page.goto('/');
   await expect(page.getByText('Classic Margherita Pizza')).toBeVisible();
-  const nav = viewport.width >= 1024 ? page.locator('header') : page.getByRole('navigation');
-  await nav.getByRole('button', { name: 'Admin' }).click();
+  await openAdmin(page);
   await page.getByRole('tab', { name: 'Usage' }).click();
   return { asked };
 }
@@ -89,7 +89,7 @@ test('says so, and offers a retry, when the report cannot be made', async ({ pag
   await page.route((url) => url.pathname === '/api/account' && url.searchParams.get('tab') === 'usage', (route) =>
     route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'The usage report needs the latest database migration. Try again in a few minutes.' }) }));
   await page.goto('/');
-  await page.locator('header').getByRole('button', { name: 'Admin' }).click();
+  await openAdmin(page);
   await page.getByRole('tab', { name: 'Usage' }).click();
   await expect(page.getByRole('alert')).toContainText('latest database migration');
   await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible();

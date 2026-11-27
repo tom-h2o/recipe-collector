@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { installMockBackend } from './support/mockBackend';
+import { openAccount, openAdmin, openSettings } from './support/nav';
 
 /**
  * Accessibility audit. Fails on any serious or critical WCAG 2.1 A/AA violation.
@@ -98,7 +99,7 @@ test('send recipe form, over the open recipe', async ({ page }) => {
 test('settings dialog', async ({ page }) => {
   await installMockBackend(page);
   await page.goto('/');
-  await page.getByTitle('Settings').click();
+  await openSettings(page);
   await expect(page.getByRole('tab', { name: 'General', selected: true })).toBeVisible();
   expect(await auditSerious(page, 'settings')).toEqual([]);
   await page.getByRole('tab', { name: 'AI models' }).click();
@@ -121,13 +122,42 @@ for (const { tab, settles } of VIEWS) {
     await page.goto('/');
     await expect(page.locator('header')).toBeVisible();
 
-    // the nav is rendered twice (desktop + mobile); only one is visible
-    await page.getByRole('button', { name: tab, exact: false }).filter({ visible: true }).first().click();
+    if (tab === 'Admin') {
+      // The dashboard is an entry of the account list, not a tab.
+      await openAdmin(page);
+    } else {
+      // the nav is rendered twice (desktop + mobile); only one is visible
+      await page.getByRole('button', { name: tab, exact: false }).filter({ visible: true }).first().click();
+    }
     // wait for content unique to the view, not for the nav label itself
     await expect(page.getByText(settles).first()).toBeVisible();
 
     expect(await auditSerious(page, tab.toLowerCase())).toEqual([]);
   });
+}
+
+// The sheets: a list of choices or a short task, rising from the bottom on a
+// phone. Audited at phone width in both themes, since that is where they are
+// sheets and where their surface differs from the dialogs'.
+const SHEETS = [
+  { name: 'account sheet', dialog: 'You', open: (page: Page) => openAccount(page) },
+  { name: 'filters sheet', dialog: 'Filters', open: (page: Page) => page.getByRole('button', { name: 'Filters', exact: true }).click() },
+  { name: 'new collection sheet', dialog: 'New collection', open: (page: Page) => page.getByRole('button', { name: 'New collection' }).click() },
+  { name: 'suggest sheet', dialog: 'What can I cook?', open: (page: Page) => page.getByRole('button', { name: 'Suggest a recipe' }).click() },
+] as const;
+
+for (const sheet of SHEETS) {
+  for (const theme of ['light', 'dark'] as const) {
+    test(`${sheet.name} (${theme})`, async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await installMockBackend(page, { theme });
+      await page.goto('/');
+      await expect(page.getByText('Classic Margherita Pizza')).toBeVisible();
+      await sheet.open(page);
+      await expect(page.getByRole('dialog', { name: sheet.dialog })).toBeVisible();
+      expect(await auditSerious(page, `${sheet.name}, ${theme}`)).toEqual([]);
+    });
+  }
 }
 
 test('cook mode', async ({ page }) => {
