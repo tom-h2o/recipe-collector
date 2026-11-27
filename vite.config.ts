@@ -113,7 +113,11 @@ export default defineConfig({
     ...(sentryAuthToken
       ? [sentryVitePlugin({
           org: 'tom-enterprise',
-          project: 'speisekammer-web',
+          // Both projects, so the release exists for the server before Vercel's
+          // deploy is recorded on it: a project that joins a release later (with
+          // its first event) never lists that deploy. The source maps are the
+          // browser's; the server project simply does not use them.
+          project: ['speisekammer-web', 'speisekammer-server'],
           authToken: sentryAuthToken,
           release: release ? { name: release } : undefined,
           sourcemaps: { filesToDeleteAfterUpload: ['./dist/**/*.map'] },

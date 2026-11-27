@@ -6,7 +6,9 @@ project_id = "recipe-collector"
 [db]
 port = 54322
 shadow_port = 54320
-major_version = 15
+# The production project's version: the RLS tests should check migrations
+# on what runs them for real. `supabase link` warns when the two differ.
+major_version = 17
 
 [db.pooler]
 enabled = false
