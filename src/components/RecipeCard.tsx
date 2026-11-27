@@ -145,7 +145,7 @@ export function RecipeCard({ recipe, isProcessing, isNew = false, activeFilters,
         <div className="flex items-center gap-3">
           {recipe.servings ? (
             <span className="flex items-center gap-1.5 text-xs font-sans font-semibold text-sk-on-surface-variant dark:text-muted-foreground">
-              <Users className="w-3.5 h-3.5" /> {t('Serves {n}', { n: recipe.servings })}
+              <Users className="w-3.5 h-3.5" /> {t('Serves {n}##card', { n: recipe.servings })}
             </span>
           ) : null}
           {totalTime > 0 && (

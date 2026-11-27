@@ -53,9 +53,9 @@ const vault: Record<string, string> = {
   'Creating…': 'Wird angelegt…',
   'Create': 'Anlegen',
   'Delete “{name}”?': '„{name}“ löschen?',
-  'Only the collection goes. Its recipe stays in your vault.': 'Nur die Sammlung wird gelöscht. Ihr Rezept bleibt in deinem Vault.',
-  'Only the collection goes. Its {n} recipes stay in your vault.': 'Nur die Sammlung wird gelöscht. Ihre {n} Rezepte bleiben in deinem Vault.',
-  'It has no recipes in it.': 'Sie enthält keine Rezepte.',
+  'Only the collection goes. Its recipe stays in your vault.': 'Nur die Sammlung wird gelöscht. Das Rezept darin bleibt in deinem Vault.',
+  'Only the collection goes. Its {n} recipes stay in your vault.': 'Nur die Sammlung wird gelöscht. Die {n} Rezepte darin bleiben in deinem Vault.',
+  'It has no recipes in it.': 'Die Sammlung enthält keine Rezepte.',
   'Rename or delete a collection. Recipes are never deleted with it.':
     'Sammlung umbenennen oder löschen. Rezepte werden dabei nie gelöscht.',
   'Keep it': 'Behalten',
@@ -89,7 +89,8 @@ const vault: Record<string, string> = {
   '{n} Ingredient': '{n} Zutat',
   '{n} Ingredients': '{n} Zutaten',
   ' · +{n} more': ' · +{n} weitere',
-  'Serves {n}': 'Portionen: {n}',
+  // On the card's narrow footer; the recipe itself has its own, longer wording.
+  'Serves {n}##card': '{n} Port.',
   '{n}m': '{n} Min.',
 
   // ── Imports from the iPhone (ImportBanner) ─────────────────────────────────

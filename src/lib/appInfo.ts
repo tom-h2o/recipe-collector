@@ -69,13 +69,19 @@ export interface Capability {
   icon: typeof LinkIcon;
   title: string;
   blurb: string;
-  /** What fills the `{placeholders}` of title and blurb. */
-  vars?: Vars;
+  /**
+   * For a title or blurb with a number or a list in it: the same two texts
+   * with `{placeholders}`, which is what the dictionary knows them by.
+   */
+  translate?: { title: string; blurb: string; vars: Vars };
 }
 
-/** A capability's title and blurb in the app's language, placeholders filled. */
+/** A capability's title and blurb in the app's language. */
 export function capabilityText(item: Capability, t: Translate): { title: string; blurb: string } {
-  return { title: t(item.title, item.vars), blurb: t(item.blurb, item.vars) };
+  const from = item.translate;
+  return from
+    ? { title: t(from.title, from.vars), blurb: t(from.blurb, from.vars) }
+    : { title: t(item.title), blurb: t(item.blurb) };
 }
 
 export interface CapabilityGroup {
@@ -109,9 +115,13 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
       { icon: Users, title: msg('Scale the servings'), blurb: msg('Cooking for two when it was written for six? The amounts follow.') },
       {
         icon: Languages,
-        title: msg('{count} languages'),
-        blurb: msg('Translate a recipe into {languages} — and temperatures convert between °C and °F.'),
-        vars: { count: LANGUAGES.length, languages: LANGUAGES.map((l) => l.label).join(', ') },
+        title: `${LANGUAGES.length} languages`,
+        blurb: `Translate a recipe into ${LANGUAGES.map((l) => l.label).join(', ')} — and temperatures convert between °C and °F.`,
+        translate: {
+          title: msg('{count} languages'),
+          blurb: msg('Translate a recipe into {languages} — and temperatures convert between °C and °F.'),
+          vars: { count: LANGUAGES.length, languages: LANGUAGES.map((l) => l.label).join(', ') },
+        },
       },
       { icon: Printer, title: msg('Print it properly'), blurb: msg('A clean sheet for the kitchen or a PDF to keep, not a screenshot of the app.') },
     ],

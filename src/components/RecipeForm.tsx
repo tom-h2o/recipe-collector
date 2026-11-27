@@ -49,7 +49,7 @@ const IMPORT_OPTIONS: { id: ImportKind; title: string; hint: string; icon: typeo
 
 const STEP_COPY: Record<ImportKind, { title: string; description: string }> = {
   url: { title: msg('From a website'), description: msg('Paste the link to the recipe page.') },
-  photo: { title: 'From photos', description: msg('Up to {max} pages of the same recipe, in order.') },
+  photo: { title: msg('From photos'), description: msg('Up to {max} pages of the same recipe, in order.') },
   pdf: { title: msg('From a PDF'), description: msg('One recipe per PDF.') },
   text: { title: msg('From text'), description: msg('Paste the ingredients and the steps, in any order.') },
 };
