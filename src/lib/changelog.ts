@@ -20,6 +20,15 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-17',
+    title: 'The top bar fits small phones',
+    items: [
+      'On phones 360 pixels wide, many Android phones among them, the bar at the top no longer runs past the edge of the screen, so the page no longer slides sideways when you swipe.',
+      'On phones its buttons sit a little closer together, and on the narrowest ones the app’s name is a little smaller.',
+    ],
+  },
+  {
+    // Ids must increase with each release (see 2026-12-02 below).
     id: '2026-12-16',
     title: 'Privacy and safety fixes',
     items: [
