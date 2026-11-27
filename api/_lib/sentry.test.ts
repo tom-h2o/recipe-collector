@@ -64,6 +64,17 @@ describe('server Sentry', () => {
     expect(() => captureException(new Error('x'))).not.toThrow();
   });
 
+  it('drops Node\'s own experimental-feature warnings, and only those', async () => {
+    const { serverSentryOptions, isRuntimeNoise } = await load({ SENTRY_DSN: '' });
+    const noise = '(node:8) ExperimentalWarning: vm.USE_MAIN_CONTEXT_DEFAULT_LOADER is an experimental feature and might change at any time';
+    expect(isRuntimeNoise(noise)).toBe(true);
+    expect(isRuntimeNoise('Share error: ExperimentalWarning in a recipe title')).toBe(false);
+    const { beforeSendLog } = serverSentryOptions('dsn', {} as NodeJS.ProcessEnv);
+    expect(beforeSendLog?.({ level: 'error', message: noise })).toBeNull();
+    const real = { level: 'error' as const, message: 'Translate error: boom' };
+    expect(beforeSendLog?.(real)).toBe(real);
+  });
+
   it('sends warnings and errors as logs, and every trace outside production', async () => {
     const { serverSentryOptions } = await load({ SENTRY_DSN: '' });
     const options = serverSentryOptions('dsn', { VERCEL_ENV: 'preview' } as NodeJS.ProcessEnv);

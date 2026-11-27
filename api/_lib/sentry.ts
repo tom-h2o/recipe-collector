@@ -15,6 +15,8 @@ function environment(env: NodeJS.ProcessEnv): string {
  * - Logs: console.warn and console.error, which is where every endpoint
  *   already says what went wrong. They can quote parts of a recipe; Sentry's
  *   data scrubber still runs on them.
+ * - Except Node's own ExperimentalWarning, which the runtime prints on every
+ *   cold start: as an error-level log it buried the real ones.
  * - Tracing: every trace outside production, one in ten in production.
  * - Nothing personal, no headers, no query parameters, no local variables
  *   (shared/sentryPrivacy.ts): request bodies are recipes and photos, and the
@@ -29,7 +31,13 @@ export function serverSentryOptions(dsn: string, env: NodeJS.ProcessEnv = proces
     tracesSampleRate: name === 'production' ? 0.1 : 1.0,
     dataCollection: SERVER_DATA_COLLECTION,
     integrations: [Sentry.consoleLoggingIntegration({ levels: ['warn', 'error'] })],
+    beforeSendLog: (log) => (isRuntimeNoise(String(log.message)) ? null : log),
   };
+}
+
+/** Node's warnings about its own experimental features, not the app's. */
+export function isRuntimeNoise(message: string): boolean {
+  return /^\(node:\d+\) ExperimentalWarning:/.test(message);
 }
 
 // At import rather than on the first error, so the console logging is in
