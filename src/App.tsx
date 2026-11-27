@@ -453,7 +453,6 @@ export default function App() {
             )}
             onUpdateRecipe={handleUpdateRecipe}
             onAddMealPlan={addMealPlan}
-            onSaveScaled={saveRecipe}
             collections={collections}
             recipeCollectionIds={memberships.filter((m) => m.recipe_id === selectedRecipe.id).map((m) => m.collection_id)}
             onAddToCollection={(colId) => addToCollection(colId, selectedRecipe.id)}

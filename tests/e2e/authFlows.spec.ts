@@ -230,6 +230,22 @@ test.describe('a forgotten password', () => {
     expect(update?.body).toMatchObject({ password: 'a new long password' });
   });
 
+  test('an invitation link asks for a password before the vault', async ({ page }) => {
+    // Supabase → Authentication → Users → Invite user sends this link. The
+    // account it signs in to has no password yet.
+    const calls = await signedOut(page, {}, '/#access_token=invite-token&expires_in=3600&refresh_token=invite-refresh&token_type=bearer&type=invite');
+
+    await expect(page.getByRole('heading', { name: 'Welcome to Speisekammer' })).toBeVisible();
+    await expect(vault(page)).toHaveCount(0);
+
+    await page.getByLabel('New password').fill('my first password');
+    await page.getByRole('button', { name: 'Set password' }).click();
+
+    await expect(vault(page)).toBeVisible();
+    const update = calls.find((c) => c.path === '/user' && c.method === 'PUT');
+    expect(update?.body).toMatchObject({ password: 'my first password' });
+  });
+
   test('a refused new password is said in the form, and the form stays', async ({ page }) => {
     await signedOut(page, { updatePassword: 'same-password' }, '/#access_token=recovery-token&expires_in=3600&refresh_token=recovery-refresh&token_type=bearer&type=recovery');
     await page.getByLabel('New password').fill('the old password');

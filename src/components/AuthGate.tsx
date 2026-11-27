@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { SpeisekammerLogo } from '@/components/SpeisekammerLogo';
+import { isSignupOpen } from '@/lib/signupOpen';
+import { DATA_NOTE_SHORT } from '@/lib/appInfo';
 
 interface Props {
   children: React.ReactNode;
@@ -17,11 +19,12 @@ type PasswordStep = 'signin' | 'forgot' | 'reset';
 
 export function AuthGate({ children }: Props) {
   const {
-    user, loading, isPasswordRecovery,
+    user, loading, isPasswordRecovery, isInvite,
     signInWithEmail, signInWithPassword, signUpWithPassword,
     sendPasswordReset, updatePassword, resendConfirmation,
   } = useAuth();
   const { isDark, toggle: toggleDark } = useDarkMode();
+  const signupOpen = isSignupOpen();
   const [mode, setMode] = useState<AuthMode>('password');
   const [passwordStep, setPasswordStep] = useState<PasswordStep>('signin');
   const [isSignUp, setIsSignUp] = useState(false);
@@ -108,7 +111,7 @@ export function AuthGate({ children }: Props) {
     try {
       const { error } = await updatePassword(newPassword);
       if (error) { setRecoveryError(error); return; }
-      toast.success('Password updated! You are now signed in.');
+      toast.success(isInvite ? 'Password set. Welcome to Speisekammer!' : 'Password updated! You are now signed in.');
     } catch (err) {
       setRecoveryError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
@@ -151,11 +154,13 @@ export function AuthGate({ children }: Props) {
             <div className="flex items-center justify-center gap-3">
               <KeyRound className="w-9 h-9 text-sk-primary dark:text-primary" />
               <h1 className="font-serif text-3xl font-normal text-sk-on-surface dark:text-foreground">
-                Set New Password
+                {isInvite ? 'Welcome to Speisekammer' : 'Set New Password'}
               </h1>
             </div>
             <p className="font-sans text-sm text-sk-on-surface-variant dark:text-muted-foreground">
-              Choose a new password for your account.
+              {isInvite
+                ? 'Your invitation worked. Choose a password, so you can sign in again later.'
+                : 'Choose a new password for your account.'}
             </p>
           </div>
           <form onSubmit={handleSetNewPassword} className="space-y-4">
@@ -196,7 +201,7 @@ export function AuthGate({ children }: Props) {
               disabled={isSubmitting}
               className="w-full h-11 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold rounded-full border-0"
             >
-              {isSubmitting ? 'Saving…' : 'Set new password'}
+              {isSubmitting ? 'Saving…' : isInvite ? 'Set password' : 'Set new password'}
             </Button>
           </form>
         </div>
@@ -238,6 +243,11 @@ export function AuthGate({ children }: Props) {
                 See what Speisekammer does
               </a>
             </p>
+            {!signupOpen && (
+              <p className="font-sans text-xs text-sk-on-surface-variant dark:text-muted-foreground">
+                Accounts are by invitation for now.
+              </p>
+            )}
           </div>
 
           {/* Mode toggle */}
@@ -344,13 +354,15 @@ export function AuthGate({ children }: Props) {
                     Forgot password?
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={() => { setIsSignUp((v) => !v); setUnconfirmedEmail(null); setLoginError(null); }}
-                  className="w-full text-sm text-sk-on-surface-variant hover:text-sk-on-surface dark:hover:text-foreground transition-colors font-sans"
-                >
-                  {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
-                </button>
+                {signupOpen && (
+                  <button
+                    type="button"
+                    onClick={() => { setIsSignUp((v) => !v); setUnconfirmedEmail(null); setLoginError(null); }}
+                    className="w-full text-sm text-sk-on-surface-variant hover:text-sk-on-surface dark:hover:text-foreground transition-colors font-sans"
+                  >
+                    {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+                  </button>
+                )}
               </form>
 
               {unconfirmedEmail && (
@@ -477,6 +489,13 @@ export function AuthGate({ children }: Props) {
           )}
 
           </div>{/* end form area */}
+
+          <p className="mt-6 text-center text-xs font-sans leading-relaxed text-sk-on-surface-variant dark:text-muted-foreground">
+            {DATA_NOTE_SHORT}{' '}
+            <a href="/about#your-data" className="font-semibold text-sk-primary dark:text-primary hover:underline">
+              What happens to your data
+            </a>
+          </p>
         </div>
       </div>
     );

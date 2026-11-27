@@ -1,8 +1,9 @@
 import { ArrowRight, ExternalLink } from 'lucide-react';
 import { SpeisekammerLogo } from '@/components/SpeisekammerLogo';
 import {
-  APP_NAME, APP_TAGLINE, AUTHOR_NAME, AUTHOR_URL, PITCH, CAPABILITY_GROUPS,
+  APP_NAME, APP_TAGLINE, AUTHOR_NAME, AUTHOR_URL, PITCH, CAPABILITY_GROUPS, DATA_NOTE,
 } from '@/lib/appInfo';
+import { isSignupOpen } from '@/lib/signupOpen';
 
 interface Props {
   /** Where "create an account" goes. The app root shows the sign-in screen. */
@@ -14,6 +15,7 @@ interface Props {
  * someone with no account — it makes no queries and reads no session.
  */
 export function AboutPage({ signUpHref = '/' }: Props) {
+  const signupOpen = isSignupOpen();
   return (
     <div className="min-h-screen bg-sk-surface dark:bg-zinc-950 text-sk-on-surface dark:text-foreground font-sans">
       <div className="max-w-4xl mx-auto px-6 py-16 sm:py-24 space-y-20">
@@ -72,19 +74,52 @@ export function AboutPage({ signUpHref = '/' }: Props) {
           ))}
         </section>
 
+        {/* ── What happens to your data ────────────────────────────────── */}
+        <section id="your-data" className="space-y-6 max-w-2xl mx-auto scroll-mt-8">
+          <h2 className="font-serif text-2xl sm:text-3xl font-normal">What happens to your data</h2>
+          <dl className="space-y-5">
+            {DATA_NOTE.map((item) => (
+              <div key={item.title} className="space-y-1">
+                <dt className="font-semibold">{item.title}</dt>
+                <dd className="text-sm leading-relaxed text-sk-on-surface-variant dark:text-muted-foreground">
+                  {item.text}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+
         {/* ── Call to action ───────────────────────────────────────────── */}
         <section className="text-center space-y-6 bg-sk-surface-low dark:bg-card rounded-3xl p-10 sm:p-14">
-          <h2 className="font-serif text-2xl sm:text-3xl font-normal">Start your own vault</h2>
-          <p className="text-sk-on-surface-variant dark:text-muted-foreground max-w-xl mx-auto leading-relaxed">
-            Making an account takes a moment, and the first recipe takes about as
-            long as pasting a link.
-          </p>
-          <a
-            href={signUpHref}
-            className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold transition-colors"
-          >
-            Create a free account <ArrowRight className="w-4 h-4" />
-          </a>
+          {signupOpen ? (
+            <>
+              <h2 className="font-serif text-2xl sm:text-3xl font-normal">Start your own vault</h2>
+              <p className="text-sk-on-surface-variant dark:text-muted-foreground max-w-xl mx-auto leading-relaxed">
+                Making an account takes a moment, and the first recipe takes about as
+                long as pasting a link.
+              </p>
+              <a
+                href={signUpHref}
+                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold transition-colors"
+              >
+                Create a free account <ArrowRight className="w-4 h-4" />
+              </a>
+            </>
+          ) : (
+            <>
+              <h2 className="font-serif text-2xl sm:text-3xl font-normal">By invitation, for now</h2>
+              <p className="text-sk-on-surface-variant dark:text-muted-foreground max-w-xl mx-auto leading-relaxed">
+                {APP_NAME} is being tried out by family and friends. If you were
+                invited, sign in with the address the invitation went to.
+              </p>
+              <a
+                href={signUpHref}
+                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold transition-colors"
+              >
+                Sign in <ArrowRight className="w-4 h-4" />
+              </a>
+            </>
+          )}
         </section>
 
         {/* ── Who made it ──────────────────────────────────────────────── */}

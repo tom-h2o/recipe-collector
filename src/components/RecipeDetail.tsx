@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { TagIcon, addChipClass, tagClass, tagLabel } from '@/lib/tags';
-import { Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, CalendarPlus, Copy, Globe, ImageIcon, X, Sparkles, Loader2, Languages, Send, MoreHorizontal, Tag, Salad, FolderOpen, Link2Off, Check} from 'lucide-react';
+import { Users, Minus, Plus, Star, Share2, Printer, Flame, Pencil, Trash2, CalendarPlus, Globe, ImageIcon, X, Sparkles, Loader2, Languages, Send, MoreHorizontal, Tag, Salad, FolderOpen, Link2Off, Check} from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { parseIngredients, scaleAmount } from '@/lib/recipeUtils';
@@ -50,7 +50,6 @@ interface Props {
   /** Connected accounts, used to name whoever else has rated this recipe. */
   linkedPeople?: LinkedPerson[];
   onAddMealPlan?: (date: string, mealType: string, recipeId: string) => Promise<void>;
-  onSaveScaled?: (payload: Omit<Recipe, 'id' | 'created_at' | 'tags' | 'is_favourite' | 'nutrition' | 'rating' | 'notes' | 'user_id'>) => Promise<unknown>;
   collections?: Collection[];
   recipeCollectionIds?: string[];
   onAddToCollection?: (collectionId: string) => Promise<void>;
@@ -72,12 +71,11 @@ function isLinkedRecipe(recipe: Recipe | null, userId?: string | null): boolean 
   return !!recipe && !!userId && !!recipe.user_id && recipe.user_id !== userId;
 }
 
-export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', translationsCache, onLanguageChange, onTranslationCached, onTranslationRemoved, onClose, onEdit, onDelete, onSend, nestedDialogs, onUpdateRecipe, userId, ownerLabel, linkedPeople = [], onAddMealPlan, onSaveScaled, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection }: Props) {
+export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C', translationsCache, onLanguageChange, onTranslationCached, onTranslationRemoved, onClose, onEdit, onDelete, onSend, nestedDialogs, onUpdateRecipe, userId, ownerLabel, linkedPeople = [], onAddMealPlan, collections, recipeCollectionIds, onAddToCollection, onRemoveFromCollection }: Props) {
   const baseServings0 = recipe?.original_servings || recipe?.servings || 1;
   const [scaledServings, setScaledServings] = useState(baseServings0);
   const [aiIngredients, setAiIngredients] = useState<{ amount: string; name: string; details: string }[] | null>(null);
   const [isAiScaling, setIsAiScaling] = useState(false);
-  const [isSavingScaled, setIsSavingScaled] = useState(false);
   const [isCookMode, setIsCookMode] = useState(false);
   const { images, busy: galleryBusy, fetchImages, addImages, deleteImage } = useRecipeImages(recipe?.id ?? null, userId ?? null);
   const { myRating, otherRatings, busy: ratingBusy, setRating } = useRecipeRatings(recipe?.id ?? null, userId ?? null);
@@ -297,27 +295,6 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
     }
   }
 
-  async function handleSaveScaled() {
-    if (!onSaveScaled || !recipe || !aiIngredients) return;
-    setIsSavingScaled(true);
-    try {
-      // Explicitly omit DB-managed fields to prevent insert conflicts
-      const { id: _id, created_at: _ca, tags: _tags, is_favourite: _fav, nutrition: _nut, rating: _r, notes: _n, user_id: _u, ...rest } = recipe;
-      void _id; void _ca; void _tags; void _fav; void _nut; void _r; void _n; void _u;
-      await onSaveScaled({
-        ...rest,
-        title: `${recipe.title} (${scaledServings} servings)`,
-        ingredients: aiIngredients,
-        servings: scaledServings,
-        original_servings: scaledServings,
-      });
-      toast.success(`Saved as "${recipe.title} (${scaledServings} servings)"`);
-    } catch {
-      toast.error('Failed to save scaled recipe.');
-    } finally {
-      setIsSavingScaled(false);
-    }
-  }
   /**
    * Throws away one cached translation.
    *
@@ -831,17 +808,6 @@ export function RecipeDetail({ recipe, preferredLanguage, temperatureUnit = 'C',
                   >
                     {isAiScaling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                     {isAiScaling ? 'Scaling…' : 'AI Scale'}
-                  </button>
-                )}
-                {aiIngredients && onSaveScaled && (
-                  <button
-                    onClick={handleSaveScaled}
-                    disabled={isSavingScaled}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 disabled:opacity-50 text-white dark:text-primary-foreground text-xs font-bold font-sans rounded-full transition-colors"
-                    title="Save as a new recipe with these AI-rounded quantities"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    {isSavingScaled ? 'Saving…' : 'Save as new recipe'}
                   </button>
                 )}
                 <RecipeTimes prep={recipe.prep_time_mins} cook={recipe.cook_time_mins} />

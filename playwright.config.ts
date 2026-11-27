@@ -37,6 +37,10 @@ export default defineConfig({
     // Who is the admin is the server's answer (GET /api/account?tab=whoami),
     // which tests/e2e/support/mockBackend.ts gives for MOCK_USER.
     url: BASE_URL,
+    // Sign-up is closed unless this is set (src/lib/signupOpen.ts). The auth
+    // specs exercise sign-up, so the suite runs with it open; the closed
+    // screen is held by src/components/AuthGate.test.tsx.
+    env: { VITE_SIGNUP_OPEN: 'true' },
     reuseExistingServer: !process.env.CI,
     timeout: 10000,
   },

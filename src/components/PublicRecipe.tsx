@@ -8,6 +8,7 @@ import { usePrintTitle } from '@/hooks/usePrintTitle';
 import { supabase } from '@/lib/supabase';
 import { LANGUAGES } from '@/lib/constants';
 import { APP_NAME, AUTHOR_NAME, AUTHOR_URL, CAPABILITY_GROUPS } from '@/lib/appInfo';
+import { isSignupOpen } from '@/lib/signupOpen';
 import type { Ingredient, Recipe } from '@/types';
 
 /**
@@ -52,6 +53,7 @@ interface Props {
  * but can never cause one to be made.
  */
 export function PublicRecipe({ recipe, shareToken }: Props) {
+  const signupOpen = isSignupOpen();
   const baseServings = recipe.original_servings || recipe.servings || 1;
   const [servings, setServings] = useState(baseServings);
   const [isCookMode, setIsCookMode] = useState(false);
@@ -315,7 +317,7 @@ export function PublicRecipe({ recipe, shareToken }: Props) {
             Someone sent you this from their recipe vault. It is where they keep
             every recipe worth cooking twice — pulled in from links, cookbook
             photos and PDFs, then searchable, scalable and ready for the week
-            ahead. You can have one too.
+            ahead.{signupOpen ? ' You can have one too.' : ''}
           </p>
         </div>
 
@@ -337,12 +339,14 @@ export function PublicRecipe({ recipe, shareToken }: Props) {
         </ul>
 
         <div className="flex flex-col sm:flex-row gap-3 pt-1">
-          <a
-            href="/"
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold transition-colors"
-          >
-            Create a free account <ArrowRight className="w-4 h-4" />
-          </a>
+          {signupOpen && (
+            <a
+              href="/"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground font-semibold transition-colors"
+            >
+              Create a free account <ArrowRight className="w-4 h-4" />
+            </a>
+          )}
           <a
             href="/about"
             className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-zinc-200 dark:border-zinc-800 font-semibold text-zinc-700 dark:text-zinc-300 hover:border-sk-primary hover:text-sk-primary dark:hover:text-primary transition-colors"
