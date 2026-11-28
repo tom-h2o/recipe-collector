@@ -525,6 +525,13 @@ const admin: Record<string, string> = {
     'Die obere Leiste hat einen größeren Namen und eine Taste „Neu“, die sagt, was sie tut.',
   'The account sheet opens straight with your name, and the Inbox no longer carries a “Back to Vault” link: the Vault tab is the way back.':
     'Das Konto-Menü beginnt direkt mit deinem Namen, und in der Inbox gibt es keinen Link „Zurück zum Vault“ mehr: Der Vault-Tab führt zurück.',
+  '“What can I cook?” on a phone': '„Was kann ich kochen?“ auf dem Handy',
+  'The suggestions fit the screen: long recipe names are cut short instead of running off the edge, and each shows two lines of ingredients.':
+    'Die Vorschläge passen auf den Bildschirm: Lange Rezeptnamen werden gekürzt, statt über den Rand zu laufen, und jeder zeigt zwei Zeilen Zutaten.',
+  'Suggested recipes appear in the language you last read them in, like in the vault.':
+    'Vorgeschlagene Rezepte erscheinen in der Sprache, in der du sie zuletzt gelesen hast, wie im Vault.',
+  'When the keyboard opens, the sheet stays attached and sits on top of it instead of jumping to the middle of the screen.':
+    'Wenn die Tastatur aufgeht, bleibt das Fenster direkt über ihr, statt in die Mitte des Bildschirms zu springen.',
 };
 
 export default admin;

@@ -518,6 +518,7 @@ export default function App() {
             isOpen={isSuggestOpen}
             onClose={() => setIsSuggestOpen(false)}
             onSelectRecipe={openRecipe}
+            translationsCache={translationsCache}
           />
         )}
 
