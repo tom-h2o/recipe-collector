@@ -175,7 +175,8 @@ Use an address that is not the admin's.
 - [ ] Supabase → Authentication → Users → **Invite user** with the second
       address. The email arrives within a minute, from your own sender.
 - [ ] The link opens "Welcome to Speisekammer" (Willkommen bei Speisekammer)
-      and asks for a password, then shows the empty vault. (If it opens the vault directly, tell Claude: the
+      and asks for a password, then shows the empty vault with **First steps**
+      (Erste Schritte) open over it. Follow it once as a new person would. (If it opens the vault directly, tell Claude: the
       invitation link then arrives in a form the app does not recognise.)
 - [ ] Sign out, sign in again with the password.
 - [ ] On the sign-in screen: no "Sign up", and the line about Anthropic and
@@ -259,9 +260,10 @@ Use an address that is not the admin's.
   is their test.
 - **Search words are written when a recipe is tagged.** Editing a recipe's
   ingredients later does not refresh them; its own text is always searched.
-- **No first-steps guide in the app yet.** A new person has to be told how to
-  add the app to the Home Screen (Safari → Share → Add to Home Screen) and
-  where the Shortcuts are (Settings → General → iPhone Shortcuts).
+- **The first-steps guide has not been read by a real new person yet.** It
+  opens once over an empty vault and is under the account list (First steps /
+  Erste Schritte). Whether its wording is enough for the Shortcuts is what the
+  first invited person will show.
 - **No Impressum or privacy policy**, only the data note on `/about`. Both are
   due before sign-up is opened (`VITE_SIGNUP_OPEN=true`).
 
@@ -272,9 +274,9 @@ Use an address that is not the admin's.
    whether it opens the password form was not checkable from the repository.
 2. Both Shortcuts are shared by iCloud link under their new names (part 2).
 3. Supabase → Authentication → Users → **Invite user** with their address.
-4. Tell them, in a message of your own: open the link on the iPhone in Safari,
-   choose a password, then Share → Add to Home Screen, and Settings → General →
-   iPhone Shortcuts for the two Shortcuts.
+4. Tell them, in a message of your own: open the link on the iPhone in Safari
+   and choose a password. The app then shows "First steps" (Erste Schritte)
+   by itself: Home Screen, first recipe, the two Shortcuts.
 5. Admin → Usage shows whether they opened the app; Admin → Feedback what they
    sent from "Send feedback".
 

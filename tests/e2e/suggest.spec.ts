@@ -151,13 +151,21 @@ test('each suggestion is shown in the language its recipe was last read in', asy
   const toast = { ...MOCK_RECIPES[1], id: 'tr-2', preferred_language: null };
   const untranslated = { ...MOCK_RECIPES[0], id: 'tr-3', title: 'Lentil Soup', preferred_language: 'fr' };
   const asked: string[] = [];
+  const stored = [
+    { recipe_id: 'tr-1', language_code: 'de', title: 'Klassische Pizza Margherita', description: null, instructions: 'Backen.', ingredients: [{ amount: '250 g', name: 'Mehl', details: '' }, { amount: '1', name: 'Mozzarella', details: '' }] },
+    // Another language of the same recipe is not the one it was read in.
+    { recipe_id: 'tr-1', language_code: 'es', title: 'Pizza Margarita clásica', description: null, instructions: 'Hornear.', ingredients: [{ amount: '250 g', name: 'harina', details: '' }] },
+  ];
+  // A table: it answers with the rows of the recipes asked for. The vault asks
+  // this table too, for its own cards, and when that request lands is not
+  // this test's business; a fake that handed every caller every row let the
+  // vault's request fill the cache first, and the test passed or failed by
+  // timing.
   await page.route('**/rest/v1/recipe_translations**', (route) => {
-    asked.push(new URL(route.request().url()).searchParams.get('recipe_id') ?? '');
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
-      { recipe_id: 'tr-1', language_code: 'de', title: 'Klassische Pizza Margherita', description: null, instructions: 'Backen.', ingredients: [{ amount: '250 g', name: 'Mehl', details: '' }, { amount: '1', name: 'Mozzarella', details: '' }] },
-      // Another language of the same recipe is not the one it was read in.
-      { recipe_id: 'tr-1', language_code: 'es', title: 'Pizza Margarita clásica', description: null, instructions: 'Hornear.', ingredients: [{ amount: '250 g', name: 'harina', details: '' }] },
-    ]) });
+    const ids = new URL(route.request().url()).searchParams.get('recipe_id') ?? '';
+    asked.push(ids);
+    const wanted = ids.replace(/^in\.\(|\)$/g, '').split(',');
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(stored.filter((row) => wanted.includes(row.recipe_id))) });
   });
 
   const results = await suggest(page, sheet, [pizza, toast, untranslated]);
@@ -170,6 +178,7 @@ test('each suggestion is shown in the language its recipe was last read in', asy
   await expect(rows.nth(1)).toContainText(MOCK_RECIPES[1].title);
   // A language with no stored translation: the original, not an empty row.
   await expect(rows.nth(2)).toContainText('Lentil Soup');
-  // One query, for the recipes that have a language, and none for the others.
-  expect(asked).toEqual(['in.(tr-1,tr-3)']);
+  // One query for the suggestions: the recipes that have a language, and not
+  // the one that has none.
+  expect(asked.filter((ids) => ids.includes('tr-'))).toEqual(['in.(tr-1,tr-3)']);
 });

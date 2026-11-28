@@ -16,6 +16,7 @@ interface Props {
   inboxCount: number;
   onSetView: (v: ActiveView) => void;
   onOpenSettings: () => void;
+  onOpenFirstSteps?: () => void;
   onOpenSuggest: () => void;
   onAddRecipe: () => void;
   onSignOut: () => void;
@@ -29,7 +30,7 @@ const MOBILE_TABS = [
   { view: 'inbox' as const, icon: Inbox, label: msg('Inbox') },
 ] as const;
 
-export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadReleases, inboxCount, onSetView, onOpenSettings, onOpenSuggest, onAddRecipe, onSignOut, children }: Props) {
+export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadReleases, inboxCount, onSetView, onOpenSettings, onOpenFirstSteps, onOpenSuggest, onAddRecipe, onSignOut, children }: Props) {
   const t = useT();
   const { isDark, toggle } = useDarkMode();
   // One pill per tab bar; each slides to whichever tab is current.
@@ -43,6 +44,7 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
     user,
     onSignOut,
     onOpenSettings,
+    onOpenFirstSteps,
     onOpenWhatsNew,
     hasUnreadReleases,
     currentView: activeView,

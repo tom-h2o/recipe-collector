@@ -98,9 +98,15 @@ interface Options {
    * a sign-in; a spec answers /auth/v1 itself by routing it after this call.
    */
   signedIn?: boolean;
+  /**
+   * Leave "First steps" unseen, so it opens by itself over an empty vault as
+   * it does for a newly invited person. Seen by default: a spec that empties
+   * the vault for another reason must not find a sheet over it.
+   */
+  newPerson?: boolean;
 }
 
-export async function installMockBackend(page: Page, { verbose = false, theme, email, signedIn = true }: Options = {}) {
+export async function installMockBackend(page: Page, { verbose = false, theme, email, signedIn = true, newPerson = false }: Options = {}) {
   const log = (...args: unknown[]) => { if (verbose) console.log(...args); };
   const user = email ? { ...MOCK_USER, email } : MOCK_USER;
 
@@ -148,8 +154,9 @@ export async function installMockBackend(page: Page, { verbose = false, theme, e
   });
 
   await page.addInitScript(
-    ({ storageKey, user, themeChoice, seedSession }) => {
+    ({ storageKey, user, themeChoice, seedSession, seen }) => {
       if (themeChoice) window.localStorage.setItem('theme', themeChoice);
+      if (seen) window.localStorage.setItem(`sk-first-steps-seen:${user.id}`, '1');
       if (!seedSession) return;
       window.localStorage.setItem(
         storageKey,
@@ -163,6 +170,6 @@ export async function installMockBackend(page: Page, { verbose = false, theme, e
         }),
       );
     },
-    { storageKey: authStorageKey, user, themeChoice: theme ?? null, seedSession: signedIn },
+    { storageKey: authStorageKey, user, themeChoice: theme ?? null, seedSession: signedIn, seen: !newPerson },
   );
 }

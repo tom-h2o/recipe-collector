@@ -25,6 +25,15 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-24',
+    title: msg('First steps, for someone new'),
+    items: [
+      msg('A short guide shows a new person the first four things: putting the app on the Home Screen, adding a recipe, setting up the iPhone Shortcuts, and where cooking, planning and shopping are.'),
+      msg('It opens once by itself while your vault is still empty, and is always under your account as “First steps”.'),
+      msg('The About page has a Back button, lists sharing before planning, and describes connecting accounts as opening your vault to friends.'),
+    ],
+  },
+  {
     id: '2026-12-23',
     title: msg('“What can I cook?” on a phone'),
     items: [
