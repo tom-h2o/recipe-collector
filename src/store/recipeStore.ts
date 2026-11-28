@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { apiFetch } from '@/lib/api';
 import { PAGE_SIZE } from '@/lib/constants';
 import { t, tn, translateMessage } from '@/i18n';
-import { parseIngredients } from '@/lib/recipeUtils';
+import { basketIngredients, upcomingMeals } from '@/lib/shoppingMeals';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { Recipe, MealPlan, ShoppingItem, PantryItem } from '@/types';
 
@@ -68,6 +68,8 @@ interface RecipeState {
   fetchMealPlans: () => Promise<void>;
   addMealPlan: (date: string, mealType: string, recipeId: string, userId: string | null) => Promise<void>;
   removeMealPlan: (id: string) => Promise<void>;
+  /** Portions, or whether the meal goes on the shopping list. False when it could not be saved. */
+  updateMealPlan: (id: string, changes: { servings?: number | null; in_shopping?: boolean }) => Promise<boolean>;
 
   // Shopping / Pantry
   shoppingList: ShoppingItem[];
@@ -75,7 +77,8 @@ interface RecipeState {
   isGeneratingShopping: boolean;
   fetchShoppingList: (userId: string | null) => Promise<void>;
   fetchPantryItems: (userId: string | null) => Promise<void>;
-  generateShoppingList: (mealPlans: MealPlan[], userId: string | null) => Promise<void>;
+  /** Builds the list from the ticked upcoming meals. True when a new list was written. */
+  generateShoppingList: (mealPlans: MealPlan[], userId: string | null) => Promise<boolean>;
   /** An item the person types in themselves; "Generate" leaves it alone. */
   addShoppingItem: (item: string, userId: string | null) => Promise<void>;
   toggleShoppingItem: (id: string, checked: boolean) => Promise<void>;
@@ -546,6 +549,20 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
     await get().fetchMealPlans();
   },
 
+  updateMealPlan: async (id, changes) => {
+    const before = get().mealPlans;
+    set({ mealPlans: before.map((m) => (m.id === id ? { ...m, ...changes } : m)) });
+    // The affected row is asked for back: an update RLS refuses (a linked
+    // account's plan entry) matches no row and reports no error.
+    const { data, error } = await supabase.from('meal_plan').update(changes).eq('id', id).select('id');
+    if (error || !data?.length) {
+      set({ mealPlans: before });
+      toast.error(t('The change to the plan could not be saved.'));
+      return false;
+    }
+    return true;
+  },
+
   removeMealPlan: async (id) => {
     const { error } = await supabase.from('meal_plan').delete().eq('id', id);
     if (error) throw error;
@@ -586,21 +603,22 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
   },
 
   generateShoppingList: async (mealPlans, userId) => {
+    // The meals shown as the basket on the shopping page: today through the
+    // next seven days, those still ticked, each at its own portions
+    // (src/lib/shoppingMeals.ts). What is shown there is what is sent here.
+    const upcoming = upcomingMeals(mealPlans);
+    const rawIngredients = basketIngredients(upcoming);
+    if (upcoming.length === 0) {
+      toast.error(t('No meals planned for the next 7 days!'));
+      return false;
+    }
+    if (rawIngredients.length === 0) {
+      toast.error(t('No meal is ticked for the list.'));
+      return false;
+    }
     set({ isGeneratingShopping: true });
     const toastId = toast.loading(t('Building your shopping list with AI...'));
     try {
-      const today = new Date();
-      const nextWeek = new Date();
-      nextWeek.setDate(today.getDate() + 7);
-      const upcoming = mealPlans.filter(
-        (m) => new Date(m.date) >= today && new Date(m.date) <= nextWeek,
-      );
-      if (upcoming.length === 0) throw new Error(t('No meals planned for the next 7 days!'));
-
-      const rawIngredients = upcoming.flatMap((m) =>
-        parseIngredients(m.recipe?.ingredients ?? []).map((i) => `${i.amount} ${i.name}`.trim()),
-      );
-
       const res = await apiFetch('/api/shopping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -640,9 +658,11 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
           : t('Shopping list generated!'),
         { id: toastId },
       );
+      return true;
     } catch (err: unknown) {
       const message = err instanceof Error ? translateMessage(err.message) : t('Failed to generate list');
       toast.error(message, { id: toastId });
+      return false;
     } finally {
       set({ isGeneratingShopping: false });
     }

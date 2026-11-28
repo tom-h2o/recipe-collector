@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { CookTimer } from '@/components/CookTimer';
 import { useCookTimer } from '@/hooks/useCookTimer';
 import { useWakeLock } from '@/hooks/useWakeLock';
+import { isPhoneWidth, useSwipeToClose } from '@/hooks/useSwipeToClose';
 import { parseDurations } from '@/lib/parseDurations';
 import { parseIngredients } from '@/lib/recipeUtils';
 import { ingredientsInStep } from '@/lib/stepIngredients';
@@ -28,6 +29,8 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
   const timer = useCookTimer();
   // The screen stays on for as long as cook mode is open.
   useWakeLock(isOpen && !!recipe);
+  // On a phone the ingredient list is a sheet, and pulling it down closes it.
+  const swipe = useSwipeToClose(() => setShowIngredients(false), isPhoneWidth);
 
   if (!recipe) return null;
 
@@ -95,15 +98,18 @@ export function CookMode({ recipe, isOpen, onClose, translation }: Props) {
               />
               <section
                 aria-label={t('Ingredients')}
+                data-sheet
                 className="fixed inset-x-0 bottom-0 z-20 max-h-[72dvh] rounded-t-3xl border-t border-white/10 bg-zinc-900 pb-[var(--safe-bottom)] pl-[var(--safe-left)] pr-[var(--safe-right)] sm:static sm:z-auto sm:max-h-none sm:rounded-none sm:border-t-0 sm:border-r sm:bg-transparent sm:p-0 w-full sm:w-72 shrink-0 flex flex-col overflow-hidden"
               >
+                <div {...swipe} data-sheet-grab className="shrink-0 max-sm:touch-none">
                 <div aria-hidden="true" className="sm:hidden mx-auto mt-2.5 h-1 w-10 rounded-full bg-white/20" />
-                <div className="shrink-0 px-5 py-3.5 border-b border-white/10 flex items-center justify-between">
+                <div className="px-5 py-3.5 border-b border-white/10 flex items-center justify-between">
                   <span className="font-bold text-sm text-white/80 uppercase tracking-wider">{t('Ingredients')}</span>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-white/40 tabular-nums">{t('{done} of {total} done', { done: checkedIngredients.size, total: ingredients.length })}</span>
                     <button onClick={() => setShowIngredients(false)} aria-label={t('Hide ingredients')} className="sm:hidden p-2 -mr-2 rounded-full hover:bg-white/10 text-white/60"><X className="w-5 h-5" /></button>
                   </div>
+                </div>
                 </div>
                 <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-3 space-y-1">
                   {ingredients.map((ing, i) => (

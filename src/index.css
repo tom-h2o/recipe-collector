@@ -164,6 +164,30 @@
 
   html {
     font-family: 'Manrope Variable', Manrope, system-ui, sans-serif;
+    /* A second tap is a second tap, not the start of a zoom: without this a
+       touch browser may hold a tap back to see whether a double-tap follows.
+       Pinching to zoom still works. */
+    touch-action: manipulation;
+  }
+}
+
+/*
+ * Typing must not zoom the page.
+ *
+ * iOS Safari zooms in on any field whose text is smaller than 16 px when it
+ * takes focus, and does not zoom back out: after one search the top bar's
+ * buttons were off screen. Nearly every field here is `text-sm` (14 px). On a
+ * touch device fields are therefore 16 px, which is also easier to read while
+ * typing with a thumb; with a mouse they keep the size their classes give.
+ *
+ * Not `maximum-scale=1` on the viewport: that would also stop people who need
+ * to from zooming the page.
+ */
+@media (pointer: coarse) {
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='file']),
+  textarea,
+  select {
+    font-size: 16px !important;
   }
 }
 

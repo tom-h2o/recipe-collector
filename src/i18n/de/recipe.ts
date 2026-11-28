@@ -2,7 +2,7 @@
 const recipe: Record<string, string> = {
   // ── The recipe drawer: actions ─────────────────────────────────────────────
   'Translate recipe': 'Rezept übersetzen',
-  'Add to meal plan': 'In den Wochenplan',
+  'Add to meal plan': 'In den Plan',
   'Send recipe to someone': 'Rezept an jemanden senden',
   'More options': 'Weitere Optionen',
   'View original': 'Original ansehen',

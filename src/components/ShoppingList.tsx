@@ -1,8 +1,16 @@
 import { useState } from 'react';
-import { ShoppingCart, Wand2, X, AlertTriangle, Trash2, Package, ArrowLeft, Plus } from 'lucide-react';
-import type { ShoppingItem, PantryItem, MealPlan } from '@/types';
-import { useT, msg } from '@/i18n';
+import {
+  ShoppingCart, Wand2, X, Package, ArrowLeft, Plus, Minus, Check, Users, RefreshCw,
+} from 'lucide-react';
+import type { ShoppingItem, PantryItem, MealPlan, Recipe } from '@/types';
+import { useT, msg, tn, dateLocale } from '@/i18n';
 import { rich } from '@/i18n/rich';
+import { Button } from '@/components/ui/button';
+import { Sheet } from '@/components/Sheet';
+import { SegmentedTabs, type SegmentedTab } from '@/components/SegmentedTabs';
+import {
+  MAX_PORTIONS, basketSignature, isOnList, portionsOf, readListBasis, upcomingMeals, writeListBasis,
+} from '@/lib/shoppingMeals';
 
 type Tab = 'shopping' | 'pantry';
 
@@ -16,7 +24,13 @@ interface Props {
   pantryItems: PantryItem[];
   isGenerating: boolean;
   mealPlans: MealPlan[];
-  onGenerate: (mealPlans: MealPlan[]) => void;
+  /** Whose list this is; a linked person's planned meals are shown but not changed. */
+  userId?: string | null;
+  /** Builds the list from the ticked upcoming meals; true when a new list was written. */
+  onGenerate: (mealPlans: MealPlan[]) => Promise<boolean>;
+  /** Portions of a planned meal, or whether it goes on the list. */
+  onUpdateMeal: (id: string, changes: { servings?: number | null; in_shopping?: boolean }) => Promise<boolean>;
+  onOpenRecipe?: (recipe: Recipe) => void;
   /** Adds an item the person typed in; Generate keeps these. */
   onAddItem: (item: string) => void;
   onToggleItem: (id: string, checked: boolean) => void;
@@ -28,9 +42,44 @@ interface Props {
   onAddToPantry: (item: string, category: string | null) => void;
 }
 
+const CARD = 'rounded-2xl bg-white dark:bg-card ring-1 ring-sk-outline-variant/40 dark:ring-border';
+const LABEL = 'font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-sk-on-surface-variant dark:text-muted-foreground';
+const FIELD = 'flex-1 min-w-0 h-10 rounded-xl border-0 bg-sk-surface-highest dark:bg-input px-4 text-sm font-sans text-sk-on-surface dark:text-foreground placeholder:text-sk-outline dark:placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-sk-primary/25 dark:focus:ring-primary/25';
+const ADD = 'inline-flex shrink-0 items-center gap-1.5 h-10 px-4 rounded-full bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground text-sm font-semibold font-sans transition-colors';
+const ICON_BUTTON = 'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sk-outline dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted transition-colors';
+
+/** The round tick used for meals and items: empty, or filled green with a check. */
+function Tick({ checked }: { checked: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
+        checked
+          ? 'border-sk-primary bg-sk-primary text-white dark:border-primary dark:bg-primary dark:text-primary-foreground'
+          : 'border-sk-outline dark:border-muted-foreground'
+      }`}
+    >
+      {checked && <Check className="w-3 h-3" strokeWidth={3} />}
+    </span>
+  );
+}
+
+/**
+ * Shopping: the meals the list is for, the list itself, and the pantry.
+ *
+ * The list is built from the meals planned for today and the next seven days.
+ * They are shown first, as a basket: each can be left off the list and given
+ * its own number of portions (migration 0079), and "Create list" uses exactly
+ * what is ticked there. It used to take every planned meal silently, at the
+ * recipe's own servings, and say nothing about which.
+ *
+ * The page is drawn with the app's own surfaces, serif headings and round
+ * ticks; it was the one screen still in the neutral greys and bold sans of
+ * an earlier design. Bought items move into a "Done" group at the bottom.
+ */
 export function ShoppingList({
-  shoppingList, pantryItems, isGenerating, mealPlans,
-  onGenerate, onAddItem, onToggleItem, onDeleteItem, onClearAll,
+  shoppingList, pantryItems, isGenerating, mealPlans, userId,
+  onGenerate, onUpdateMeal, onOpenRecipe, onAddItem, onToggleItem, onDeleteItem, onClearAll,
   onMoveItemToPantry, onMoveItemToShopping, onDeletePantryItem, onAddToPantry,
 }: Props) {
   const t = useT();
@@ -39,205 +88,304 @@ export function ShoppingList({
   const [tab, setTab] = useState<Tab>('shopping');
   const [newPantryItem, setNewPantryItem] = useState('');
   const [newItem, setNewItem] = useState('');
+  const [confirmClear, setConfirmClear] = useState(false);
+  // What the list on screen was made from, as far as this device knows.
+  const [basis, setBasis] = useState(() => readListBasis(userId));
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const nextWeek = new Date(today);
-  nextWeek.setDate(today.getDate() + 7);
-  const hasUpcomingMeals = mealPlans.some((m) => {
-    const d = new Date(m.date);
-    return d >= today && d <= nextWeek;
-  });
-  const isStale = shoppingList.length > 0 && !hasUpcomingMeals;
+  const meals = upcomingMeals(mealPlans);
+  const chosen = meals.filter(isOnList);
+  const signature = basketSignature(meals);
+  const generatedCount = shoppingList.filter((i) => i.from_plan).length;
+  const listIsCurrent = generatedCount > 0 && basis === signature;
+  const mealsChanged = generatedCount > 0 && basis !== null && basis !== signature;
 
-  // Which shopping items are already covered by pantry (case-insensitive substring match)
-  const pantryNames = new Set(pantryItems.map((p) => p.item.toLowerCase()));
-  function isPantryItem(item: ShoppingItem) {
-    return pantryNames.has(item.item.toLowerCase());
+  async function generate() {
+    const madeFrom = signature;
+    if (await onGenerate(mealPlans)) {
+      writeListBasis(userId, madeFrom);
+      setBasis(madeFrom);
+    }
   }
 
-  const shoppingGrouped = shoppingList.reduce((acc, curr) => {
+  function clearList() {
+    setConfirmClear(false);
+    onClearAll();
+    writeListBasis(userId, null);
+    setBasis(null);
+  }
+
+  // Which shopping items the pantry already holds (same text, any case).
+  const pantryNames = new Set(pantryItems.map((p) => p.item.toLowerCase()));
+  const inPantry = (item: ShoppingItem) => pantryNames.has(item.item.toLowerCase());
+
+  const open = shoppingList.filter((i) => !i.is_checked);
+  const done = shoppingList.filter((i) => i.is_checked);
+  const grouped = open.reduce((acc, curr) => {
     // What the person added themselves has no category; it gets a group of
     // its own rather than hiding among the generated "Other".
     const cat = curr.category || (curr.from_plan ? OTHER : OWN_ITEMS);
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(curr);
+    (acc[cat] ??= []).push(curr);
     return acc;
   }, {} as Record<string, ShoppingItem[]>);
   // The person's own items first, then the generated groups as they came.
-  const shoppingGroups = Object.entries(shoppingGrouped).sort(([a], [b]) => Number(b === OWN_ITEMS) - Number(a === OWN_ITEMS));
+  const groups = Object.entries(grouped).sort(([a], [b]) => Number(b === OWN_ITEMS) - Number(a === OWN_ITEMS));
 
   const pantryGrouped = pantryItems.reduce((acc, curr) => {
-    const cat = curr.category || OTHER;
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(curr);
+    (acc[curr.category || OTHER] ??= []).push(curr);
     return acc;
   }, {} as Record<string, PantryItem[]>);
 
-  const pantryOverlapCount = shoppingList.filter(isPantryItem).length;
+  const pantryOverlapCount = open.filter(inPantry).length;
   const pantryOverlapText = pantryOverlapCount === 1
     ? msg('<b>{n} item</b> on this list is already in your pantry — shown with a green dot.')
     : msg('<b>{n} items</b> on this list are already in your pantry — shown with a green dot.');
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <h2 className="text-2xl font-bold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-          <ShoppingCart className="w-6 h-6 text-sk-primary" /> {t('Smart Shopping List')}
-        </h2>
-        <div className="flex gap-2">
-          {shoppingList.length > 0 && tab === 'shopping' && (
-            <button
-              onClick={onClearAll}
-              className="flex items-center gap-2 bg-zinc-100 hover:bg-red-50 dark:bg-zinc-800 dark:hover:bg-red-900/30 text-zinc-500 hover:text-red-600 dark:hover:text-red-400 text-sm font-bold min-h-[40px] px-4 rounded-xl transition-colors border border-zinc-200 dark:border-zinc-700"
-              title={t('Clear shopping list')}
-            >
-              <Trash2 className="w-4 h-4" /> {t('Clear')}
-            </button>
-          )}
-          <button
-            onClick={() => onGenerate(mealPlans)}
-            disabled={isGenerating}
-            className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold min-h-[40px] px-4 rounded-xl shadow-sm transition-transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Wand2 className="w-4 h-4" />
-            {isGenerating ? t('Generating...') : <><span className="hidden sm:inline">{t('Generate from Next 7 Days')}</span><span className="sm:hidden">{t('Generate')}</span></>}
-          </button>
-        </div>
-      </div>
+  const TABS: SegmentedTab<Tab>[] = [
+    { id: 'shopping', label: t('To Buy'), icon: ShoppingCart, count: open.length || undefined },
+    { id: 'pantry', label: t('Pantry'), icon: Package, count: pantryItems.length || undefined },
+  ];
 
-      {/* Tab switcher */}
-      <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-xl p-1 gap-1">
-        <button
-          onClick={() => setTab('shopping')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'shopping' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
-        >
-          <ShoppingCart className="w-4 h-4" />
-          {t('To Buy')}
-          {shoppingList.length > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 bg-sk-primary text-white dark:text-primary-foreground text-[10px] font-bold rounded-full">{shoppingList.length}</span>
+  const dayOf = (meal: MealPlan) =>
+    new Date(`${meal.date}T12:00:00`).toLocaleDateString(dateLocale(), { weekday: 'short', day: 'numeric', month: 'short' });
+
+  const itemRow = (item: ShoppingItem) => (
+    <li key={item.id} className="flex items-center gap-1 pl-1">
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={item.is_checked}
+        onClick={() => onToggleItem(item.id, !item.is_checked)}
+        data-pressable="surface"
+        className="flex flex-1 min-w-0 items-center gap-3 min-h-11 px-2 rounded-xl text-left hover:bg-sk-surface-low dark:hover:bg-muted transition-colors"
+      >
+        <Tick checked={item.is_checked} />
+        <span className={`min-w-0 text-sm font-sans ${item.is_checked ? 'line-through text-sk-outline dark:text-muted-foreground' : 'text-sk-on-surface dark:text-foreground'}`}>
+          {!item.is_checked && inPantry(item) && (
+            <span className="inline-block w-2 h-2 rounded-full bg-sk-primary dark:bg-primary mr-1.5 mb-0.5" title={t('Already in pantry')} />
           )}
-        </button>
-        <button
-          onClick={() => setTab('pantry')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'pantry' ? 'bg-white dark:bg-zinc-900 shadow text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
-        >
+          {item.item}
+        </span>
+      </button>
+      {!item.is_checked && (
+        <button type="button" onClick={() => onMoveItemToPantry(item)} className={`${ICON_BUTTON} hover:text-sk-primary dark:hover:text-primary`} title={t('Move to pantry')} aria-label={t('Move {item} to the pantry', { item: item.item })}>
           <Package className="w-4 h-4" />
-          {t('Pantry')}
-          {pantryItems.length > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 bg-emerald-700 text-white text-[10px] font-bold rounded-full">{pantryItems.length}</span>
-          )}
         </button>
-      </div>
-
-      {/* Stale warning */}
-      {isStale && tab === 'shopping' && (
-        <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-2xl text-sm">
-          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-          <div>
-            <span className="font-semibold text-amber-800 dark:text-amber-300">{t('No meals planned for the next 7 days.')}</span>
-            <span className="text-amber-700 dark:text-amber-400">{' '}{t('This list was generated from a previous meal plan and may no longer be accurate.')}</span>
-          </div>
-        </div>
       )}
+      <button type="button" onClick={() => onDeleteItem(item.id)} className={`${ICON_BUTTON} hover:text-destructive`} aria-label={t('Remove {item}', { item: item.item })}>
+        <X className="w-4 h-4" />
+      </button>
+    </li>
+  );
 
-      {/* Pantry overlap banner */}
-      {pantryOverlapCount > 0 && tab === 'shopping' && (
-        <div className="flex items-start gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 rounded-2xl text-sm">
-          <Package className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-          <span className="text-emerald-700 dark:text-emerald-400">
-            {rich(t, pantryOverlapText, { b: (text) => <span className="font-semibold">{text}</span> }, { n: pantryOverlapCount })}
-          </span>
-        </div>
-      )}
+  return (
+    <div className="max-w-3xl mx-auto space-y-5 animate-in fade-in duration-500">
+      <h2 className="font-serif text-2xl sm:text-3xl font-normal text-sk-on-surface dark:text-foreground">
+        {t('Smart Shopping List')}
+      </h2>
 
-      {/* Add an item by hand */}
+      <SegmentedTabs tabs={TABS} value={tab} onChange={setTab} label={t('Shopping list and pantry')} idPrefix="shopping" layout="fill" />
+
       {tab === 'shopping' && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const val = newItem.trim();
-            if (!val) return;
-            onAddItem(val);
-            setNewItem('');
-          }}
-          className="flex gap-2"
-        >
-          <input
-            value={newItem}
-            onChange={(e) => setNewItem(e.target.value)}
-            aria-label={t('Add an item to the shopping list')}
-            placeholder={t('Add an item (e.g. coffee, washing-up liquid)…')}
-            maxLength={200}
-            className="flex-1 min-w-0 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 text-sm px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-sk-primary/40"
-          />
-          <button
-            type="submit"
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/90 text-white dark:text-primary-foreground text-sm font-semibold rounded-xl transition-colors"
-          >
-            <Plus className="w-4 h-4" /> {t('Add')}
-          </button>
-        </form>
-      )}
+        <div id="shopping-panel" role="tabpanel" aria-labelledby="shopping-tab-shopping" className="space-y-5">
+          {/* ── The meals this list is for ─────────────────────────────── */}
+          <section aria-label={t('Meals for this list')} className={`${CARD} p-4 sm:p-5`}>
+            <div className="flex items-baseline justify-between gap-3">
+              <h3 className={LABEL}>{t('Meals for this list')}</h3>
+              {meals.length > 0 && (
+                <span className="text-xs font-sans text-sk-on-surface-variant dark:text-muted-foreground tabular-nums">
+                  {t('{chosen} of {total} chosen', { chosen: chosen.length, total: meals.length })}
+                </span>
+              )}
+            </div>
 
-      {/* SHOPPING TAB */}
-      {tab === 'shopping' && (
-        shoppingList.length === 0 ? (
-          <div className="text-center py-24 bg-white dark:bg-zinc-900/50 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-sm">
-            <ShoppingCart className="w-16 h-16 mx-auto text-zinc-300 dark:text-zinc-700 mb-4" />
-            <p className="text-xl font-bold text-zinc-500 dark:text-zinc-400">{t('Your shopping list is empty.')}</p>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">{t('Generate one from your meal plan, or add items above.')}</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {shoppingGroups.map(([cat, items]) => (
-              <div key={cat} className="bg-white dark:bg-zinc-900/50 p-5 rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-800">
-                <h3 className="font-sans font-semibold text-sm uppercase tracking-widest text-sk-primary dark:text-primary mb-3 ml-2">{groupLabel(cat)}</h3>
-                <div className="space-y-1">
-                  {items.map((item) => {
-                    const inPantry = isPantryItem(item);
+            {meals.length === 0 ? (
+              <p className="mt-3 text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
+                {t('Nothing is planned for today or the next 7 days. Plan a meal and it appears here.')}
+                {generatedCount > 0 && <> {t('This list was generated from a previous meal plan and may no longer be accurate.')}</>}
+              </p>
+            ) : (
+              <>
+                <ul className="mt-2 -mx-2">
+                  {meals.map((meal) => {
+                    const on = isOnList(meal);
+                    const portions = portionsOf(meal);
+                    const title = meal.recipe?.title ?? t('A recipe that is gone');
+                    // Someone else's plan entry (a connected account): shown, since
+                    // it is planned, but only its owner can change it.
+                    const own = !meal.user_id || !userId || meal.user_id === userId;
                     return (
-                      <div key={item.id} className="flex items-start gap-3 p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-xl group transition-colors">
-                        <input
-                          type="checkbox"
-                          checked={item.is_checked}
-                          onChange={(e) => onToggleItem(item.id, e.target.checked)}
-                          className="w-5 h-5 mt-0.5 rounded border border-sk-outline-variant dark:border-border text-sk-primary focus:ring-sk-primary/30 cursor-pointer bg-white dark:bg-card"
-                        />
-                        <span className={`flex-1 text-sm ${item.is_checked ? 'line-through text-zinc-400 dark:text-zinc-500' : 'text-zinc-800 dark:text-zinc-200'}`}>
-                          {inPantry && <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5 mb-0.5" title={t('Already in pantry')} />}
-                          {item.item}
-                        </span>
-                        <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <li key={meal.id} className={`flex items-center gap-1 ${on ? '' : 'opacity-55'}`}>
+                        <button
+                          type="button"
+                          role="checkbox"
+                          aria-checked={on}
+                          aria-label={t('{title} on the list', { title })}
+                          disabled={!own}
+                          onClick={() => void onUpdateMeal(meal.id, { in_shopping: !on })}
+                          data-pressable="surface"
+                          className="inline-flex h-11 w-9 shrink-0 items-center justify-center rounded-xl hover:bg-sk-surface-low dark:hover:bg-muted transition-colors disabled:pointer-events-none"
+                        >
+                          <Tick checked={on} />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!meal.recipe || !onOpenRecipe}
+                          onClick={() => meal.recipe && onOpenRecipe?.(meal.recipe)}
+                          data-pressable="surface"
+                          className="flex-1 min-w-0 py-1.5 text-left"
+                        >
+                          <span className="block font-serif text-base leading-snug text-sk-on-surface dark:text-foreground truncate">{title}</span>
+                          <span className="block text-xs font-sans text-sk-on-surface-variant dark:text-muted-foreground">
+                            {dayOf(meal)} · {t(meal.meal_type)}
+                          </span>
+                        </button>
+                        {/* Portions: − n +. The number is what the amounts on the list are scaled to. */}
+                        <div role="group" aria-label={t('Portions of {title}', { title })} className="flex shrink-0 items-center">
                           <button
-                            onClick={() => onMoveItemToPantry(item)}
-                            className="text-emerald-500 hover:text-emerald-700 p-1"
-                            title={t('Move to pantry')}
+                            type="button"
+                            disabled={!own || !on || portions <= 1}
+                            onClick={() => void onUpdateMeal(meal.id, { servings: portions - 1 })}
+                            aria-label={t('One portion fewer')}
+                            className={`${ICON_BUTTON} disabled:opacity-30 disabled:pointer-events-none`}
                           >
-                            <Package className="w-3.5 h-3.5" />
+                            <Minus className="w-4 h-4" />
                           </button>
+                          <span className="inline-flex min-w-9 items-center justify-center gap-1 text-sm font-semibold font-sans tabular-nums text-sk-primary dark:text-primary" title={tn(portions, '{n} portion', '{n} portions')}>
+                            <Users className="w-3.5 h-3.5 opacity-70" aria-hidden="true" />
+                            <span aria-label={tn(portions, '{n} portion', '{n} portions')}>{portions}</span>
+                          </span>
                           <button
-                            onClick={() => onDeleteItem(item.id)}
-                            className="text-red-400 hover:text-red-600 p-1"
+                            type="button"
+                            disabled={!own || !on || portions >= MAX_PORTIONS}
+                            onClick={() => void onUpdateMeal(meal.id, { servings: portions + 1 })}
+                            aria-label={t('One portion more')}
+                            className={`${ICON_BUTTON} disabled:opacity-30 disabled:pointer-events-none`}
                           >
-                            <X className="w-4 h-4" />
+                            <Plus className="w-4 h-4" />
                           </button>
                         </div>
-                      </div>
+                      </li>
                     );
                   })}
+                </ul>
+
+                <div className="mt-3 pt-3 border-t border-sk-outline-variant/40 dark:border-border flex flex-col sm:flex-row sm:items-center gap-3">
+                  <p role="status" className="flex-1 text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
+                    {chosen.length === 0
+                      ? t('Tick at least one meal to make a list from it.')
+                      : mealsChanged
+                        ? t('The meals have changed since the list was made.')
+                        : listIsCurrent
+                          ? t('The list matches these meals.')
+                          : generatedCount > 0
+                            ? t('Update the list to match these meals.')
+                            : t('Amounts are added up across the meals and sorted by aisle.')}
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={generate}
+                    disabled={isGenerating || chosen.length === 0}
+                    variant={listIsCurrent ? 'outline' : 'default'}
+                    className={`h-10 shrink-0 rounded-full px-5 gap-2 ${listIsCurrent ? '' : 'bg-sk-primary hover:bg-sk-primary-container text-white dark:text-primary-foreground border-0'}`}
+                  >
+                    {listIsCurrent ? <RefreshCw className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} /> : <Wand2 className={`w-4 h-4 ${isGenerating ? 'animate-pulse' : ''}`} />}
+                    {isGenerating ? t('Generating...') : generatedCount > 0 ? t('Update list') : t('Create list')}
+                  </Button>
                 </div>
+              </>
+            )}
+          </section>
+
+          {/* ── Add an item by hand ────────────────────────────────────── */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const val = newItem.trim();
+              if (!val) return;
+              onAddItem(val);
+              setNewItem('');
+            }}
+            className="flex gap-2"
+          >
+            <input
+              value={newItem}
+              onChange={(e) => setNewItem(e.target.value)}
+              aria-label={t('Add an item to the shopping list')}
+              placeholder={t('Add an item (e.g. coffee, washing-up liquid)…')}
+              maxLength={200}
+              enterKeyHint="done"
+              className={FIELD}
+            />
+            {/* A round + on a phone, so the field keeps the row; named from sm. */}
+            <button type="submit" aria-label={t('Add')} className={`${ADD} max-sm:w-10 max-sm:px-0 max-sm:justify-center`}>
+              <Plus className="w-4 h-4" /> <span className="max-sm:hidden">{t('Add')}</span>
+            </button>
+          </form>
+
+          {pantryOverlapCount > 0 && (
+            <p className="flex items-start gap-2.5 px-1 text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
+              <Package className="w-4 h-4 shrink-0 mt-0.5 text-sk-primary dark:text-primary" aria-hidden="true" />
+              <span>{rich(t, pantryOverlapText, { b: (text) => <span className="font-semibold text-sk-on-surface dark:text-foreground">{text}</span> }, { n: pantryOverlapCount })}</span>
+            </p>
+          )}
+
+          {/* ── The list ───────────────────────────────────────────────── */}
+          {shoppingList.length === 0 ? (
+            <div className={`${CARD} text-center px-6 py-14`}>
+              <ShoppingCart className="w-12 h-12 mx-auto mb-4 text-sk-primary-fixed dark:text-muted" aria-hidden="true" />
+              <p className="font-serif text-xl font-normal text-sk-on-surface dark:text-foreground">{t('Your shopping list is empty.')}</p>
+              <p className="mt-1 text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">{t('Generate one from your meal plan, or add items above.')}</p>
+            </div>
+          ) : (
+            <>
+              {groups.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {groups.map(([cat, items]) => (
+                    <section key={cat} className={`${CARD} p-3 pt-4`}>
+                      <h3 className={`${LABEL} px-3 mb-1`}>{groupLabel(cat)}</h3>
+                      <ul>{items.map(itemRow)}</ul>
+                    </section>
+                  ))}
+                </div>
+              )}
+
+              {open.length === 0 && (
+                <p className="text-center font-serif text-lg text-sk-on-surface dark:text-foreground py-2">{t('Everything is in the basket.')}</p>
+              )}
+
+              {done.length > 0 && (
+                <section className={`${CARD} p-3 pt-4 bg-sk-surface-low dark:bg-card`}>
+                  <div className="flex items-center justify-between gap-3 px-3 mb-1">
+                    <h3 className={LABEL}>{t('Done##shopping')} · {done.length}</h3>
+                    <button
+                      type="button"
+                      onClick={() => done.forEach((i) => onDeleteItem(i.id))}
+                      className="text-xs font-semibold font-sans text-sk-primary dark:text-primary hover:underline"
+                    >
+                      {t('Remove done items')}
+                    </button>
+                  </div>
+                  <ul>{done.map(itemRow)}</ul>
+                </section>
+              )}
+
+              <div className="flex justify-center pt-1">
+                <button
+                  type="button"
+                  onClick={() => setConfirmClear(true)}
+                  title={t('Clear shopping list')}
+                  className="text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  {t('Clear the whole list')}
+                </button>
               </div>
-            ))}
-          </div>
-        )
+            </>
+          )}
+        </div>
       )}
 
-      {/* PANTRY TAB */}
       {tab === 'pantry' && (
-        <div className="space-y-6">
-          {/* Add pantry item form */}
+        <div id="shopping-panel" role="tabpanel" aria-labelledby="shopping-tab-pantry" className="space-y-5">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -251,57 +399,61 @@ export function ShoppingList({
             <input
               value={newPantryItem}
               onChange={(e) => setNewPantryItem(e.target.value)}
+              aria-label={t('Add an item to the pantry')}
               placeholder={t('Add a pantry item (e.g. olive oil, pasta)…')}
-              className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 text-sm px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
+              maxLength={200}
+              enterKeyHint="done"
+              className={FIELD}
             />
-            <button
-              type="submit"
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold rounded-xl transition-colors"
-            >
-              <Plus className="w-4 h-4" /> {t('Add')}
+            {/* A round + on a phone, so the field keeps the row; named from sm. */}
+            <button type="submit" aria-label={t('Add')} className={`${ADD} max-sm:w-10 max-sm:px-0 max-sm:justify-center`}>
+              <Plus className="w-4 h-4" /> <span className="max-sm:hidden">{t('Add')}</span>
             </button>
           </form>
 
           {pantryItems.length === 0 ? (
-            <div className="text-center py-24 bg-white dark:bg-zinc-900/50 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-sm">
-              <Package className="w-16 h-16 mx-auto text-zinc-300 dark:text-zinc-700 mb-4" />
-              <p className="text-xl font-bold text-zinc-500 dark:text-zinc-400">{t('Your pantry is empty.')}</p>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">{t("Add items you always have at home. They'll show on your shopping list with a green dot when needed.")}</p>
+            <div className={`${CARD} text-center px-6 py-14`}>
+              <Package className="w-12 h-12 mx-auto mb-4 text-sk-primary-fixed dark:text-muted" aria-hidden="true" />
+              <p className="font-serif text-xl font-normal text-sk-on-surface dark:text-foreground">{t('Your pantry is empty.')}</p>
+              <p className="mt-1 text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">{t("Add items you always have at home. They'll show on your shopping list with a green dot when needed.")}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {Object.entries(pantryGrouped).map(([cat, items]) => (
-                <div key={cat} className="bg-white dark:bg-zinc-900/50 p-5 rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-800">
-                  <h3 className="font-bold text-lg text-emerald-600 dark:text-emerald-400 mb-3 ml-2">{groupLabel(cat)}</h3>
-                  <div className="space-y-1">
+                <section key={cat} className={`${CARD} p-3 pt-4`}>
+                  <h3 className={`${LABEL} px-3 mb-1`}>{groupLabel(cat)}</h3>
+                  <ul>
                     {items.map((item) => (
-                      <div key={item.id} className="flex items-start gap-3 p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-xl group transition-colors">
-                        <Package className="w-4 h-4 mt-0.5 text-emerald-500 shrink-0" />
-                        <span className="flex-1 text-sm text-zinc-800 dark:text-zinc-200">{item.item}</span>
-                        <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => onMoveItemToShopping(item)}
-                            className="text-sk-outline hover:text-sk-primary p-1"
-                            title={t('Move to shopping list')}
-                          >
-                            <ArrowLeft className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => onDeletePantryItem(item.id)}
-                            className="text-red-400 hover:text-red-600 p-1"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
+                      <li key={item.id} className="flex items-center gap-1 pl-3 min-h-11">
+                        <span className="inline-block w-2 h-2 shrink-0 rounded-full bg-sk-primary dark:bg-primary" aria-hidden="true" />
+                        <span className="flex-1 min-w-0 pl-2 text-sm font-sans text-sk-on-surface dark:text-foreground">{item.item}</span>
+                        <button type="button" onClick={() => onMoveItemToShopping(item)} className={`${ICON_BUTTON} hover:text-sk-primary dark:hover:text-primary`} title={t('Move to shopping list')} aria-label={t('Move {item} to the shopping list', { item: item.item })}>
+                          <ArrowLeft className="w-4 h-4" />
+                        </button>
+                        <button type="button" onClick={() => onDeletePantryItem(item.id)} className={`${ICON_BUTTON} hover:text-destructive`} aria-label={t('Remove {item}', { item: item.item })}>
+                          <X className="w-4 h-4" />
+                        </button>
+                      </li>
                     ))}
-                  </div>
-                </div>
+                  </ul>
+                </section>
               ))}
             </div>
           )}
         </div>
       )}
+
+      <Sheet
+        open={confirmClear}
+        onClose={() => setConfirmClear(false)}
+        title={t('Clear the whole list?')}
+        description={tn(shoppingList.length, 'Removes the {n} item on it, also one you added yourself. The pantry stays.', 'Removes all {n} items on it, also the ones you added yourself. The pantry stays.')}
+      >
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" onClick={() => setConfirmClear(false)} className="flex-1 rounded-full">{t('Keep it')}</Button>
+          <Button type="button" onClick={clearList} className="flex-1 rounded-full bg-destructive hover:bg-destructive/90 text-white border-0">{t('Clear##shopping list')}</Button>
+        </div>
+      </Sheet>
     </div>
   );
 }

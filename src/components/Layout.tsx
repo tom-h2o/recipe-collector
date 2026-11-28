@@ -189,8 +189,18 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
             return (
               <button
                 key={view}
+                // A finger switches the view as it lands, not when the browser
+                // decides the touch was a click: iOS Safari gives no click for
+                // a tap that arrives while the page is still gliding after a
+                // flick (the tap only stops the glide), so right after
+                // scrolling a tab needed a second tap. The click stays for
+                // keyboards, mice and assistive technology; after a touch it
+                // finds the view already current and changes nothing.
+                onPointerDown={(e) => { if (e.pointerType === 'touch' && e.isPrimary) onSetView(view); }}
                 onClick={() => onSetView(view)}
                 aria-current={isActive ? 'page' : undefined}
+                // "surface": fades when pressed but does not shrink under the finger.
+                data-pressable="surface"
                 className={`relative z-10 flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0 rounded-full transition-colors ${
                   isActive
                     ? 'text-sk-primary dark:text-primary'

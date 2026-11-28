@@ -2,6 +2,7 @@ import type { ReactNode, RefObject } from 'react';
 import { X } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { isPhoneWidth, useSwipeToClose } from '@/hooks/useSwipeToClose';
 import { useT } from '@/i18n';
 
 interface Props {
@@ -27,15 +28,19 @@ interface Props {
  * dialog (glass is for bars and menus).
  *
  * On a phone the sheet runs to the bottom edge and pads its content by the
- * home indicator's strip, so nothing tappable sits under it.
+ * home indicator's strip, so nothing tappable sits under it. It can be pulled
+ * down by its handle or title row to close it (`useSwipeToClose`); the
+ * content below stays free to scroll.
  */
 export function Sheet({ open, onClose, title, description, children, initialFocus, className }: Props) {
   const t = useT();
+  const swipe = useSwipeToClose(onClose, isPhoneWidth);
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent
         showCloseButton={false}
         initialFocus={initialFocus}
+        data-sheet
         className={cn(
           // Phone: pinned to the bottom, full width, rounded on top only.
           'top-auto bottom-0 left-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-3xl rounded-b-none',
@@ -49,6 +54,9 @@ export function Sheet({ open, onClose, title, description, children, initialFocu
           className,
         )}
       >
+        {/* The grab zone: the handle and the title row. `touch-none` so the
+            browser leaves the gesture to us instead of scrolling the page. */}
+        <div {...swipe} data-sheet-grab className="max-sm:touch-none max-sm:cursor-grab">
         <div aria-hidden="true" className="sm:hidden mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-sk-outline-variant dark:bg-border" />
         <div className="flex items-start justify-between gap-3 px-5 pt-4 sm:pt-5 pb-3">
           <div className="min-w-0">
@@ -67,6 +75,7 @@ export function Sheet({ open, onClose, title, description, children, initialFocu
           >
             <X className="w-4 h-4" />
           </button>
+        </div>
         </div>
         <div className="px-5 pb-5">{children}</div>
       </DialogContent>

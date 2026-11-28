@@ -17,7 +17,8 @@ for (const theme of ['light', 'dark'] as const) {
     await page.goto('/');
     await expect(page.getByText('Avocado Toast')).toBeVisible();
 
-    const cards = page.locator('[data-pressable="surface"]');
+    // By their class: the bottom bar's tabs are "surface" pressables too.
+    const cards = page.locator('.recipe-card[data-pressable="surface"]');
     await expect(cards).toHaveCount(2);
     const [first, second] = [(await cards.nth(0).boundingBox())!, (await cards.nth(1).boundingBox())!];
     // One column, with room between.

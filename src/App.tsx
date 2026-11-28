@@ -52,7 +52,7 @@ export default function App() {
   const { user, signOut } = useAuth();
   const isAdmin = useIsAdmin(user?.id);
   const { recipes, loading, processingIds, hasMore, fetchRecipes, loadMore, saveRecipe, deleteRecipe, toggleFavourite, updateRecipe } = useRecipes(user?.id);
-  const { mealPlans, fetchMealPlans, addMealPlan, removeMealPlan } = useMealPlans(user?.id);
+  const { mealPlans, fetchMealPlans, addMealPlan, removeMealPlan, updateMealPlan } = useMealPlans(user?.id);
   const { shoppingList, pantryItems, isGeneratingShopping, fetchShoppingList, fetchPantryItems, generateShoppingList, addItem, toggleItem, deleteItem, clearAll, moveItemToPantry, moveItemToShopping, deletePantryItem, addToPantry } = useShoppingList(user?.id);
   const { settings, isSavingSettings, fetchSettings, saveSettings } = useSettings(user?.id);
   const {
@@ -393,6 +393,8 @@ export default function App() {
               translationsCache={translationsCache}
               onAddMealPlan={addMealPlan}
               onRemoveMealPlan={removeMealPlan}
+              onUpdateMealPlan={updateMealPlan}
+              userId={user?.id ?? null}
               onRefreshMealPlans={fetchMealPlans}
               onOpenRecipe={openRecipe}
             />
@@ -404,7 +406,10 @@ export default function App() {
               pantryItems={pantryItems}
               isGenerating={isGeneratingShopping}
               mealPlans={mealPlans}
+              userId={user?.id ?? null}
               onGenerate={generateShoppingList}
+              onUpdateMeal={updateMealPlan}
+              onOpenRecipe={openRecipe}
               onAddItem={addItem}
               onToggleItem={toggleItem}
               onDeleteItem={deleteItem}

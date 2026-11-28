@@ -19,13 +19,13 @@ test.describe('on a German device', () => {
     await expect(page.getByText('Sign In', { exact: true })).toHaveCount(0);
   });
 
-  test('the tabs keep Vault and Inbox, and the planner is the Wochenplan', async ({ page }) => {
+  test('the tabs keep Vault and Inbox, and the planner is the Plan', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await installMockBackend(page);
     await page.goto('/');
     const nav = page.getByRole('banner');
     await expect(nav.getByRole('button', { name: /Vault/ })).toBeVisible();
-    await expect(nav.getByRole('button', { name: /Wochenplan/ })).toBeVisible();
+    await expect(nav.getByRole('button', { name: /^Plan/ })).toBeVisible();
     await expect(nav.getByRole('button', { name: /Einkauf/ })).toBeVisible();
     await expect(nav.getByRole('button', { name: /Inbox/ })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Rezept hinzufügen' }).first()).toBeVisible();
@@ -35,7 +35,7 @@ test.describe('on a German device', () => {
     await page.setViewportSize({ width: 360, height: 740 });
     await installMockBackend(page);
     await page.goto('/');
-    await expect(page.getByRole('button', { name: /Wochenplan/ }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Plan/ }).first()).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
 

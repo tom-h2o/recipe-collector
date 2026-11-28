@@ -16,9 +16,8 @@ export function useShoppingList(userId?: string | null) {
   }, [userId]);
 
   const generateShoppingList = useCallback(
-    async (mealPlans: MealPlan[]) => {
-      await useRecipeStore.getState().generateShoppingList(mealPlans, userId ?? null);
-    },
+    async (mealPlans: MealPlan[]) =>
+      useRecipeStore.getState().generateShoppingList(mealPlans, userId ?? null),
     [userId]
   );
 

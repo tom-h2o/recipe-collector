@@ -25,6 +25,21 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-21',
+    title: msg('A shopping list for the meals you choose, and smoother on a phone'),
+    items: [
+      msg('Shopping shows the meals your list is for: today and the next 7 days. Untick a meal to leave it off, and set how many portions you are cooking; the amounts on the list follow.'),
+      msg('After you change the meals, the page says so and offers “Update list”. Nothing is rebuilt behind your back.'),
+      msg('Meals planned for today are now on the list too. They used to be left out.'),
+      msg('Bought items move to “Done” at the bottom, where you can put one back or remove them all. Clearing the whole list asks first.'),
+      msg('The planner shows the portions of each meal; tap the number to change it.'),
+      msg('The shopping page has been redrawn to match the rest of the app.'),
+      msg('Typing no longer zooms the page on an iPhone.'),
+      msg('A sheet that comes up from the bottom can be closed by pulling it down.'),
+      msg('The tabs at the bottom react to the first tap, also right after scrolling.'),
+    ],
+  },
+  {
     id: '2026-12-20',
     title: msg('Speisekammer now speaks German'),
     items: [
