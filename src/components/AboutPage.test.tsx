@@ -64,4 +64,26 @@ describe('AboutPage', () => {
     expect(document.body.textContent).not.toMatch(/@(icloud|gmail|me)\.com/i);
     expect(document.body.innerHTML).not.toMatch(/mailto:/i);
   });
+
+  it('can be left: a Back link to the app, before anything else on the page', () => {
+    // Opened from the Home Screen there is no browser around the app, so no
+    // Back button of its own: the page could only be left by closing the app.
+    render(<AboutPage />);
+    const back = screen.getByRole('link', { name: 'Back' });
+    expect(back).toHaveAttribute('href', '/');
+    expect(screen.getAllByRole('link')[0]).toBe(back);
+  });
+
+  it('puts sharing before planning, and offers a vault to friends, not to a partner', () => {
+    const headings = CAPABILITY_GROUPS.map((g) => g.heading);
+    expect(headings.indexOf('Share it')).toBeLessThan(headings.indexOf('Plan the week'));
+    render(<AboutPage />);
+    expect(screen.getByText('Open your vault to friends')).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/partner|housemate/i);
+  });
+
+  it('says where the app comes from', () => {
+    render(<AboutPage />);
+    expect(screen.getByText(PITCH.story)).toBeInTheDocument();
+  });
 });

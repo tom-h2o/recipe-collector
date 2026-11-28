@@ -26,10 +26,14 @@ export const AUTHOR_URL = 'https://github.com/tom-h2o';
 /** The itch the app scratches, in the words a guest would use. */
 export const PITCH = {
   problem: msg(
-    'Recipes end up scattered — a screenshot here, a bookmark there, a photo of a cookbook page, a printout stuck to the fridge. None of them are searchable, none of them scale, and the one you want is never the one you can find.',
+    'Good recipes end up everywhere: a screenshot, a bookmark, a saved Instagram post, a photo of a cookbook page, a note in someone’s handwriting. When you want to cook one you cannot find it, and when you do, it is written for six people and measured in cups.',
   ),
   solution: msg(
-    'Speisekammer puts them all in one place, in one format. Paste a link, photograph the pages of a cookbook, or drop in a PDF, and it reads the recipe out for you — ingredients, steps, timings and all — ready to search, scale, plan and cook from.',
+    'Speisekammer keeps them in one place and in one form. Add a recipe from a link, a photo, a PDF or pasted text, or straight from Share on an iPhone, and the app reads it for you: ingredients, steps and times. From then on you can search it, scale it, translate it, plan a week with it, shop for it and cook from it step by step.',
+  ),
+  /** Where it comes from. On the About page only. */
+  story: msg(
+    'It began as a tool for one kitchen. Now family and friends keep their recipes in it too, and share them with each other.',
   ),
 } as const;
 
@@ -127,19 +131,19 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
     ],
   },
   {
+    heading: msg('Share it'),
+    items: [
+      { icon: Share2, title: msg('A link anyone can open'), blurb: msg('Exactly the sort of link that brought you here: no account, no app, and you can switch it off again whenever you like.') },
+      { icon: Send, title: msg('Send to another cook'), blurb: msg('Send a recipe straight to someone else who uses the app; it lands in their inbox to accept or decline.') },
+      { icon: HeartHandshake, title: msg('Open your vault to friends'), blurb: msg('Connect with friends or family and browse each other’s recipes. Keep a copy of any you like; theirs stay theirs, yours stay yours.') },
+    ],
+  },
+  {
     heading: msg('Plan the week'),
     items: [
       { icon: CalendarDays, title: msg('Meal planner'), blurb: msg('Put recipes on a seven-day calendar, by meal.') },
       { icon: ShoppingCart, title: msg('Shopping list from the plan'), blurb: msg('Turn the week into one list, combined and sorted, instead of reading back through every recipe.') },
       { icon: Package, title: msg('Pantry'), blurb: msg('Track what you already have so the list only asks for what you do not.') },
-    ],
-  },
-  {
-    heading: msg('Share it'),
-    items: [
-      { icon: Share2, title: msg('A link anyone can open'), blurb: msg('Exactly the sort of link that brought you here: no account, no app, and you can switch it off again whenever you like.') },
-      { icon: Send, title: msg('Send to another cook'), blurb: msg('Send a recipe straight to someone else who uses the app; it lands in their inbox to accept or decline.') },
-      { icon: HeartHandshake, title: msg('Share a whole vault'), blurb: msg('Connect with a partner or housemate and read each other’s recipes — theirs stay theirs, yours stay yours.') },
     ],
   },
   {
