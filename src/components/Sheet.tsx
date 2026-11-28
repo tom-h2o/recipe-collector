@@ -1,8 +1,9 @@
-import type { ReactNode, RefObject } from 'react';
+import type { CSSProperties, ReactNode, RefObject } from 'react';
 import { X } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { isPhoneWidth, useSwipeToClose } from '@/hooks/useSwipeToClose';
+import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import { useT } from '@/i18n';
 
 interface Props {
@@ -40,16 +41,24 @@ interface Props {
 export function Sheet({ open, onClose, title, hideTitle, description, children, initialFocus, className }: Props) {
   const t = useT();
   const swipe = useSwipeToClose(onClose, isPhoneWidth);
+  // While the keyboard is open the sheet sits on top of it (see the hook).
+  const keyboard = useKeyboardInset(open);
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent
         showCloseButton={false}
         initialFocus={initialFocus}
         data-sheet
+        style={{ '--sheet-keyboard': `${keyboard}px` } as CSSProperties}
         className={cn(
           // Phone: pinned to the bottom, full width, rounded on top only.
-          'top-auto bottom-0 left-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-3xl rounded-b-none',
-          'max-h-[calc(100dvh-var(--safe-top)-2rem)] overflow-y-auto gap-0 p-0',
+          'top-auto bottom-[var(--sheet-keyboard,0px)] left-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-3xl rounded-b-none',
+          'max-h-[calc(100dvh-var(--safe-top)-2rem-var(--sheet-keyboard,0px))] overflow-y-auto gap-0 p-0',
+          // One column that cannot be wider than the sheet. As a plain grid
+          // the column grew to its longest unbroken line, so a list of long
+          // recipe titles (each cut short with an ellipsis) made the content
+          // 729 px wide on a 390 px phone.
+          'grid-cols-[minmax(0,1fr)]',
           'pb-[var(--safe-bottom)] pl-[var(--safe-left)] pr-[var(--safe-right)]',
           'bg-white dark:bg-card text-sk-on-surface dark:text-foreground ring-sk-outline-variant/40 dark:ring-border shadow-xl',
           'data-open:zoom-in-100 data-closed:zoom-out-100 data-open:slide-in-from-bottom-6 sm:data-open:slide-in-from-bottom-0 sm:data-open:zoom-in-95 sm:data-closed:zoom-out-95',

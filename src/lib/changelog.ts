@@ -25,6 +25,15 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-23',
+    title: msg('“What can I cook?” on a phone'),
+    items: [
+      msg('The suggestions fit the screen: long recipe names are cut short instead of running off the edge, and each shows two lines of ingredients.'),
+      msg('Suggested recipes appear in the language you last read them in, like in the vault.'),
+      msg('When the keyboard opens, the sheet stays attached and sits on top of it instead of jumping to the middle of the screen.'),
+    ],
+  },
+  {
     id: '2026-12-22',
     title: msg('Search in German and English, and a roomier top bar'),
     items: [

@@ -4,13 +4,45 @@ import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/Sheet';
 import { parseIngredients } from '@/lib/recipeUtils';
+import { supabase } from '@/lib/supabase';
 import { useT, tn, translateMessage } from '@/i18n';
-import type { Recipe } from '@/types';
+import type { Recipe, RecipeTranslation } from '@/types';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   onSelectRecipe: (r: Recipe) => void;
+  /** Translations the vault already holds, keyed `recipeId:language`. */
+  translationsCache?: Record<string, RecipeTranslation>;
+}
+
+/**
+ * The translations to show the suggestions in: each recipe in the language it
+ * was last read in (`preferred_language`), as its card in the vault is. The
+ * vault only holds translations for the recipes it has loaded, and a
+ * suggestion can be any recipe, so what is missing is fetched, in one query.
+ * A recipe whose translation cannot be had is shown in its original.
+ */
+async function translationsFor(recipes: Recipe[], known: Record<string, RecipeTranslation>): Promise<Record<string, RecipeTranslation>> {
+  const found: Record<string, RecipeTranslation> = {};
+  const missing: Recipe[] = [];
+  for (const recipe of recipes) {
+    if (!recipe.preferred_language) continue;
+    const held = known[`${recipe.id}:${recipe.preferred_language}`];
+    if (held) found[recipe.id] = held;
+    else missing.push(recipe);
+  }
+  if (missing.length === 0) return found;
+  try {
+    const { data } = await supabase.from('recipe_translations').select('*').in('recipe_id', missing.map((r) => r.id));
+    for (const row of (data ?? []) as RecipeTranslation[]) {
+      const recipe = missing.find((r) => r.id === row.recipe_id);
+      if (recipe && row.language_code === recipe.preferred_language) found[recipe.id] = row;
+    }
+  } catch {
+    // Shown in the original language.
+  }
+  return found;
 }
 
 /**
@@ -23,9 +55,10 @@ interface Props {
  * orange button, colours nothing else here has. Progress and failures are
  * said in the sheet, not in a toast in the corner, and what was typed is kept.
  */
-export function SuggestModal({ isOpen, onClose, onSelectRecipe }: Props) {
+export function SuggestModal({ isOpen, onClose, onSelectRecipe, translationsCache = {} }: Props) {
   const [ingredientInput, setIngredientInput] = useState('');
   const [suggested, setSuggested] = useState<Recipe[] | null>(null);
+  const [translations, setTranslations] = useState<Record<string, RecipeTranslation>>({});
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -45,7 +78,11 @@ export function SuggestModal({ isOpen, onClose, onSelectRecipe }: Props) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ? translateMessage(data.error) : t('The suggestions could not be made.'));
-      setSuggested(data.suggestions || []);
+      const suggestions: Recipe[] = data.suggestions || [];
+      // Before the list is shown, so a title does not change language under
+      // the finger about to tap it.
+      setTranslations(await translationsFor(suggestions, translationsCache));
+      setSuggested(suggestions);
     } catch (err: unknown) {
       setSuggested(null);
       setError(err instanceof Error && err.message ? err.message : t('The suggestions could not be made. Please try again.'));
@@ -119,7 +156,10 @@ export function SuggestModal({ isOpen, onClose, onSelectRecipe }: Props) {
                 {tn(suggested.length, '{n} recipe fits', '{n} recipes fit')}
               </h3>
               <ul className="mt-2 -mx-2 space-y-0.5">
-                {suggested.map((recipe) => (
+                {suggested.map((recipe) => {
+                  const shown = translations[recipe.id];
+                  const title = shown?.title || recipe.title;
+                  return (
                   <li key={recipe.id}>
                     <button
                       type="button"
@@ -129,18 +169,25 @@ export function SuggestModal({ isOpen, onClose, onSelectRecipe }: Props) {
                       <span className="shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-sk-primary-fixed/50 dark:bg-primary/15 flex items-center justify-center font-serif text-xl text-sk-primary/50 dark:text-primary/60">
                         {recipe.image_url
                           ? <img src={recipe.image_url} alt="" className="w-full h-full object-cover" />
-                          : (recipe.title[0] ?? '').toUpperCase()}
+                          : (title[0] ?? '').toUpperCase()}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block font-serif text-base text-sk-on-surface dark:text-foreground truncate">{recipe.title}</span>
-                        <span className="block mt-0.5 text-xs font-sans text-sk-on-surface-variant dark:text-muted-foreground line-clamp-2">
-                          {parseIngredients(recipe.ingredients).map((i) => i.name).join(' · ')}
+                        <span className="block font-serif text-base text-sk-on-surface dark:text-foreground truncate">{title}</span>
+                        {/* Two lines at most. `line-clamp` needs its own display,
+                            so it cannot share an element with `block`: together
+                            the whole ingredient list was printed, a dozen lines
+                            a recipe. */}
+                        <span className="block mt-0.5 text-xs font-sans text-sk-on-surface-variant dark:text-muted-foreground">
+                          <span className="line-clamp-2">
+                            {parseIngredients(shown?.ingredients ?? recipe.ingredients).map((i) => i.name).join(' · ')}
+                          </span>
                         </span>
                       </span>
                       <ChevronRight className="w-4 h-4 shrink-0 text-sk-outline-variant dark:text-muted-foreground/50" aria-hidden="true" />
                     </button>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             </>
           )}
