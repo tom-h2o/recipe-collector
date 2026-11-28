@@ -1,4 +1,4 @@
-import { ArrowRight, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ExternalLink } from 'lucide-react';
 import { SpeisekammerLogo } from '@/components/SpeisekammerLogo';
 import {
   APP_NAME, APP_TAGLINE, AUTHOR_NAME, AUTHOR_URL, PITCH, CAPABILITY_GROUPS, DATA_NOTE, capabilityText,
@@ -21,7 +21,21 @@ export function AboutPage({ signUpHref = '/' }: Props) {
   const signupOpen = isSignupOpen();
   return (
     <div className="min-h-screen bg-sk-surface dark:bg-zinc-950 text-sk-on-surface dark:text-foreground font-sans">
-      <div className="max-w-4xl mx-auto px-6 py-16 sm:py-24 space-y-20">
+      {/* The way back. Opened from the Home Screen the app has no browser
+          around it, so no Back button either: without this the page could
+          only be left by closing the app. Stays in view while reading, clear
+          of the status bar. */}
+      <nav aria-label={t('Back')} className="sticky top-0 z-10 glass-bar pt-[var(--safe-top)] pl-[var(--safe-left)] pr-[var(--safe-right)]">
+        <div className="max-w-4xl mx-auto px-4 h-14 flex items-center">
+          <a
+            href={signUpHref}
+            className="inline-flex items-center gap-2 h-10 pl-2.5 pr-4 rounded-full text-sm font-semibold text-sk-primary dark:text-primary hover:bg-sk-primary-fixed/40 dark:hover:bg-primary/15 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" aria-hidden="true" /> {t('Back')}
+          </a>
+        </div>
+      </nav>
+      <div className="max-w-4xl mx-auto px-6 pt-10 pb-[calc(4rem+var(--safe-bottom))] sm:pt-16 sm:pb-24 space-y-20">
 
         {/* ── Masthead ─────────────────────────────────────────────────── */}
         <header className="text-center space-y-4">
@@ -44,6 +58,9 @@ export function AboutPage({ signUpHref = '/' }: Props) {
           </p>
           <p className="text-lg leading-relaxed text-sk-on-surface-variant dark:text-muted-foreground">
             {t(PITCH.solution)}
+          </p>
+          <p className="text-lg leading-relaxed text-sk-on-surface-variant dark:text-muted-foreground">
+            {t(PITCH.story)}
           </p>
         </section>
 

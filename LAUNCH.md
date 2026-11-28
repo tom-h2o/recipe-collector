@@ -3,25 +3,30 @@
 For sharing Speisekammer with the first invited people. Work from top to
 bottom; part 5 is the one to repeat before every wider round.
 
+Last brought up to date on 2026-11-28 (database at migration 0080). The app
+is in German and English; labels below are the English ones, with the German
+in brackets where it helps to find them.
+
 `<app>` below is the address the app is served from: your own domain once
 part 2 is done (for example `speisekammer.040labs.de`), until then the
 production domain in Vercel.
 
 ## 1. After the deploy
 
-- [ ] The `migrate-production` job in GitHub Actions is green. This release
-      needs migrations 0076 (search), 0077 (shopping list) and 0078 (feedback).
-      Until they have run, search shows "The recipes could not be loaded",
-      Generate on the shopping list fails and feedback cannot be sent.
-- [ ] Admin → System → **Run check**: the schema line says 0078, and every
-      Claude model answers. This is the only live test of the Claude models.
+- [x] The `migrate-production` job in GitHub Actions is green, up to
+      migration 0080 (checked 2026-11-28). It runs after every merge that
+      brings a migration; until it has, the feature that needs it says so or
+      fails.
+- [ ] Admin → System → **Run check** (Prüfung starten): the schema line says
+      0080, and every Claude model answers. This is the only live test of the
+      Claude models.
 - [ ] `VITE_SIGNUP_OPEN` is **not** set in Vercel (Production). Unset means
       invitation only.
-- [ ] After migration 0080 (search in German and English): Admin → System →
-      **Add search words**, once. It gives the recipes saved before that
-      release their German and English search words, one small AI call per
-      recipe, and can be stopped and continued. New recipes get them when
-      they are tagged.
+- [x] Admin → System → **Add search words** (Suchwörter ergänzen), once (done
+      2026-11-28; the first run stopped with an error, the second finished).
+      It gives recipes saved before migration 0080 their German and English
+      search words, one small AI call per recipe. New recipes get them when
+      they are tagged, so this is not needed again.
 
 ## 2. Move to your own domain
 
@@ -63,8 +68,15 @@ records.
 - [ ] iPhone Shortcuts: both hold the old address in their *Get Contents of
       URL* step. Open the app on the new address, Settings → General → iPhone
       Shortcuts shows the address to use, and change it in both.
-- [ ] If the Shortcuts were already shared by iCloud link: share the changed
-      ones again and paste the new links into the same place in Settings.
+- [ ] The app now calls them **Speisekammer Foto** and **Speisekammer Web**,
+      with the Photos menu labelled "1 Rezept · 1 recipe" / "1 pro Bild ·
+      1 per picture" and the key question "Speisekammer: Schlüssel · key".
+      Rename the two Shortcuts on the iPhone to match, or the app names a
+      Shortcut the phone does not show.
+- [ ] After either change: share both again with *Copy iCloud Link* and paste
+      the new links into Settings → General → iPhone Shortcuts. Without a
+      link there, people get the long build steps instead of the **Add to
+      Shortcuts** (Zu Kurzbefehle hinzufügen) button.
 
 **Check**
 
@@ -135,7 +147,7 @@ later is only a change of the SMTP fields.
   <p><a href="{{ .ConfirmationURL }}">Einladung annehmen</a></p>
   <p>Der Link gilt 24 Stunden und nur einmal. Rezepte, Fotos und Seiten, die du
      hinzufügst, werden zum Lesen an Anthropic und Google gesendet; mehr dazu
-     unter „What happens to your data“ auf der Anmeldeseite.</p>
+     unter „Was mit deinen Daten passiert“ auf der Anmeldeseite.</p>
   ```
 
   **Magic Link** — subject: `Dein Anmeldelink für Speisekammer`
@@ -162,12 +174,16 @@ Use an address that is not the admin's.
 
 - [ ] Supabase → Authentication → Users → **Invite user** with the second
       address. The email arrives within a minute, from your own sender.
-- [ ] The link opens "Welcome to Speisekammer" and asks for a password, then
-      shows the empty vault. (If it opens the vault directly, tell Claude: the
+- [ ] The link opens "Welcome to Speisekammer" (Willkommen bei Speisekammer)
+      and asks for a password, then shows the empty vault. (If it opens the vault directly, tell Claude: the
       invitation link then arrives in a form the app does not recognise.)
 - [ ] Sign out, sign in again with the password.
 - [ ] On the sign-in screen: no "Sign up", and the line about Anthropic and
       Google with its link to `/about`.
+- [ ] The app is in the phone's language. If an English iPhone shows German
+      (or the other way round): Settings → General → Language shows "Your
+      device reports: …". On the admin's iPhone the cause was iOS Settings →
+      Apps → Safari → Language set to Deutsch.
 - [ ] Magic Link with an address that has **no** account: an error about
       invitation only, and no new user in Supabase.
 - [ ] "Forgot password?" sends a reset email, and its link opens "Set New
@@ -179,9 +195,18 @@ Use an address that is not the admin's.
       pasted text. Each gets tags and nutrition within about half a minute.
 - [ ] Search: a half-typed word, two words, a word inside a longer word
       ("Suppe" for a "…suppe"), a tag.
-- [ ] Settings → General → iPhone Shortcuts: make a key, add both Shortcuts,
-      send a photo from Photos and a page from Safari. The banner in the vault
-      announces them.
+- [ ] Search across languages: "eggs" finds a recipe with "Eier" (and the
+      other way round) once the recipe has been tagged; "vegetarisch" finds
+      the tag Vegetarian; a recipe with a stored translation is found by the
+      translation's words.
+- [ ] "What can I cook?" on the phone: tapping the field keeps the sheet
+      sitting on the keyboard, the results fit the screen, and a recipe last
+      read in another language is listed in that language.
+- [ ] Settings → General → iPhone Shortcuts: make a key, tap **Add to
+      Shortcuts** for both (Speisekammer Foto, Speisekammer Web), paste the
+      key when asked, send a photo from Photos and a page from Safari. The
+      banner in the vault announces them. The Safari one needs iOS Settings →
+      Apps → Shortcuts → Advanced → *Allow Running Scripts* once.
 
 **Cooking**
 
@@ -194,17 +219,29 @@ Use an address that is not the admin's.
 
 **Planning and shopping**
 
-- [ ] Plan two meals, Shopping → Generate. Add an item by hand ("Kaffee"),
-      Generate again: the item is still there, under "Your items".
+- [ ] Plan two meals for the next days. Shopping lists them at the top with
+      a tick and their portions; **Create list** (Liste erstellen) makes the
+      list from the ticked ones.
+- [ ] Untick one meal or change its portions: the page says the meals have
+      changed and offers **Update list** (Liste aktualisieren). Nothing
+      changes until it is pressed.
+- [ ] Add an item by hand ("Kaffee"), update the list again: the item is
+      still there, under "Your items" (Deine Artikel).
+- [ ] Tick an item off: it moves to Done at the bottom.
 
 **Sharing and the rest**
 
-- [ ] Send a recipe to the admin's address; accept it there.
+- [ ] Send a recipe to the admin's address; accept it there (Inbox → Add to
+      vault).
+- [ ] Settings → Connections: invite the admin's address, accept it there
+      (Inbox or Settings → Connections). Each now sees the other's recipes
+      and cannot edit them. Disconnect again if that was only a test.
 - [ ] Create a public link for a recipe and open it in a private window: the
       recipe shows, and nothing asks a stranger to create an account.
-- [ ] Account menu → Send feedback. As the admin: Admin → Feedback shows it
+- [ ] Account list (the **You** tab on a phone, the avatar on a computer) →
+      Send feedback. As the admin: Admin → Feedback shows it
       with a "1" on the tab; set it to Done.
-- [ ] Account menu → Delete account. In Supabase the user is gone, and so are
+- [ ] Account list → Delete account. In Supabase the user is gone, and so are
       their recipes and the feedback they sent.
 
 ## 6. Known and accepted for this round
@@ -215,10 +252,31 @@ Use an address that is not the admin's.
 - **No total cost ceiling.** Each person has 100 AI calls a day. A monthly
   spend limit can be set in the Claude Console; when it is reached, calls fall
   back to Gemini.
-- **The interface is English.** German and English is the first job after
-  launch.
+- **Not checked on a real iPhone from the repository**, only in a desktop
+  browser made to behave like one: the screen staying on in cook mode, no zoom
+  when typing, pulling a sheet down to close it, and the bottom tabs reacting
+  on the first tap, and a sheet sitting on the keyboard. The run-through above
+  is their test.
+- **Search words are written when a recipe is tagged.** Editing a recipe's
+  ingredients later does not refresh them; its own text is always searched.
+- **No first-steps guide in the app yet.** A new person has to be told how to
+  add the app to the Home Screen (Safari → Share → Add to Home Screen) and
+  where the Shortcuts are (Settings → General → iPhone Shortcuts).
 - **No Impressum or privacy policy**, only the data note on `/about`. Both are
   due before sign-up is opened (`VITE_SIGNUP_OPEN=true`).
+
+## Inviting one person
+
+1. Parts 2 to 4 are done, and part 5 has been run once with a second address
+   of your own. The invitation link is the first thing the person sees, and
+   whether it opens the password form was not checkable from the repository.
+2. Both Shortcuts are shared by iCloud link under their new names (part 2).
+3. Supabase → Authentication → Users → **Invite user** with their address.
+4. Tell them, in a message of your own: open the link on the iPhone in Safari,
+   choose a password, then Share → Add to Home Screen, and Settings → General →
+   iPhone Shortcuts for the two Shortcuts.
+5. Admin → Usage shows whether they opened the app; Admin → Feedback what they
+   sent from "Send feedback".
 
 ## Opening sign-up later
 
