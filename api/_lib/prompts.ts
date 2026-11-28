@@ -82,7 +82,13 @@ Rules:
 - Main ingredient: "Chicken" for chicken or other poultry; "Meat" for beef, pork, lamb, veal, game or mince; "Fish & Seafood" for fish or shellfish. Only for what the dish is built around, not a little bacon or anchovy for seasoning.
 - "Pasta" for dishes built on pasta or noodles; "Salad" for salads served as a dish; "Casserole" for dishes baked in an oven dish (gratin, Auflauf, lasagne, bake).
 - "Meal Prep" only if the dish clearly keeps and reheats well for several days (stews, curries, casseroles, grain bowls), not for anything best eaten fresh.
-- Return a JSON array of strings, nothing else. Example: ["Italian", "Pasta", "Quick (<30min)", "Vegetarian"]`;
+
+Also write "search_words": the words someone would type to find this recipe, in German AND English, whatever language the recipe is written in.
+- The dish itself and each main ingredient, once in German and once in English (e.g. "eier", "eggs", "kartoffeln", "potatoes", "pfannkuchen", "pancakes").
+- Lower case, one or two words per entry, no amounts, no brand names, no duplicates. Skip salt, pepper, water and oil.
+- At most 40 entries.
+
+Return a JSON object, nothing else. Example: {"tags": ["Italian", "Pasta", "Quick (<30min)", "Vegetarian"], "search_words": ["nudeln", "pasta", "tomaten", "tomatoes", "knoblauch", "garlic", "basilikum", "basil"]}`;
 
 // ─── Nutrition ────────────────────────────────────────────────────────────────
 

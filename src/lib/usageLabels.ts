@@ -12,6 +12,7 @@ export const FEATURE_LABELS: Record<string, string> = {
   'extract-page': msg('Safari page (iPhone Shortcut)'),
   'extract-link': msg('Shared link (iPhone Shortcut)'),
   tag: msg('Tags, after saving'),
+  'search-words': msg('Search words for existing recipes'),
   nutrition: msg('Nutrition, after saving'),
   translate: msg('Translation'),
   scale: msg('Scaling'),

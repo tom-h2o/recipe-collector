@@ -131,7 +131,19 @@ export const extractedRecipeSchema = z.object({
   source_name: z.string().default(''),
 });
 
-export const tagResultSchema = z.array(z.string()).min(1);
+/** How many search words are kept per recipe, and how long one may be. */
+export const MAX_SEARCH_WORDS = 60;
+export const MAX_SEARCH_WORD_LENGTH = 40;
+
+/**
+ * The tagging answer: tags, plus German and English search words. The words
+ * are optional here although the answer format requires them: a recipe must
+ * not go untagged because the model left them out.
+ */
+export const tagResultSchema = z.object({
+  tags: z.array(z.string()).min(1),
+  search_words: z.array(z.string()).default([]),
+});
 
 export const nutritionResultSchema = z.object({
   calories: z.coerce.number().int().nonnegative(),

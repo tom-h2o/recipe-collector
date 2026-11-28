@@ -326,6 +326,7 @@ const server: Record<string, string> = {
     'Aus Sicherheitsgründen kannst du das erst in {n} Sekunden wieder anfordern.',
   'For security purposes, you can only request this once every {n} seconds':
     'Aus Sicherheitsgründen kannst du das nur alle {n} Sekunden anfordern.',
+  'Search words need the latest database migration. Try again in a few minutes.': 'Die Suchwörter brauchen die neueste Datenbank-Migration. Versuch es in ein paar Minuten noch einmal.',
 };
 
 export default server;

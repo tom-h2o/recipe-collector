@@ -125,6 +125,7 @@ const account: Record<string, string> = {
   'Preferences, Shortcuts, AI models and more.': 'Vorlieben, Kurzbefehle, KI-Modelle und mehr.',
   'Settings sections': 'Bereiche der Einstellungen',
   'System': 'System',
+  'Your device reports: {languages}': 'Dein Gerät meldet: {languages}',
   'Follows your device unless you choose one. Stored on this device.':
     'Folgt deinem Gerät, solange du keine wählst. Wird auf diesem Gerät gespeichert.',
   'Temperature Unit': 'Temperatureinheit',

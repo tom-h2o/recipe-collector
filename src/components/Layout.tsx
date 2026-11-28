@@ -68,7 +68,7 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
           {/* Branding. Free to shrink below lg only: from lg the desktop tabs
               take their full width as well, and the name gave way to them. */}
           <div className="flex min-w-0 lg:min-w-max items-center gap-2 sm:gap-3">
-            <svg className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <svg className="w-8 h-8 sm:w-9 sm:h-9 shrink-0" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
               <circle cx="11" cy="11" r="7" stroke="#315f3b" strokeWidth="2.5" fill="none"/>
               <circle cx="11" cy="11" r="3" fill="#315f3b"/>
               <line x1="16.5" y1="14.5" x2="30" y2="28" stroke="#315f3b" strokeWidth="2.5" strokeLinecap="round"/>
@@ -77,7 +77,7 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
               <path d="M7 4 Q11 1 15 5 Q11 8 7 4Z" fill="#bcefc0" opacity="0.8"/>
             </svg>
             <div className="flex min-w-0 flex-col leading-none">
-              <h1 className="truncate font-serif text-base min-[375px]:text-lg sm:text-xl font-normal tracking-tight text-sk-primary dark:text-primary">
+              <h1 className="truncate font-serif text-lg min-[375px]:text-[1.375rem] sm:text-2xl font-normal tracking-tight text-sk-primary dark:text-primary">
                 Speisekammer
               </h1>
               <span className="hidden sm:block text-[10px] font-sans font-medium uppercase tracking-[0.15em] text-sk-on-surface-variant dark:text-muted-foreground">
@@ -131,24 +131,24 @@ export function Layout({ activeView, user, isAdmin, onOpenWhatsNew, hasUnreadRel
           <div className="flex items-center gap-2 sm:gap-3 justify-end">
             <button
               onClick={onOpenSuggest}
-              className="inline-flex shrink-0 items-center justify-center gap-2 bg-sk-primary-fixed/60 hover:bg-sk-primary-fixed dark:bg-primary/15 dark:hover:bg-primary/25 text-sk-primary dark:text-primary font-semibold rounded-full transition-colors h-10 text-sm w-10 sm:w-auto sm:px-5 lg:w-10 lg:px-0"
+              className="inline-flex shrink-0 items-center justify-center gap-2 bg-sk-primary-fixed/60 hover:bg-sk-primary-fixed dark:bg-primary/15 dark:hover:bg-primary/25 text-sk-primary dark:text-primary font-semibold rounded-full transition-colors h-11 text-sm w-11 sm:w-auto sm:px-5 lg:w-11 lg:px-0"
               title={t('Suggest a recipe')}
               aria-label={t('Suggest a recipe')}
             >
-              <Wand2 className="w-4 h-4 shrink-0" />
+              <Wand2 className="w-[18px] h-[18px] shrink-0" />
               <span className="hidden sm:inline lg:hidden">{t('Suggest')}</span>
             </button>
             <button
               onClick={onAddRecipe}
               aria-label={t('Add recipe')}
               title={t('Add recipe')}
-              className="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/80 text-white dark:text-primary-foreground font-semibold rounded-full shadow-ambient transition-all duration-200 hover:scale-[1.02] h-10 text-sm w-10 sm:w-auto sm:px-6"
+              className="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap bg-sk-primary hover:bg-sk-primary-container dark:bg-primary dark:hover:bg-primary/80 text-white dark:text-primary-foreground font-semibold rounded-full shadow-ambient transition-all duration-200 hover:scale-[1.02] h-11 text-sm px-4 sm:px-6"
             >
               <Plus className="w-4 h-4 shrink-0" />
-              {/* "Add" alone between 1024 and 1280 px, where the desktop tabs
-                  leave no room for "Add Recipe". */}
+              {/* The short word on a phone, and between 1024 and 1280 px,
+                  where the desktop tabs leave no room for "Add Recipe". */}
               <span className="hidden sm:inline lg:hidden xl:inline">{t('Add Recipe')}</span>
-              <span className="hidden lg:inline xl:hidden">{t('Add')}</span>
+              <span className="sm:hidden lg:inline xl:hidden">{t('Add##recipe')}</span>
             </button>
             {/* From lg only (the component hides itself below): on a phone
                 the account is the bottom bar's last tab. */}

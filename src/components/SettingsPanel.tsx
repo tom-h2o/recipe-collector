@@ -13,7 +13,7 @@ import { useAccountLinks } from '@/hooks/useAccountLinks';
 import { useModelResolution } from '@/hooks/useModelResolution';
 import { MODEL_OPTIONS, AI_TASKS, RECOMMENDED_TASK_MODELS } from '@/lib/constants';
 import type { AppSettings, AiTask } from '@/types';
-import { UI_LANGUAGES, dateLocale, msg, useLanguagePreference, useT, type LanguagePreference } from '@/i18n';
+import { UI_LANGUAGES, dateLocale, msg, reportedLanguages, useLanguagePreference, useT, type LanguagePreference } from '@/i18n';
 
 type Tab = 'settings' | 'ai' | 'connections' | 'logs';
 
@@ -175,6 +175,11 @@ export function SettingsPanel({ isOpen, settings, isSaving, onClose, onSave, isA
                     ))}
                   </div>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">{t('Follows your device unless you choose one. Stored on this device.')}</p>
+                  {languagePreference === 'system' && reportedLanguages().length > 0 && (
+                    <p data-testid="reported-languages" className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {t('Your device reports: {languages}', { languages: reportedLanguages().join(', ') })}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">

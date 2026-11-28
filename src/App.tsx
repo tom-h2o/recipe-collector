@@ -429,7 +429,6 @@ export default function App() {
               onReject={rejectShare}
               onAcceptLink={async (id) => { await acceptLink(id); fetchRecipes(''); }}
               onDeclineLink={declineLink}
-              onBack={() => setActiveView('vault')}
             />
           )}
 

@@ -23,6 +23,16 @@ test('on a phone the last tab opens the account sheet, with every entry', async 
 
   const sheet = page.getByRole('dialog', { name: 'You' });
   await expect(sheet).toContainText(MOCK_USER.email);
+  // The sheet opens with who is signed in. Its name ("You") is for screen
+  // readers only: as a heading it repeated the tab that was just tapped.
+  const title = sheet.getByRole('heading', { name: 'You' });
+  await expect(title).toHaveCount(1);
+  const titleBox = (await title.boundingBox())!;
+  expect(titleBox.width * titleBox.height, 'the heading is not drawn').toBeLessThanOrEqual(1);
+  // The close button does not sit on the address.
+  const close = (await sheet.getByRole('button', { name: 'Close' }).boundingBox())!;
+  const address = (await sheet.getByText(MOCK_USER.email).boundingBox())!;
+  expect(address.x + address.width, 'the address stops before the close button').toBeLessThanOrEqual(close.x);
   for (const name of ['Settings', 'Admin', "What's new", 'Send feedback', 'Export recipes', 'Change password', 'Sign out', 'Delete account']) {
     await expect(sheet.getByRole('button', { name, exact: true })).toBeVisible();
   }

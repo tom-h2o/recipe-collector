@@ -177,3 +177,24 @@ for (const who of WHO) {
   });
 }
 
+
+// The phone's top bar holds the name and two controls, so both got room: the
+// name is set larger, and Add says what it does instead of being a bare plus.
+test('on a phone, Add recipe carries a word and the name is set large', async ({ page }) => {
+  await open(page, 390);
+  const add = page.locator('header').getByRole('button', { name: 'Add recipe' });
+  // What is drawn, not the labels kept for other widths.
+  await expect.poll(() => add.innerText()).toBe('Add');
+  const suggest = page.locator('header').getByRole('button', { name: /^Suggest/ });
+  for (const control of [add, suggest]) {
+    const box = (await control.boundingBox())!;
+    expect(box.height, 'a thumb-sized control').toBeGreaterThanOrEqual(44);
+  }
+  // Suggest stays an icon here: round, no label.
+  const s = (await suggest.boundingBox())!;
+  expect(Math.abs(s.width - s.height)).toBeLessThan(1);
+  const size = await page.locator('header h1').evaluate((h) => parseFloat(getComputedStyle(h).fontSize));
+  expect(size).toBeGreaterThanOrEqual(22);
+  await expectHeaderFits(page);
+  await expectNameInFull(page);
+});

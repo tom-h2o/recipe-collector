@@ -5,7 +5,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(12);
+select plan(24);
 
 insert into auth.users (id, email, instance_id, aud, role)
 values ('d1000000-0000-0000-0000-0000000000d1', 'search@example.com', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated');
@@ -48,9 +48,38 @@ select is(pg_temp.found('name'), '{}'::text[], 'the JSON keys are not searched')
 select is(pg_temp.found('details'), '{}'::text[], 'nor "details"');
 
 select is(
-  (select search_text from public.recipes where id = 'd2000000-0000-0000-0000-000000000003'),
-  'Lentil Soup  lentils ',
-  'a recipe without a description or tags still gets its text');
+  (select btrim(search_text) from public.recipes where id = 'd2000000-0000-0000-0000-000000000003'),
+  'Lentil Soup  lentils',
+  'a recipe without a description, tags, search words or translations still gets its text');
+
+-- ── Across languages (migration 0080) ────────────────────────────────────────
+
+-- Tags are stored in English; their German names are searched too.
+select is(pg_temp.found('vegetarisch'), array['Kartoffelsuppe', 'Käsespätzle'], 'a tag is found by its German name');
+select is(pg_temp.found('suppe'), array['Kartoffelsuppe'], 'the German tag name does not match recipes without the tag');
+select is(public.tag_search_words(null), null, 'no tags, no words');
+select is(public.tag_search_words('{Vegan,"Made up"}'), null, 'a tag whose German name is the same word, or an unknown tag, adds nothing');
+
+-- The AI's German and English search words (written by the tagging call).
+select is(pg_temp.found('potatoes'), '{}'::text[], 'before its search words exist, a German recipe is not found in English');
+update public.recipes set search_keywords = 'kartoffeln potatoes suppe soup zwiebel onion'
+ where id = 'd2000000-0000-0000-0000-000000000001';
+select is(pg_temp.found('potatoes'), array['Kartoffelsuppe'], 'with them, "potatoes" finds the recipe with "Kartoffeln"');
+select is(pg_temp.found('onion', 'potato'), array['Kartoffelsuppe'], 'and several English words still all have to match');
+
+-- Stored translations: found by their title and ingredients, in any language.
+select is(pg_temp.found('lentejas'), '{}'::text[], 'a recipe is not found by a language nobody translated it into');
+insert into public.recipe_translations (recipe_id, language_code, title, description, instructions, ingredients)
+values ('d2000000-0000-0000-0000-000000000003', 'es', 'Sopa de lentejas', null, 'Cocer a fuego lento.',
+        '[{"amount":"200 g","name":"lentejas","details":"rojas"}]'::jsonb);
+select is(pg_temp.found('lentejas', 'sopa'), array['Lentil Soup'], 'a stored translation makes it findable in that language');
+select is(pg_temp.found('fuego'), '{}'::text[], 'the translated instructions are not searched, like the original ones');
+
+update public.recipe_translations set title = 'Crema de lentejas' where recipe_id = 'd2000000-0000-0000-0000-000000000003';
+select is(pg_temp.found('crema'), array['Lentil Soup'], 'a changed translation is searched as changed');
+
+delete from public.recipe_translations where recipe_id = 'd2000000-0000-0000-0000-000000000003';
+select is(pg_temp.found('lentejas'), '{}'::text[], 'a deleted translation is no longer searched');
 
 select * from finish();
 rollback;

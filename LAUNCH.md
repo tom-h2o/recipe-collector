@@ -17,6 +17,11 @@ production domain in Vercel.
       Claude model answers. This is the only live test of the Claude models.
 - [ ] `VITE_SIGNUP_OPEN` is **not** set in Vercel (Production). Unset means
       invitation only.
+- [ ] After migration 0080 (search in German and English): Admin → System →
+      **Add search words**, once. It gives the recipes saved before that
+      release their German and English search words, one small AI call per
+      recipe, and can be stopped and continued. New recipes get them when
+      they are tagged.
 
 ## 2. Move to your own domain
 
