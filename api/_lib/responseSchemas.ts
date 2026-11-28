@@ -63,9 +63,24 @@ export const extractedRecipeResponseSchema: Schema = {
  * made-up tag is impossible rather than filtered out afterwards. enrich.ts
  * still filters, for cached answers from before this and for safety.
  */
-export const tagResponseSchema: Schema = {
+export const tagListSchema: Schema = {
   type: Type.ARRAY,
   items: { type: Type.STRING, format: 'enum', enum: [...AVAILABLE_TAGS] },
+};
+
+/**
+ * What the tagging call answers: the tags, and the words the vault search
+ * should find this recipe by in German and English (migration 0080). One call
+ * for both, because both come from reading the same recipe once.
+ */
+export const tagResponseSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    tags: tagListSchema,
+    search_words: { type: Type.ARRAY, items: { type: Type.STRING } },
+  },
+  required: ['tags', 'search_words'],
+  propertyOrdering: ['tags', 'search_words'],
 };
 
 export const nutritionResponseSchema: Schema = {

@@ -9,6 +9,11 @@ interface Props {
   open: boolean;
   onClose: () => void;
   title: string;
+  /**
+   * Keep the title for screen readers only. For a sheet whose content says
+   * what it is by itself (the account list opens with the person's name).
+   */
+  hideTitle?: boolean;
   /** One line under the title. */
   description?: ReactNode;
   children: ReactNode;
@@ -32,7 +37,7 @@ interface Props {
  * down by its handle or title row to close it (`useSwipeToClose`); the
  * content below stays free to scroll.
  */
-export function Sheet({ open, onClose, title, description, children, initialFocus, className }: Props) {
+export function Sheet({ open, onClose, title, hideTitle, description, children, initialFocus, className }: Props) {
   const t = useT();
   const swipe = useSwipeToClose(onClose, isPhoneWidth);
   return (
@@ -58,9 +63,9 @@ export function Sheet({ open, onClose, title, description, children, initialFocu
             browser leaves the gesture to us instead of scrolling the page. */}
         <div {...swipe} data-sheet-grab className="max-sm:touch-none max-sm:cursor-grab">
         <div aria-hidden="true" className="sm:hidden mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-sk-outline-variant dark:bg-border" />
-        <div className="flex items-start justify-between gap-3 px-5 pt-4 sm:pt-5 pb-3">
+        <div className={hideTitle ? 'relative h-3 sm:h-5' : 'flex items-start justify-between gap-3 px-5 pt-4 sm:pt-5 pb-3'}>
           <div className="min-w-0">
-            <DialogTitle className="font-serif text-xl font-normal text-sk-on-surface dark:text-foreground">{title}</DialogTitle>
+            <DialogTitle className={hideTitle ? 'sr-only' : 'font-serif text-xl font-normal text-sk-on-surface dark:text-foreground'}>{title}</DialogTitle>
             {description && (
               <DialogDescription className="mt-1 text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
                 {description}
@@ -71,7 +76,7 @@ export function Sheet({ open, onClose, title, description, children, initialFocu
             type="button"
             onClick={onClose}
             aria-label={t('Close')}
-            className="shrink-0 -mr-1.5 inline-flex h-9 w-9 items-center justify-center rounded-full text-sk-outline dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted hover:text-sk-on-surface dark:hover:text-foreground transition-colors"
+            className={`${hideTitle ? 'absolute right-3.5 top-1 sm:top-3 z-10' : 'shrink-0 -mr-1.5'} inline-flex h-9 w-9 items-center justify-center rounded-full text-sk-outline dark:text-muted-foreground hover:bg-sk-surface-low dark:hover:bg-muted hover:text-sk-on-surface dark:hover:text-foreground transition-colors`}
           >
             <X className="w-4 h-4" />
           </button>

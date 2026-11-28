@@ -34,6 +34,17 @@ function readPreference(): LanguagePreference {
   }
 }
 
+/**
+ * The languages the device reports to a web page, in its order. Shown under
+ * the language setting, because what a phone reports is not always the
+ * language its own menus are in, and nothing else in the app reveals it.
+ */
+export function reportedLanguages(): string[] {
+  if (typeof navigator === 'undefined') return [];
+  const list = navigator.languages?.length ? navigator.languages : [navigator.language];
+  return list.map((tag) => String(tag ?? '')).filter(Boolean);
+}
+
 /** The first of the device's languages the app speaks; English otherwise. */
 export function systemLanguage(): Lang {
   if (typeof navigator === 'undefined') return 'en';

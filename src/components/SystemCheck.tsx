@@ -1,3 +1,4 @@
+import { SearchWordsBackfill } from './SearchWordsBackfill';
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2, MinusCircle, Play, XCircle } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
@@ -328,6 +329,8 @@ export function SystemCheck() {
           <p className="px-5 py-4 text-sm text-zinc-400">{overviewError ?? t('Loading…')}</p>
         )}
       </Card>
+
+      <SearchWordsBackfill />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { Check, X, Inbox, ChefHat, ArrowLeft, Link2 } from 'lucide-react';
+import { Check, X, Inbox, ChefHat, Link2 } from 'lucide-react';
 import type { RecipeShare, LinkedPerson } from '@/types';
 import { isOwnPhotoUrl } from '../../shared/photoUrl';
 import { useT, dateLocale } from '@/i18n';
@@ -15,10 +15,9 @@ interface Props {
   onReject: (share: RecipeShare) => void;
   onAcceptLink?: (linkId: string) => void;
   onDeclineLink?: (linkId: string) => void;
-  onBack: () => void;
 }
 
-export function RecipeInbox({ shares, linkInvites = [], onAccept, onReject, onAcceptLink, onDeclineLink, onBack }: Props) {
+export function RecipeInbox({ shares, linkInvites = [], onAccept, onReject, onAcceptLink, onDeclineLink }: Props) {
   const t = useT();
   const total = shares.length + linkInvites.length;
 
@@ -28,12 +27,6 @@ export function RecipeInbox({ shares, linkInvites = [], onAccept, onReject, onAc
         <Inbox className="w-16 h-16 mx-auto text-zinc-300 dark:text-zinc-700 mb-4" />
         <p className="text-xl font-bold text-zinc-500 dark:text-zinc-400">{t('Your inbox is empty')}</p>
         <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">{t('Recipes people send you, and requests to connect accounts, appear here.')}</p>
-        <button
-          onClick={onBack}
-          className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-sk-primary hover:text-sk-primary-container dark:text-primary transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" /> {t('Back to Vault')}
-        </button>
       </div>
     );
   }
@@ -41,13 +34,6 @@ export function RecipeInbox({ shares, linkInvites = [], onAccept, onReject, onAc
   return (
     <div className="max-w-2xl mx-auto space-y-4 animate-in fade-in duration-500">
       <div className="flex items-center gap-3">
-        <button
-          onClick={onBack}
-          className="p-1.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
-          title={t('Back to Vault')}
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
         <h2 className="text-2xl font-bold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
           <Inbox className="w-6 h-6 text-sk-primary dark:text-primary" />
           {t('Recipe Inbox')}

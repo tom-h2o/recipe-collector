@@ -11,6 +11,7 @@ import { captureException } from './_lib/sentry.js';
 import { getGeminiClient } from './_lib/gemini.js';
 import { configReport, reasoningReport, runLiveCheck, EXPECTED_SCHEMA, type UsageRow } from './_lib/systemCheck.js';
 import { hashShortcutKey, newShortcutKey } from './_lib/shortcutImport.js';
+import { addSearchWords } from './_lib/enrich.js';
 
 const MAX_PAGE_SIZE = 100;
 
@@ -35,7 +36,14 @@ export const modelConfigSchema = z.object({
  */
 
 /** What the admin may set a report to (the CHECK on feedback.status). */
-export const feedbackStatusSchema = z.object({
+export /** The search-words backfill: how many recipes this request reads, and which to leave out. */
+const searchWordsSchema = z.object({
+  limit: z.number().int().min(0).max(5).default(3),
+  // Recipes that failed earlier in this run, so one bad recipe cannot stall it.
+  skip: z.array(z.string().uuid()).max(200).default([]),
+});
+
+const feedbackStatusSchema = z.object({
   id: z.string().uuid(),
   status: z.enum(['new', 'seen', 'done']),
 });
@@ -550,6 +558,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       const saved = await saveModelConfig(getServerSupabase(), parsed.data);
       return res.status(200).json(saved);
+    }
+
+    // ── POST /api/account?action=search-words — admin: backfill search words ──
+    // Recipes tagged before migration 0080 have no German/English search words.
+    // Each request reads a few of them (one small AI call each, logged as
+    // search-words and not taken from anyone's allowance) and says how many
+    // are left; the System tab repeats it until none are. Tags are not touched.
+    // `limit: 0` only counts.
+    if (req.method === 'POST' && queryParam(req, 'action') === 'search-words') {
+      const adminId = await assertAdmin(auth);
+      const parsed = searchWordsSchema.safeParse(req.body ?? {});
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request' });
+      const supabase = getServerSupabase();
+      const missing = () => {
+        let q = supabase.from('recipes').select('id', { count: 'exact', head: true }).is('search_keywords', null);
+        if (parsed.data.skip.length) q = q.not('id', 'in', `(${parsed.data.skip.join(',')})`);
+        return q;
+      };
+      const before = await missing();
+      if (before.error) {
+        // The minutes after a deploy, before the migration job has run.
+        if (before.error.code === '42703' || /search_keywords/.test(before.error.message ?? '')) {
+          return res.status(503).json({ error: 'Search words need the latest database migration. Try again in a few minutes.' });
+        }
+        throw before.error;
+      }
+      if (parsed.data.limit === 0 || (before.count ?? 0) === 0) {
+        return res.status(200).json({ done: 0, failed: [], remaining: before.count ?? 0 });
+      }
+
+      let rows = supabase.from('recipes').select('id, title, description, ingredients, instructions').is('search_keywords', null);
+      if (parsed.data.skip.length) rows = rows.not('id', 'in', `(${parsed.data.skip.join(',')})`);
+      const { data: batch, error: batchError } = await rows.order('created_at', { ascending: true }).limit(parsed.data.limit);
+      if (batchError) throw batchError;
+
+      const settings = await getSettings(supabase, adminId);
+      const apiKey = resolveApiKey(settings);
+      if (!apiKey) return res.status(503).json({ error: 'GEMINI_API_KEY is not configured.' });
+      const ctx = { supabase, client: getGeminiClient(apiKey), settings, userId: adminId };
+      const results = await Promise.allSettled((batch ?? []).map((r) => addSearchWords(ctx, r)));
+      const failed: string[] = [];
+      results.forEach((result, i) => {
+        if (result.status === 'rejected') {
+          failed.push(batch![i].id);
+          console.error('Search words failed for recipe', batch![i].id, result.reason);
+        }
+      });
+      const after = await missing();
+      if (after.error) throw after.error;
+      return res.status(200).json({ done: results.length - failed.length, failed, remaining: Math.max(0, (after.count ?? 0) - failed.length) });
     }
 
     // ── POST /api/account?action=feedback-status — admin: new / seen / done ───

@@ -37,6 +37,7 @@ const common: Record<string, string> = {
   'Next': 'Weiter',
   'Done': 'Fertig',
   'Add': 'Hinzufügen',
+  'Add##recipe': 'Neu',
   'Add recipe': 'Rezept hinzufügen',
   'Add Recipe': 'Rezept hinzufügen',
   'Copy': 'Kopieren',

@@ -188,7 +188,6 @@ const recipe: Record<string, string> = {
   'Your inbox is empty': 'Deine Inbox ist leer',
   'Recipes people send you, and requests to connect accounts, appear here.':
     'Hier erscheinen Rezepte, die dir jemand sendet, und Anfragen, Konten zu verknüpfen.',
-  'Back to Vault': 'Zurück zum Vault',
   'Recipe Inbox': 'Rezept-Inbox',
   'Connection request': 'Verknüpfungsanfrage',
   '<b>{email}</b> wants to connect. You would each be able to browse the other’s recipes and save copies — your whole collection, not selected recipes. Neither of you can edit the other’s.':

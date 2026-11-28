@@ -25,6 +25,17 @@ export interface ReleaseNote {
 export const RELEASES: ReleaseNote[] = [
   {
     // Ids must increase with each release (see 2026-12-02 below).
+    id: '2026-12-22',
+    title: msg('Search in German and English, and a roomier top bar'),
+    items: [
+      msg('Search finds recipes in both languages: “eggs” finds a recipe with “Eier”, and “Kartoffeln” one with “potatoes”. New recipes get this at once; older ones as soon as they have been updated.'),
+      msg('A recipe you have translated is also found by the words of its translation, in any language.'),
+      msg('Tags are found by their German names too: “vegetarisch” finds Vegetarian.'),
+      msg('The top bar has a larger name and an Add button that says what it does.'),
+      msg('The account sheet opens straight with your name, and the Inbox no longer carries a “Back to Vault” link: the Vault tab is the way back.'),
+    ],
+  },
+  {
     id: '2026-12-21',
     title: msg('A shopping list for the meals you choose, and smoother on a phone'),
     items: [

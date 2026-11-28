@@ -195,7 +195,7 @@ export function UserMenu({
   const entries = (
     <>
       {/* Who is signed in. Not a button: it used to be drawn as one. */}
-      <div className="flex items-center gap-3 px-3 pt-1 pb-3">
+      <div className="flex items-center gap-3 pl-3 pr-12 pt-1 pb-3">
         <div className="shrink-0 w-11 h-11 rounded-full overflow-hidden text-base">{avatar}</div>
         <div className="min-w-0">
           {displayName && (
@@ -335,7 +335,7 @@ export function UserMenu({
             </span>
             <span className="text-[10px] font-semibold font-sans">{t('You')}</span>
           </button>
-          <Sheet open={open} onClose={close} title={t('You')} className="[&>div:last-child]:px-2">
+          <Sheet open={open} onClose={close} title={t('You')} hideTitle className="[&>div:last-child]:px-2">
             {entries}
           </Sheet>
         </>

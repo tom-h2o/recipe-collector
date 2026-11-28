@@ -58,7 +58,7 @@ describe('the answer formats sent to Claude', () => {
 
   it('wraps a bare list in an object, and leaves an object alone', () => {
     // The tag list travels as an enum: Claude can answer only with tags on it.
-    expect(claudeFormat(responseSchemas.tagResponseSchema)).toEqual({
+    expect(claudeFormat(responseSchemas.tagListSchema)).toEqual({
       schema: { type: 'object', properties: { result: { type: 'array', items: { type: 'string', enum: [...AVAILABLE_TAGS] } } }, required: ['result'], additionalProperties: false },
       wrapped: true,
     });
@@ -125,7 +125,7 @@ describe('askClaude', () => {
 
   it('unwraps a bare list, so callers see the shape Gemini would return', async () => {
     fakeClient(textAnswer('{"result":["Vegan","Quick (<30min)"]}'));
-    const out = await askClaude({ model: 'claude-haiku-5-5', content: 'p', schema: responseSchemas.tagResponseSchema, reasoning: false });
+    const out = await askClaude({ model: 'claude-haiku-5-5', content: 'p', schema: responseSchemas.tagListSchema, reasoning: false });
     expect(JSON.parse(out.text)).toEqual(['Vegan', 'Quick (<30min)']);
   });
 

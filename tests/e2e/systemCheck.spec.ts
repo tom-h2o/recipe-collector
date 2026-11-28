@@ -117,3 +117,50 @@ test('on a phone, the System tab is reachable and the page does not run wider th
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+// Search words for recipes saved before the search read German and English
+// (migration 0080). Each recipe is an AI call, so nothing is sent until the
+// button is pressed (the first test in this file holds that for the whole
+// tab), and then the request is repeated until nothing is left.
+test('"Add search words" repeats until every recipe has them, leaving out one that failed', async ({ page }) => {
+  await openSystemTab(page);
+  const FAILED = '33333333-3333-4333-8333-333333333333';
+  const answers = [
+    { done: 3, failed: [], remaining: 4 },
+    { done: 2, failed: [FAILED], remaining: 1 },
+    { done: 1, failed: [], remaining: 0 },
+  ];
+  const bodies: { limit: number; skip: string[] }[] = [];
+  await page.route((url) => url.pathname === '/api/account' && url.searchParams.get('action') === 'search-words', (route) => {
+    bodies.push(route.request().postDataJSON());
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(answers[bodies.length - 1]) });
+  });
+
+  const card = page.getByRole('region', { name: 'Search words for existing recipes' });
+  await expect(card).toContainText('Tags are not changed.');
+  expect(bodies).toEqual([]);
+  await card.getByRole('button', { name: 'Add search words' }).click();
+
+  await expect(card.getByRole('status')).toHaveText('6 added, 0 left. 1 could not be read.');
+  expect(bodies).toEqual([
+    { limit: 3, skip: [] },
+    { limit: 3, skip: [] },
+    { limit: 3, skip: [FAILED] },
+  ]);
+  await expect(card.getByRole('button', { name: 'Add search words' })).toBeEnabled();
+});
+
+test('"Add search words" says when all are done, and when the server refuses', async ({ page }) => {
+  await openSystemTab(page);
+  let answer: { status: number; body: unknown } = { status: 200, body: { done: 0, failed: [], remaining: 0 } };
+  await page.route((url) => url.pathname === '/api/account' && url.searchParams.get('action') === 'search-words', (route) =>
+    route.fulfill({ status: answer.status, contentType: 'application/json', body: JSON.stringify(answer.body) }));
+
+  const card = page.getByRole('region', { name: 'Search words for existing recipes' });
+  await card.getByRole('button', { name: 'Add search words' }).click();
+  await expect(card.getByRole('status')).toHaveText('Done. 0 added; every recipe has search words.');
+
+  answer = { status: 503, body: { error: 'Search words need the latest database migration. Try again in a few minutes.' } };
+  await card.getByRole('button', { name: 'Add search words' }).click();
+  await expect(card.getByRole('alert')).toHaveText('Search words need the latest database migration. Try again in a few minutes.');
+});

@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateJson, EMBEDDING_MODEL } from './gemini.js';
 import { modelFor, thinkingFor, type Settings } from './supabase.js';
 import { nutritionResponseSchema, tagResponseSchema } from './responseSchemas.js';
-import { nutritionResultSchema, tagResultSchema } from './schemas.js';
+import { nutritionResultSchema, tagResultSchema, MAX_SEARCH_WORDS, MAX_SEARCH_WORD_LENGTH } from './schemas.js';
 import { makeCacheKey, getCached, setCached } from './cache.js';
 import { NUTRITION_TEMPLATE, TAG_TEMPLATE, AVAILABLE_TAGS } from './prompts.js';
 import { checkRateLimit } from './rateLimit.js';
@@ -54,10 +54,36 @@ function ingredientLines(ingredients: unknown): string[] {
   });
 }
 
-function parseTagResult(value: unknown): string[] {
+export interface TagAnswer {
+  tags: string[];
+  /** German and English search words, as one line of text (recipes.search_keywords). */
+  searchKeywords: string;
+}
+
+/**
+ * The model's words as the text that is stored: lower case, without anything
+ * that is not a letter, digit, space or hyphen, no duplicates, bounded. It is
+ * model output going into a column the search reads, so nothing is trusted
+ * about its size or content.
+ */
+export function cleanSearchWords(words: readonly string[]): string {
+  const seen = new Set<string>();
+  for (const raw of words) {
+    const word = String(raw ?? '').toLowerCase().replace(/[^\p{L}\p{N} -]+/gu, ' ').replace(/\s+/g, ' ').trim();
+    if (!word || word.length > MAX_SEARCH_WORD_LENGTH) continue;
+    seen.add(word);
+    if (seen.size >= MAX_SEARCH_WORDS) break;
+  }
+  return [...seen].join(' ');
+}
+
+function parseTagResult(value: unknown): TagAnswer {
   const parsed = tagResultSchema.safeParse(value);
   if (!parsed.success) throw new Error(`Invalid AI tag output: ${parsed.error.issues[0]?.message ?? 'Invalid response'}`);
-  return parsed.data;
+  return {
+    tags: parsed.data.tags.filter((t) => AVAILABLE_TAGS.includes(t)),
+    searchKeywords: cleanSearchWords(parsed.data.search_words),
+  };
 }
 
 function parseNutritionResult(value: unknown) {
@@ -121,47 +147,90 @@ async function embed(supabase: SupabaseClient, client: GoogleGenAI, recipe: Reci
 }
 
 /**
- * Tags the recipe from the fixed list, stores them with an embedding, and
- * returns them. A cached answer costs none of the allowance; otherwise throws
- * DailyLimitError when the allowance is used up.
+ * One reading of the recipe: its tags and its search words. Answered from the
+ * cache when the same text was read before; otherwise `charge` decides whether
+ * the call is taken from the person's allowance (the admin's backfill of
+ * search words is not: it is maintenance, not something a person asked for).
  */
-export async function tagRecipe({ supabase, client, settings, userId }: EnrichContext, recipe: RecipeText): Promise<string[]> {
-  const ingredientText = ingredientLines(recipe.ingredients).join(', ');
+async function readTags(
+  { supabase, client, settings, userId }: EnrichContext,
+  recipe: RecipeText,
+  ingredientText: string,
+  { endpoint, charge }: { endpoint: string; charge: boolean },
+): Promise<TagAnswer> {
   const instructionPreview = (recipe.instructions || '').substring(0, 1000);
   const prompt = buildTagPrompt(TAG_TEMPLATE, recipe.title, recipe.description ?? '', ingredientText, instructionPreview);
 
-  const store = async (tags: string[], embedding: number[] | null) => {
-    const updatePayload: Record<string, unknown> = { tags };
-    if (embedding) updatePayload.embedding = embedding;
-    const { error: updateError } = await supabase.from('recipes').update(updatePayload).eq('id', recipe.id).eq('user_id', userId);
-    if (updateError) throw updateError;
-  };
-
-  const cacheKey = makeCacheKey('tag', { title: recipe.title, description: recipe.description ?? '', ingredientText, instructions: instructionPreview });
-  const cachedTags = await getCached<string[]>(supabase, cacheKey);
-  if (cachedTags) {
-    const validCachedTags = parseTagResult(cachedTags).filter((t) => AVAILABLE_TAGS.includes(t));
-    if (validCachedTags.length === 0) throw new Error('Cached tags did not contain any supported tags.');
-    await store(validCachedTags, await embed(supabase, client, recipe, ingredientText, ' (cached path)'));
-    return validCachedTags;
+  // 'tag-v2': answers cached before search words existed are bare tag lists,
+  // and serving one would leave the recipe without its search words.
+  const cacheKey = makeCacheKey('tag-v2', { title: recipe.title, description: recipe.description ?? '', ingredientText, instructions: instructionPreview });
+  const cached = await getCached<unknown>(supabase, cacheKey);
+  if (cached) {
+    const answer = parseTagResult(cached);
+    if (answer.tags.length === 0) throw new Error('Cached tags did not contain any supported tags.');
+    return answer;
   }
 
-  const rl = await checkRateLimit(supabase, userId);
-  if (!rl.allowed) throw new DailyLimitError(rl.limit);
+  if (charge) {
+    const rl = await checkRateLimit(supabase, userId);
+    if (!rl.allowed) throw new DailyLimitError(rl.limit);
+  }
 
-  const tags = parseTagResult(await generateJson(client, modelFor(settings, 'tag'), prompt, { supabase, endpoint: 'tag', recipeId: recipe.id, userId }, {
+  const answer = parseTagResult(await generateJson(client, modelFor(settings, 'tag'), prompt, { supabase, endpoint, recipeId: recipe.id, userId }, {
     responseSchema: tagResponseSchema,
-    // Picking from a fixed list of 23 tags is classification, and this call
+    // Picking from a fixed list of tags is classification, and this call
     // runs after every save: it is half of what the spinner on a new card
     // waits for.
     thinking: thinkingFor('tag'),
   }));
-  const validTags = tags.filter((t) => AVAILABLE_TAGS.includes(t));
-  if (validTags.length === 0) throw new Error('The AI returned no supported tags.');
+  if (answer.tags.length === 0) throw new Error('The AI returned no supported tags.');
 
-  await store(validTags, await embed(supabase, client, recipe, ingredientText, ''));
-  setCached(supabase, cacheKey, 'tag', validTags, 24 * 30);
-  return validTags;
+  setCached(supabase, cacheKey, 'tag', { tags: answer.tags, search_words: answer.searchKeywords ? answer.searchKeywords.split(' ') : [] }, 24 * 30);
+  return answer;
+}
+
+/**
+ * Tags the recipe from the fixed list, stores the tags with an embedding and
+ * the search words, and returns the tags. A cached answer costs none of the
+ * allowance; otherwise throws DailyLimitError when the allowance is used up.
+ */
+export async function tagRecipe(ctx: EnrichContext, recipe: RecipeText): Promise<string[]> {
+  const { supabase, client, userId } = ctx;
+  const ingredientText = ingredientLines(recipe.ingredients).join(', ');
+  const answer = await readTags(ctx, recipe, ingredientText, { endpoint: 'tag', charge: true });
+  const embedding = await embed(supabase, client, recipe, ingredientText, '');
+
+  const payload: Record<string, unknown> = { tags: answer.tags };
+  if (embedding) payload.embedding = embedding;
+  if (answer.searchKeywords) payload.search_keywords = answer.searchKeywords;
+  let { error } = await supabase.from('recipes').update(payload).eq('id', recipe.id).eq('user_id', userId);
+  if (error && isMissingSearchKeywords(error) && 'search_keywords' in payload) {
+    // The minutes after a deploy before migration 0080 has run: the tags
+    // must still be stored, or every new recipe would keep its spinner.
+    delete payload.search_keywords;
+    ({ error } = await supabase.from('recipes').update(payload).eq('id', recipe.id).eq('user_id', userId));
+  }
+  if (error) throw error;
+  return answer.tags;
+}
+
+function isMissingSearchKeywords(error: { code?: string; message?: string }): boolean {
+  return error.code === 'PGRST204' || error.code === '42703' || /search_keywords/.test(error.message ?? '');
+}
+
+/**
+ * Search words for a recipe that was tagged before they existed. Stores only
+ * the words: its tags are left alone, since the owner may have edited them.
+ * Returns false when the model gave none.
+ */
+export async function addSearchWords(ctx: EnrichContext, recipe: RecipeText): Promise<boolean> {
+  const ingredientText = ingredientLines(recipe.ingredients).join(', ');
+  const answer = await readTags(ctx, recipe, ingredientText, { endpoint: 'search-words', charge: false });
+  // An empty answer is stored as a single space, so the recipe is not asked
+  // about again on every run of the backfill.
+  const { error } = await ctx.supabase.from('recipes').update({ search_keywords: answer.searchKeywords || ' ' }).eq('id', recipe.id);
+  if (error) throw error;
+  return answer.searchKeywords.length > 0;
 }
 
 /**

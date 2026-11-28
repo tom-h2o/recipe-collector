@@ -505,6 +505,26 @@ const admin: Record<string, string> = {
     'Wenn du selbst wählen möchtest: Einstellungen → Allgemein → Sprache. Die Wahl wird auf dem jeweiligen Gerät gespeichert.',
   'Your recipes stay in the language they were written in; translating a recipe works as before.':
     'Deine Rezepte bleiben in der Sprache, in der sie geschrieben wurden; ein Rezept übersetzen kannst du wie bisher.',
+  'Search words for existing recipes': 'Suchwörter für vorhandene Rezepte',
+  'New recipes get German and English search words when they are tagged, so “eggs” finds “Eier”. Recipes saved before that have none. This adds them: one small AI call per recipe, outside the daily limit. Tags are not changed.':
+    'Neue Rezepte bekommen beim Taggen deutsche und englische Suchwörter, damit „eggs“ auch „Eier“ findet. Ältere Rezepte haben keine. Das hier ergänzt sie: ein kleiner KI-Aufruf pro Rezept, außerhalb des Tageslimits. Tags werden nicht geändert.',
+  'Add search words': 'Suchwörter ergänzen',
+  'Stop': 'Stopp',
+  'Working…': 'Läuft…',
+  'Done. {added} added; every recipe has search words.': 'Fertig. {added} ergänzt; jedes Rezept hat Suchwörter.',
+  '{added} added, {remaining} left.': '{added} ergänzt, {remaining} übrig.',
+  '{failed} could not be read.': '{failed} konnten nicht gelesen werden.',
+  'Search in German and English, and a roomier top bar': 'Suche auf Deutsch und Englisch, und eine luftigere obere Leiste',
+  'Search finds recipes in both languages: “eggs” finds a recipe with “Eier”, and “Kartoffeln” one with “potatoes”. New recipes get this at once; older ones as soon as they have been updated.':
+    'Die Suche findet Rezepte in beiden Sprachen: „eggs“ findet ein Rezept mit „Eier“ und „Kartoffeln“ eines mit „potatoes“. Neue Rezepte können das sofort, ältere, sobald sie aktualisiert wurden.',
+  'A recipe you have translated is also found by the words of its translation, in any language.':
+    'Ein Rezept, das du übersetzt hast, wird auch über die Wörter seiner Übersetzung gefunden, in jeder Sprache.',
+  'Tags are found by their German names too: “vegetarisch” finds Vegetarian.':
+    'Tags werden auch über ihre deutschen Namen gefunden: „vegetarisch“ findet Vegetarian.',
+  'The top bar has a larger name and an Add button that says what it does.':
+    'Die obere Leiste hat einen größeren Namen und eine Taste „Neu“, die sagt, was sie tut.',
+  'The account sheet opens straight with your name, and the Inbox no longer carries a “Back to Vault” link: the Vault tab is the way back.':
+    'Das Konto-Menü beginnt direkt mit deinem Namen, und in der Inbox gibt es keinen Link „Zurück zum Vault“ mehr: Der Vault-Tab führt zurück.',
 };
 
 export default admin;

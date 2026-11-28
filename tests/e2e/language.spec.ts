@@ -74,3 +74,24 @@ test('on an English device, Settings switches to German and back to the device',
   await expect(page.getByRole('tab', { name: 'General' })).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('sk-language'))).toBeNull();
 });
+
+// "My iPhone is in English but the app is German": the app follows what the
+// device reports to a web page, which need not be the language of its menus.
+// Settings shows that list, so the cause can be read off the screen.
+test.describe('what the device reports', () => {
+  test.use({ locale: 'de-CH' });
+
+  test('is shown under the language setting while it is followed', async ({ page }) => {
+    await installMockBackend(page);
+    await page.goto('/');
+    await page.getByRole('button', { name: /^Kontomenü/ }).click();
+    await page.getByRole('button', { name: 'Einstellungen', exact: true }).click();
+
+    const reported = page.getByTestId('reported-languages');
+    await expect(reported).toHaveText(/^Dein Gerät meldet: de-CH/);
+
+    // Once a language is chosen the device is not followed, and not shown.
+    await page.getByRole('group', { name: 'Sprache' }).getByRole('button', { name: 'English' }).click();
+    await expect(page.getByTestId('reported-languages')).toHaveCount(0);
+  });
+});
