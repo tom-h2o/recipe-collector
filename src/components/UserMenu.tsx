@@ -321,6 +321,8 @@ export function UserMenu({
             aria-label={label}
             aria-haspopup="dialog"
             aria-current={currentView === 'admin' ? 'page' : undefined}
+            // Like the other tabs: fades when pressed, does not shrink.
+            data-pressable="surface"
             className={`relative z-10 flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0 rounded-full transition-colors ${
               currentView === 'admin' ? 'text-sk-primary dark:text-primary' : 'text-sk-on-surface-variant dark:text-muted-foreground'
             }`}

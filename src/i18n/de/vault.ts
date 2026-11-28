@@ -208,7 +208,7 @@ const vault: Record<string, string> = {
   'Adjusting quantities for a different number of servings. Mostly arithmetic with unit conversions.':
     'Mengen an eine andere Portionenzahl anpassen. Vor allem Rechnen mit Einheitenumrechnung.',
   'Merging the meal plan into one list and grouping it by aisle. Repetitive and well within a cheap model.':
-    'Den Wochenplan zu einer Liste zusammenführen und nach Abteilungen ordnen. Routinearbeit, die ein günstiges Modell gut schafft.',
+    'Den Plan zu einer Liste zusammenführen und nach Abteilungen ordnen. Routinearbeit, die ein günstiges Modell gut schafft.',
 
   // ── Toasts and errors from the store (recipeStore.ts) ──────────────────────
   'Auto-tagging took too long — you can edit tags manually.': 'Das automatische Taggen hat zu lange gedauert – du kannst die Tags von Hand bearbeiten.',

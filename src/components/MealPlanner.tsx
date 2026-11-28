@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import type { Recipe, MealPlan, RecipeTranslation } from '@/types';
 import { MEAL_TYPES } from '@/lib/constants';
 import { useT, dateLocale } from '@/i18n';
+import { useSwipeToClose } from '@/hooks/useSwipeToClose';
 
 interface Props {
   recipes: Recipe[];
@@ -24,6 +25,11 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
     return r.title;
   }, [translationsCache]);
   const t = useT();
+  // The recipe picker is a bottom sheet below lg.
+  const pickerSwipe = useSwipeToClose(
+    () => { setMobilePicker(null); setMobileSearch(''); },
+    () => window.matchMedia('(max-width: 1023px)').matches,
+  );
   const [weekOffset, setWeekOffset] = useState(0);
   // Track exactly which cell is being dragged over — CSS :hover is suppressed during drag
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
@@ -255,13 +261,15 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
         role="presentation"
       >
         <div
+          data-sheet
           className="bg-white dark:bg-zinc-900 rounded-t-3xl lg:rounded-3xl p-5 pb-[calc(var(--safe-bottom)+1.25rem)] lg:pb-5 space-y-4 max-h-[80vh] lg:max-h-[70vh] lg:w-full lg:max-w-md flex flex-col"
           onClick={(e) => e.stopPropagation()}
           role="dialog"
           aria-modal="true"
           aria-label={t('Add a recipe to {meal}', { meal: t(mobilePicker.meal) })}
         >
-          <div className="flex items-center justify-between">
+          {/* The title row is the grab zone: pulled down, the sheet closes. */}
+          <div {...pickerSwipe} data-sheet-grab className="flex items-center justify-between max-lg:touch-none">
             <div>
               <p className="font-serif text-base font-bold text-sk-on-surface dark:text-foreground">
                 {t('Add to {meal}', { meal: t(mobilePicker.meal) })}

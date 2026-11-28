@@ -4,15 +4,16 @@
  * different translations of one key).
  *
  * House rules: "du", never "Sie". "Vault" and "Inbox" keep their English
- * names; the planner is "Wochenplan", shopping is "Einkauf", the pantry list
+ * names; the planner is "Plan" (it was "Wochenplan" until the owner asked
+ * for the shorter name), shopping is "Einkauf", the pantry list
  * is "Vorrat". Typographic quotes are „…“.
  */
 const common: Record<string, string> = {
   // Navigation and names
   'Vault': 'Vault',
   'Inbox': 'Inbox',
-  'Planner': 'Wochenplan',
-  'Meal Planner': 'Wochenplan',
+  'Planner': 'Plan',
+  'Meal Planner': 'Plan',
   'Shopping': 'Einkauf',
   'Shopping list': 'Einkaufsliste',
   'Pantry': 'Vorrat',

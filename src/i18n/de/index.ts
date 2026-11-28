@@ -4,7 +4,7 @@
  *   common   words used everywhere (navigation names, Cancel, Save…)
  *   vault    the app shell, the vault, filters, collections, cards, imports
  *   recipe   the recipe drawer, cook mode, printing, sending, the inbox
- *   create   adding a recipe, suggestions, Wochenplan, Einkauf, the public pages
+ *   create   adding a recipe, suggestions, Plan, Einkauf, the public pages
  *   account  sign-in, the account menu, Settings, feedback, load failures
  *   admin    the admin dashboard and the release notes
  *   server   messages the server writes in English (errors, import failures)
