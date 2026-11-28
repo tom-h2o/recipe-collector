@@ -77,7 +77,7 @@ const create: Record<string, string> = {
   'URL (optional)': 'URL (optional)',
   'Recipe link': 'Link zum Rezept',
   "Open the page in your browser and bring the recipe in another way. The link is kept as the recipe's source.": 'Öffne die Seite in deinem Browser und hol das Rezept auf einem anderen Weg herein. Der Link bleibt als Quelle des Rezepts erhalten.',
-  '<b>iPhone:</b> open the page in Safari, tap Share, then <b>Save page to Speisekammer</b> (set it up once under Settings → iPhone Shortcuts).': '<b>iPhone:</b> Öffne die Seite in Safari, tippe auf „Teilen“ und dann auf <b>Save page to Speisekammer</b> (einmalig einrichten unter Einstellungen → iPhone-Kurzbefehle).',
+  '<b>iPhone:</b> open the page in Safari, tap Share, then <b>Speisekammer Web</b> (set it up once under Settings → iPhone Shortcuts).': '<b>iPhone:</b> Öffne die Seite in Safari, tippe auf „Teilen“ und dann auf <b>Speisekammer Web</b> (einmalig einrichten unter Einstellungen → iPhone-Kurzbefehle).',
   '<b>Text:</b> select the recipe on the page, copy it and paste it.': '<b>Text:</b> Markiere das Rezept auf der Seite, kopiere es und füg es hier ein.',
   '<b>PDF</b> on an iPhone: take a screenshot in Safari, choose <b>Full Page</b>, and save it as a PDF to Files.': '<b>PDF</b> auf dem iPhone: Mach in Safari einen Screenshot, wähle <b>Ganze Seite</b> und sichere ihn als PDF in „Dateien“.',
   '<b>Photo:</b> screenshots of the recipe, several if it is long.': '<b>Foto:</b> Screenshots vom Rezept, mehrere, wenn es lang ist.',

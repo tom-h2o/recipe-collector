@@ -53,7 +53,7 @@ export const shortcutUrlSchema = z.object({
     }
     return link;
   }),
-  /** photos: "Send to Speisekammer" (0071). safari: "Save page to Speisekammer", pages and links (0072). */
+  /** photos: "Speisekammer Foto" (0071). safari: "Speisekammer Web", pages and links (0072). */
   kind: z.enum(['photos', 'safari']).default('photos'),
 }).strict();
 

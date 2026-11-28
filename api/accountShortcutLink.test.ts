@@ -78,7 +78,7 @@ describe('POST /api/account?action=shortcut-url', () => {
   });
 
   it('refuses anything without an iCloud Shortcut link, since every user\'s button opens it', async () => {
-    for (const url of ['https://evil.example/shortcuts/abc12345', 'javascript:alert(1)', 'http://www.icloud.com/shortcuts/abc12345', 'Save page to Speisekammer']) {
+    for (const url of ['https://evil.example/shortcuts/abc12345', 'javascript:alert(1)', 'http://www.icloud.com/shortcuts/abc12345', 'Speisekammer Web']) {
       const res = await post({ url });
       expect(res.statusCode, url).toBe(400);
       expect(String(res.body?.error)).toContain('iCloud link');
@@ -97,7 +97,7 @@ describe('POST /api/account?action=shortcut-url', () => {
   it('finds the link in whatever was pasted, and keeps only its canonical form', async () => {
     // The Shortcuts app can hand over the name with the link, or a query after it.
     const pasted = [
-      `Save page to Speisekammer\n${LINK}`,
+      `Speisekammer Web\n${LINK}`,
       `${LINK}?redirect=https://evil.example`,
       LINK.replace('https://www.', 'https://'),
     ];

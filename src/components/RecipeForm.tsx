@@ -719,7 +719,7 @@ export function RecipeForm({ isOpen, editingRecipe, onClose, onSave, userId }: P
               <>
                 <p>{t("Open the page in your browser and bring the recipe in another way. The link is kept as the recipe's source.")}</p>
                 <ul className="list-disc pl-4 space-y-1">
-                  <li>{rich(t, '<b>iPhone:</b> open the page in Safari, tap Share, then <b>Save page to Speisekammer</b> (set it up once under Settings → iPhone Shortcuts).', bold)}</li>
+                  <li>{rich(t, '<b>iPhone:</b> open the page in Safari, tap Share, then <b>Speisekammer Web</b> (set it up once under Settings → iPhone Shortcuts).', bold)}</li>
                   <li>{rich(t, '<b>Text:</b> select the recipe on the page, copy it and paste it.', bold)}</li>
                   <li>{rich(t, '<b>PDF</b> on an iPhone: take a screenshot in Safari, choose <b>Full Page</b>, and save it as a PDF to Files.', bold)}</li>
                   <li>{rich(t, '<b>Photo:</b> screenshots of the recipe, several if it is long.', bold)}</li>

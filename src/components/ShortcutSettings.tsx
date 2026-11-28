@@ -10,7 +10,9 @@ import { dateLocale, translateMessage, useT } from '@/i18n';
 import { rich } from '@/i18n/rich';
 
 /** The Photos Shortcut's name: a name, the same in every language (the shared Shortcut carries it). */
-const PHOTOS_SHORTCUT_NAME = 'Send to Speisekammer';
+// Names and menu labels that read in German and English alike: each Shortcut
+// is shared once, by one iCloud link, with people who use either language.
+const PHOTOS_SHORTCUT_NAME = 'Speisekammer Foto';
 
 /** The elements the instructions are marked up with. */
 const MARKS = {
@@ -24,8 +26,8 @@ const MARKS = {
  * put Speisekammer in the iPhone's share sheet. A web app cannot appear there
  * by itself (Safari has no Web Share Target support).
  *
- * - "Send to Speisekammer", from the Photos app: pictures of a recipe.
- * - "Save page to Speisekammer", from Safari and any other app: in Safari the
+ * - "Speisekammer Foto", from the Photos app: pictures of a recipe.
+ * - "Speisekammer Web", from Safari and any other app: in Safari the
  *   page the person has open, for sites that refuse their pages to the server
  *   (rewe.de and others; see describePageRefusal in api/_lib/sharedPage.ts);
  *   anywhere else the link, which the server fetches (an Instagram post's
@@ -158,7 +160,7 @@ export function ShortcutSettings({ open, isAdmin = false }: { open: boolean; isA
           <li>{rich(t, 'In the <b>Shortcuts</b> app, tap <b>+</b> and name the shortcut <b>{name}</b>.', MARKS, { name: PHOTOS_SHORTCUT_NAME })}</li>
           <li>{rich(t, 'Open its details (ⓘ), turn on <b>Show in Share Sheet</b>, and let it receive <b>Images</b> only.', MARKS)}</li>
           <li>
-            {rich(t, 'Add <b>Count</b> (items in Shortcut Input), then <b>If</b> Count is greater than 1: <b>Choose from Menu</b> with “One recipe (several pages)” → <b>Text</b> <code>single</code>, and “One recipe per picture” → <b>Text</b> <code>each</code>. Otherwise: <b>Text</b> <code>single</code>. After the If, add <b>Set Variable</b> <i>Mode</i> to the If Result.', MARKS)}
+            {rich(t, 'Add <b>Count</b> (items in Shortcut Input), then <b>If</b> Count is greater than 1: <b>Choose from Menu</b> with “1 Rezept · 1 recipe” → <b>Text</b> <code>single</code>, and “1 pro Bild · 1 per picture” → <b>Text</b> <code>each</code>. Otherwise: <b>Text</b> <code>single</code>. After the If, add <b>Set Variable</b> <i>Mode</i> to the If Result.', MARKS)}
           </li>
           <li>
             {rich(t, 'Add <b>Repeat with Each</b> item in Shortcut Input, and inside it: <b>Resize Image</b> to width 1280 (height automatic), <b>Convert Image</b> to JPEG (quality about 70%, keep metadata on), <b>Base64 Encode</b> with Line Breaks set to <b>None</b>.', MARKS)}
@@ -328,7 +330,7 @@ function ShortcutCard({ kind, icon, heading, name, intro, note, link, isAdmin, f
             {t('{label} (admin)', { label: formLabel })}
           </Label>
           <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
-            {rich(t, 'Build the Shortcut once with the steps below, with your key in a <b>Text</b> action at the top and that Text used in the header. Then <b>ⓘ</b> → <b>Setup</b> → <b>Add New Question</b> and pick that Text action, so each person is asked for their own key (Apple clears yours when you share). Then <b>Share</b> → <b>Copy iCloud Link</b> and paste it here. It is saved at once, and everyone gets the Add to Shortcuts button.', MARKS)}
+            {rich(t, 'Build the Shortcut once with the steps below, with your key in a <b>Text</b> action at the top and that Text used in the header. Then <b>ⓘ</b> → <b>Setup</b> → <b>Add New Question</b> and pick that Text action, so each person is asked for their own key (Apple clears yours when you share). As the question, write “Speisekammer: Schlüssel · key”, which reads in German and English. Then <b>Share</b> → <b>Copy iCloud Link</b> and paste it here. It is saved at once, and everyone gets the Add to Shortcuts button.', MARKS)}
           </p>
           <div className="flex gap-2">
             {/* Plain text, not type="url": a paste with the Shortcut's name in
