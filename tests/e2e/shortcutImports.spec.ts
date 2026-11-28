@@ -209,7 +209,7 @@ test('the admin pastes the iCloud link: saved at once, whatever came with it', a
   // front, which a browser "url" field on an iPhone refused without a word.
   const SAFARI_LINK = 'https://www.icloud.com/shortcuts/0a1b2c3d4e5f60718293a4b5c6d7e8f9';
   const safariForm = page.getByRole('form', { name: 'Shared Safari Shortcut link' });
-  await safariForm.getByRole('textbox').fill(`Save page to Speisekammer ${SAFARI_LINK}`);
+  await safariForm.getByRole('textbox').fill(`Speisekammer Web ${SAFARI_LINK}`);
   await expect(page.getByRole('region', { name: 'From Safari' }).getByRole('link', { name: 'Add to Shortcuts' })).toHaveAttribute('href', SAFARI_LINK);
   await expect(safariForm.getByRole('textbox')).toHaveValue(SAFARI_LINK);
 
@@ -250,7 +250,7 @@ test('one Shortcut for pages and links: Safari reads the page, anything else sen
   await expect(section).toContainText('Two Shortcuts');
   await expect(section.getByRole('region')).toHaveCount(2);
   const card = section.getByRole('region', { name: 'From Safari, Instagram and other apps' });
-  await expect(card).toContainText('Save page to Speisekammer');
+  await expect(card).toContainText('Speisekammer Web');
   await expect(card).toContainText("read from its caption");
   await card.getByText('How to set up the Shortcut').click();
   const steps = card.locator('ol');

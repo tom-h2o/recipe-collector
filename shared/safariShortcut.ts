@@ -1,5 +1,5 @@
 /**
- * The script the Safari Shortcut ("Save page to Speisekammer") runs with
+ * The script the Safari Shortcut ("Speisekammer Web") runs with
  * "Run JavaScript on Web Page", on the page the person has open.
  *
  * It returns the page's address and its HTML as JSON text, which the Shortcut
@@ -20,4 +20,9 @@ page.querySelectorAll('[style], [srcset]').forEach(function (e) { e.removeAttrib
 completion(JSON.stringify({ url: location.href, html: page.outerHTML.slice(0, 2000000) }));`;
 
 /** The name the Shortcut is given, which is what appears in Safari's share sheet. */
-export const SAFARI_SHORTCUT_NAME = 'Save page to Speisekammer';
+/**
+ * A name that reads the same in German and English: the Shortcut is shared
+ * once, by one iCloud link, with people who use the app in either language.
+ * It was "Save page to Speisekammer".
+ */
+export const SAFARI_SHORTCUT_NAME = 'Speisekammer Web';

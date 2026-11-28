@@ -429,7 +429,7 @@ describe('a link from the link Shortcut (Instagram and any other app)', () => {
     h.fetchPublicUrl.mockResolvedValue(response(INSTAGRAM_LOGIN_HTML));
     const { res } = await send({ url: POST });
     expect(res.statusCode).toBe(422);
-    expect(res.body?.message).toBe('Instagram did not show this post to Speisekammer: it may be private, or Instagram asked for a login. Open it in Safari and share it to "Save page to Speisekammer" instead.');
+    expect(res.body?.message).toBe('Instagram did not show this post to Speisekammer: it may be private, or Instagram asked for a login. Open it in Safari and share it to "Speisekammer Web" instead.');
     expect(h.generateJson).not.toHaveBeenCalled();
     expect(h.db.imports).toHaveLength(0);
   });
@@ -438,7 +438,7 @@ describe('a link from the link Shortcut (Instagram and any other app)', () => {
     h.fetchPublicUrl.mockResolvedValue(response('Just a moment…', 403, { 'cf-mitigated': 'challenge' }));
     const { res } = await send({ url: 'https://www.rewe.de/rezepte/klassische-kuerbissuppe/' });
     expect(res.statusCode).toBe(422);
-    expect(res.body?.message).toBe('rewe.de does not let apps read its pages, so this recipe cannot be imported from the link. Open it in Safari and share it to "Save page to Speisekammer" instead.');
+    expect(res.body?.message).toBe('rewe.de does not let apps read its pages, so this recipe cannot be imported from the link. Open it in Safari and share it to "Speisekammer Web" instead.');
     expect(h.db.imports).toHaveLength(0);
   });
 
