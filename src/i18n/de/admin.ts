@@ -222,6 +222,26 @@ const admin: Record<string, string> = {
   'Got it##dismiss': 'Verstanden',
 
   // Release notes (src/lib/changelog.ts), newest first: each title, then its items
+  'A shopping list for the meals you choose, and smoother on a phone':
+    'Eine Einkaufsliste für die Gerichte, die du auswählst – und flüssiger auf dem Handy',
+  'Shopping shows the meals your list is for: today and the next 7 days. Untick a meal to leave it off, and set how many portions you are cooking; the amounts on the list follow.':
+    'Der Einkauf zeigt, für welche Gerichte deine Liste ist: heute und die nächsten 7 Tage. Nimm ein Gericht heraus, wenn es nicht auf die Liste soll, und stell ein, für wie viele Portionen du kochst; die Mengen auf der Liste richten sich danach.',
+  'After you change the meals, the page says so and offers “Update list”. Nothing is rebuilt behind your back.':
+    'Wenn du die Gerichte änderst, sagt die Seite das und bietet „Liste aktualisieren“ an. Nichts wird hinter deinem Rücken neu erstellt.',
+  'Meals planned for today are now on the list too. They used to be left out.':
+    'Gerichte, die für heute geplant sind, kommen jetzt auch auf die Liste. Bisher fehlten sie.',
+  'Bought items move to “Done” at the bottom, where you can put one back or remove them all. Clearing the whole list asks first.':
+    'Gekaufte Artikel wandern nach unten zu „Erledigt“. Dort kannst du einen zurückholen oder alle entfernen. Vor dem Leeren der ganzen Liste wird gefragt.',
+  'The planner shows the portions of each meal; tap the number to change it.':
+    'Der Plan zeigt die Portionen jedes Gerichts; tipp auf die Zahl, um sie zu ändern.',
+  'The shopping page has been redrawn to match the rest of the app.':
+    'Die Einkaufsseite ist neu gestaltet und passt jetzt zum Rest der App.',
+  'Typing no longer zooms the page on an iPhone.':
+    'Beim Tippen zoomt die Seite auf dem iPhone nicht mehr heran.',
+  'A sheet that comes up from the bottom can be closed by pulling it down.':
+    'Ein Blatt, das von unten kommt, lässt sich schließen, indem du es nach unten ziehst.',
+  'The tabs at the bottom react to the first tap, also right after scrolling.':
+    'Die Tabs unten reagieren auf das erste Tippen, auch direkt nach dem Scrollen.',
   'A calmer top bar, and everything about you in one place':
     'Eine ruhigere Kopfleiste – und alles zu dir an einem Ort',
   'On a phone, your account is now the last tab at the bottom (“You”). Settings, dark mode, What’s new, feedback and sign-out are all there, so the top bar keeps just Suggest and Add recipe. On a computer the same list opens from your avatar.':

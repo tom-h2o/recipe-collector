@@ -1,10 +1,13 @@
 import { useState, useMemo, useCallback } from 'react';
-import { ChefHat, Users, X, Plus, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ChefHat, Users, X, Plus, Minus, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Recipe, MealPlan, RecipeTranslation } from '@/types';
 import { MEAL_TYPES } from '@/lib/constants';
 import { useT, dateLocale } from '@/i18n';
 import { useSwipeToClose } from '@/hooks/useSwipeToClose';
+import { Sheet } from '@/components/Sheet';
+import { Button } from '@/components/ui/button';
+import { MAX_PORTIONS, portionsOf, recipePortions } from '@/lib/shoppingMeals';
 
 interface Props {
   recipes: Recipe[];
@@ -12,11 +15,17 @@ interface Props {
   translationsCache?: Record<string, RecipeTranslation>;
   onAddMealPlan: (date: string, mealType: string, recipeId: string) => Promise<void>;
   onRemoveMealPlan: (id: string) => Promise<void>;
+  /** Sets how many portions a planned meal is cooked for (migration 0079). */
+  onUpdateMealPlan?: (id: string, changes: { servings?: number | null }) => Promise<boolean>;
+  /** Whose plan this is: a connected account's entries are shown, not changed. */
+  userId?: string | null;
   onRefreshMealPlans: () => void;
   onOpenRecipe: (r: Recipe) => void;
 }
 
-export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPlan, onRemoveMealPlan, onRefreshMealPlans, onOpenRecipe }: Props) {
+export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPlan, onRemoveMealPlan, onUpdateMealPlan, userId, onRefreshMealPlans, onOpenRecipe }: Props) {
+  // The planned meal whose portions are being set, by id (the sheet below).
+  const [portionsFor, setPortionsFor] = useState<string | null>(null);
   const getTitle = useCallback((r: Recipe): string => {
     if (r.preferred_language) {
       const translation = translationsCache?.[`${r.id}:${r.preferred_language}`];
@@ -227,6 +236,22 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
                           >
                             {m.recipe ? getTitle(m.recipe) : undefined}
                           </span>
+                          {/* How many portions this meal is cooked for. The
+                              shopping list scales its amounts to it. */}
+                          {onUpdateMealPlan && (!m.user_id || !userId || m.user_id === userId) ? (
+                            <button
+                              type="button"
+                              onClick={() => setPortionsFor(m.id)}
+                              aria-label={t('{n} portions of {title}: change', { n: portionsOf(m), title: m.recipe ? getTitle(m.recipe) : '' })}
+                              className="inline-flex shrink-0 items-center gap-0.5 ml-1 px-1.5 py-0.5 rounded-md text-[11px] font-semibold tabular-nums text-sk-primary dark:text-primary hover:bg-white/60 dark:hover:bg-white/10 transition-colors"
+                            >
+                              <Users className="w-3 h-3 opacity-70" aria-hidden="true" />{portionsOf(m)}
+                            </button>
+                          ) : (
+                            <span className="inline-flex shrink-0 items-center gap-0.5 ml-1 px-1.5 text-[11px] font-semibold tabular-nums text-sk-on-surface-variant dark:text-muted-foreground">
+                              <Users className="w-3 h-3 opacity-70" aria-hidden="true" />{portionsOf(m)}
+                            </span>
+                          )}
                           <button
                             onClick={async () => {
                               try {
@@ -319,6 +344,49 @@ export function MealPlanner({ recipes, mealPlans, translationsCache, onAddMealPl
         </div>
       </div>
     )}
+    {(() => {
+      const meal = mealPlans.find((m) => m.id === portionsFor);
+      if (!meal || !onUpdateMealPlan) return null;
+      const portions = portionsOf(meal);
+      const own = recipePortions(meal.recipe);
+      const set = (n: number) => void onUpdateMealPlan(meal.id, { servings: n });
+      return (
+        <Sheet
+          open
+          onClose={() => setPortionsFor(null)}
+          title={t('Portions')}
+          description={meal.recipe ? getTitle(meal.recipe) : undefined}
+        >
+          <div className="flex items-center justify-center gap-5 py-2">
+            <button
+              type="button"
+              disabled={portions <= 1}
+              onClick={() => set(portions - 1)}
+              aria-label={t('One portion fewer')}
+              className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-sk-surface-highest dark:bg-muted text-sk-on-surface dark:text-foreground disabled:opacity-30"
+            >
+              <Minus className="w-5 h-5" />
+            </button>
+            <span className="min-w-16 text-center font-serif text-4xl text-sk-on-surface dark:text-foreground tabular-nums" aria-live="polite">{portions}</span>
+            <button
+              type="button"
+              disabled={portions >= MAX_PORTIONS}
+              onClick={() => set(portions + 1)}
+              aria-label={t('One portion more')}
+              className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-sk-surface-highest dark:bg-muted text-sk-on-surface dark:text-foreground disabled:opacity-30"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
+          <p className="mt-2 text-center text-sm font-sans text-sk-on-surface-variant dark:text-muted-foreground">
+            {t('The recipe is written for {n}. The shopping list scales its amounts to what you set here.', { n: own })}
+          </p>
+          <Button type="button" onClick={() => setPortionsFor(null)} className="mt-5 w-full rounded-full bg-sk-primary hover:bg-sk-primary-container text-white dark:text-primary-foreground border-0">
+            {t('Done')}
+          </Button>
+        </Sheet>
+      );
+    })()}
     </>
   );
 }

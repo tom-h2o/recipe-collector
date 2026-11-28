@@ -22,10 +22,17 @@ export function useMealPlans(userId?: string | null) {
     []
   );
 
+  const updateMealPlan = useCallback(
+    async (id: string, changes: { servings?: number | null; in_shopping?: boolean }) =>
+      useRecipeStore.getState().updateMealPlan(id, changes),
+    []
+  );
+
   return {
     mealPlans,
     fetchMealPlans,
     addMealPlan,
     removeMealPlan,
+    updateMealPlan,
   };
 }

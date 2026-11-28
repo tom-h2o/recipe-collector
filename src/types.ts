@@ -62,6 +62,11 @@ export interface MealPlan {
   recipe_id: string;
   meal_type: string;
   recipe?: Recipe;
+  /** Portions to cook for this meal; null or absent: the recipe's own (migration 0079). */
+  servings?: number | null;
+  /** False: planned, but left off the shopping list. */
+  in_shopping?: boolean;
+  user_id?: string;
 }
 
 export interface ShoppingItem {

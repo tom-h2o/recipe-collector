@@ -111,7 +111,7 @@ test('settings dialog', async ({ page }) => {
 
 const VIEWS = [
   { tab: 'Meal Planner', settles: 'Breakfast' },
-  { tab: 'Shopping', settles: 'Generate from Next 7 Days' },
+  { tab: 'Shopping', settles: 'Meals for this list' },
   { tab: 'Inbox', settles: 'Your inbox is empty' },
   { tab: 'Admin', settles: 'Admin Dashboard' },
 ] as const;
