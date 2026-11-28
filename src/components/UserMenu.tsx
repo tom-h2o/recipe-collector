@@ -1,8 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import {
   LogOut, KeyRound, Eye, EyeOff, X, Download, Trash2, Sparkles, MessageSquare,
-  Settings, Sun, Moon, ShieldCheck, UserRound, ChevronRight,
-} from 'lucide-react';
+  Settings, Sun, Moon, ShieldCheck, UserRound, ChevronRight, Compass } from 'lucide-react';
 import { toast } from 'sonner';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { useAuth } from '@/hooks/useAuth';
@@ -29,6 +28,8 @@ interface Props {
   variant: 'header' | 'tab';
   onSignOut: () => void;
   onOpenSettings: () => void;
+  /** The guide for someone new: Home Screen, first recipe, Shortcuts. */
+  onOpenFirstSteps?: () => void;
   onOpenWhatsNew?: () => void;
   /** Dot on the avatar and the menu entry when there are unread release notes. */
   hasUnreadReleases?: boolean;
@@ -53,7 +54,7 @@ const ROW_ICON = 'w-4 h-4 shrink-0 text-sk-outline dark:text-muted-foreground';
  * name. They are one list now, reached from the avatar.
  */
 export function UserMenu({
-  user, variant, onSignOut, onOpenSettings, onOpenWhatsNew, hasUnreadReleases = false, currentView,
+  user, variant, onSignOut, onOpenSettings, onOpenFirstSteps, onOpenWhatsNew, hasUnreadReleases = false, currentView,
   isAdmin = false, onOpenAdmin, isDark, onToggleTheme,
 }: Props) {
   const t = useT();
@@ -243,6 +244,12 @@ export function UserMenu({
       </div>
 
       <div className="mt-1.5 border-t border-sk-outline-variant/40 dark:border-border pt-1.5">
+        {onOpenFirstSteps && (
+          <button type="button" onClick={go(onOpenFirstSteps)} className={ROW}>
+            <Compass className={ROW_ICON} />
+            {t('First steps')}
+          </button>
+        )}
         {onOpenWhatsNew && (
           <button type="button" onClick={go(onOpenWhatsNew)} className={ROW}>
             <Sparkles className={ROW_ICON} />

@@ -355,6 +355,33 @@ const account: Record<string, string> = {
   'Reporting…': 'Wird gemeldet…',
   'Report this problem': 'Dieses Problem melden',
   'Something went wrong displaying this recipe.': 'Beim Anzeigen dieses Rezepts ist etwas schiefgegangen.',
+  'First steps': 'Erste Schritte',
+  'Four things, about five minutes. You can open this again any time from your account.': 'Vier Dinge, etwa fünf Minuten. Du findest das jederzeit wieder in deinem Konto.',
+  'Put the app on your Home Screen': 'Leg die App auf deinen Home-Bildschirm',
+  'Done: you opened it from there.': 'Erledigt: Du hast sie von dort geöffnet.',
+  'On an iPhone, open this page in <b>Safari</b>, tap <b>Share</b> <share/> and choose <b>Add to Home Screen</b>. Then open Speisekammer from there and sign in once more.':
+    'Öffne diese Seite auf dem iPhone in <b>Safari</b>, tippe auf <b>Teilen</b> <share/> und wähle <b>Zum Home-Bildschirm</b>. Öffne Speisekammer danach von dort und melde dich noch einmal an.',
+  'It then opens like any other app, full screen, and the screen stays on while you cook. On Android or a computer, the browser’s menu has “Install” or “Add to Home screen”.':
+    'Danach öffnet sich die App wie jede andere im Vollbild, und der Bildschirm bleibt beim Kochen an. Auf Android oder am Computer steht im Menü des Browsers „Installieren“ oder „Zum Startbildschirm hinzufügen“.',
+  'Add your first recipe': 'Füg dein erstes Rezept hinzu',
+  'Paste a link, take photos of a cookbook page, choose a PDF or paste text. The app reads the recipe; you check it and save. Tags and nutrition follow by themselves.':
+    'Füg einen Link ein, fotografiere eine Kochbuchseite, wähle ein PDF oder füg Text ein. Die App liest das Rezept aus; du schaust kurz drüber und speicherst. Tags und Nährwerte kommen von selbst dazu.',
+  'Send recipes straight from your iPhone': 'Rezepte direkt vom iPhone senden',
+  'Two Shortcuts put Speisekammer into the iPhone’s <b>Share</b> menu: one for pictures in Photos, one for pages in Safari and links from Instagram and other apps.':
+    'Zwei Kurzbefehle bringen Speisekammer ins <b>Teilen</b>-Menü des iPhones: einer für Bilder in Fotos, einer für Seiten in Safari und Links aus Instagram und anderen Apps.',
+  'In Settings → General → <b>iPhone Shortcuts</b>, make your key and copy it.':
+    'Erstell unter Einstellungen → Allgemein → <b>iPhone-Kurzbefehle</b> deinen Schlüssel und kopiere ihn.',
+  'Tap <b>Add to Shortcuts</b> for each of the two, and paste the key when it asks.':
+    'Tippe bei beiden auf <b>Zu Kurzbefehle hinzufügen</b> und füg den Schlüssel ein, wenn danach gefragt wird.',
+  'Once, in the iPhone’s own Settings → Apps → Shortcuts → Advanced: switch on <b>Allow Running Scripts</b>. The Safari Shortcut needs it.':
+    'Einmalig in den Einstellungen des iPhones → Apps → Kurzbefehle → Erweitert: <b>Ausführen von Skripten erlauben</b> einschalten. Der Safari-Kurzbefehl braucht das.',
+  'Open the Shortcut settings': 'Kurzbefehl-Einstellungen öffnen',
+  'Cook, plan and shop': 'Kochen, planen, einkaufen',
+  'Open a recipe and tap <b>Cook</b> for one step at a time, with timers. Put recipes on days under <b>Plan</b> <plan/>, and <b>Shopping</b> makes one list from the meals you tick.':
+    'Öffne ein Rezept und tippe auf <b>Kochen</b>: ein Schritt nach dem anderen, mit Timern. Unter <b>Plan</b> <plan/> legst du Rezepte auf Tage, und <b>Einkauf</b> macht aus den Mahlzeiten, die du anhakst, eine Liste.',
+  'Something not working, or an idea? Your account → Send feedback reaches the person who runs the app.':
+    'Etwas klappt nicht, oder du hast eine Idee? Dein Konto → Feedback senden erreicht die Person, die die App betreibt.',
+  'Got it##first steps': 'Alles klar',
 };
 
 export default account;

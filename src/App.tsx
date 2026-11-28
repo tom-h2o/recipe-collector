@@ -7,6 +7,7 @@ import { useMealPlans } from '@/hooks/useMealPlans';
 import { useShoppingList } from '@/hooks/useShoppingList';
 import { useChangelog } from '@/hooks/useChangelog';
 import { WhatsNew } from '@/components/WhatsNew';
+import { hasSeenFirstSteps, markFirstStepsSeen } from '@/lib/firstSteps';
 import { useAccountLinks } from '@/hooks/useAccountLinks';
 import { useSettings } from '@/hooks/useSettings';
 import { useAuth } from '@/hooks/useAuth';
@@ -34,6 +35,7 @@ const RecipeForm = lazy(() => import('@/components/RecipeForm').then((m) => ({ d
 const MealPlanner = lazy(() => import('@/components/MealPlanner').then((m) => ({ default: m.MealPlanner })));
 const ShoppingList = lazy(() => import('@/components/ShoppingList').then((m) => ({ default: m.ShoppingList })));
 const SettingsPanel = lazy(() => import('@/components/SettingsPanel').then((m) => ({ default: m.SettingsPanel })));
+const FirstSteps = lazy(() => import('@/components/FirstSteps').then((m) => ({ default: m.FirstSteps })));
 const SuggestModal = lazy(() => import('@/components/SuggestModal').then((m) => ({ default: m.SuggestModal })));
 const PublicRecipe = lazy(() => import('@/components/PublicRecipe').then((m) => ({ default: m.PublicRecipe })));
 const AboutPage = lazy(() => import('@/components/AboutPage').then((m) => ({ default: m.AboutPage })));
@@ -91,6 +93,7 @@ export default function App() {
   const [deleteTarget, setDeleteTarget] = useState<Recipe | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSuggestOpen, setIsSuggestOpen] = useState(false);
+  const [isFirstStepsOpen, setIsFirstStepsOpen] = useState(false);
   const [sendTarget, setSendTarget] = useState<Recipe | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -215,6 +218,20 @@ export default function App() {
     // so a change to them must refetch while that filter is on.
   }, [isPublicSharePath, isAboutPath, userId, searchQuery, activeFilters, activeCollectionId, membershipKey, sortBy, activeOwnerId, fetchRecipes, vaultRefresh, newImportsShown]);
 
+  // "First steps" opens by itself once, for someone whose vault has loaded
+  // and is empty: a newly invited person. Anyone with recipes finds it under
+  // their account. Marked as seen when shown, like the release notes.
+  const loadError = useRecipeStore((s) => s.loadError);
+  const vaultIsEmpty = !!userId && !loading && !loadError && recipes.length === 0
+    && !searchQuery && activeFilters.length === 0 && !activeCollectionId;
+  useEffect(() => {
+    if (!userId || !vaultIsEmpty || isPublicSharePath || isAboutPath) return;
+    if (hasSeenFirstSteps(userId)) return;
+    markFirstStepsSeen(userId);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsFirstStepsOpen(true);
+  }, [userId, vaultIsEmpty, isPublicSharePath, isAboutPath]);
+
   function openForm(recipe?: Recipe) {
     setEditingRecipe(recipe ?? null);
     setIsFormOpen(true);
@@ -337,6 +354,7 @@ export default function App() {
           inboxCount={inboxCount + linkInvites.length}
           onSetView={setActiveView}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenFirstSteps={() => setIsFirstStepsOpen(true)}
           onOpenSuggest={() => setIsSuggestOpen(true)}
           onAddRecipe={() => openForm()}
           onSignOut={signOut}
@@ -510,6 +528,15 @@ export default function App() {
             isAdmin={isAdmin}
             userEmail={user?.email}
             userId={user?.id}
+          />
+        )}
+
+        {isFirstStepsOpen && (
+          <FirstSteps
+            isOpen={isFirstStepsOpen}
+            onClose={() => setIsFirstStepsOpen(false)}
+            onAddRecipe={() => openForm()}
+            onOpenSettings={() => setIsSettingsOpen(true)}
           />
         )}
 

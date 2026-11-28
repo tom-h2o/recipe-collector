@@ -532,6 +532,13 @@ const admin: Record<string, string> = {
     'Vorgeschlagene Rezepte erscheinen in der Sprache, in der du sie zuletzt gelesen hast, wie im Vault.',
   'When the keyboard opens, the sheet stays attached and sits on top of it instead of jumping to the middle of the screen.':
     'Wenn die Tastatur aufgeht, bleibt das Fenster direkt über ihr, statt in die Mitte des Bildschirms zu springen.',
+  'First steps, for someone new': 'Erste Schritte für alle, die neu sind',
+  'A short guide shows a new person the first four things: putting the app on the Home Screen, adding a recipe, setting up the iPhone Shortcuts, and where cooking, planning and shopping are.':
+    'Eine kurze Anleitung zeigt die ersten vier Dinge: die App auf den Home-Bildschirm legen, ein Rezept hinzufügen, die iPhone-Kurzbefehle einrichten und wo Kochen, Plan und Einkauf zu finden sind.',
+  'It opens once by itself while your vault is still empty, and is always under your account as “First steps”.':
+    'Die Anleitung erscheint einmal von selbst, solange dein Vault noch leer ist, und steht immer in deinem Konto unter „Erste Schritte“.',
+  'The About page has a Back button, lists sharing before planning, and describes connecting accounts as opening your vault to friends.':
+    'Die Über-Seite hat einen Zurück-Knopf, nennt Teilen vor Planen und beschreibt das Verbinden von Konten als Teilen deines Vaults mit Freunden.',
 };
 
 export default admin;
